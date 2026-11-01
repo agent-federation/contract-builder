@@ -236,7 +236,7 @@ async function copySpec(
   mutateLegacy?: (text: string) => string,
 ): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), `spec-${name}-`));
-  for (const file of ["sources.yml", "ontology.yml", "semantics.json", "decisions.yml"]) {
+  for (const file of ["contract-builder.json", "sources.yml", "ontology.yml", "semantics.json", "decisions.yml"]) {
     await cp(path.join(specDir, file), path.join(dir, file));
   }
   await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), { recursive: true });
@@ -246,12 +246,15 @@ async function copySpec(
     mutateLegacy === undefined ? legacyText : mutateLegacy(legacyText),
     "utf8",
   );
-  const sourcesPath = path.join(dir, "sources.yml");
-  const sources = await readFile(sourcesPath, "utf8");
-  await writeFile(
-    sourcesPath,
-    sources.replace("path: ../CORE-001.legacy.md", "path: legacy.md"),
-    "utf8",
-  );
+
+  const manifestPath = path.join(dir, "contract-builder.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+    profile: { source: string };
+    sources: Array<{ path: string; external?: boolean }>;
+  };
+  manifest.sources[0]!.path = "legacy.md";
+  delete manifest.sources[0]!.external;
+  manifest.profile.source = path.relative(dir, path.join(root, "profiles", "core001"));
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   return dir;
 }

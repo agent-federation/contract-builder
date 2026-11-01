@@ -1,10 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Diagnostics, type Diagnostic } from "./diagnostics.js";
-import { loadSpecFiles, readLegacySource } from "./load.js";
-import { validateSchemas } from "./schema.js";
+import { loadProject, readLegacySource } from "./load.js";
+import { validateDocuments } from "./schema.js";
 import { analyze } from "./semantic.js";
 import { renderMarkdown, type BuildMode } from "./render.js";
+import { resolveContained, type ResolvedProject } from "./manifest.js";
 import type { RawSpec } from "./model.js";
 
 export interface BuildOptions {
@@ -30,24 +31,24 @@ export interface BuildResult {
 export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   const specDir = path.resolve(options.specDir);
   const diags = options.diagnostics ?? new Diagnostics();
-  const outputPath = path.join(
-    specDir,
-    "output",
-    options.mode === "release" ? "CORE-001.md" : "CORE-001.draft.md",
-  );
 
-  const files = await loadSpecFiles(specDir, diags);
-  if (files === null) {
-    return result(options, diags, null, outputPath, false, "errors");
+  const loaded = await loadProject(specDir, diags);
+  if (loaded === null) {
+    return result(options, diags, null, "", false, "errors");
   }
 
-  const schemaOk = await validateSchemas(files, diags);
+  const outputPath = await resolveOutputPath(loaded.project, options.mode, diags);
+  if (outputPath === null) {
+    return result(options, diags, null, "", false, "errors");
+  }
+
+  const schemaOk = await validateDocuments(loaded, diags);
   if (!schemaOk) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const raw = files as unknown as RawSpec;
-  const declaredSource = raw.sources.sources[0];
+  const raw = loaded.files as unknown as RawSpec;
+  const declaredSource = raw.sources?.sources?.[0];
   if (declaredSource === undefined) {
     diags.error("ERR_UNKNOWN_REF", "sources.yml", "/sources", "Не объявлен источник документа");
     return result(options, diags, null, outputPath, false, "errors");
@@ -101,6 +102,62 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, markdown, "utf8");
   return result(options, diags, markdown, outputPath, true, null);
+}
+
+/**
+ * Resolves the artifact path for `mode` from `render[].outputs`. Both the output root and
+ * the artifact must stay inside the project root; neither may escape.
+ */
+async function resolveOutputPath(
+  project: ResolvedProject,
+  mode: BuildMode,
+  diags: Diagnostics,
+): Promise<string | null> {
+  const render = project.manifest.render[0];
+  if (render === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      "/render",
+      "Манифест не объявляет ни одного render",
+    );
+    return null;
+  }
+
+  const relative = render.outputs[mode];
+  if (relative === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      `/render/0/outputs/${mode}`,
+      `Не объявлен выход для режима ${mode}`,
+    );
+    return null;
+  }
+
+  const outputRoot = await resolveContained(project.root, project.manifest.output?.root ?? ".");
+  if (!outputRoot.inside) {
+    diags.error(
+      "core.path.outside-root",
+      "contract-builder.json",
+      "/output/root",
+      "Корень вывода выходит за пределы проекта",
+    );
+    return null;
+  }
+
+  const target = await resolveContained(outputRoot.abs, relative);
+  if (!target.inside) {
+    diags.error(
+      "core.path.outside-root",
+      "contract-builder.json",
+      `/render/0/outputs/${mode}`,
+      `Путь вывода "${relative}" выходит за пределы корня вывода`,
+    );
+    return null;
+  }
+
+  return target.abs;
 }
 
 function result(

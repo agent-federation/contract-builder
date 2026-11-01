@@ -3,26 +3,9 @@
   "$id": "https://core001.local/schemas/sources.schema.json",
   "title": "Sources and verbatim fragments",
   "type": "object",
-  "required": ["sources", "slice", "fragments"],
+  "required": ["slice", "fragments"],
   "additionalProperties": false,
   "properties": {
-    "sources": {
-      "description": "MVP: ровно один источник. Multi-source не поддерживается и явно не разрешён.",
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 1,
-      "items": {
-        "type": "object",
-        "required": ["id", "path", "document", "revision"],
-        "additionalProperties": false,
-        "properties": {
-          "id": { "type": "string", "pattern": "^SRC-[A-Z0-9-]+$" },
-          "path": { "type": "string", "minLength": 1 },
-          "document": { "type": "string", "minLength": 1 },
-          "revision": { "type": "string", "minLength": 1 }
-        }
-      }
-    },
     "slice": {
       "type": "object",
       "required": ["id", "includes", "excludes"],

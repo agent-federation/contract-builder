@@ -34,24 +34,30 @@ bun run build:release  # release (сейчас намеренно заблоки
 bun.lock                        lockfile Bun
 CORE-001.legacy.md              исходный документ, только читается
 spec/
+  contract-builder.json         манифест проекта: входы, источник, профиль, выходы
   build.ts                      CLI
   lib/
     build.ts                    оркестрация сборки
-    load.ts                     чтение YAML/JSON и legacy
+    manifest.ts                 манифест, профиль и границы проекта
+    load.ts                     чтение объявленных входов и legacy
     schema.ts                   JSON Schema (ajv)
     semantic.ts                 ID, ссылки, цитаты, модальность, зависимости
     model.ts                    типы и производные оси
     render.ts                   Nunjucks + нормализация байтов
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
-  sources.yml                   источники, границы среза, дословные фрагменты
+  sources.yml                   границы среза и дословные фрагменты
   ontology.yml                  документ и термины
   semantics.json                нормативные положения
   decisions.yml                 открытые и решённые вопросы
   conformance/cases.yml         декларативные векторы
-  schemas/*.schema.json         по схеме на каждый входной файл
   templates/core001.md.j2       шаблон
   output/CORE-001.draft.md      сгенерированный артефакт
+profiles/core001/
+  profile.json                  виды сущностей, схемы, привязки документов
+  schemas/*.schema.json         по схеме на каждый входной файл
 tests/build.test.ts
+tests/manifest.test.ts          манифест и границы проекта
+tests/golden.test.ts            эталонная сборка CORE-001
 fixtures/
   broken-modality/              violated выведен из permission
   broken-source-drift/          цитата не найдена в legacy

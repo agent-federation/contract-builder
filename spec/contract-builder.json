@@ -1,0 +1,67 @@
+{
+  "manifestVersion": "0.1",
+  "project": {
+    "id": "uia-core-001",
+    "title": "Identity, mandates, lineage and local acceptance",
+    "revision": "0.3.3"
+  },
+  "profile": {
+    "id": "core001",
+    "version": "0.1.0",
+    "source": "../profiles/core001",
+    "external": true
+  },
+  "inputs": [
+    {
+      "path": "sources.yml",
+      "format": "yaml",
+      "schema": "core001:sources",
+      "entities": [{ "kind": "fragment", "pointer": "/fragments" }]
+    },
+    {
+      "path": "ontology.yml",
+      "format": "yaml",
+      "schema": "core001:ontology",
+      "entities": [{ "kind": "term", "pointer": "/terms" }]
+    },
+    {
+      "path": "semantics.json",
+      "format": "json",
+      "schema": "core001:semantics",
+      "entities": [{ "kind": "provision", "pointer": "/provisions" }]
+    },
+    {
+      "path": "decisions.yml",
+      "format": "yaml",
+      "schema": "core001:decisions",
+      "entities": [{ "kind": "decision", "pointer": "/decisions" }]
+    },
+    {
+      "path": "conformance/cases.yml",
+      "format": "yaml",
+      "schema": "core001:cases",
+      "entities": [{ "kind": "case", "pointer": "/cases" }]
+    }
+  ],
+  "sources": [
+    {
+      "id": "SRC-CORE001",
+      "path": "../CORE-001.legacy.md",
+      "adapter": "markdown",
+      "external": true,
+      "identity": { "document": "UIA-CORE-001", "revision": "0.3.3" }
+    }
+  ],
+  "render": [
+    {
+      "renderer": "core001-markdown",
+      "template": "profile:templates/core001.md.j2",
+      "labels": "profile:labels.ru.json",
+      "outputs": {
+        "draft": "output/CORE-001.draft.md",
+        "release": "output/CORE-001.md"
+      }
+    }
+  ],
+  "output": { "root": "." }
+}

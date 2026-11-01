@@ -1,0 +1,34 @@
+{
+  "id": "core001",
+  "version": "0.1.0",
+  "entityKinds": {
+    "fragment": { "schema": "core001:fragment", "identity": "id" },
+    "term": { "schema": "core001:term", "identity": "id" },
+    "provision": { "schema": "core001:provision", "identity": "id" },
+    "decision": { "schema": "core001:decision", "identity": "id" },
+    "case": { "schema": "core001:case", "identity": "id" }
+  },
+  "schemas": {
+    "core001:sources": "schemas/sources.schema.json",
+    "core001:ontology": "schemas/ontology.schema.json",
+    "core001:semantics": "schemas/semantics.schema.json",
+    "core001:decisions": "schemas/decisions.schema.json",
+    "core001:cases": "schemas/cases.schema.json"
+  },
+  "documents": [
+    { "key": "sources", "input": "sources.yml" },
+    { "key": "ontology", "input": "ontology.yml" },
+    { "key": "semantics", "input": "semantics.json" },
+    { "key": "decisions", "input": "decisions.yml" },
+    { "key": "cases", "input": "conformance/cases.yml" }
+  ],
+  "files": [
+    "profile.json",
+    "schemas/sources.schema.json",
+    "schemas/ontology.schema.json",
+    "schemas/semantics.schema.json",
+    "schemas/decisions.schema.json",
+    "schemas/cases.schema.json"
+  ],
+  "dependencies": {}
+}
