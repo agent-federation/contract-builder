@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -234,7 +235,7 @@ async function copySpec(
   name: string,
   mutateLegacy?: (text: string) => string,
 ): Promise<string> {
-  const dir = await mkdtemp(path.join("/tmp/opencode", `spec-${name}-`));
+  const dir = await mkdtemp(path.join(tmpdir(), `spec-${name}-`));
   for (const file of ["sources.yml", "ontology.yml", "semantics.json", "decisions.yml"]) {
     await cp(path.join(specDir, file), path.join(dir, file));
   }
