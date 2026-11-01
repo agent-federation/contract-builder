@@ -135,6 +135,12 @@ Type-only imports are ignored. A bare package import must appear in the extensio
 Relative imports that leave the extension root are engine imports and are covered by
 `engineVersion`, not by the extension closure.
 
+The scanner is lexical: it skips comments, string literals, template literals and regex
+literals before matching statements, so text such as `"import "` inside another string is not a
+statement. Regex-versus-division is decided by the previous token; a regex statement directly
+after `)` is treated as division, and template interpolation expressions are skipped rather
+than evaluated.
+
 This scan is a guard, not a sandbox. It does not see computed specifiers (`import(name)`),
 `createRequire`, `process.binding`, or runtime access to files, network, clocks or environment.
 Those remain profile-author obligations under the accepted trust boundary.

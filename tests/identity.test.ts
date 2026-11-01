@@ -368,6 +368,62 @@ test("identity: import scanning survives single-quoted and template literals", (
   assert.deepEqual(importSpecifiers(source), ["real-package"]);
 });
 
+test("identity: import scanning does not match inside unrelated strings", () => {
+  const source = [
+    'const first = "import ";',
+    'const second = "nunjucks";',
+    "const third = 'export ';",
+    'const fourth = "left-pad";',
+    'import "real-package";',
+  ].join("\n");
+  assert.deepEqual(importSpecifiers(source), ["real-package"]);
+});
+
+test("identity: import scanning ignores comments and regex literals", () => {
+  const source = [
+    '// import "line-comment";',
+    '/* import "block-comment"; */',
+    "const url = /https?:\\/\\//;",
+    "const block = /abc/*def/;",
+    'import "real-package";',
+  ].join("\n");
+  assert.deepEqual(importSpecifiers(source), ["real-package"]);
+});
+
+test("identity: import scanning extracts static, export-from and literal dynamic imports", () => {
+  const source = [
+    'import value from "static-package";',
+    'export * from "exported-package";',
+    'const lazy = () => import("dynamic-package");',
+    'import type { Type } from "types-only";',
+    'object.import("method-package");',
+    'const name = "computed-package";',
+    "import(name);",
+  ].join("\n");
+  assert.deepEqual(importSpecifiers(source), [
+    "static-package",
+    "exported-package",
+    "dynamic-package",
+  ]);
+});
+
+test("identity: import scanning ignores object keys and supports semicolon-less imports", () => {
+  const source = [
+    "const object = {",
+    "  import: 1,",
+    '  from: "not-an-import",',
+    "};",
+    'import first from "first-package"',
+    'import second from "second-package"',
+  ].join("\n");
+  assert.deepEqual(importSpecifiers(source), ["first-package", "second-package"]);
+});
+
+test("identity: literal dynamic import with options is still detected", () => {
+  const source = 'const lazy = () => import("dynamic-package", { with: { type: "json" } });';
+  assert.deepEqual(importSpecifiers(source), ["dynamic-package"]);
+});
+
 test("identity: record framing resists ambiguous concatenation", () => {
   const withinParts = frameRecord("tag", ["ab", "c"]);
   const shiftedParts = frameRecord("tag", ["a", "bc"]);
