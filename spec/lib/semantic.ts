@@ -1,5 +1,9 @@
 import type { Diagnostics } from "./diagnostics.js";
-import { locateQuote, parseLocator } from "./locator.js";
+import { isObject } from "./guards.js";
+import { DEFAULT_ADAPTERS } from "./adapters/index.js";
+import { parseLocator } from "./adapters/markdown.js";
+import type { LocatorResult, SourceAdapter } from "./source.js";
+import type { Entity, ProjectModel } from "./ir.js";
 import type {
   AnalyzedProvision,
   AnalyzedSpec,
@@ -7,11 +11,14 @@ import type {
   Decision,
   Fragment,
   NormativeEffect,
+  OntologyDoc,
   Provision,
   RawSpec,
+  SourceDecl,
   SourceModality,
+  SourcesDoc,
   Term,
-} from "./model.js";
+} from "../../profiles/core001/view.js";
 
 const BINDING_EFFECTS = new Set<NormativeEffect>([
   "obligation",
@@ -51,13 +58,66 @@ const FILE = {
   cases: "conformance/cases.yml",
 };
 
-export function analyze(
-  raw: RawSpec,
-  legacy: string,
+export async function analyze(
+  model: ProjectModel,
   legacyName: string,
   diags: Diagnostics,
-): AnalyzedSpec {
+  adapters: Record<string, SourceAdapter> = DEFAULT_ADAPTERS,
+): Promise<AnalyzedSpec | null> {
+  if (!isObject(model.documents.sources) || !isObject(model.documents.ontology)) {
+    diags.error(
+      "core.profile.invalid",
+      "profile.json",
+      "/documents",
+      "Профиль CORE-001 должен связывать документы sources и ontology",
+    );
+    return null;
+  }
+
+  const sourceDocument = model.sources[0];
+  if (sourceDocument === undefined) {
+    diags.error(
+      "ERR_UNKNOWN_REF",
+      "contract-builder.json",
+      "/sources",
+      "Не объявлен источник документа",
+    );
+    return null;
+  }
+  const adapter = adapters[sourceDocument.adapter];
+  if (adapter === undefined) {
+    diags.error(
+      "core.registry.missing",
+      "contract-builder.json",
+      "/sources/0/adapter",
+      `Адаптер "${sourceDocument.adapter}" не зарегистрирован`,
+    );
+    return null;
+  }
+
+  const raw = projectView(model);
+  const legacy = new TextDecoder().decode(sourceDocument.bytes);
   const legacyFlat = collapse(legacy);
+
+  // Quote verification goes through the source adapter; the containment pre-check below
+  // decides whether a quote is verified at all, as before.
+  const verified = new Map<string, LocatorResult>();
+  for (const fragment of raw.sources.fragments) {
+    if (legacyFlat.includes(collapse(fragment.quote))) {
+      verified.set(
+        fragment.id,
+        await adapter.verifyQuote(sourceDocument, fragment.source_ref, fragment.quote),
+      );
+    }
+  }
+  for (const decision of raw.decisions.decisions) {
+    if (legacyFlat.includes(collapse(decision.source_quote))) {
+      verified.set(
+        decision.id,
+        await adapter.verifyQuote(sourceDocument, decision.source_ref, decision.source_quote),
+      );
+    }
+  }
   const termById = new Map(raw.ontology.terms.map((t) => [t.id, t]));
   const fragmentById = new Map(raw.sources.fragments.map((f) => [f.id, f]));
   const decisionById = new Map(raw.decisions.decisions.map((d) => [d.id, d]));
@@ -107,7 +167,7 @@ export function analyze(
         `Цитата фрагмента "${fragment.id}" не найдена в ${legacyName}. Источник и машинное представление разошлись.`,
       );
     } else {
-      const location = locateQuote(legacy, fragment.source_ref, fragment.quote);
+      const location = verified.get(fragment.id)!;
       if (location === "unknown-locator") {
         diags.error(
           "ERR_SOURCE_LOCATOR_UNKNOWN",
@@ -181,7 +241,7 @@ export function analyze(
         `Цитата решения "${decision.id}" не найдена в ${legacyName}.`,
       );
     } else {
-      const location = locateQuote(legacy, decision.source_ref, decision.source_quote);
+      const location = verified.get(decision.id)!;
       if (location === "unknown-locator") {
         diags.error(
           "ERR_SOURCE_LOCATOR_UNKNOWN",
@@ -523,11 +583,15 @@ export function analyze(
     }
   });
 
-  for (const testCase of cases) {
-    const provision = analyzedById.get(testCase.provision);
-    if (provision === undefined) continue;
-    provision.cases.push(testCase);
-    if (testCase.expected_outcome === "violated") provision.violated_cases += 1;
+  const caseById = new Map(cases.map((testCase) => [testCase.id, testCase]));
+  for (const provision of provisions) {
+    const vectorIds = model.byId.get(provision.id)?.relations.vectors ?? [];
+    provision.cases = vectorIds
+      .map((id) => caseById.get(id))
+      .filter((testCase): testCase is Case => testCase !== undefined);
+    provision.violated_cases = provision.cases.filter(
+      (testCase) => testCase.expected_outcome === "violated",
+    ).length;
   }
 
   for (const provision of provisions) {
@@ -645,6 +709,8 @@ function warnUndefinedTerms(
 }
 
 function sectionInSlice(ref: string, slice: { includes: string[]; excludes: string[] }): boolean {
+  // Slice containment is a profile check that needs the locator's section, not quote
+  // verification. Verification itself goes through the source adapter.
   const locator = parseLocator(ref);
   // A malformed locator is reported separately; do not duplicate it as a slice error.
   if (locator === null) return true;
@@ -667,4 +733,83 @@ export function collapse(value: string): string {
 
 export function normalizeText(value: string): string {
   return value.replace(/\r\n/g, "\n").trim();
+}
+
+/**
+ * Builds the CORE-001 view from the generic model. This is the only place that knows how
+ * profile entities map onto the view; PR 4 moves it into the profile.
+ */
+function projectView(model: ProjectModel): RawSpec {
+  const sources = model.documents.sources as SourcesDoc;
+  const ontology = model.documents.ontology as OntologyDoc;
+
+  return {
+    sources: {
+      sources: legacySources(model),
+      slice: sources.slice,
+      fragments: byKind(model, "fragment").map(toFragment),
+    },
+    ontology: {
+      document: ontology.document,
+      terms: byKind(model, "term").map(toTerm),
+    },
+    semantics: { provisions: byKind(model, "provision").map(toProvision) },
+    decisions: { decisions: byKind(model, "decision").map(toDecision) },
+    cases: { cases: byKind(model, "case").map(toCase) },
+  };
+}
+
+function byKind(model: ProjectModel, kind: string): Entity[] {
+  return model.byKind.get(kind) ?? [];
+}
+
+function toFragment(entity: Entity): Fragment {
+  return { ...(entity.fields as unknown as Omit<Fragment, "id">), id: entity.id };
+}
+
+function toTerm(entity: Entity): Term {
+  const fields = entity.fields as unknown as Omit<Term, "id" | "fragment">;
+  return { ...fields, id: entity.id, fragment: firstRelation(entity, "fragment") };
+}
+
+function toProvision(entity: Entity): Provision {
+  const fields = entity.fields as unknown as Omit<
+    Provision,
+    "id" | "fragment" | "terms" | "decision_dependencies" | "decision_mentions"
+  >;
+  return {
+    ...fields,
+    id: entity.id,
+    fragment: firstRelation(entity, "fragment"),
+    terms: entity.relations.terms ?? [],
+    decision_dependencies: entity.relations.dependsOn ?? [],
+    decision_mentions: entity.relations.mentions ?? [],
+  };
+}
+
+function toDecision(entity: Entity): Decision {
+  return { ...(entity.fields as unknown as Omit<Decision, "id">), id: entity.id };
+}
+
+function toCase(entity: Entity): Case {
+  const fields = entity.fields as unknown as Omit<Case, "id" | "provision" | "rationale_fragment">;
+  return {
+    ...fields,
+    id: entity.id,
+    provision: firstRelation(entity, "provision"),
+    rationale_fragment: firstRelation(entity, "rationaleFragment"),
+  };
+}
+
+function firstRelation(entity: Entity, name: string): string {
+  return entity.relations[name]?.[0] ?? "";
+}
+
+function legacySources(model: ProjectModel): SourceDecl[] {
+  return (model.manifest.sources ?? []).map((source) => ({
+    id: source.id,
+    path: source.path,
+    document: source.identity?.document ?? "",
+    revision: source.identity?.revision ?? "",
+  }));
 }

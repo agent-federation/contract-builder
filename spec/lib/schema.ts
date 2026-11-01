@@ -1,28 +1,101 @@
 import { readFile } from "node:fs/promises";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import type { ErrorObject, ValidateFunction } from "ajv";
-import type { LoadedSpec } from "./load.js";
+import type { AnySchema, ErrorObject, ValidateFunction } from "ajv";
 import type { Diagnostics } from "./diagnostics.js";
-import { resolveContained } from "./manifest.js";
+import { isNonEmptyString, isObject, messageOf } from "./guards.js";
+import type { LoadedSpec } from "./load.js";
+import { resolveContained, type ResolvedProject } from "./manifest.js";
+
+export interface SchemaSet {
+  get(id: string): ValidateFunction | undefined;
+}
 
 /**
- * Validates every declared input document as a whole against the schema id named in the
- * manifest. Entity-kind schemas are declared in the profile but are not enforced until PR 3.
+ * Loads every schema the profile declares — document schemas and per-kind entity schemas —
+ * into one AJV instance, so document schemas can `$ref` entity schemas by `$id`.
+ */
+export async function loadSchemas(
+  project: ResolvedProject,
+  diags: Diagnostics,
+): Promise<SchemaSet | null> {
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const ids = new Map<string, string>();
+
+  for (const [schemaId, relative] of Object.entries(project.profile.schemas)) {
+    const located = await resolveContained(project.profileDir, relative);
+    if (!located.inside) {
+      diags.error(
+        "core.path.outside-root",
+        "profile.json",
+        `/schemas/${schemaId}`,
+        `Схема "${relative}" выходит за пределы каталога профиля`,
+      );
+      return null;
+    }
+
+    let schema: unknown;
+    try {
+      schema = JSON.parse(await readFile(located.abs, "utf8"));
+    } catch (error) {
+      diags.error("ERR_SCHEMA_DEFINITION", relative, "", `Схема не разобрана: ${messageOf(error)}`);
+      return null;
+    }
+
+    if (!isObject(schema) || !isNonEmptyString(schema.$id)) {
+      diags.error("ERR_SCHEMA_DEFINITION", relative, "", "Схема должна объявлять $id");
+      return null;
+    }
+
+    try {
+      ajv.addSchema(schema as AnySchema);
+    } catch (error) {
+      diags.error(
+        "ERR_SCHEMA_DEFINITION",
+        relative,
+        "",
+        `Схема не компилируется: ${messageOf(error)}`,
+      );
+      return null;
+    }
+
+    ids.set(schemaId, schema.$id);
+  }
+
+  const validators = new Map<string, ValidateFunction>();
+  for (const [schemaId, id] of ids) {
+    const validate = ajv.getSchema(id);
+    if (validate === undefined) {
+      diags.error(
+        "ERR_SCHEMA_DEFINITION",
+        "profile.json",
+        `/schemas/${schemaId}`,
+        `Схема "${id}" не зарегистрирована`,
+      );
+      return null;
+    }
+    validators.set(schemaId, validate);
+  }
+
+  return { get: (id) => validators.get(id) };
+}
+
+/**
+ * Validates every declared input document as a whole. Entity contents are validated
+ * separately during extraction, so a document failure stops before extraction starts.
  */
 export async function validateDocuments(
   loaded: LoadedSpec,
+  schemas: SchemaSet,
   diags: Diagnostics,
 ): Promise<boolean> {
-  const ajv = new Ajv2020({ allErrors: true, strict: false });
-  const compiled = new Map<string, ValidateFunction>();
   let ok = true;
 
   for (const input of loaded.project.manifest.inputs) {
     const document = loaded.documents[input.path];
     if (document === undefined) continue; // optional input that is absent
 
-    const schemaRelative = loaded.project.profile.schemas[input.schema];
-    if (schemaRelative === undefined) {
+    const validate = schemas.get(input.schema);
+    if (validate === undefined) {
       diags.error(
         "core.profile.invalid",
         "profile.json",
@@ -31,35 +104,6 @@ export async function validateDocuments(
       );
       ok = false;
       continue;
-    }
-
-    const located = await resolveContained(loaded.project.profileDir, schemaRelative);
-    if (!located.inside) {
-      diags.error(
-        "core.path.outside-root",
-        "profile.json",
-        `/schemas/${input.schema}`,
-        `Схема "${schemaRelative}" выходит за пределы каталога профиля`,
-      );
-      ok = false;
-      continue;
-    }
-
-    let validate = compiled.get(located.abs);
-    if (validate === undefined) {
-      try {
-        validate = ajv.compile(JSON.parse(await readFile(located.abs, "utf8")));
-      } catch (error) {
-        diags.error(
-          "ERR_SCHEMA_DEFINITION",
-          schemaRelative,
-          "",
-          `Схема не компилируется: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        ok = false;
-        continue;
-      }
-      compiled.set(located.abs, validate);
     }
 
     if (!validate(document)) {
@@ -71,6 +115,38 @@ export async function validateDocuments(
   }
 
   return ok;
+}
+
+/** Validates one extracted entity against its kind schema; failures are `core.schema.entity`. */
+export function validateEntityValue(
+  schemas: SchemaSet,
+  schemaId: string,
+  value: unknown,
+  location: { file: string; pointer: string },
+  diags: Diagnostics,
+): boolean {
+  const validate = schemas.get(schemaId);
+  if (validate === undefined) {
+    diags.error(
+      "core.profile.invalid",
+      "profile.json",
+      "/schemas",
+      `Схема вида "${schemaId}" не объявлена в профиле`,
+    );
+    return false;
+  }
+
+  if (validate(value)) return true;
+
+  for (const err of validate.errors ?? []) {
+    diags.error(
+      "core.schema.entity",
+      location.file,
+      `${location.pointer}${err.instancePath}`,
+      describe(err),
+    );
+  }
+  return false;
 }
 
 function describe(err: ErrorObject): string {

@@ -3,57 +3,16 @@
   "$id": "https://core001.local/schemas/cases.schema.json",
   "title": "Conformance: declarative vectors",
   "type": "object",
-  "required": ["cases"],
+  "required": [
+    "cases"
+  ],
   "additionalProperties": false,
   "properties": {
     "cases": {
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "required": [
-          "id", "provision", "scenario", "expected_outcome", "source_determination",
-          "expectation_basis", "rationale", "rationale_fragment", "review"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "id": { "type": "string", "pattern": "^CASE-[A-Z0-9-]+$" },
-          "provision": { "type": "string", "pattern": "^(INV|REQ|DEF)-[A-Z0-9-]+$" },
-          "scenario": {
-            "type": "object",
-            "required": ["given", "action"],
-            "additionalProperties": false,
-            "properties": {
-              "given": {
-                "type": "array",
-                "minItems": 1,
-                "items": { "type": "string", "minLength": 1 }
-              },
-              "action": { "type": "string", "minLength": 1 }
-            }
-          },
-          "expected_outcome": { "enum": ["satisfied", "violated"] },
-          "source_determination": {
-            "enum": ["determined", "inferred", "underdetermined", "not_asserted_by_source"]
-          },
-          "expectation_basis": {
-            "enum": [
-              "obligation", "prohibition", "permission", "permission_with_necessary_condition",
-              "negative_entailment", "semantic_constraint", "scope_statement", "absent"
-            ]
-          },
-          "rationale": { "type": "string", "minLength": 1 },
-          "rationale_fragment": { "type": "string", "pattern": "^FRAG-[A-Za-z0-9._-]+$" },
-          "review": {
-            "type": "object",
-            "required": ["status", "reviewed_by"],
-            "additionalProperties": false,
-            "properties": {
-              "status": { "enum": ["unreviewed", "confirmed"] },
-              "reviewed_by": { "type": ["string", "null"] }
-            }
-          }
-        }
+        "$ref": "https://core001.local/schemas/case.schema.json#/$defs/base"
       }
     }
   }

@@ -207,11 +207,15 @@ test("покрытие: у каждого положения есть векто
   const cases = parseYaml(
     await readFile(path.join(specDir, "conformance", "cases.yml"), "utf8"),
   ) as {
-    cases: Array<{ provision: string; expected_outcome: string; expectation_basis: string }>;
+    cases: Array<{
+      relations: { provision: string };
+      expected_outcome: string;
+      expectation_basis: string;
+    }>;
   };
 
   for (const provision of semantics.provisions) {
-    const related = cases.cases.filter((c) => c.provision === provision.id);
+    const related = cases.cases.filter((c) => c.relations.provision === provision.id);
     assert.ok(related.length >= 1, `у ${provision.id} нет векторов`);
   }
 

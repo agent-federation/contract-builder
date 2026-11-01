@@ -1,12 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Diagnostics, type Diagnostic } from "./diagnostics.js";
-import { loadProject, readLegacySource } from "./load.js";
-import { validateDocuments } from "./schema.js";
+import { loadProject } from "./load.js";
+import { loadSchemas, validateDocuments } from "./schema.js";
+import { buildProjectModel } from "./ir.js";
 import { analyze } from "./semantic.js";
 import { renderMarkdown, type BuildMode } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
-import type { RawSpec } from "./model.js";
+import type { SourceAdapter } from "./source.js";
 
 export interface BuildOptions {
   specDir: string;
@@ -16,6 +17,8 @@ export interface BuildOptions {
   strict: boolean;
   /** Optional collector injection for tests; defaults to a fresh instance. */
   diagnostics?: Diagnostics;
+  /** Optional adapter registry; defaults to the built-in markdown adapter. */
+  adapters?: Record<string, SourceAdapter>;
 }
 
 export interface BuildResult {
@@ -42,25 +45,26 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, "", false, "errors");
   }
 
-  const schemaOk = await validateDocuments(loaded, diags);
-  if (!schemaOk) {
+  const schemas = await loadSchemas(loaded.project, diags);
+  if (schemas === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const raw = loaded.files as unknown as RawSpec;
-  const declaredSource = raw.sources?.sources?.[0];
-  if (declaredSource === undefined) {
-    diags.error("ERR_UNKNOWN_REF", "sources.yml", "/sources", "Не объявлен источник документа");
+  const documentsOk = await validateDocuments(loaded, schemas, diags);
+  if (!documentsOk) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const legacy = await readLegacySource(specDir, declaredSource.path, diags);
-  if (legacy === null) {
+  const model = await buildProjectModel(loaded, schemas, diags, options.adapters);
+  if (model === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const legacyName = path.basename(declaredSource.path);
-  const spec = analyze(raw, legacy, legacyName, diags);
+  const legacyName = path.basename(model.manifest.sources?.[0]?.path ?? "source");
+  const spec = await analyze(model, legacyName, diags, options.adapters);
+  if (spec === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
 
   if (diags.errors > 0) {
     return result(options, diags, null, outputPath, false, "errors");

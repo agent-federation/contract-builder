@@ -10,11 +10,13 @@ terms:
   - id: TERM-ASSERTED-AT
     name: asserted_at
     definition: "Время заявления, указанное автором"
-    fragment: FRAG-10-TABLE-ASSERTED-AT
     source_ref: "SRC-CORE001#10/table/asserted_at"
+    relations:
+      fragment: FRAG-10-TABLE-ASSERTED-AT
 
   - id: TERM-SIGNED-AT
     name: signed_at
     definition: "Время подписания, если оно удостоверено применимым механизмом"
-    fragment: FRAG-10-TABLE-SIGNED-AT
     source_ref: "SRC-CORE001#10/table/signed_at"
+    relations:
+      fragment: FRAG-10-TABLE-SIGNED-AT

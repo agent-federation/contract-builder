@@ -9,7 +9,7 @@ import type {
   Clause,
   Decision,
   Explication,
-} from "./model.js";
+} from "../../profiles/core001/view.js";
 
 const templateDir = fileURLToPath(new URL("../templates/", import.meta.url));
 

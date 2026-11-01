@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core001.local/schemas/provision.schema.json",
+  "title": "Entity: normative provision",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "source_ref",
+        "source_quote",
+        "claim_quote",
+        "normalized_statement",
+        "explications",
+        "source_modality",
+        "modality_marker",
+        "normative_effect",
+        "classification_basis",
+        "precondition",
+        "exception",
+        "unresolved_conditions",
+        "outside_slice_refs",
+        "review"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(INV|REQ|DEF)-[A-Z0-9-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "explications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/explication"
+          }
+        },
+        "source_modality": {
+          "enum": [
+            "MUST",
+            "MUST_NOT",
+            "SHOULD",
+            "SHOULD_NOT",
+            "MAY",
+            "DECLARATIVE",
+            "DECLARATIVE_NEGATION"
+          ]
+        },
+        "modality_marker": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "normative_effect": {
+          "enum": [
+            "obligation",
+            "prohibition",
+            "permission",
+            "negative_entailment",
+            "semantic_constraint",
+            "scope_statement",
+            "descriptive"
+          ]
+        },
+        "classification_basis": {
+          "type": "object",
+          "required": [
+            "kind",
+            "quote",
+            "text"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "explicit",
+                "editorial_inference"
+              ]
+            },
+            "quote": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "precondition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/clause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exception": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/clause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unresolved_conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "text",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "outside_slice_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "target",
+              "in_scope",
+              "note"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "target": {
+                "type": "string",
+                "minLength": 1
+              },
+              "in_scope": {
+                "const": false
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "object"
+        },
+        "relations": {
+          "type": "object"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "status",
+        "reviewed_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "unreviewed",
+            "confirmed"
+          ]
+        },
+        "reviewed_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "clause": {
+      "type": "object",
+      "required": [
+        "quote",
+        "text",
+        "source_modality",
+        "modality_marker",
+        "condition_kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_modality": {
+          "enum": [
+            "MUST",
+            "MUST_NOT",
+            "SHOULD",
+            "SHOULD_NOT",
+            "MAY",
+            "DECLARATIVE",
+            "DECLARATIVE_NEGATION"
+          ]
+        },
+        "modality_marker": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "condition_kind": {
+          "enum": [
+            "necessary",
+            "temporal",
+            null
+          ]
+        }
+      }
+    },
+    "explication": {
+      "type": "object",
+      "required": [
+        "kind",
+        "text",
+        "rationale"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "modal_explication",
+            "contrapositive",
+            "typographic_normalization",
+            "scope_explication",
+            "model_to_implementation"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/base"
+    },
+    {
+      "type": "object",
+      "required": [
+        "relations"
+      ],
+      "properties": {
+        "relations": {
+          "type": "object",
+          "required": [
+            "fragment",
+            "terms",
+            "dependsOn",
+            "mentions"
+          ],
+          "properties": {
+            "fragment": {
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "terms": {
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "dependsOn": {
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "mentions": {
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

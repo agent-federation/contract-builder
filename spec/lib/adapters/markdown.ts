@@ -1,5 +1,5 @@
 /**
- * Source locators.
+ * Markdown source adapter: section/table/item locators plus the `SourceAdapter` boundary.
  *
  * A `source_ref` is `<SOURCE_ID>#<section>[/<block>]`, for example:
  *   SRC-CORE001#10.2
@@ -12,6 +12,9 @@
  * not a content hash or a line range.
  */
 
+import { readFile } from "node:fs/promises";
+import type { SourceAdapter, SourceDocument } from "../source.js";
+
 export type BlockLocator =
   | { kind: "section" }
   | { kind: "table"; column: string }
@@ -22,7 +25,7 @@ export interface SourceLocator {
   block: BlockLocator;
 }
 
-export type LocatorResult = "found" | "outside" | "unknown-locator";
+export type LocatorOutcome = "found" | "outside" | "unknown-locator";
 
 export function parseLocator(ref: string): SourceLocator | null {
   const hash = ref.indexOf("#");
@@ -51,7 +54,7 @@ export function parseLocator(ref: string): SourceLocator | null {
 }
 
 /** True when the quote is located inside the block declared by `ref`. */
-export function locateQuote(legacy: string, ref: string, quote: string): LocatorResult {
+export function locateQuote(legacy: string, ref: string, quote: string): LocatorOutcome {
   const locator = parseLocator(ref);
   if (locator === null) return "unknown-locator";
 
@@ -120,3 +123,26 @@ function selectBlock(lines: string[], locator: BlockLocator): string[] {
 function collapse(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
+
+/**
+ * Markdown adapter. `load` reads the bytes; `verifyQuote` keeps the section-level locator
+ * behaviour of the MVP and its three outcomes. `unsupported` is never returned in M1.
+ */
+const decoder = new TextDecoder();
+
+export const markdownAdapter: SourceAdapter = {
+  id: "markdown",
+  version: "0.1.0",
+  async load(path, descriptor): Promise<SourceDocument> {
+    const bytes = new Uint8Array(await readFile(path));
+    return {
+      id: descriptor.id,
+      bytes,
+      adapter: descriptor.adapter,
+      ...(descriptor.identity !== undefined ? { identity: descriptor.identity } : {}),
+    };
+  },
+  async verifyQuote(source, ref, quote) {
+    return locateQuote(decoder.decode(source.bytes), ref, quote);
+  },
+};

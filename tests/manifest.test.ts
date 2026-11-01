@@ -7,6 +7,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
+import { loadSchemas } from "../spec/lib/schema.js";
+import { buildProjectModel } from "../spec/lib/ir.js";
 import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 
@@ -158,7 +160,7 @@ test("manifest: a profile without a sources binding fails without crashing", asy
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
-  assert.ok(codes(result).includes("ERR_UNKNOWN_REF"));
+  assert.ok(codes(result).includes("core.profile.invalid"));
 });
 
 test("manifest: containment handles the filesystem root and shared prefixes", async () => {
@@ -190,27 +192,21 @@ test("manifest: a profile whose id or version differs from the pin is rejected",
   assert.ok(codes(idMismatch).includes("core.profile.invalid"));
 });
 
-test("manifest: the transitional view carries the manifest sources", async () => {
+test("manifest: the model carries the source bytes and identity", async () => {
   const diagnostics = new Diagnostics();
   const loaded = await loadProject(specDir, diagnostics);
   assert.ok(loaded !== null, diagnostics.report());
 
-  const declared = loaded.project.manifest.sources ?? [];
-  const view = loaded.files.sources as {
-    sources: Array<{ id: string; path: string; document: string; revision: string }>;
-  };
+  const schemas = await loadSchemas(loaded.project, diagnostics);
+  assert.ok(schemas !== null, diagnostics.report());
 
-  assert.equal(view.sources.length, declared.length);
-  assert.deepEqual(
-    view.sources.map((source) => ({
-      id: source.id,
-      document: source.document,
-      revision: source.revision,
-    })),
-    declared.map((source) => ({
-      id: source.id,
-      document: source.identity?.document,
-      revision: source.identity?.revision,
-    })),
-  );
+  const model = await buildProjectModel(loaded, schemas, diagnostics);
+  assert.ok(model !== null, diagnostics.report());
+
+  const source = model.sources[0];
+  assert.ok(source !== undefined);
+  assert.equal(source.id, "SRC-CORE001");
+  assert.equal(source.identity?.document, "UIA-CORE-001");
+  assert.equal(source.identity?.revision, "0.3.3");
+  assert.ok(new TextDecoder().decode(source.bytes).includes("UIA-CORE-001 (Rev 0.3.3)"));
 });

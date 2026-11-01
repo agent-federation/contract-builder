@@ -3,23 +3,39 @@
   "$id": "https://core001.local/schemas/sources.schema.json",
   "title": "Sources and verbatim fragments",
   "type": "object",
-  "required": ["slice", "fragments"],
+  "required": [
+    "slice",
+    "fragments"
+  ],
   "additionalProperties": false,
   "properties": {
     "slice": {
       "type": "object",
-      "required": ["id", "includes", "excludes"],
+      "required": [
+        "id",
+        "includes",
+        "excludes"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^SLICE-[A-Z0-9.-]+$" },
+        "id": {
+          "type": "string",
+          "pattern": "^SLICE-[A-Z0-9.-]+$"
+        },
         "includes": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^#[0-9.]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9.]+$"
+          }
         },
         "excludes": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^#[0-9.]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9.]+$"
+          }
         }
       }
     },
@@ -27,16 +43,7 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "required": ["id", "source", "source_ref", "quote"],
-        "additionalProperties": false,
-        "properties": {
-          "id": { "type": "string", "pattern": "^FRAG-[A-Za-z0-9._-]+$" },
-          "source": { "type": "string", "pattern": "^SRC-[A-Z0-9-]+$" },
-          "source_ref": { "type": "string", "minLength": 1 },
-          "quote": { "type": "string", "minLength": 1 },
-          "in_scope": { "type": "boolean" }
-        }
+        "$ref": "https://core001.local/schemas/fragment.schema.json#/$defs/base"
       }
     }
   }

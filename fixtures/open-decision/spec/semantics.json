@@ -3,7 +3,6 @@
     {
       "id": "REQ-TEMPORAL-MOMENT-DEFINED",
       "title": "Определение временного момента проверки",
-      "fragment": "FRAG-10.2-P1-MOMENT-DEFINED",
       "source_ref": "SRC-CORE001#10.2",
       "source_quote": "При проверке Credential домен MUST определить, какой временной момент используется для конкретной операции.",
       "claim_quote": "При проверке Credential домен MUST определить, какой временной момент используется для конкретной операции.",
@@ -17,22 +16,24 @@
         "quote": "MUST определить",
         "text": "«MUST определить» — прямое обязывание определить временной момент. Источник не предписывает, какой именно момент выбрать."
       },
-      "terms": [],
       "precondition": null,
       "exception": null,
-      "decision_dependencies": [],
-      "decision_mentions": [],
       "unresolved_conditions": [],
       "outside_slice_refs": [],
       "review": {
         "status": "unreviewed",
         "reviewed_by": null
+      },
+      "relations": {
+        "fragment": "FRAG-10.2-P1-MOMENT-DEFINED",
+        "terms": [],
+        "dependsOn": [],
+        "mentions": []
       }
     },
     {
       "id": "REQ-REVOCATION-NOT-AUTO-INVALID",
       "title": "Отзыв не аннулирует историческую подпись автоматически",
-      "fragment": "FRAG-10.2-P4-5-REVOCATION",
       "source_ref": "SRC-CORE001#10.2",
       "source_quote": "Отзыв Credential после подписания не означает автоматически, что историческая подпись была недействительной. Однако последующая подтверждённая компрометация может сделать историческую подпись непригодной для использования как доказательства.",
       "claim_quote": "Отзыв Credential после подписания не означает автоматически, что историческая подпись была недействительной.",
@@ -52,9 +53,6 @@
         "quote": "не означает автоматически",
         "text": "Источник прямо отрицает автоматический вывод «отзыв ⇒ недействительность». Это ограничение вывода, а не обязанность применять последствие."
       },
-      "terms": [
-        "TERM-SIGNED-AT"
-      ],
       "precondition": {
         "quote": "после подписания",
         "text": "Отзыв Credential произошёл после подписания",
@@ -69,8 +67,6 @@
         "modality_marker": "может",
         "condition_kind": null
       },
-      "decision_dependencies": [],
-      "decision_mentions": [],
       "unresolved_conditions": [],
       "outside_slice_refs": [
         {
@@ -82,12 +78,19 @@
       "review": {
         "status": "unreviewed",
         "reviewed_by": null
+      },
+      "relations": {
+        "fragment": "FRAG-10.2-P4-5-REVOCATION",
+        "terms": [
+          "TERM-SIGNED-AT"
+        ],
+        "dependsOn": [],
+        "mentions": []
       }
     },
     {
       "id": "REQ-SIGNED-AT-TRUST-CONDITION",
       "title": "Удостоверенное время требует применимого механизма",
-      "fragment": "FRAG-10.1-P2-TRUST-CONDITION",
       "source_ref": "SRC-CORE001#10.1",
       "source_quote": "` signed_at` может считаться удостоверенным временем только при наличии применимого механизма доверенной временной фиксации.",
       "claim_quote": "` signed_at` может считаться удостоверенным временем только при наличии применимого механизма доверенной временной фиксации.",
@@ -112,9 +115,6 @@
         "quote": "может считаться удостоверенным временем только при наличии применимого механизма",
         "text": "«Может … только при» — разрешение с необходимым условием. Обязанности считать время удостоверенным источник не устанавливает."
       },
-      "terms": [
-        "TERM-SIGNED-AT"
-      ],
       "precondition": {
         "quote": "только при наличии применимого механизма доверенной временной фиксации",
         "text": "Наличие применимого механизма доверенной временной фиксации",
@@ -123,10 +123,6 @@
         "condition_kind": "necessary"
       },
       "exception": null,
-      "decision_dependencies": [
-        "DEC-TRUSTED-TIME"
-      ],
-      "decision_mentions": [],
       "unresolved_conditions": [
         {
           "text": "применимый механизм доверенной временной фиксации",
@@ -137,12 +133,21 @@
       "review": {
         "status": "unreviewed",
         "reviewed_by": null
+      },
+      "relations": {
+        "fragment": "FRAG-10.1-P2-TRUST-CONDITION",
+        "terms": [
+          "TERM-SIGNED-AT"
+        ],
+        "dependsOn": [
+          "DEC-TRUSTED-TIME"
+        ],
+        "mentions": []
       }
     },
     {
       "id": "INV-NO-GLOBAL-TRUSTED-TIME",
       "title": "Единое глобальное доверенное время не предполагается",
-      "fragment": "FRAG-10.1-P5-NO-GLOBAL-TIME",
       "source_ref": "SRC-CORE001#10.1",
       "source_quote": "UIA не предполагает наличие единого глобального доверенного времени.",
       "claim_quote": "UIA не предполагает наличие единого глобального доверенного времени.",
@@ -156,24 +161,26 @@
         "quote": "не предполагает наличие единого глобального доверенного времени",
         "text": "Утверждение об отсутствии допущения у самой UIA. Запрета для реализаций не устанавливает: наличие единого источника времени в реализации не противоречит этому утверждению."
       },
-      "terms": [],
       "precondition": null,
       "exception": null,
-      "decision_dependencies": [],
-      "decision_mentions": [
-        "DEC-TRUSTED-TIME"
-      ],
       "unresolved_conditions": [],
       "outside_slice_refs": [],
       "review": {
         "status": "unreviewed",
         "reviewed_by": null
+      },
+      "relations": {
+        "fragment": "FRAG-10.1-P5-NO-GLOBAL-TIME",
+        "terms": [],
+        "dependsOn": [],
+        "mentions": [
+          "DEC-TRUSTED-TIME"
+        ]
       }
     },
     {
       "id": "REQ-TIMESTAMPS-NOT-INTERCHANGEABLE",
       "title": "Временные метки не взаимозаменяемы",
-      "fragment": "FRAG-10-P-NOT-INTERCHANGEABLE",
       "source_ref": "SRC-CORE001#10",
       "source_quote": "Эти временные метки не являются взаимозаменяемыми.",
       "claim_quote": "Эти временные метки не являются взаимозаменяемыми.",
@@ -187,19 +194,22 @@
         "quote": "не являются взаимозаменяемыми",
         "text": "Источник утверждает неэквивалентность меток. Следствие для реализаций — не подставлять одну метку вместо другой — экспликация: дословного запрета действия (MUST NOT) источник не содержит."
       },
-      "terms": [
-        "TERM-ASSERTED-AT",
-        "TERM-SIGNED-AT"
-      ],
       "precondition": null,
       "exception": null,
-      "decision_dependencies": [],
-      "decision_mentions": [],
       "unresolved_conditions": [],
       "outside_slice_refs": [],
       "review": {
         "status": "unreviewed",
         "reviewed_by": null
+      },
+      "relations": {
+        "fragment": "FRAG-10-P-NOT-INTERCHANGEABLE",
+        "terms": [
+          "TERM-ASSERTED-AT",
+          "TERM-SIGNED-AT"
+        ],
+        "dependsOn": [],
+        "mentions": []
       }
     }
   ]
