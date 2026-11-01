@@ -193,8 +193,8 @@ not from naming:
 |---|---|---|---|---|---|---|---|---|
 | 1 | `provision` | `fragment` | `fragment` | `fragment` | one | required | none | 5/5 |
 | 2 | `provision` | `terms[]` | `terms` | `term` | many | required (may be empty) | none | 3 entities, 4 refs |
-| 3 | `provision` | `decision_dependencies[]` | `decisionDependencies` | `decision` | many | required (may be empty) | none | 0 refs |
-| 4 | `provision` | `decision_mentions[]` | `decisionMentions` | `decision` | many | required (may be empty) | none | 2 refs |
+| 3 | `provision` | `decision_dependencies[]` | `dependsOn` | `decision` | many | required (may be empty) | none | 0 refs |
+| 4 | `provision` | `decision_mentions[]` | `mentions` | `decision` | many | required (may be empty) | none | 2 refs |
 | 5 | `case` | `provision` | `provision` | `provision` | one | required | **`vectors`** on `provision` | 13/13 |
 | 6 | `case` | `rationale_fragment` | `rationaleFragment` | `fragment` | one | required | none | 13/13 |
 | 7 | `term` | `fragment` | `fragment` | `fragment` | one | required | none | 2/2 |
@@ -202,12 +202,36 @@ not from naming:
 Seven declarations, seven field occurrences, six distinct field names (`fragment` is declared
 once for `provision` and once for `term`).
 
+**Source field names are migration metadata, not identifiers.** The `Field today` column names
+the fields in the current data files. The `Relation name` column is the profile-owned identifier
+that appears as a key inside the `relations` object and that the core indexes. The two are
+deliberately different where the accepted contract already defines an identifier: the data field
+`decision_dependencies` becomes `dependsOn`, and `decision_mentions` becomes `mentions`.
+
+**Where requiredness is enforced.** `RelationDecl` has no `required` property (contract §3.2),
+and M1 does not add one. The three concerns have three owners:
+
+| Concern | Owner | Mechanism |
+|---|---|---|
+| Key presence | Profile-owned entity schema | `required: ["relations"]` on each kind that has outgoing relations, plus `required: [...]` inside the `relations` property |
+| Cardinality | Core relation resolver | `cardinality: "one"` rejects an array; `"many"` accepts a string or an array |
+| Target existence | Core relation resolver | `ERR_UNKNOWN_REF` when a target id is not indexed |
+
+The entity schema does not duplicate cardinality: it types relation values as
+`string | string[]`, so each concern has exactly one enforcement point. A missing required
+relation key is therefore a structure-phase failure (`core.schema.entity`) reported before
+relation resolution runs. For CORE-001 the required keys are `fragment`, `terms`, `dependsOn`,
+`mentions` on `provision`; `provision`, `rationaleFragment` on `case`; `fragment` on `term`.
+`vectors` is resolver-populated from `case.provision`, so it is never a required key in the
+source data and validation must not run after the inverse is added.
+
 **Reconciliation with the contract.** An earlier draft of this plan reported "six additional
 fields" beyond Appendix A. That figure was wrong. The accurate reconciliation is:
 
-- Appendix A names three relations: `dependsOn`, `mentions`, `vectors`.
-- Those names cover **two forward fields** (`decision_dependencies`, `decision_mentions`) and
-  **one inverse** (`vectors`).
+- Appendix A names three relations: `dependsOn`, `mentions`, `vectors`. The table uses those
+  identifiers verbatim; they are not renamed.
+- Those names cover **two forward fields** (`decision_dependencies` → `dependsOn`,
+  `decision_mentions` → `mentions`) and **one inverse** (`vectors`).
 - `vectors`' forward counterpart (`case.provision`) has no name in Appendix A.
 - **Five field occurrences have no name in Appendix A**: `provision.fragment`,
   `provision.terms`, `case.provision` (forward), `case.rationale_fragment`, `term.fragment`.
@@ -219,8 +243,10 @@ taste: `p.cases` renders every case for a provision (`core001.md.j2` lines 126�
 never listed against the entities that point at them. `vectors` is populated by appending in
 input order so the rendered case order is preserved.
 
-**Relation names are profile data (D6).** The camelCase names above follow Appendix A where a
-name exists and extend it where it does not. They never appear in core code or core schemas.
+**Relation names are profile data (D6).** `dependsOn`, `mentions` and `vectors` are Appendix A's
+identifiers, used verbatim. `fragment`, `terms`, `provision` and `rationaleFragment` are
+extensions, because Appendix A does not name those relations. All seven are profile data: they
+never appear in core code or core schemas.
 
 ### 7.2 Not relations
 
@@ -246,6 +272,31 @@ Today one schema validates both the document and its entity items, and every ent
    `relations`, `review`). The extraction order is: validate the object, then strip reserved
    names into their slots, then keep the remainder as `Entity.fields`. Provenance-mapped
    fields stay in `fields` (mappings are projections, not moves).
+
+### 7.4 Relation declaration validation
+
+A `RelationDecl` is validated when the profile is loaded, before inputs are extracted and in any
+case before any relation is resolved. The two relation failures the contract defines are kept
+separate:
+
+| Failure | Code | Input | Phase |
+|---|---|---|---|
+| A declaration's `from` or `to` names an undeclared kind | `core.profile.unknown-relation` | `profile.json` | load, before extraction |
+| An entity carries a key in `relations` that no declaration matches on `(name, from)` | `core.relation.unknown` | project input | reference, during resolution |
+
+Rules:
+
+- Every declaration's `from` and `to` must name a kind declared in `profile.entityKinds`;
+  `to: "*"` is the only wildcard.
+- An unknown `from` or `to` fails the build **before relation resolution starts**. A declaration
+  that cannot be resolved would otherwise match nothing and silently accept data.
+- A profile with an invalid declaration is rejected even when no entity uses that relation: the
+  defect is in the profile, not in the project data, and it affects every project sharing it.
+- The entity-data failure is reported per key, with the entity id, so a typo inside `relations`
+  names the offending entity rather than the profile.
+
+Collapsing the two would lose that distinction: a declaration error would be reported as a data
+error on whichever entity happened to use the relation first.
 
 ---
 
@@ -329,8 +380,19 @@ reason in the PR description.
 | Situation | M1 behaviour |
 |---|---|
 | Existing code, any owner (`ERR_DUPLICATE_ID`, `ERR_SCHEMA`, `ERR_OUTPUT_STALE`, `ERR_IO`, `ERR_PARSE`, `ERR_UNKNOWN_REF`, `ERR_SOURCE_*`, `ERR_MODALITY_*`, `REVIEW_*`, `WARN_*`) | **String preserved verbatim**, including severity label and message. Namespacing is M2. |
-| New check introduced by the accepted contract with no legacy equivalent (`core.relation.unknown`, `core.profile.unknown-kind`, `core.profile.unknown-code`, `core.manifest.missing`, `core.path.outside-root`, `core.registry.missing`, `core.extension.unpinned-dependency`, `core.provenance.incomplete`) | Emits the `core.*` code. |
+| New check introduced by the accepted contract with no legacy equivalent (`core.relation.unknown`, `core.profile.unknown-kind`, `core.profile.unknown-relation`, `core.profile.unknown-code`, `core.manifest.missing`, `core.schema.entity`, `core.path.outside-root`, `core.registry.missing`, `core.extension.unpinned-dependency`, `core.provenance.incomplete`) | Emits the `core.*` code. |
 | New core diagnostic firing on CORE-001 data | **Not allowed in M1.** All new codes above must be unreachable for the golden project. A test asserts the golden build contains no `core.*` diagnostic. |
+
+**Document schema versus entity schema.** Document-level schema validation is today's check and
+keeps `ERR_SCHEMA`. Entity-level schema validation does not exist today, so it is a new check and
+emits `core.schema.entity`. The two are separate codes because the contract distinguishes
+`core.schema.document` from `core.schema.entity` (contract §5.2, steps 1 and 3); the document half
+is renamed in M2, the entity half starts with its final name.
+
+**Core codes in the catalog (implementation choice).** Every code a build can emit is declared in
+the profile catalog (contract §7.1), the `core.*` codes included. For a `core.*` code the catalog
+entry mirrors the core's fixed severity and message; a profile does not restyle core diagnostics
+in M1, so the "do not weaken a required core diagnostic" rule is visible in one file.
 
 No required core diagnostic is weakened or removed to protect the hash. Three existing test
 assertions (`ERR_SCHEMA`, `ERR_DUPLICATE_ID`, `ERR_OUTPUT_STALE`) therefore stay untouched.
@@ -490,7 +552,7 @@ found", not "the closure is provably complete".
 3. A generic core with no CORE-001 kind, relation, vocabulary, label, path or output name.
 4. The generic IR envelope with `kind` and `relations` as profile strings, and `provenance`
    populated from profile mappings.
-5. The `relations` namespace: declarations, resolution, inverse population, unknown-key
+5. The `relations` namespace: declaration validation, resolution, inverse population, unknown-key
    rejection, and the one-time data migration.
 6. All CORE-001 semantic checks in the profile hook, modular and unit-tested.
 7. A renderer boundary that does not make Markdown a core invariant, with the profile renderer
@@ -589,14 +651,16 @@ the relation inventory, the provenance choice and the PR sequence.
 
 - `lib/ir.ts`: `Entity`, `ProjectModel`, `byId`, `byKind`, `documents`; extraction by declared
   pointer; identity from `EntityKindDecl.identity`; reserved-name stripping.
-- `lib/relations.ts`: declarations, resolution against `to` (`*` supported), cardinality,
-  inverse population, `core.relation.unknown`.
+- `lib/relations.ts`: declaration validation (`from`/`to` against `entityKinds` →
+  `core.profile.unknown-relation`, before resolution), resolution against `to` (`*` supported),
+  cardinality, inverse population, `core.relation.unknown`.
 - `lib/provenance.ts`: binding shape and declared-source check.
 - `lib/adapters/markdown.ts`: current `locator.ts` behind `SourceAdapter`.
 - `profiles/core001/schemas/`: document schemas and per-kind entity schemas with versioned
-  `$id`; reserved names permitted.
+  `$id`; reserved names permitted; required relation keys declared (section 7.1).
 - Data migration in `spec/` and all three fixtures: the seven relation field occurrences move
-  into `relations`; `semantic.ts` reads relations (forward) and `vectors` (inverse).
+  into `relations` under the identifiers in section 7.1; `semantic.ts` reads relations (forward)
+  and `vectors` (inverse).
 - `spec/lib/model.ts` is replaced by `spec/lib/ir.ts`; the CORE-001 types move to
   `profiles/core001/view.ts`. Recorded debt: `spec/lib/semantic.ts` (deleted in PR 4) and
   `spec/lib/render.ts` (made generic in PR 5) import those types from the profile until they
@@ -606,18 +670,27 @@ the relation inventory, the provenance choice and the PR sequence.
 **Acceptance tests**
 
 1. Golden hash unchanged; `bun run check` green.
-2. The profile declares exactly the seven relations in 7.1, with the stated endpoints,
-   cardinalities and the single inverse.
-3. Unknown key inside `relations` → `core.relation.unknown`; the build fails.
-4. An ordinary field named like a relation (a test-only profile whose kind schema allows extra
+2. The profile declares exactly the seven relations in section 7.1, with the stated endpoints,
+   cardinalities and the single inverse; `dependsOn`, `mentions` and `vectors` are spelled as in
+   contract Appendix A, and `provision.relations.dependsOn` / `mentions` are the keys in the
+   migrated data.
+3. Unknown key inside an entity's `relations` → `core.relation.unknown`; the build fails.
+4. A `RelationDecl` whose `from` names an undeclared kind → `core.profile.unknown-relation`, and
+   the result contains no `core.reference.unresolved`: declaration validation fails before
+   resolution runs.
+5. A `RelationDecl` whose `to` names an undeclared kind → the same code and the same ordering,
+   including when no entity uses the relation.
+6. An ordinary field named like a relation (a test-only profile whose kind schema allows extra
    properties) is preserved in `fields`, creates no relation and raises no reference error.
-5. Unresolvable relation target → `ERR_UNKNOWN_REF` (legacy string retained).
-6. `cardinality: "one"` rejects an array.
-7. `provision.relations.vectors` lists the same case ids, in the same order, as the old
-   `p.cases`; `counts.cases` is 13.
-8. `fragment`/`decision` entities carry a `provenance` binding equal to their three fields;
-   `term`/`provision` carry none.
-9. Duplicate id across kinds → `ERR_DUPLICATE_ID`.
+7. Unresolvable relation target → `ERR_UNKNOWN_REF` (legacy string retained).
+8. `cardinality: "one"` rejects an array.
+9. A missing required relation key (for example a `provision` with no `dependsOn` in
+   `relations`) → `core.schema.entity`, reported before relation resolution.
+10. `provision.relations.vectors` lists the same case ids, in the same order, as the old
+    `p.cases`; `counts.cases` is 13.
+11. `fragment`/`decision` entities carry a `provenance` binding equal to their three fields;
+    `term`/`provision` carry none.
+12. Duplicate id across kinds → `ERR_DUPLICATE_ID`.
 
 **Revert:** move relation values back into fields; restore `model.ts` and the schemas.
 
@@ -717,12 +790,14 @@ Mapping of the required acceptance criteria to concrete tests.
 | 1 | CORE-001 builds through the new architecture | `runBuild({ specDir: "spec", mode: "draft" })` → markdown hash equals golden | 2+ |
 | 2 | A profile defines its own kinds and relations | Assert the five kinds and seven relations in `model.profile` / `model.relations` | 3 |
 | 3 | Core rejects unknown relation keys in `relations` | Inject `relations: {nope: "X"}` → `core.relation.unknown` | 3 |
-| 4 | Ordinary fields are never interpreted as relations | Test-only profile whose kind allows extra properties; `dependsOn` stays in `fields`, `relations` empty | 3 |
+| 4 | Ordinary fields are never interpreted as relations | Test-only profile whose kind allows extra properties; a plain `dependsOn` field on a kind that does not declare that relation stays in `fields`, `relations` empty | 3 |
 | 5 | A second profile uses the core without CORE-001 code | `profiles/example` builds; PR touches no core file | 7 |
 | 6 | Build identity covers inputs and extension identities | Input byte flip, hook edit, template edit change the digest; mtime/path do not | 6 |
 | 7 | Untrusted behaviour is not falsely deterministic | Clock-reading hook: bytes differ, digest equal, no guarantee field | 6 |
 | 8 | Draft/release and blocking remain explicit | Existing release-blocked, `blockedBy: "review"`, `--strict`, exit codes | 1–4 |
 | 9 | MVP behaviour preserved | All 16 assertions unchanged; golden hash; `--check` green | every PR |
+| 10 | Invalid relation declarations are rejected before resolution | `from` or `to` naming an undeclared kind → `core.profile.unknown-relation`, no `core.reference.unresolved` | 3 |
+| 11 | Relation requiredness is enforced | Missing required key in `relations` → `core.schema.entity`, before resolution | 3 |
 
 ---
 
@@ -733,7 +808,7 @@ Mapping of the required acceptance criteria to concrete tests.
 | Migration | Files | Reversible |
 |---|---|---|
 | `sources:` block → manifest `sources[]` | `sources.yml` + schema, 4 copies (spec + 3 fixtures) | yes |
-| Seven relation field occurrences → `relations` | `sources.yml`, `ontology.yml`, `semantics.json`, `conformance/cases.yml`, 4 copies | yes (move back) |
+| Seven relation field occurrences → `relations`, keyed by the profile identifiers in section 7.1 (`dependsOn`, `mentions`, `vectors`, …); source field names survive only as migration metadata | `sources.yml`, `ontology.yml`, `semantics.json`, `conformance/cases.yml`, 4 copies | yes (move back) |
 | Document schema split into document + entity schemas | `spec/schemas/` → `profiles/core001/schemas/` | yes |
 | Reserved names permitted in entity schemas | same | yes |
 | Output paths from the manifest | none (data unchanged) | yes |
@@ -816,6 +891,8 @@ resolved silently.
 | 12 | `LocatorResult` cannot express "absent from document" | Quote resolution stays in the hook; D25 undecided | open (D25) |
 | 13 | contract §7.1 says codes stay verbatim in M1, contract §3.2 names `core.*` codes | Existing strings verbatim, new codes `core.*` | implementation choice |
 | 14 | `requireProvenance` is in `PolicyOverlay` (contract §3.1) and in the profile (D22) | Profile-level flag; overlay unused | open (D22/D30) |
+| 15 | `RelationDecl` has no `required`, but section 7.1 marks seven relations required | Key presence is profile-schema-owned; cardinality and target existence are resolver-owned (section 7.1) | implementation choice |
+| 16 | One code family for relation errors hides two different defects | `core.profile.unknown-relation` (profile) is separate from `core.relation.unknown` (data); the first fails before resolution (section 7.4) | implementation choice |
 
 ---
 
