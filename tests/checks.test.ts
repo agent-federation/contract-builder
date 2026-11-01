@@ -8,6 +8,8 @@ import { check as provision } from "../profiles/core001/checks/provision.js";
 import { check as review } from "../profiles/core001/checks/review.js";
 import { check as source } from "../profiles/core001/checks/source.js";
 import { check as terms } from "../profiles/core001/checks/terms.js";
+import { sectionInSlice } from "../profiles/core001/slice.js";
+import type { Slice } from "../profiles/core001/view.js";
 import {
   context,
   entity,
@@ -193,4 +195,9 @@ test("checks/provision: tolerates missing array fields", async () => {
 
   const findings = await provision(context(modelWith([fragment(), withoutArrays])));
   assert.ok(codes(findings).includes("ERR_UNEXPLAINED_PARAPHRASE"));
+});
+
+test("slice: tolerates missing include and exclude arrays", () => {
+  const slice = { includes: undefined, excludes: undefined } as unknown as Slice;
+  assert.equal(sectionInSlice("SRC#1", slice), false);
 });

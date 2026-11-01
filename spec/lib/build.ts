@@ -64,6 +64,16 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
+  if ((loaded.project.manifest.sources ?? []).length === 0) {
+    diags.error(
+      "ERR_UNKNOWN_REF",
+      "contract-builder.json",
+      "/sources",
+      "Не объявлен источник документа",
+    );
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
   const model = await buildProjectModel(loaded, schemas, diags, options.adapters);
   if (model === null) {
     return result(options, diags, null, outputPath, false, "errors");

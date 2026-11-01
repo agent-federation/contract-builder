@@ -10,8 +10,8 @@ export function sectionInSlice(ref: string, slice: Slice): boolean {
   // A malformed locator is reported separately; do not duplicate it as a slice error.
   if (locator === null) return true;
   const section = locator.section;
-  if (slice.excludes.some((prefix) => segmentMatches(section, prefix))) return false;
-  return slice.includes.some((prefix) => segmentMatches(section, prefix));
+  if (slice.excludes?.some((prefix) => segmentMatches(section, prefix))) return false;
+  return slice.includes?.some((prefix) => segmentMatches(section, prefix)) ?? false;
 }
 
 function segmentMatches(section: string, prefix: string): boolean {

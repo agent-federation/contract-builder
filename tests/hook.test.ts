@@ -5,7 +5,7 @@ import { resolveFindings, type DiagnosticCatalog } from "../spec/lib/hook.js";
 import { ORDER } from "../profiles/core001/validator.js";
 import { entity, modelWith, copyProjectWithProfile } from "./support.js";
 import { runBuild } from "../spec/lib/build.js";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const catalog: DiagnosticCatalog = {
@@ -173,4 +173,30 @@ test("hook: a malformed catalog fails the build", async () => {
 
   assert.equal(result.exitCode, 1);
   assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
+});
+
+test("hook: a project without a source fails early", async () => {
+  const dir = await copyProjectWithProfile("no-source");
+  const manifestPath = path.join(dir, "contract-builder.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
+  delete manifest.sources;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  const result = await runBuild({
+    specDir: dir,
+    mode: "draft",
+    write: false,
+    check: false,
+    strict: false,
+  });
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(
+    result.diagnostics.filter((item) => item.code === "ERR_UNKNOWN_REF").length,
+    1,
+  );
+  assert.equal(
+    result.diagnostics.some((item) => item.code === "ERR_SOURCE_QUOTE_NOT_FOUND"),
+    false,
+  );
 });
