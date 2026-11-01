@@ -359,6 +359,9 @@ function toProvision(entity: Entity): Provision {
     terms: entity.relations.terms ?? [],
     decision_dependencies: entity.relations.dependsOn ?? [],
     decision_mentions: entity.relations.mentions ?? [],
+    explications: fields.explications ?? [],
+    unresolved_conditions: fields.unresolved_conditions ?? [],
+    outside_slice_refs: fields.outside_slice_refs ?? [],
   };
 }
 

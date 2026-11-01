@@ -176,3 +176,21 @@ test("checks/provision: tolerates missing clauses", async () => {
   const findings = await provision(context(modelWith([fragment(), withoutClauses])));
   assert.deepEqual(findings, []);
 });
+
+test("checks/provision: tolerates missing array fields", async () => {
+  const {
+    explications: _explications,
+    unresolved_conditions: _unresolved,
+    outside_slice_refs: _outside,
+    ...fields
+  } = PROVISION_FIELDS;
+  const withoutArrays = entity(
+    "P1",
+    "provision",
+    { ...fields, normalized_statement: "different" },
+    { ...PROVISION_RELATIONS },
+  );
+
+  const findings = await provision(context(modelWith([fragment(), withoutArrays])));
+  assert.ok(codes(findings).includes("ERR_UNEXPLAINED_PARAPHRASE"));
+});

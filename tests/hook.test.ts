@@ -122,3 +122,55 @@ test("hook: an unknown finding code fails the build", async () => {
   assert.equal(result.exitCode, 1);
   assert.ok(result.diagnostics.some((item) => item.code === "core.profile.unknown-code"));
 });
+
+test("hook: a view module without buildView fails the build", async () => {
+  const dir = await copyProjectWithProfile("bad-view");
+  await writeFile(path.join(dir, "profile", "view.ts"), "export const nope = 1;\n", "utf8");
+
+  const result = await runBuild({
+    specDir: dir,
+    mode: "draft",
+    write: false,
+    check: false,
+    strict: false,
+  });
+
+  assert.equal(result.exitCode, 1);
+  assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
+});
+
+test("hook: a validator without validate fails the build", async () => {
+  const dir = await copyProjectWithProfile("bad-validator");
+  await writeFile(path.join(dir, "profile", "validator.ts"), "export const nope = 1;\n", "utf8");
+
+  const result = await runBuild({
+    specDir: dir,
+    mode: "draft",
+    write: false,
+    check: false,
+    strict: false,
+  });
+
+  assert.equal(result.exitCode, 1);
+  assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
+});
+
+test("hook: a malformed catalog fails the build", async () => {
+  const dir = await copyProjectWithProfile("bad-catalog");
+  await writeFile(
+    path.join(dir, "profile", "catalog.json"),
+    '{"codes": "nope"}\n',
+    "utf8",
+  );
+
+  const result = await runBuild({
+    specDir: dir,
+    mode: "draft",
+    write: false,
+    check: false,
+    strict: false,
+  });
+
+  assert.equal(result.exitCode, 1);
+  assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
+});

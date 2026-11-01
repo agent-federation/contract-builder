@@ -84,6 +84,15 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
       return result(options, diags, null, outputPath, false, "errors");
     }
   }
+  if (typeof viewModule.buildView !== "function") {
+    diags.error(
+      "core.profile.invalid",
+      "profile.json",
+      "/view",
+      "Модуль представления профиля не экспортирует buildView",
+    );
+    return result(options, diags, null, outputPath, false, "errors");
+  }
   const view = viewModule.buildView(model);
 
   const validator = await loadProfileModule<ProfileValidator>(
@@ -92,6 +101,15 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     diags,
   );
   if (validator === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+  if (typeof validator.validate !== "function") {
+    diags.error(
+      "core.profile.invalid",
+      "profile.json",
+      "/validator",
+      "Модуль валидатора профиля не экспортирует validate",
+    );
     return result(options, diags, null, outputPath, false, "errors");
   }
 
@@ -281,7 +299,17 @@ async function loadCatalog(
   }
 
   try {
-    return JSON.parse(await readFile(located.abs, "utf8")) as DiagnosticCatalog;
+    const parsed: unknown = JSON.parse(await readFile(located.abs, "utf8"));
+    if (!isCatalog(parsed)) {
+      diags.error(
+        "core.profile.invalid",
+        relative,
+        "",
+        "Каталог профиля должен содержать массив codes с полями code, severity и message",
+      );
+      return null;
+    }
+    return parsed;
   } catch (error) {
     diags.error(
       "core.profile.invalid",
@@ -291,6 +319,24 @@ async function loadCatalog(
     );
     return null;
   }
+}
+
+function isCatalog(value: unknown): value is DiagnosticCatalog {
+  if (typeof value !== "object" || value === null) return false;
+  const codes = (value as { codes?: unknown }).codes;
+  if (!Array.isArray(codes)) return false;
+
+  return codes.every((entry) => {
+    if (typeof entry !== "object" || entry === null) return false;
+    const candidate = entry as Record<string, unknown>;
+    return (
+      typeof candidate.code === "string" &&
+      typeof candidate.message === "string" &&
+      (candidate.severity === "error" ||
+        candidate.severity === "warning" ||
+        candidate.severity === "review")
+    );
+  });
 }
 
 function result(
