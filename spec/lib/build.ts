@@ -400,12 +400,17 @@ async function resolveRenderer(
       diags,
     );
     if (module === null) return null;
-    if (module.renderer === undefined || typeof module.renderer.render !== "function") {
+    if (
+      module.renderer === undefined ||
+      typeof module.renderer.id !== "string" ||
+      module.renderer.id.trim() === "" ||
+      typeof module.renderer.render !== "function"
+    ) {
       diags.error(
         "core.profile.invalid",
         "profile.json",
         "/renderer",
-        "Модуль рендерера не экспортирует renderer с функцией render",
+        "Модуль рендерера должен экспортировать renderer с текстовым id и функцией render",
       );
       return null;
     }

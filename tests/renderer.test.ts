@@ -4,7 +4,15 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { normalizeArtifact, type Renderer } from "../spec/lib/render.js";
-import { copyProjectWithProfile } from "./support.js";
+import { renderer } from "../profiles/core001/renderer.js";
+import {
+  copyProjectWithProfile,
+  entity,
+  fragment,
+  modelWith,
+  PROVISION_FIELDS,
+  PROVISION_RELATIONS,
+} from "./support.js";
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir: dir,
@@ -71,4 +79,31 @@ test("renderer: normalization keeps LF and exactly one trailing newline", () => 
   assert.equal(normalizeArtifact("a\r\nb\r\n"), "a\nb\n");
   assert.equal(normalizeArtifact("a\nb\n\n\n"), "a\nb\n");
   assert.equal(normalizeArtifact("a\nb"), "a\nb\n");
+});
+
+test("renderer: a renderer module without a string id is rejected", async () => {
+  const dir = await copyProjectWithProfile("bad-renderer-id");
+  await writeFile(
+    path.join(dir, "profile", "renderer.ts"),
+    'export const renderer = { render: async () => "x" };\n',
+    "utf8",
+  );
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
+});
+
+test("renderer: tolerates a provision without clauses", async () => {
+  const { precondition: _precondition, exception: _exception, ...fields } = PROVISION_FIELDS;
+  const provision = entity("P1", "provision", fields, { ...PROVISION_RELATIONS });
+
+  const output = await renderer.render(modelWith([fragment(), provision]), {
+    mode: "draft",
+    templates: { entry: "x", files: { x: "ok" } },
+    diagnostics: [],
+  });
+
+  // The renderer shapes content; the core adds the trailing newline.
+  assert.equal(output, "ok");
 });

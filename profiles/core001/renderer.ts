@@ -60,7 +60,7 @@ function toTemplateView(spec: AnalyzedSpec, options: RenderOptions, legacyName: 
   const localDiagnostics = options.diagnostics.map((diagnostic: Diagnostic) => ({
     code: diagnostic.code,
     severity: diagnostic.severity,
-    severityLabel: SEVERITY_LABEL[diagnostic.severity],
+    severityLabel: SEVERITY_LABEL[diagnostic.severity] ?? diagnostic.severity,
     file: diagnostic.file,
     pointer: diagnostic.pointer,
     message: diagnostic.message,
@@ -148,8 +148,8 @@ function provisionView(provision: AnalyzedProvision, options: RenderOptions) {
     reviewedBy: provision.review.reviewed_by,
     terms: provision.resolved_terms.map((term) => ({ id: term.id, name: term.name })),
     precondition:
-      provision.precondition === null ? null : clauseView(provision.precondition, options),
-    exception: provision.exception === null ? null : clauseView(provision.exception, options),
+      provision.precondition == null ? null : clauseView(provision.precondition, options),
+    exception: provision.exception == null ? null : clauseView(provision.exception, options),
     dependencies: provision.resolved_dependencies.map((decision) => decisionView(decision, options)),
     mentions: provision.resolved_mentions.map((decision) => decisionView(decision, options)),
     unresolvedConditions: provision.unresolved_conditions,
@@ -168,7 +168,7 @@ function clauseView(clause: Clause, options: RenderOptions) {
     modalityMarker: clause.modality_marker,
     conditionKind: clause.condition_kind,
     conditionKindLabel:
-      clause.condition_kind === null ? null : label(options, `condition.${clause.condition_kind}`),
+      clause.condition_kind == null ? null : label(options, `condition.${clause.condition_kind}`),
   };
 }
 
