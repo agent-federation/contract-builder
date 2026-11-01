@@ -11,6 +11,7 @@ import { loadSchemas } from "../spec/lib/schema.js";
 import { buildProjectModel } from "../spec/lib/ir.js";
 import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
+import { TEST_RENDERERS } from "./support.js";
 
 /**
  * PR 2 acceptance: manifest, project boundary and declared-input loading.
@@ -35,6 +36,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   write: false,
   check: false,
   strict: false,
+  renderers: TEST_RENDERERS,
   ...overrides,
 });
 

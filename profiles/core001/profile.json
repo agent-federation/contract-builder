@@ -149,6 +149,5 @@
   "dependencies": {},
   "view": "view.ts",
   "validator": "validator.ts",
-  "diagnostics": "catalog.json",
-  "renderer": "renderer.ts"
+  "diagnostics": "catalog.json"
 }

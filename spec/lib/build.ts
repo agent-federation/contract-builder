@@ -33,7 +33,7 @@ export interface BuildOptions {
   diagnostics?: Diagnostics;
   /** Optional adapter registry; defaults to the built-in markdown adapter. */
   adapters?: Record<string, SourceAdapter>;
-  /** Optional renderer registry; the profile renderer is always registered. */
+  /** Renderer registry supplied by the consumer; the core never loads the profile. */
   renderers?: Record<string, Renderer>;
 }
 
@@ -175,12 +175,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const renderer = await resolveRenderer(
-    loaded.project,
-    renderDeclaration.renderer,
-    options.renderers,
-    diags,
-  );
+  const renderer = resolveRenderer(renderDeclaration.renderer, options.renderers, diags);
   if (renderer === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }
@@ -191,14 +186,33 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
 
   let markdown: string;
   try {
-    markdown = normalizeArtifact(
-      await renderer.render(model, {
-        mode: options.mode,
-        templates: renderInputs.templates,
-        ...(renderInputs.labels !== undefined ? { labels: renderInputs.labels } : {}),
-        diagnostics: diags.sorted(),
-      }),
-    );
+    const artifacts = await renderer.render(model, {
+      mode: options.mode,
+      templates: renderInputs.templates,
+      ...(renderInputs.labels !== undefined ? { labels: renderInputs.labels } : {}),
+      diagnostics: diags.sorted(),
+    });
+    if (artifacts.length !== 1) {
+      diags.error(
+        "core.render.invalid",
+        "contract-builder.json",
+        "/render/0",
+        `Рендерер должен вернуть ровно один артефакт в M1, получено ${artifacts.length}`,
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    const artifact = artifacts[0]!;
+    const declared = renderDeclaration.outputs[options.mode] ?? "";
+    if (artifact.path !== declared) {
+      diags.error(
+        "core.render.invalid",
+        "contract-builder.json",
+        "/render/0",
+        `Рендерер вернул путь "${artifact.path}", ожидается "${declared}"`,
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    markdown = new TextDecoder().decode(normalizeArtifact(artifact.bytes));
   } catch (error) {
     diags.error(
       "core.render.failed",
@@ -303,15 +317,10 @@ async function resolveOutputPath(
 
 async function loadProfileModule<T>(
   project: ResolvedProject,
-  key: "view" | "validator" | "renderer",
+  key: "view" | "validator",
   diags: Diagnostics,
 ): Promise<T | null> {
-  const relative =
-    key === "view"
-      ? project.profile.view
-      : key === "validator"
-        ? project.profile.validator
-        : project.profile.renderer;
+  const relative = key === "view" ? project.profile.view : project.profile.validator;
   if (relative === undefined) {
     diags.error("core.profile.invalid", "profile.json", `/${key}`, `Профиль не объявляет ${key}`);
     return null;
@@ -385,12 +394,11 @@ async function loadCatalog(
   }
 }
 
-async function resolveRenderer(
-  project: ResolvedProject,
+function resolveRenderer(
   id: string | undefined,
-  injected: Record<string, Renderer> | undefined,
+  registry: Record<string, Renderer> | undefined,
   diags: Diagnostics,
-): Promise<Renderer | null> {
+): Renderer | null {
   if (id === undefined) {
     diags.error(
       "core.manifest.invalid",
@@ -401,38 +409,7 @@ async function resolveRenderer(
     return null;
   }
 
-  const registry: Record<string, Renderer> = {};
-
-  if (project.profile.renderer !== undefined) {
-    const module = await loadProfileModule<{ renderer?: Renderer }>(
-      project,
-      "renderer",
-      diags,
-    );
-    if (module === null) return null;
-    if (
-      module.renderer === undefined ||
-      typeof module.renderer.id !== "string" ||
-      module.renderer.id.trim() === "" ||
-      typeof module.renderer.render !== "function"
-    ) {
-      diags.error(
-        "core.profile.invalid",
-        "profile.json",
-        "/renderer",
-        "Модуль рендерера должен экспортировать renderer с текстовым id и функцией render",
-      );
-      return null;
-    }
-    registry[module.renderer.id] = module.renderer;
-  }
-
-  // Injected renderers win, so a consumer or test can override the profile renderer.
-  if (injected !== undefined) {
-    Object.assign(registry, injected);
-  }
-
-  const renderer = registry[id];
+  const renderer = registry?.[id];
   if (renderer === undefined) {
     diags.error(
       "core.registry.missing",

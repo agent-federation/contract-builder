@@ -1,5 +1,6 @@
 import path from "node:path";
 import { runBuild, type BuildResult } from "./lib/build.js";
+import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
 import { SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
 import type { BuildMode } from "./lib/render.js";
 
@@ -119,7 +120,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const result = await runBuild(cli);
+  const result = await runBuild({
+    ...cli,
+    renderers: { [core001Renderer.id]: core001Renderer },
+  });
 
   if (cli.json) {
     console.log(

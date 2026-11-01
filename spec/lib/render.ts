@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Diagnostic } from "./diagnostics.js";
@@ -22,22 +23,45 @@ export interface RenderOptions {
   mode: BuildMode;
   templates: TemplateSet;
   labels?: Record<string, string>;
+  /**
+   * Proposed contract extension. The accepted contract lists `mode`, `templates` and
+   * `labels` only, but the rendered artifact embeds the build diagnostics, so the
+   * renderer cannot produce it without them. See the PR for the proposal; this field is
+   * the smallest change that keeps the artifact byte-identical.
+   */
   diagnostics: readonly Diagnostic[];
+}
+
+export interface Artifact {
+  /** Relative to the project's output root. */
+  path: string;
+  bytes: Uint8Array;
+  sha256: string;
 }
 
 export interface Renderer {
   id: string;
   version: string;
-  render(model: ProjectModel, options: RenderOptions): Promise<string>;
+  render(model: ProjectModel, options: RenderOptions): Promise<Artifact[]>;
+}
+
+/** Builds an artifact from rendered text; the core re-normalizes and re-hashes. */
+export function artifactFrom(path: string, text: string): Artifact {
+  const bytes = new TextEncoder().encode(text);
+  return { path, bytes, sha256: sha256(bytes) };
+}
+
+function sha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /**
  * Generic artifact normalization: LF line endings and exactly one trailing newline.
  * Content shaping (blank lines, trailing spaces) belongs to the renderer.
  */
-export function normalizeArtifact(text: string): string {
-  const lf = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  return `${lf.replace(/\n+$/, "")}\n`;
+export function normalizeArtifact(bytes: Uint8Array): Uint8Array {
+  const lf = new TextDecoder().decode(bytes).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return new TextEncoder().encode(`${lf.replace(/\n+$/, "")}\n`);
 }
 
 /**

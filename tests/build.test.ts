@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
+import { TEST_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const specDir = path.join(root, "spec");
@@ -18,6 +19,7 @@ const base = (overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   write: false,
   check: false,
   strict: false,
+  renderers: TEST_RENDERERS,
   ...overrides,
 });
 

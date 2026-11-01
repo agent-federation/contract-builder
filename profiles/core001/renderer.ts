@@ -2,7 +2,7 @@ import path from "node:path";
 import nunjucks from "nunjucks";
 import { SEVERITY_LABEL, type Diagnostic, type Severity } from "../../spec/lib/diagnostics.js";
 import type { ProjectModel } from "../../spec/lib/ir.js";
-import type { RenderOptions, Renderer } from "../../spec/lib/render.js";
+import { artifactFrom, type RenderOptions, type Renderer } from "../../spec/lib/render.js";
 import {
   buildView,
   type AnalyzedProvision,
@@ -36,7 +36,7 @@ const label = (options: RenderOptions, key: string): string => {
 export const renderer: Renderer = {
   id: "core001-markdown",
   version: "0.1.0",
-  async render(model: ProjectModel, options: RenderOptions): Promise<string> {
+  async render(model: ProjectModel, options: RenderOptions) {
     const spec = buildView(model);
     const legacyName = path.basename(model.manifest.sources?.[0]?.path ?? "source");
 
@@ -56,7 +56,9 @@ export const renderer: Renderer = {
     });
 
     const view = toTemplateView(spec, options, legacyName);
-    return finalize(env.render(options.templates.entry, view));
+    const text = finalize(env.render(options.templates.entry, view));
+    const output = model.manifest.render[0]?.outputs[options.mode] ?? "";
+    return [artifactFrom(output, text)];
   },
 };
 

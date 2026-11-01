@@ -1,8 +1,10 @@
-import { cp, mkdtemp, readdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildView } from "../profiles/core001/view.js";
+import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
+import type { Renderer } from "../spec/lib/render.js";
 import type { CheckContext } from "../profiles/core001/context.js";
 import type { Entity, ProjectModel } from "../spec/lib/ir.js";
 
@@ -146,8 +148,6 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
     recursive: true,
   });
   await cp(profileDir, path.join(dir, "profile"), { recursive: true });
-  // The profile renderer imports `nunjucks`; resolve it from the repository.
-  await symlink(path.join(root, "node_modules"), path.join(dir, "node_modules"), "junction");
 
   for (const file of await walkTs(path.join(dir, "profile"))) {
     const text = await readFile(file, "utf8");
@@ -165,3 +165,8 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   return dir;
 }
+
+/** Consumer-supplied renderer registry, as the CLI wires it. */
+export const TEST_RENDERERS: Record<string, Renderer> = {
+  [core001Renderer.id]: core001Renderer,
+};

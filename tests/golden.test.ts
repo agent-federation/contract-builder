@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { Diagnostics, type Diagnostic } from "../spec/lib/diagnostics.js";
+import { TEST_RENDERERS } from "./support.js";
 
 /**
  * Golden baseline for the CORE-001 draft build.
@@ -65,6 +66,7 @@ async function draftBuild(
     check: false,
     strict: false,
     diagnostics,
+    renderers: TEST_RENDERERS,
     ...overrides,
   });
   return { result, diagnostics };
