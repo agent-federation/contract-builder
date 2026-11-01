@@ -7,7 +7,8 @@ export const check: Check = (ctx: CheckContext) => {
   for (const [index, provision] of ctx.view.provisions.entries()) {
     const pointer = `/provisions/${index}`;
 
-    if (provision.normalization_status !== "verbatim" && provision.review.status !== "confirmed") {
+    const provisionReview = provision.review;
+    if (provision.normalization_status !== "verbatim" && provisionReview?.status !== "confirmed") {
       findings.push({
         code: "REVIEW_NORMALIZATION_PENDING",
         entityId: provision.id,
@@ -18,7 +19,7 @@ export const check: Check = (ctx: CheckContext) => {
 
     if (
       provision.classification_basis.kind === "editorial_inference" &&
-      provision.review.status !== "confirmed"
+      provisionReview?.status !== "confirmed"
     ) {
       findings.push({
         code: "REVIEW_EFFECT_CLASSIFICATION",
@@ -28,7 +29,10 @@ export const check: Check = (ctx: CheckContext) => {
       });
     }
 
-    if (provision.review.status === "confirmed" && provision.review.reviewed_by === null) {
+    if (
+      provisionReview?.status === "confirmed" &&
+      (provisionReview.reviewed_by === null || provisionReview.reviewed_by === undefined)
+    ) {
       findings.push({
         code: "WARN_REVIEW_WITHOUT_REVIEWER",
         variant: "provision",
@@ -40,7 +44,11 @@ export const check: Check = (ctx: CheckContext) => {
   }
 
   for (const [index, testCase] of ctx.view.cases.entries()) {
-    if (testCase.review.status === "confirmed" && testCase.review.reviewed_by === null) {
+    const caseReview = testCase.review;
+    if (
+      caseReview?.status === "confirmed" &&
+      (caseReview.reviewed_by === null || caseReview.reviewed_by === undefined)
+    ) {
       findings.push({
         code: "WARN_REVIEW_WITHOUT_REVIEWER",
         variant: "case",

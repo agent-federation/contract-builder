@@ -54,7 +54,7 @@ export const check: Check = (ctx: CheckContext) => {
       }
     }
 
-    if (testCase.source_determination === "inferred" && testCase.review.status !== "confirmed") {
+    if (testCase.source_determination === "inferred" && testCase.review?.status !== "confirmed") {
       findings.push({
         code: "REVIEW_CASE_INTERPRETATION",
         entityId: testCase.id,

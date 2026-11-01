@@ -267,7 +267,7 @@ export function buildView(model: ProjectModel): AnalyzedSpec {
       normalizeText(provision.normalized_statement) === normalizeText(provision.source_quote);
     const normalizationStatus: NormalizationStatus = verbatim
       ? "verbatim"
-      : provision.review.status === "confirmed"
+      : provision.review?.status === "confirmed"
         ? "paraphrase_reviewed"
         : "paraphrase_pending";
     const resolvedDependencies = resolveDecisions(entity.relations.dependsOn, decisionById);
@@ -319,7 +319,7 @@ export function buildView(model: ProjectModel): AnalyzedSpec {
       provisions: provisions.length,
       binding: provisions.filter((provision) => provision.binding).length,
       cases: cases.length,
-      reviewed: provisions.filter((provision) => provision.review.status === "confirmed").length,
+      reviewed: provisions.filter((provision) => provision.review?.status === "confirmed").length,
       openDecisions: decisions.filter((decision) => decision.status === "open").length,
     },
   };

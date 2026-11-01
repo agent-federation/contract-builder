@@ -147,3 +147,32 @@ test("checks/dependencies: reports an open normative dependency and a mention", 
     "WARN_OUTSIDE_SLICE_REF",
   ]);
 });
+
+test("checks/review: tolerates a provision without review", async () => {
+  const { review: _review, ...fields } = PROVISION_FIELDS;
+  const withoutReview = entity(
+    "P1",
+    "provision",
+    { ...fields, normalized_statement: "different" },
+    { ...PROVISION_RELATIONS },
+  );
+
+  const findings = await review(context(modelWith([fragment(), withoutReview])));
+  assert.deepEqual(codes(findings), ["REVIEW_NORMALIZATION_PENDING"]);
+});
+
+test("checks/provision: tolerates a missing modality_marker", async () => {
+  const { modality_marker: _marker, ...fields } = PROVISION_FIELDS;
+  const withoutMarker = entity("P1", "provision", fields, { ...PROVISION_RELATIONS });
+
+  const findings = await provision(context(modelWith([fragment(), withoutMarker])));
+  assert.ok(codes(findings).includes("ERR_MODALITY_MARKER"));
+});
+
+test("checks/provision: tolerates missing clauses", async () => {
+  const { precondition: _precondition, exception: _exception, ...fields } = PROVISION_FIELDS;
+  const withoutClauses = entity("P1", "provision", fields, { ...PROVISION_RELATIONS });
+
+  const findings = await provision(context(modelWith([fragment(), withoutClauses])));
+  assert.deepEqual(findings, []);
+});

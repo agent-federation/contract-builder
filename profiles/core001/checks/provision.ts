@@ -166,7 +166,7 @@ function markerFindings(
 ): ValidatorFinding[] {
   if (provision.source_modality === "DECLARATIVE") return [];
 
-  if (provision.modality_marker === null || provision.modality_marker.trim() === "") {
+  if (!provision.modality_marker || provision.modality_marker.trim() === "") {
     return [
       {
         code: "ERR_MODALITY_MARKER",
@@ -200,7 +200,7 @@ function clauseFindings(
   pointer: string,
   field: "precondition" | "exception",
 ): ValidatorFinding[] {
-  if (clause === null) return [];
+  if (!clause) return [];
 
   const findings: ValidatorFinding[] = [];
   if (!sourceFlat.includes(collapse(clause.quote))) {
@@ -213,7 +213,7 @@ function clauseFindings(
   }
 
   if (clause.source_modality !== "DECLARATIVE") {
-    if (clause.modality_marker === null || clause.modality_marker.trim() === "") {
+    if (!clause.modality_marker || clause.modality_marker.trim() === "") {
       findings.push({
         code: "ERR_MODALITY_MARKER",
         variant: "clause-empty",
