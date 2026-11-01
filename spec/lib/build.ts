@@ -13,6 +13,8 @@ export interface BuildOptions {
   write: boolean;
   check: boolean;
   strict: boolean;
+  /** Optional collector injection for tests; defaults to a fresh instance. */
+  diagnostics?: Diagnostics;
 }
 
 export interface BuildResult {
@@ -27,7 +29,7 @@ export interface BuildResult {
 
 export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   const specDir = path.resolve(options.specDir);
-  const diags = new Diagnostics();
+  const diags = options.diagnostics ?? new Diagnostics();
   const outputPath = path.join(
     specDir,
     "output",

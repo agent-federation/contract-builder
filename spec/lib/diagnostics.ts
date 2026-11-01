@@ -68,6 +68,14 @@ export class Diagnostics {
     });
   }
 
+  /**
+   * Diagnostics in the order the checks emitted them, before the rendering sort.
+   * Returns copies, so a caller cannot reorder or mutate the collector's state.
+   */
+  emissionOrder(): Diagnostic[] {
+    return this.items.map((item) => ({ ...item }));
+  }
+
   /** Stable, human-readable report. No timings, no paths outside the spec. */
   report(): string {
     const lines: string[] = [];
