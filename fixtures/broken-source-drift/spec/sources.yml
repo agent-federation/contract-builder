@@ -1,6 +1,6 @@
 sources:
   - id: SRC-CORE001
-    path: ../legacy.md
+    path: ../../../CORE-001.legacy.md
     document: UIA-CORE-001
     revision: "0.3.3"
 
@@ -28,7 +28,7 @@ fragments:
   - id: FRAG-10-P-NOT-INTERCHANGEABLE
     source: SRC-CORE001
     source_ref: "SRC-CORE001#10"
-    quote: "Эти временные метки не являются взаимозаменяемыми."
+    quote: "Эти временные метки не являются эквивалентными."
 
   - id: FRAG-10.1-P2-TRUST-CONDITION
     source: SRC-CORE001
