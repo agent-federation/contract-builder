@@ -9,7 +9,7 @@ export const check: Check = (ctx: CheckContext) => {
   const termNames = new Set(ctx.view.terms.map((term) => term.name));
 
   for (const [index, provision] of ctx.view.provisions.entries()) {
-    const matches = provision.source_quote.match(LATIN_TOKEN) ?? [];
+    const matches = provision.source_quote?.match(LATIN_TOKEN) ?? [];
     const unknown = [...new Set(matches)].filter(
       (token) => !IGNORED_TOKENS.has(token) && !termNames.has(token),
     );

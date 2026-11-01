@@ -18,7 +18,7 @@ export const check: Check = (ctx: CheckContext) => {
     }
 
     if (
-      provision.classification_basis.kind === "editorial_inference" &&
+      provision.classification_basis?.kind === "editorial_inference" &&
       provisionReview?.status !== "confirmed"
     ) {
       findings.push({

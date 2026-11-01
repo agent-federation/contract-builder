@@ -5,11 +5,12 @@ import type { Slice } from "./view.js";
  * Slice containment needs the locator's section, not quote verification. Verification goes
  * through the source adapter; this stays a profile-side check.
  */
-export function sectionInSlice(ref: string, slice: Slice): boolean {
+export function sectionInSlice(ref: string, slice: Slice | undefined | null): boolean {
   const locator = parseLocator(ref);
   // A malformed locator is reported separately; do not duplicate it as a slice error.
   if (locator === null) return true;
   const section = locator.section;
+  if (!slice) return false;
   if (slice.excludes?.some((prefix) => segmentMatches(section, prefix))) return false;
   return slice.includes?.some((prefix) => segmentMatches(section, prefix)) ?? false;
 }

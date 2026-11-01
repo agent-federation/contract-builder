@@ -200,3 +200,20 @@ test("hook: a project without a source fails early", async () => {
     false,
   );
 });
+
+test("hook: interpolation resolves dotted paths", () => {
+  const diagnostics = new Diagnostics();
+  const model = modelWith([]);
+  const dotted: DiagnosticCatalog = {
+    codes: [{ code: "D", severity: "error", message: "v={{a.b}}" }],
+  };
+
+  resolveFindings(
+    [{ code: "D", location: { file: "f", pointer: "" }, data: { a: { b: 5 } } }],
+    model,
+    dotted,
+    diagnostics,
+  );
+
+  assert.equal(diagnostics.sorted()[0]?.message, "v=5");
+});

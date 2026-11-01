@@ -112,7 +112,11 @@ function findEntry(
 function interpolate(template: string, scope: Record<string, unknown>): string | null {
   let missing = false;
   const message = template.replace(/\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g, (_match, key: string) => {
-    const value = scope[key];
+    const value = key
+      .split(".")
+      .reduce<unknown>((current, part) => (typeof current === "object" && current !== null
+        ? (current as Record<string, unknown>)[part]
+        : undefined), scope);
     if (value === undefined || value === null) {
       missing = true;
       return "";

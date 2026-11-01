@@ -9,6 +9,7 @@ import { check as review } from "../profiles/core001/checks/review.js";
 import { check as source } from "../profiles/core001/checks/source.js";
 import { check as terms } from "../profiles/core001/checks/terms.js";
 import { sectionInSlice } from "../profiles/core001/slice.js";
+import { collapse, normalizeText } from "../profiles/core001/text.js";
 import type { Slice } from "../profiles/core001/view.js";
 import {
   context,
@@ -200,4 +201,27 @@ test("checks/provision: tolerates missing array fields", async () => {
 test("slice: tolerates missing include and exclude arrays", () => {
   const slice = { includes: undefined, excludes: undefined } as unknown as Slice;
   assert.equal(sectionInSlice("SRC#1", slice), false);
+});
+
+test("text: helpers tolerate missing values", () => {
+  assert.equal(collapse(undefined), "");
+  assert.equal(normalizeText(undefined), "");
+});
+
+test("slice: tolerates an undefined slice", () => {
+  assert.equal(sectionInSlice("SRC#1", undefined), false);
+});
+
+test("checks: tolerate missing optional fields", async () => {
+  const without = entity(
+    "P1",
+    "provision",
+    { ...PROVISION_FIELDS, source_quote: undefined, classification_basis: undefined },
+    { ...PROVISION_RELATIONS },
+  );
+  const model = modelWith([fragment(), without]);
+
+  assert.ok(Array.isArray(await terms(context(model))));
+  assert.ok(Array.isArray(await provision(context(model))));
+  assert.ok(Array.isArray(await review(context(model))));
 });

@@ -98,7 +98,10 @@ export const check: Check = (ctx: CheckContext) => {
       });
     }
 
-    if (!claimFlat.includes(collapse(provision.classification_basis.quote))) {
+    if (
+      provision.classification_basis &&
+      !claimFlat.includes(collapse(provision.classification_basis.quote))
+    ) {
       findings.push({
         code: "ERR_CLASSIFICATION_BASIS",
         entityId: provision.id,
