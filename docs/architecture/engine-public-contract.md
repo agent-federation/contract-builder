@@ -182,6 +182,8 @@ Everything else is policy, and policy has two forms.
 no boolean algebra, no user-defined functions.
 
 ```ts
+type FieldSelector = string;
+
 type FieldRef = { entity: EntityRole; field: FieldSelector };
 // FieldSelector grammar: "name" | "name.sub" | "name[].sub" (one array level, no expressions)
 
@@ -216,7 +218,7 @@ interface ProfileValidator {
 
 interface ValidationContext {
   projectId: string;
-  profile: ResolvedProfile;
+  profile: Profile;
   documents: Readonly<Record<string, unknown>>;
 }
 ```
@@ -276,8 +278,8 @@ The validation boundary is: manifest schema → input schemas → core invariant
 
 ```ts
 interface ProjectModel {
-  manifest: ResolvedManifest;
-  profile: ResolvedProfile;
+  manifest: Manifest;
+  profile: Profile;
   sources: SourceDocument[];
   entities: Entity[];
   documents: Readonly<Record<string, unknown>>;  // non-entity input blocks, opaque
@@ -320,7 +322,8 @@ interface ReviewState {
 ```
 
 `ResolvedManifest` and `ResolvedProfile` are the loader's resolved forms (absolute paths,
-loaded profile module); they are internal and may change without notice.
+loaded profile module). They stay internal; the public model exposes the declared `Manifest`
+and `Profile`, so internal loader changes cannot break profile hooks.
 
 **Extension boundary.** A profile adds entity types and fields by declaring them in its
 schemas; the core exposes them as `Entity.fields` and never interprets them. A profile cannot
@@ -652,7 +655,13 @@ export function validateProject(
 
 export function buildProject(
   project: LoadedProject,
-  options: { mode: BuildMode; renderer?: Renderer; write?: boolean; signal?: AbortSignal },
+  options: {
+    mode: BuildMode;
+    renderer?: Renderer;
+    write?: boolean;
+    fs?: FileSystem;                   // defaults to the fs used by loadProject
+    signal?: AbortSignal;
+  },
 ): Promise<BuildResult>;
 
 export function renderModel(
@@ -724,10 +733,14 @@ interface Renderer {
 
 interface RenderOptions {
   mode: BuildMode;
-  template?: string;                   // "profile:" prefix resolves in the profile
+  template?: { path: string; text: string };  // engine-resolved and loaded
   labels?: Record<string, string>;
 }
 ```
+
+Renderers perform no I/O: the engine resolves `profile:` paths, loads template and labels, and
+passes their content. This keeps the `FileSystem` abstraction intact and makes rendering a
+pure function of the model and the supplied content.
 
 Provenance verification belongs to the adapter because locator grammar is format-specific
 (`#10.2`, `#/paths/~1orders/get`). The core only knows that a quote must resolve to
