@@ -13,6 +13,7 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import type { SourceAdapter, SourceDocument } from "../source.js";
 
 export type BlockLocator =
@@ -133,6 +134,11 @@ const decoder = new TextDecoder();
 export const markdownAdapter: SourceAdapter = {
   id: "markdown",
   version: "0.1.0",
+  closure: {
+    root: fileURLToPath(new URL(".", import.meta.url)),
+    files: ["markdown.ts"],
+    dependencies: {},
+  },
   async load(path, descriptor): Promise<SourceDocument> {
     const bytes = new Uint8Array(await readFile(path));
     return {

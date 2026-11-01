@@ -134,6 +134,7 @@ async function main(): Promise<void> {
           blockedBy: result.blockedBy,
           written: result.written,
           output: path.relative(cli.specDir, result.outputPath),
+          identity: result.identity,
           diagnostics: result.diagnostics,
         },
         null,
