@@ -141,10 +141,14 @@
     "checks/dependencies.ts",
     "context.ts",
     "slice.ts",
-    "text.ts"
+    "text.ts",
+    "renderer.ts",
+    "labels.ru.json",
+    "templates/core001.md.j2"
   ],
   "dependencies": {},
   "view": "view.ts",
   "validator": "validator.ts",
-  "diagnostics": "catalog.json"
+  "diagnostics": "catalog.json",
+  "renderer": "renderer.ts"
 }

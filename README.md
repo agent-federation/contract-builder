@@ -11,7 +11,7 @@
 ```bash
 bun install
 bun run build          # draft → spec/output/CORE-001.draft.md
-bun test               # 63 теста
+bun test               # 82 теста
 bun run check          # артефакт соответствует модели?
 bun run build:release  # release (сейчас намеренно заблокирован)
 ```
@@ -47,7 +47,7 @@ spec/
     relations.ts                объявления и разрешение связей
     provenance.ts               прямые привязки происхождения
     hook.ts                     контракт хука и разрешение находок
-    render.ts                   Nunjucks + нормализация байтов
+    render.ts                   граница рендерера и нормализация артефакта
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
     guards.ts                   общие проверки типов
     source.ts                   SourceDocument и SourceAdapter
@@ -57,7 +57,6 @@ spec/
   semantics.json                нормативные положения
   decisions.yml                 открытые и решённые вопросы
   conformance/cases.yml         декларативные векторы
-  templates/core001.md.j2       шаблон
   output/CORE-001.draft.md      сгенерированный артефакт
 profiles/core001/
   profile.json                  виды, связи, происхождение, привязки документов
@@ -65,6 +64,9 @@ profiles/core001/
   validator.ts                  агрегатор проверок профиля
   checks/*.ts                   проверки CORE-001 по семействам
   catalog.json                  коды, важность и сообщения диагностик
+  renderer.ts                   рендерер CORE-001 (Markdown)
+  labels.ru.json                метки представления
+  templates/core001.md.j2       шаблон
   schemas/*.schema.json         схемы документов и схемы видов сущностей
 tests/build.test.ts
 tests/manifest.test.ts          манифест и границы проекта
@@ -72,6 +74,7 @@ tests/ir.test.ts                IR, связи и происхождение
 tests/checks.test.ts            проверки профиля по модулям
 tests/hook.test.ts              каталог, находки и порядок модулей
 tests/genericity.test.ts        защита ядра от лексики CORE-001
+tests/renderer.test.ts          выбор рендерера и нормализация
 tests/golden.test.ts            эталонная сборка CORE-001
 fixtures/
   broken-modality/              violated выведен из permission

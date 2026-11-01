@@ -13,7 +13,12 @@ import {
   type ValidatorContext,
 } from "./hook.js";
 import { messageOf } from "./guards.js";
-import { renderMarkdown, type BuildMode } from "./render.js";
+import {
+  loadRenderInputs,
+  normalizeArtifact,
+  type BuildMode,
+  type Renderer,
+} from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import type { SourceAdapter } from "./source.js";
 import { pathToFileURL } from "node:url";
@@ -28,6 +33,8 @@ export interface BuildOptions {
   diagnostics?: Diagnostics;
   /** Optional adapter registry; defaults to the built-in markdown adapter. */
   adapters?: Record<string, SourceAdapter>;
+  /** Optional renderer registry; the profile renderer is always registered. */
+  renderers?: Record<string, Renderer>;
 }
 
 export interface BuildResult {
@@ -152,13 +159,55 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const spec = view as Parameters<typeof renderMarkdown>[0];
+  const renderDeclaration = loaded.project.manifest.render[0];
+  if (renderDeclaration === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      "/render",
+      "Манифест не объявляет ни одного render",
+    );
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const renderInputs = await loadRenderInputs(loaded.project, renderDeclaration, diags);
+  if (renderInputs === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const renderer = await resolveRenderer(
+    loaded.project,
+    renderDeclaration.renderer,
+    options.renderers,
+    diags,
+  );
+  if (renderer === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
 
   if (diags.errors > 0) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const markdown = renderMarkdown(spec, options.mode, diags.sorted(), legacyName);
+  let markdown: string;
+  try {
+    markdown = normalizeArtifact(
+      await renderer.render(model, {
+        mode: options.mode,
+        templates: renderInputs.templates,
+        ...(renderInputs.labels !== undefined ? { labels: renderInputs.labels } : {}),
+        diagnostics: diags.sorted(),
+      }),
+    );
+  } catch (error) {
+    diags.error(
+      "core.render.failed",
+      "contract-builder.json",
+      "/render/0",
+      `Рендерер завершился с ошибкой: ${messageOf(error)}`,
+    );
+    return result(options, diags, null, outputPath, false, "errors");
+  }
 
   const blocking = diags.sorted().filter((d) => {
     if (d.severity === "error" || d.severity === "review") return true;
@@ -254,10 +303,15 @@ async function resolveOutputPath(
 
 async function loadProfileModule<T>(
   project: ResolvedProject,
-  key: "view" | "validator",
+  key: "view" | "validator" | "renderer",
   diags: Diagnostics,
 ): Promise<T | null> {
-  const relative = key === "view" ? project.profile.view : project.profile.validator;
+  const relative =
+    key === "view"
+      ? project.profile.view
+      : key === "validator"
+        ? project.profile.validator
+        : project.profile.renderer;
   if (relative === undefined) {
     diags.error("core.profile.invalid", "profile.json", `/${key}`, `Профиль не объявляет ${key}`);
     return null;
@@ -329,6 +383,57 @@ async function loadCatalog(
     );
     return null;
   }
+}
+
+async function resolveRenderer(
+  project: ResolvedProject,
+  id: string | undefined,
+  injected: Record<string, Renderer> | undefined,
+  diags: Diagnostics,
+): Promise<Renderer | null> {
+  const registry: Record<string, Renderer> = { ...(injected ?? {}) };
+
+  if (project.profile.renderer !== undefined) {
+    const module = await loadProfileModule<{ renderer?: Renderer }>(
+      project,
+      "renderer",
+      diags,
+    );
+    if (module === null) return null;
+    if (module.renderer === undefined || typeof module.renderer.render !== "function") {
+      diags.error(
+        "core.profile.invalid",
+        "profile.json",
+        "/renderer",
+        "Модуль рендерера не экспортирует renderer с функцией render",
+      );
+      return null;
+    }
+    registry[module.renderer.id] = module.renderer;
+  }
+
+  if (id === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      "/render/0/renderer",
+      "render.renderer обязателен",
+    );
+    return null;
+  }
+
+  const renderer = registry[id];
+  if (renderer === undefined) {
+    diags.error(
+      "core.registry.missing",
+      "contract-builder.json",
+      "/render/0/renderer",
+      `Рендерер "${id}" не зарегистрирован`,
+    );
+    return null;
+  }
+
+  return renderer;
 }
 
 function isCatalog(value: unknown): value is DiagnosticCatalog {

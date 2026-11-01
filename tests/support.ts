@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -146,6 +146,8 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
     recursive: true,
   });
   await cp(profileDir, path.join(dir, "profile"), { recursive: true });
+  // The profile renderer imports `nunjucks`; resolve it from the repository.
+  await symlink(path.join(root, "node_modules"), path.join(dir, "node_modules"), "dir");
 
   for (const file of await walkTs(path.join(dir, "profile"))) {
     const text = await readFile(file, "utf8");

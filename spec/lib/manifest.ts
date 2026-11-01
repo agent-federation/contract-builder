@@ -79,6 +79,7 @@ export interface Profile {
   provenance?: ProvenanceMapping[];
   view?: string;
   validator?: string;
+  renderer?: string;
   diagnostics?: string;
   files?: string[];
   dependencies?: Record<string, string>;
@@ -556,6 +557,14 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     validator = value.validator;
   }
 
+  let renderer: string | undefined;
+  if (value.renderer !== undefined) {
+    if (!isNonEmptyString(value.renderer)) {
+      return fail("/renderer", "renderer должен быть непустой строкой");
+    }
+    renderer = value.renderer;
+  }
+
   let diagnostics: string | undefined;
   if (value.diagnostics !== undefined) {
     if (!isNonEmptyString(value.diagnostics)) {
@@ -599,6 +608,7 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     ...(provenance !== undefined ? { provenance } : {}),
     ...(view !== undefined ? { view } : {}),
     ...(validator !== undefined ? { validator } : {}),
+    ...(renderer !== undefined ? { renderer } : {}),
     ...(diagnostics !== undefined ? { diagnostics } : {}),
     ...(files !== undefined ? { files } : {}),
     ...(dependencies !== undefined ? { dependencies } : {}),
