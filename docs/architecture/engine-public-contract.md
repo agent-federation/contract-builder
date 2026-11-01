@@ -1,7 +1,7 @@
 # Contract Builder Engine — Public Contract
 
 **Status:** proposed for maintainer review
-**Document version:** 0.3
+**Document version:** 0.4
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
 **Implementation status:** not started
@@ -180,7 +180,6 @@ interface RelationDecl {
   name: string;                              // relation type, e.g. "dependsOn"
   from: string;                              // entity kind
   to: string;                                // entity kind or "*"
-  field?: FieldSelector;                     // field on `from` holding target id(s)
   cardinality?: "one" | "many";
   inverse?: string;                          // optional inverse relation to populate
 }
@@ -201,10 +200,16 @@ interface ReviewPolicy {
 The profile carries **no project content**. Two projects can share one profile.
 
 **Unknown kinds and relations are not guessed.** An input that declares a kind missing from
-`entityKinds`, a `RelationDecl` with an unknown `from`/`to`, or an entity carrying a relation
-key that no declaration defines, is reported with a catalog code
+`entityKinds`, a `RelationDecl` with an unknown `from`/`to`, or a key inside the reserved
+`relations` object that no declaration defines, is reported with a catalog code
 (`core.profile.unknown-kind`, `core.profile.unknown-relation`, `core.relation.unknown`). The
 profile's catalog decides the disposition; the core never silently accepts or interprets it.
+
+Relation values live in a dedicated `relations` object on the entity, never among ordinary
+fields (option A in the audit). Inferring intent from an ordinary field name would require
+guessing; dropping the check (option B) would lose `core.relation.unknown` entirely. The
+namespace costs a one-time data migration in M1 and keeps both guarantees: ordinary fields are
+never interpreted as relations, and a typo inside `relations` fails loudly.
 
 ### 3.3 Validation policy: closed primitives plus a profile hook
 
@@ -470,23 +475,26 @@ is resolved; a relation may target an entity from another input.
 4. **Identity and fields.** The kind's `identity` selector (default `id`) must yield a
    non-empty string. Missing or empty is `core.identity.missing`; a duplicate across the whole
    project is `core.identity.duplicate`. The validated object becomes `Entity.fields` minus the
-   reserved names; **fields named by relation or provenance mappings are retained** — the
-   mappings are projections, not moves.
+   reserved names (`id`, `kind`, `type`, `provenance`, `relations`, `review`); **fields named
+   by provenance mappings are retained** — mappings are projections, not moves. Ordinary fields
+   are never inspected for relation intent.
 5. **Index (pass 1).** After all inputs are processed, every entity is indexed by id and kind.
    This is the point after which any reference can be resolved.
-6. **Relations (pass 2).** For every `RelationDecl` with a `field`, the field value (a string
-   or an array of strings) is resolved against `to` (`"*"` means any kind). A missing target is
-   `core.reference.unresolved`; `cardinality: "one"` rejects arrays. Resolved ids populate
-   `Entity.relations[name]`; the inverse relation, if declared, is populated on the target.
-   Fields not named by a `RelationDecl` stay typed fields.
+6. **Relations (pass 2).** Every entity may carry the reserved `relations` object, whose keys
+   are relation names declared by a `RelationDecl` with `from` equal to the entity kind. Each
+   value (a string or an array of strings) is resolved against `to` (`"*"` means any kind). A
+   missing target is `core.reference.unresolved`; `cardinality: "one"` rejects arrays. Resolved
+   ids populate `Entity.relations[name]`; the inverse relation, if declared, is populated on the
+   target.
 7. **Provenance.** For every `ProvenanceMapping` of the kind, the three selectors are read
    verbatim into `ProvenanceBinding`; the source fields stay in `Entity.fields`. Missing or
    empty is `core.provenance.incomplete`. The `ref` is passed unchanged to the source adapter's
    `verifyQuote`, which returns `found`, `outside`, `unsupported` or `unknown-locator`; the core
    maps these to `core.provenance.outside`, `core.provenance.unsupported` and
    `core.provenance.locator` (`unsupported` is an error when the profile requires provenance).
-8. **Unknown relations.** An entity object carrying a relation key that no `RelationDecl`
-   defines is `core.relation.unknown`; it is never interpreted or dropped silently.
+8. **Unknown relations.** A key inside `relations` that no `RelationDecl` defines is
+   `core.relation.unknown`; it is never interpreted or dropped silently. Ordinary fields are
+   exempt by construction, because relations cannot live there.
 
 Generic vs profile:
 
@@ -494,7 +502,7 @@ Generic vs profile:
 |---|---|---|
 | Pointer extraction | executes pointers, validates shapes | which pointers, which kinds |
 | Identity | uniqueness, indexing | identity field per kind |
-| References | resolution, inverse population, integrity | relation names, endpoints, fields |
+| References | resolution, inverse population, integrity | relation names, endpoints, cardinality |
 | Provenance | binding shape, adapter call, diagnostics | field mapping, required flag |
 | Field semantics | none | schemas, vocabularies, rules |
 
@@ -552,7 +560,7 @@ entityKinds: {
 },
 relations: [
   { name: "requirement", from: "example", to: "requirement",
-    field: "requirement", cardinality: "one", inverse: "examples" },
+    cardinality: "one", inverse: "examples" },
 ],
 provenance: [
   { kind: "requirement", source: "source", ref: "source_ref", quote: "quote" },
@@ -581,9 +589,10 @@ requirements:
 
 examples:
   - id: CASE-API-REQ-014-1
-    requirement: API-REQ-014
     given: { method: POST, path: /v1/orders, key: "k-1" }
     expect: { orders_created: 1 }
+    relations:
+      requirement: API-REQ-014
 ```
 
 Transformation to the IR (mapped fields stay in `fields`; `provenance` is a projection):
@@ -612,8 +621,8 @@ Validation trace:
 1. `requirement` and `example` are declared kinds — otherwise `core.profile.unknown-kind`.
 2. Identities are present and unique — otherwise `core.identity.missing` /
    `core.identity.duplicate`.
-3. `example.requirement` resolves to an entity — otherwise `core.reference.unresolved`; the
-   inverse `examples` is populated on the requirement.
+3. `example.relations.requirement` resolves to an entity — otherwise `core.reference.unresolved`;
+   the inverse `examples` is populated on the requirement.
 4. The OpenAPI adapter locates the quote at `#/paths/~1orders/post` — otherwise
    `core.provenance.outside` or `core.provenance.locator`.
 5. `level=MUST` allows `effect=binding` — otherwise `http-api.consistency.level`.
@@ -777,11 +786,14 @@ interface BuildResult {
   artifacts: Artifact[];
   identity: {
     projectId: string;
-    inputDigest: string;               // sha256 over the declared inputs
     engineVersion: string;
     manifestVersion: string;
-    profile: { id: string; version: string };
-    renderer: { id: string; version: string };
+    inputDigest: string;               // authoritative: inputs + all extension identities/closures
+    extensions: Array<{                // complete set used; no hashes duplicated
+      kind: "profile" | "adapter" | "renderer";
+      id: string;
+      version: string;
+    }>;
   };
 }
 
@@ -820,6 +832,11 @@ extension violates its deterministic contract, byte-identical output is not guar
 
 Excluded from `inputDigest`: clock, locale, environment variables, absolute paths, file
 mtimes, user identity, network state.
+
+`inputDigest` is the authoritative build identity. `identity.extensions` lists every profile,
+adapter and renderer used, so a consumer can inspect what produced the artifact without the
+closure hashes being duplicated; the singular `renderer` field of earlier drafts is removed
+because a build may use several.
 
 ### 8.2 Controls
 
@@ -1085,6 +1102,8 @@ In scope:
 6. Add one synthetic minimal profile in tests with different kinds and vocabulary (e.g.
    `requirement` and `example`, not renamed CORE-001 kinds) to prove separation; it is not a
    second real profile.
+7. Move CORE-001 relation values into the reserved `relations` object (relation namespace,
+   §5.2); ordinary fields and generated artifacts are unchanged.
 
 Out of scope for M1: package split, public API, new diagnostic codes, multi-source, review
 dimensions, OpenAPI adapter, CLI changes.
@@ -1161,7 +1180,7 @@ without the decision.
 | D3 | Manifest contents | A (§1.2) | identity, versions, inputs, sources, outputs | implicit discovery | explicit contract surface | schema + tests | yes |
 | D4 | Do not reuse `spec/` layout | A (§1.2) | manifest-driven inputs and kinds | keep five files | layout is project policy | files become declarative | yes |
 | D5 | IR stability | A (§1.3) | experimental, versioned, unstable before 1.0 | freeze now | no second profile yet | IR changes allowed with notice | no |
-| D6 | Entity kinds and relation types | A (rev. §1) | declared by the profile; core indexes strings | fixed enum; free-form without declarations | no domain assumptions in core | profile declares its ontology; validated by §5.6 | yes |
+| D6 | Entity kinds and relation types | A (rev. §1) | declared by the profile; relation values in a reserved `relations` namespace; core indexes strings | fixed enum; inference from ordinary fields | no domain assumptions in core; no guessing | profile declares its ontology; validated by §5.6 | yes |
 | D7 | Public operations | A (§1.4) | `load/validate/build/render/check`; phases internal | eight public phase calls | no consumer requires per-phase API | phase data stays in diagnostics | no |
 | D8 | Diagnostic axes | A (§1.5) | severity + disposition + blocking | severity only | separates impact from policy | new shape in M2 | no |
 | D9 | Blocking policy | A (§1.5) | profile/project policy + mode | hardcode per code | same code may gate differently | policy lives in profile | no |
