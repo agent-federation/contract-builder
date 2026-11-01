@@ -112,11 +112,13 @@ export function resolveRelations(
         resolved.push(targetId);
       }
 
-      entity.relations[name] = resolved;
-      addToIndex(index, name, entity.kind, resolved);
+      // Relation targets are set semantics: a repeated id resolves once, preserving order.
+      const unique = [...new Set(resolved)];
+      entity.relations[name] = unique;
+      addToIndex(index, name, entity.kind, unique);
 
       if (decl.inverse !== undefined) {
-        for (const targetId of resolved) {
+        for (const targetId of unique) {
           const target = byId.get(targetId);
           if (target === undefined) continue;
           const list = target.relations[decl.inverse] ?? [];

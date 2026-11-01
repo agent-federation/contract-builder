@@ -8,7 +8,9 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas } from "../spec/lib/schema.js";
-import { buildProjectModel, type ProjectModel } from "../spec/lib/ir.js";
+import { buildProjectModel, resolvePointer, type Entity, type ProjectModel } from "../spec/lib/ir.js";
+import { resolveRelations } from "../spec/lib/relations.js";
+import type { Profile } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -292,4 +294,46 @@ test("ir: a duplicate id across kinds is ERR_DUPLICATE_ID", async () => {
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   assert.ok(codes(result).includes("ERR_DUPLICATE_ID"));
+});
+
+test("ir: resolvePointer follows RFC 6901 array indices", () => {
+  const document = { items: ["a", "b"] };
+
+  assert.equal(resolvePointer(document, "/items/0"), "a");
+  assert.equal(resolvePointer(document, "/items/1"), "b");
+  assert.equal(resolvePointer(document, "/items/01"), undefined);
+  assert.equal(resolvePointer(document, "/items/1e0"), undefined);
+  assert.equal(resolvePointer(document, "/items/-1"), undefined);
+  assert.equal(resolvePointer(document, "/items/+1"), undefined);
+});
+
+test("ir: duplicate relation targets do not duplicate the inverse", () => {
+  const diagnostics = new Diagnostics();
+  const profile = {
+    id: "p",
+    version: "1.0.0",
+    entityKinds: { a: { schema: "p:a" }, b: { schema: "p:b" } },
+    schemas: {},
+    documents: [],
+    relations: [
+      { name: "many", from: "a", to: "b", cardinality: "many", inverse: "back" },
+    ],
+  } as unknown as Profile;
+
+  const source: Entity = { id: "A", kind: "a", fields: {}, relations: {} };
+  const target: Entity = { id: "B", kind: "b", fields: {}, relations: {} };
+  const byId = new Map([
+    ["A", source],
+    ["B", target],
+  ]);
+  const raw = new Map([["A", { many: ["B", "B"] }]]);
+  const locations = new Map([
+    ["A", { file: "a.yml", pointer: "/a/0" }],
+    ["B", { file: "b.yml", pointer: "/b/0" }],
+  ]);
+
+  const index = resolveRelations([source, target], raw, locations, profile, byId, diagnostics);
+  assert.ok(index !== null, diagnostics.report());
+  assert.deepEqual(source.relations.many, ["B"]);
+  assert.deepEqual(target.relations.back, ["A"]);
 });

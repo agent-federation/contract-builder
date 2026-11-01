@@ -229,9 +229,9 @@ export function resolvePointer(document: unknown, pointer: string): unknown {
   for (const token of pointer.slice(1).split("/")) {
     const key = token.replace(/~1/g, "/").replace(/~0/g, "~");
     if (Array.isArray(current)) {
-      const index = Number(key);
-      if (!Number.isInteger(index) || index < 0) return undefined;
-      current = current[index];
+      // RFC 6901: an array index is "0" or a non-zero digit followed by digits.
+      if (!/^(0|[1-9][0-9]*)$/.test(key)) return undefined;
+      current = current[Number(key)];
     } else if (isObject(current)) {
       current = current[key];
     } else {

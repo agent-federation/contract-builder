@@ -128,6 +128,8 @@ function collapse(value: string): string {
  * Markdown adapter. `load` reads the bytes; `verifyQuote` keeps the section-level locator
  * behaviour of the MVP and its three outcomes. `unsupported` is never returned in M1.
  */
+const decoder = new TextDecoder();
+
 export const markdownAdapter: SourceAdapter = {
   id: "markdown",
   version: "0.1.0",
@@ -141,6 +143,6 @@ export const markdownAdapter: SourceAdapter = {
     };
   },
   async verifyQuote(source, ref, quote) {
-    return locateQuote(new TextDecoder().decode(source.bytes), ref, quote);
+    return locateQuote(decoder.decode(source.bytes), ref, quote);
   },
 };
