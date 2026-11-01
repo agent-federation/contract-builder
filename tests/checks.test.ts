@@ -225,3 +225,8 @@ test("checks: tolerate missing optional fields", async () => {
   assert.ok(Array.isArray(await provision(context(model))));
   assert.ok(Array.isArray(await review(context(model))));
 });
+
+test("checks/source: treats unsupported verification as a failure", async () => {
+  const findings = await source(context(modelWith([fragment()]), async () => "unsupported"));
+  assert.deepEqual(codes(findings), ["ERR_SOURCE_LOCATOR_UNSUPPORTED"]);
+});

@@ -50,6 +50,14 @@ export const check: Check = async (ctx: CheckContext) => {
           location: { file: "sources.yml", pointer: `${pointer}/quote` },
           data: { id: fragment.id, ref: fragment.source_ref },
         });
+      } else if (location === "unsupported") {
+        findings.push({
+          code: "ERR_SOURCE_LOCATOR_UNSUPPORTED",
+          variant: "fragment",
+          entityId: fragment.id,
+          location: { file: "sources.yml", pointer: `${pointer}/source_ref` },
+          data: { id: fragment.id, ref: fragment.source_ref },
+        });
       }
     }
 
@@ -95,6 +103,14 @@ export const check: Check = async (ctx: CheckContext) => {
           variant: "decision",
           entityId: decision.id,
           location: { file: "decisions.yml", pointer: `${pointer}/source_quote` },
+          data: { id: decision.id, ref: decision.source_ref },
+        });
+      } else if (location === "unsupported") {
+        findings.push({
+          code: "ERR_SOURCE_LOCATOR_UNSUPPORTED",
+          variant: "decision",
+          entityId: decision.id,
+          location: { file: "decisions.yml", pointer: `${pointer}/source_ref` },
           data: { id: decision.id, ref: decision.source_ref },
         });
       }

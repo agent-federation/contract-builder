@@ -42,6 +42,18 @@
       "message": "Цитата решения \"{{id}}\" найдена в документе, но не внутри объявленного места \"{{ref}}\"."
     },
     {
+      "code": "ERR_SOURCE_LOCATOR_UNSUPPORTED",
+      "variant": "fragment",
+      "severity": "error",
+      "message": "Цитата фрагмента \"{{id}}\" не может быть проверена адаптером источника (source_ref \"{{ref}}\")."
+    },
+    {
+      "code": "ERR_SOURCE_LOCATOR_UNSUPPORTED",
+      "variant": "decision",
+      "severity": "error",
+      "message": "Цитата решения \"{{id}}\" не может быть проверена адаптером источника (source_ref \"{{ref}}\")."
+    },
+    {
       "code": "ERR_OUT_OF_SLICE_CONTENT",
       "variant": "fragment",
       "severity": "error",

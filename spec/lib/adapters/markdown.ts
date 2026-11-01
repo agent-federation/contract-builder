@@ -6,7 +6,7 @@
  *   SRC-EXAMPLE#10/table/asserted_at
  *   SRC-EXAMPLE#15/5
  *
- * A locator is verified against the legacy document: the fragment's quote must
+ * A locator is verified against the legacy document: the quoted text must
  * occur inside the declared block, not merely somewhere in the file. This is
  * still a section-level locator (headings are matched by their numeric label),
  * not a content hash or a line range.

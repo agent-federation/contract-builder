@@ -5,8 +5,8 @@ import type { Manifest, Profile } from "./manifest.js";
 
 /**
  * Binds direct provenance for the kinds the profile maps. The selectors are read from
- * `Entity.fields` and stay there: mappings are projections, not moves. Fragment-mediated
- * provenance (`term`, `provision`) has no mapping and is not bound here.
+ * `Entity.fields` and stay there: mappings are projections, not moves. Provenance that is
+ * mediated by another entity has no mapping and is not bound here.
  */
 export function bindProvenance(
   entities: Entity[],
