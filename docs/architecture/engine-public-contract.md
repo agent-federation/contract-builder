@@ -183,7 +183,7 @@ Relation fields are declared, not hardcoded:
 interface RelationMapping {
   dependsOn?: FieldSelector;                 // entity field listing decision ids
   mentions?: FieldSelector;                  // entity field listing decision ids
-  incoming?: { role: EntityRole; field: FieldSelector };  // inbound link, e.g. case -> provision
+  incoming?: Array<{ role: EntityRole; field: FieldSelector }>;  // inbound links
 }
 ```
 
@@ -249,24 +249,20 @@ interface ValidatorFinding {
 }
 
 interface ProfileValidator {
-  validate(model: ProjectModel, ctx: ValidationContext): ValidatorFinding[];
-}
-
-interface ValidationContext {
-  projectId: string;
-  profile: Profile;
-  documents: Readonly<Record<string, unknown>>;
+  validate(model: ProjectModel): ValidatorFinding[];
 }
 ```
+
+The hook receives the model only: project id, profile and documents are already inside it, and
+no ambient context (logger, clock, environment) is passed. It must be pure and deterministic:
+no I/O, no clock, no environment, no mutation of the model. An exception is reported as
+`core.profile.validator-failed` and fails the build. It is versioned with the profile and
+participates in `inputDigest`.
 
 The hook reports findings, not diagnostics. The core looks the code up in the profile catalog,
 applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
 `phase: "consistency"`. A finding with an unknown code fails the build
 (`core.profile.unknown-code`).
-
-The hook is pure and deterministic: no I/O, no clock, no environment, no mutation of the
-model. An exception is reported as `core.profile.validator-failed` and fails the build. It is
-versioned with the profile and participates in `inputDigest`.
 
 A profile is trusted code: loading a project executes its hook with the process's privileges.
 Profiles must be reviewed and pinned like any other dependency. The hook is loaded with a
@@ -626,9 +622,9 @@ type BuildStatus = "ok" | "review-required" | "invalid" | "io-error";
 
 interface BuildResult {
   status: BuildStatus;
-  mode: "draft" | "release";
+  mode: BuildMode;
   diagnostics: Diagnostic[];
-  phases: Record<Phase, "passed" | "failed" | "skipped">;
+  phases: Record<Phase, PhaseState>;
   artifacts: Artifact[];
   identity: {
     projectId: string;
