@@ -118,6 +118,46 @@ test("strict: WARNING становится блокирующим", async () => 
   assert.equal(result.blockedBy, "warnings");
 });
 
+test("модальность Clause: MAY без маркера — ERR_MODALITY_MARKER", async () => {
+  const dir = await copySpec("clause-marker");
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = JSON.parse(await readFile(semanticsPath, "utf8")) as {
+    provisions: Array<{ exception: { source_modality: string; modality_marker: string | null } | null }>;
+  };
+  semantics.provisions[1]!.exception!.modality_marker = null;
+  await writeFile(semanticsPath, `${JSON.stringify(semantics, null, 2)}\n`, "utf8");
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("ERR_MODALITY_MARKER"));
+});
+
+test("локатор: цитата вне объявленного раздела — ERR_SOURCE_LOCATOR_MISMATCH", async () => {
+  const dir = await copySpec("locator-mismatch");
+  const sourcesPath = path.join(dir, "sources.yml");
+  const sources = parseYaml(await readFile(sourcesPath, "utf8")) as {
+    fragments: Array<{ id: string; source_ref: string }>;
+  };
+  const fragment = sources.fragments.find((f) => f.id === "FRAG-10.1-P5-NO-GLOBAL-TIME");
+  assert.ok(fragment);
+  fragment.source_ref = "SRC-CORE001#10.2";
+  await writeFile(sourcesPath, stringifyYaml(sources), "utf8");
+
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = JSON.parse(await readFile(semanticsPath, "utf8")) as {
+    provisions: Array<{ id: string; source_ref: string }>;
+  };
+  const provision = semantics.provisions.find((p) => p.id === "INV-NO-GLOBAL-TRUSTED-TIME");
+  assert.ok(provision);
+  provision.source_ref = "SRC-CORE001#10.2";
+  await writeFile(semanticsPath, `${JSON.stringify(semantics, null, 2)}\n`, "utf8");
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("ERR_SOURCE_LOCATOR_MISMATCH"));
+  assert.equal(codes(result).includes("ERR_SOURCE_QUOTE_NOT_FOUND"), false);
+});
+
 test("структура: отсутствующее обязательное поле — ERR_SCHEMA", async () => {
   const dir = await copySpec("missing-field");
   const semanticsPath = path.join(dir, "semantics.json");

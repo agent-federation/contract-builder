@@ -1,4 +1,5 @@
 import type { Diagnostics } from "./diagnostics.js";
+import { locateQuote, parseLocator } from "./locator.js";
 import type {
   AnalyzedProvision,
   AnalyzedSpec,
@@ -105,6 +106,23 @@ export function analyze(
         `${pointer}/quote`,
         `Цитата фрагмента "${fragment.id}" не найдена в ${legacyName}. Источник и машинное представление разошлись.`,
       );
+    } else {
+      const location = locateQuote(legacy, fragment.source_ref, fragment.quote);
+      if (location === "unknown-locator") {
+        diags.error(
+          "ERR_SOURCE_LOCATOR_UNKNOWN",
+          FILE.sources,
+          `${pointer}/source_ref`,
+          `source_ref "${fragment.source_ref}" не разобран или раздел не найден в ${legacyName}. Ожидается "<SOURCE>#<section>[/table/<column>|/<item>]".`,
+        );
+      } else if (location === "outside") {
+        diags.error(
+          "ERR_SOURCE_LOCATOR_MISMATCH",
+          FILE.sources,
+          `${pointer}/quote`,
+          `Цитата фрагмента "${fragment.id}" найдена в документе, но не внутри объявленного места "${fragment.source_ref}".`,
+        );
+      }
     }
 
     if (fragment.in_scope !== false && !sectionInSlice(fragment.source_ref, raw.sources.slice)) {
@@ -162,6 +180,23 @@ export function analyze(
         `${pointer}/source_quote`,
         `Цитата решения "${decision.id}" не найдена в ${legacyName}.`,
       );
+    } else {
+      const location = locateQuote(legacy, decision.source_ref, decision.source_quote);
+      if (location === "unknown-locator") {
+        diags.error(
+          "ERR_SOURCE_LOCATOR_UNKNOWN",
+          FILE.decisions,
+          `${pointer}/source_ref`,
+          `source_ref "${decision.source_ref}" не разобран или раздел не найден в ${legacyName}.`,
+        );
+      } else if (location === "outside") {
+        diags.error(
+          "ERR_SOURCE_LOCATOR_MISMATCH",
+          FILE.decisions,
+          `${pointer}/source_quote`,
+          `Цитата решения "${decision.id}" найдена в документе, но не внутри объявленного места "${decision.source_ref}".`,
+        );
+      }
     }
   });
 
@@ -557,8 +592,15 @@ function checkClause(
       `Цитата ${field} положения "${provisionId}" не найдена в source_quote.`,
     );
   }
-  if (clause.source_modality !== "DECLARATIVE" && clause.modality_marker !== null) {
-    if (!collapse(clause.quote).includes(collapse(clause.modality_marker))) {
+  if (clause.source_modality !== "DECLARATIVE") {
+    if (clause.modality_marker === null || clause.modality_marker.trim() === "") {
+      diags.error(
+        "ERR_MODALITY_MARKER",
+        FILE.semantics,
+        `${pointer}/${field}/modality_marker`,
+        `Для source_modality=${clause.source_modality} в ${field} положения "${provisionId}" требуется непустой лексический маркер из цитаты.`,
+      );
+    } else if (!collapse(clause.quote).includes(collapse(clause.modality_marker))) {
       diags.error(
         "ERR_MODALITY_MARKER",
         FILE.semantics,
@@ -603,15 +645,12 @@ function warnUndefinedTerms(
 }
 
 function sectionInSlice(ref: string, slice: { includes: string[]; excludes: string[] }): boolean {
-  const section = sectionOf(ref);
-  if (section === null) return false;
+  const locator = parseLocator(ref);
+  // A malformed locator is reported separately; do not duplicate it as a slice error.
+  if (locator === null) return true;
+  const section = locator.section;
   if (slice.excludes.some((prefix) => segmentMatches(section, prefix))) return false;
   return slice.includes.some((prefix) => segmentMatches(section, prefix));
-}
-
-function sectionOf(ref: string): string | null {
-  const index = ref.indexOf("#");
-  return index < 0 ? null : ref.slice(index + 1);
 }
 
 function segmentMatches(section: string, prefix: string): boolean {
