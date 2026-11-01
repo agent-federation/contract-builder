@@ -107,3 +107,18 @@ test("renderer: tolerates a provision without clauses", async () => {
   // The renderer shapes content; the core adds the trailing newline.
   assert.equal(output, "ok");
 });
+
+test("renderer: an injected renderer overrides the profile renderer by id", async () => {
+  const dir = await copyProjectWithProfile("override-renderer");
+  const override: Renderer = {
+    id: "core001-markdown",
+    version: "0.0.0",
+    async render() {
+      return "override\n";
+    },
+  };
+
+  const result = await runBuild(base(dir, { renderers: { "core001-markdown": override } }));
+  assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(result.markdown, "override\n");
+});

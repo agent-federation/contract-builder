@@ -218,12 +218,9 @@ function countSeverity(diagnostics: readonly Diagnostic[], severity: Severity): 
 }
 
 function finalize(markdown: string): string {
-  const normalized = markdown
+  return markdown
     .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((line) => line.replace(/[ \t]+$/g, ""))
-    .join("\n")
+    .replace(/[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/\n+$/g, "\n");
-  return normalized;
 }

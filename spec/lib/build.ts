@@ -391,7 +391,17 @@ async function resolveRenderer(
   injected: Record<string, Renderer> | undefined,
   diags: Diagnostics,
 ): Promise<Renderer | null> {
-  const registry: Record<string, Renderer> = { ...(injected ?? {}) };
+  if (id === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      "/render/0/renderer",
+      "render.renderer обязателен",
+    );
+    return null;
+  }
+
+  const registry: Record<string, Renderer> = {};
 
   if (project.profile.renderer !== undefined) {
     const module = await loadProfileModule<{ renderer?: Renderer }>(
@@ -417,14 +427,9 @@ async function resolveRenderer(
     registry[module.renderer.id] = module.renderer;
   }
 
-  if (id === undefined) {
-    diags.error(
-      "core.manifest.invalid",
-      "contract-builder.json",
-      "/render/0/renderer",
-      "render.renderer обязателен",
-    );
-    return null;
+  // Injected renderers win, so a consumer or test can override the profile renderer.
+  if (injected !== undefined) {
+    Object.assign(registry, injected);
   }
 
   const renderer = registry[id];
