@@ -146,3 +146,5 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 - Ревью фиксируется строкой `reviewed_by`, без криптографической привязки.
 
 Полный список нерешённых вопросов — в [design doc](docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md).
+
+<!-- smoke test: gemini review trigger -->
