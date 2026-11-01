@@ -124,12 +124,15 @@ interface PolicyOverlay {
 }
 
 interface RenderDecl {
-  renderer: string;                    // "markdown"
-  template: string;
+  renderer?: string;                   // defaults to profile.renderDefaults.renderer
+  template?: string;                   // defaults to profile.renderDefaults.template
   labels?: string;
   outputs: Record<string, string>;     // mode -> path
 }
 ```
+
+`renderer` and `template` may be omitted when `profile.renderDefaults` supplies them; after
+resolution both must be present (`core.manifest.render` otherwise).
 
 Manifest path rules: all paths resolve relative to the manifest; profile `source` may be a
 package specifier or a local directory; the project **may not** reach outside its root except
@@ -234,8 +237,15 @@ link field on the source (for CORE-001: `target: "provision"`, `source: "case"`,
 **Profile validator hook.** A profile may ship a TypeScript module implementing:
 
 ```ts
+interface ValidatorFinding {
+  code: string;                        // must exist in the profile catalog
+  entityId?: string;
+  location?: { file: string; pointer?: string; line?: number; column?: number };
+  data?: Record<string, unknown>;
+}
+
 interface ProfileValidator {
-  validate(model: ProjectModel, ctx: ValidationContext): Diagnostic[];
+  validate(model: ProjectModel, ctx: ValidationContext): ValidatorFinding[];
 }
 
 interface ValidationContext {
@@ -244,6 +254,11 @@ interface ValidationContext {
   documents: Readonly<Record<string, unknown>>;
 }
 ```
+
+The hook reports findings, not diagnostics. The core looks the code up in the profile catalog,
+applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
+`phase: "consistency"`. A finding with an unknown code fails the build
+(`core.profile.unknown-code`).
 
 The hook is pure and deterministic: no I/O, no clock, no environment, no mutation of the
 model. An exception is reported as `core.profile.validator-failed` and fails the build. It is
@@ -668,6 +683,7 @@ interface LoadOptions {
   root: string;                        // directory containing the manifest
   manifest?: string;                   // default "contract-builder.json"
   fs?: FileSystem;                     // default: node fs
+  adapters?: Record<string, SourceAdapter>;  // by adapter id
   signal?: AbortSignal;
 }
 
@@ -684,13 +700,14 @@ export interface ValidationResult {
   phases: Record<Phase, PhaseState>;
 }
 
-export function validateProject(project: LoadedProject): ValidationResult;
+export function validateProject(project: LoadedProject): Promise<ValidationResult>;
 
 export function buildProject(
   project: LoadedProject,
   options: {
     mode: BuildMode;
-    renderer?: Renderer;
+    renderer?: Renderer;               // single-use override
+    renderers?: Record<string, Renderer>;  // by renderer id
     write?: boolean;
     fs?: FileSystem;                   // defaults to the fs used by loadProject
     signal?: AbortSignal;
@@ -774,6 +791,10 @@ interface RenderOptions {
 Renderers perform no I/O: the engine resolves `profile:` paths, loads template and labels, and
 passes their content. This keeps the `FileSystem` abstraction intact and makes rendering a
 pure function of the model and the supplied content.
+
+Adapters and renderers are resolved by id from registries supplied by the consumer; the CLI
+wires the built-in packages (`adapter-yaml-json`, `renderer-markdown`). A missing id is
+`core.registry.missing`, not a silent fallback.
 
 Provenance verification belongs to the adapter because locator grammar is format-specific
 (`#10.2`, `#/paths/~1orders/get`). The core only knows that a quote must resolve to
