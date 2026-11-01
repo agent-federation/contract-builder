@@ -1,6 +1,8 @@
 import type { Diagnostics } from "./diagnostics.js";
 import { isObject } from "./guards.js";
-import { locateQuote, parseLocator } from "./adapters/markdown.js";
+import { DEFAULT_ADAPTERS } from "./adapters/index.js";
+import { parseLocator } from "./adapters/markdown.js";
+import type { LocatorResult, SourceAdapter } from "./source.js";
 import type { Entity, ProjectModel } from "./ir.js";
 import type {
   AnalyzedProvision,
@@ -56,11 +58,12 @@ const FILE = {
   cases: "conformance/cases.yml",
 };
 
-export function analyze(
+export async function analyze(
   model: ProjectModel,
   legacyName: string,
   diags: Diagnostics,
-): AnalyzedSpec | null {
+  adapters: Record<string, SourceAdapter> = DEFAULT_ADAPTERS,
+): Promise<AnalyzedSpec | null> {
   if (!isObject(model.documents.sources) || !isObject(model.documents.ontology)) {
     diags.error(
       "core.profile.invalid",
@@ -71,9 +74,50 @@ export function analyze(
     return null;
   }
 
+  const sourceDocument = model.sources[0];
+  if (sourceDocument === undefined) {
+    diags.error(
+      "ERR_UNKNOWN_REF",
+      "contract-builder.json",
+      "/sources",
+      "Не объявлен источник документа",
+    );
+    return null;
+  }
+  const adapter = adapters[sourceDocument.adapter];
+  if (adapter === undefined) {
+    diags.error(
+      "core.registry.missing",
+      "contract-builder.json",
+      "/sources/0/adapter",
+      `Адаптер "${sourceDocument.adapter}" не зарегистрирован`,
+    );
+    return null;
+  }
+
   const raw = projectView(model);
-  const legacy = new TextDecoder().decode(model.sources[0]?.bytes ?? new Uint8Array());
+  const legacy = new TextDecoder().decode(sourceDocument.bytes);
   const legacyFlat = collapse(legacy);
+
+  // Quote verification goes through the source adapter; the containment pre-check below
+  // decides whether a quote is verified at all, as before.
+  const verified = new Map<string, LocatorResult>();
+  for (const fragment of raw.sources.fragments) {
+    if (legacyFlat.includes(collapse(fragment.quote))) {
+      verified.set(
+        fragment.id,
+        await adapter.verifyQuote(sourceDocument, fragment.source_ref, fragment.quote),
+      );
+    }
+  }
+  for (const decision of raw.decisions.decisions) {
+    if (legacyFlat.includes(collapse(decision.source_quote))) {
+      verified.set(
+        decision.id,
+        await adapter.verifyQuote(sourceDocument, decision.source_ref, decision.source_quote),
+      );
+    }
+  }
   const termById = new Map(raw.ontology.terms.map((t) => [t.id, t]));
   const fragmentById = new Map(raw.sources.fragments.map((f) => [f.id, f]));
   const decisionById = new Map(raw.decisions.decisions.map((d) => [d.id, d]));
@@ -123,7 +167,7 @@ export function analyze(
         `Цитата фрагмента "${fragment.id}" не найдена в ${legacyName}. Источник и машинное представление разошлись.`,
       );
     } else {
-      const location = locateQuote(legacy, fragment.source_ref, fragment.quote);
+      const location = verified.get(fragment.id)!;
       if (location === "unknown-locator") {
         diags.error(
           "ERR_SOURCE_LOCATOR_UNKNOWN",
@@ -197,7 +241,7 @@ export function analyze(
         `Цитата решения "${decision.id}" не найдена в ${legacyName}.`,
       );
     } else {
-      const location = locateQuote(legacy, decision.source_ref, decision.source_quote);
+      const location = verified.get(decision.id)!;
       if (location === "unknown-locator") {
         diags.error(
           "ERR_SOURCE_LOCATOR_UNKNOWN",
@@ -665,6 +709,8 @@ function warnUndefinedTerms(
 }
 
 function sectionInSlice(ref: string, slice: { includes: string[]; excludes: string[] }): boolean {
+  // Slice containment is a profile check that needs the locator's section, not quote
+  // verification. Verification itself goes through the source adapter.
   const locator = parseLocator(ref);
   // A malformed locator is reported separately; do not duplicate it as a slice error.
   if (locator === null) return true;

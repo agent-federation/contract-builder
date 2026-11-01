@@ -525,6 +525,20 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     }
   }
 
+  if (relations !== undefined) {
+    const seen = new Set<string>();
+    for (const [index, decl] of relations.entries()) {
+      const key = `${decl.from}\u0000${decl.name}`;
+      if (seen.has(key)) {
+        return fail(
+          `/relations/${index}`,
+          `Связь "${decl.name}" для вида "${decl.from}" объявлена повторно`,
+        );
+      }
+      seen.add(key);
+    }
+  }
+
   let provenance: ProvenanceMapping[] | undefined;
   if (value.provenance !== undefined) {
     if (!Array.isArray(value.provenance)) {

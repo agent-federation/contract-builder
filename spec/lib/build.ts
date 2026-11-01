@@ -7,6 +7,7 @@ import { buildProjectModel } from "./ir.js";
 import { analyze } from "./semantic.js";
 import { renderMarkdown, type BuildMode } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
+import type { SourceAdapter } from "./source.js";
 
 export interface BuildOptions {
   specDir: string;
@@ -16,6 +17,8 @@ export interface BuildOptions {
   strict: boolean;
   /** Optional collector injection for tests; defaults to a fresh instance. */
   diagnostics?: Diagnostics;
+  /** Optional adapter registry; defaults to the built-in markdown adapter. */
+  adapters?: Record<string, SourceAdapter>;
 }
 
 export interface BuildResult {
@@ -52,13 +55,13 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const model = await buildProjectModel(loaded, schemas, diags);
+  const model = await buildProjectModel(loaded, schemas, diags, options.adapters);
   if (model === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
   const legacyName = path.basename(model.manifest.sources?.[0]?.path ?? "source");
-  const spec = analyze(model, legacyName, diags);
+  const spec = await analyze(model, legacyName, diags, options.adapters);
   if (spec === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }

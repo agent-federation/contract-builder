@@ -10,6 +10,8 @@ import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas } from "../spec/lib/schema.js";
 import { buildProjectModel, resolvePointer, type Entity, type ProjectModel } from "../spec/lib/ir.js";
 import { resolveRelations } from "../spec/lib/relations.js";
+import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
+import type { SourceAdapter } from "../spec/lib/source.js";
 import type { Profile } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 
@@ -336,4 +338,40 @@ test("ir: duplicate relation targets do not duplicate the inverse", () => {
   assert.ok(index !== null, diagnostics.report());
   assert.deepEqual(source.relations.many, ["B"]);
   assert.deepEqual(target.relations.back, ["A"]);
+});
+
+test("ir: duplicate relation declarations are rejected", async () => {
+  const dir = await copyProject("duplicate-declaration", true);
+  await editProfile(dir, (profile) => {
+    profile.relations.push({ name: "fragment", from: "provision", to: "term" });
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("core.profile.invalid"));
+  assert.equal(codes(result).includes("core.reference.unresolved"), false);
+});
+
+test("ir: resolvePointer rejects malformed escape sequences", () => {
+  const document = { items: { "a~b": 1, "a/b": 2, "a~2": 3, "a~": 4 } };
+
+  assert.equal(resolvePointer(document, "/items/a~0b"), 1);
+  assert.equal(resolvePointer(document, "/items/a~1b"), 2);
+  assert.equal(resolvePointer(document, "/items/a~2"), undefined);
+  assert.equal(resolvePointer(document, "/items/a~"), undefined);
+});
+
+test("ir: quote verification goes through the source adapter", async () => {
+  let calls = 0;
+  const spy: SourceAdapter = {
+    ...markdownAdapter,
+    async verifyQuote(source, ref, quote) {
+      calls += 1;
+      return markdownAdapter.verifyQuote(source, ref, quote);
+    },
+  };
+
+  const result = await runBuild({ ...base(specDir), adapters: { markdown: spy } });
+  assert.equal(result.exitCode, 0, result.diagnostics.map((d) => d.message).join("\n"));
+  assert.ok(calls > 0, "verifyQuote was not called");
 });

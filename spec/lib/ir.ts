@@ -2,7 +2,7 @@ import type { Diagnostics } from "./diagnostics.js";
 import { isNonEmptyString, isObject, messageOf } from "./guards.js";
 import type { LoadedSpec } from "./load.js";
 import { resolveContained, type Manifest, type Profile } from "./manifest.js";
-import { markdownAdapter } from "./adapters/markdown.js";
+import { DEFAULT_ADAPTERS } from "./adapters/index.js";
 import type { SourceAdapter, SourceDocument } from "./source.js";
 import { bindProvenance } from "./provenance.js";
 import { resolveRelations } from "./relations.js";
@@ -53,6 +53,7 @@ export async function buildProjectModel(
   loaded: LoadedSpec,
   schemas: SchemaSet,
   diags: Diagnostics,
+  adapters: Record<string, SourceAdapter> = DEFAULT_ADAPTERS,
 ): Promise<ProjectModel | null> {
   const entities: Entity[] = [];
   const byId = new Map<string, Entity>();
@@ -155,7 +156,7 @@ export async function buildProjectModel(
     byKind.set(entity.kind, list);
   }
 
-  const sources = await loadSources(loaded.project, diags);
+  const sources = await loadSources(loaded.project, diags, adapters);
   if (sources === null) return null;
 
   const relations = resolveRelations(
@@ -184,15 +185,14 @@ export async function buildProjectModel(
   };
 }
 
-const ADAPTERS: Record<string, SourceAdapter> = { [markdownAdapter.id]: markdownAdapter };
-
 async function loadSources(
   project: LoadedSpec["project"],
   diags: Diagnostics,
+  adapters: Record<string, SourceAdapter>,
 ): Promise<SourceDocument[] | null> {
   const sources: SourceDocument[] = [];
   for (const [index, decl] of (project.manifest.sources ?? []).entries()) {
-    const adapter = ADAPTERS[decl.adapter];
+    const adapter = adapters[decl.adapter];
     if (adapter === undefined) {
       diags.error(
         "core.registry.missing",
@@ -227,6 +227,8 @@ export function resolvePointer(document: unknown, pointer: string): unknown {
 
   let current: unknown = document;
   for (const token of pointer.slice(1).split("/")) {
+    // RFC 6901: "~" is only valid before "0" or "1".
+    if (/~(?![01])/.test(token)) return undefined;
     const key = token.replace(/~1/g, "/").replace(/~0/g, "~");
     if (Array.isArray(current)) {
       // RFC 6901: an array index is "0" or a non-zero digit followed by digits.
