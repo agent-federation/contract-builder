@@ -2,11 +2,26 @@
   "id": "core001",
   "version": "0.1.0",
   "entityKinds": {
-    "fragment": { "schema": "core001:fragment", "identity": "id" },
-    "term": { "schema": "core001:term", "identity": "id" },
-    "provision": { "schema": "core001:provision", "identity": "id" },
-    "decision": { "schema": "core001:decision", "identity": "id" },
-    "case": { "schema": "core001:case", "identity": "id" }
+    "fragment": {
+      "schema": "core001:fragment",
+      "identity": "id"
+    },
+    "term": {
+      "schema": "core001:term",
+      "identity": "id"
+    },
+    "provision": {
+      "schema": "core001:provision",
+      "identity": "id"
+    },
+    "decision": {
+      "schema": "core001:decision",
+      "identity": "id"
+    },
+    "case": {
+      "schema": "core001:case",
+      "identity": "id"
+    }
   },
   "schemas": {
     "core001:sources": "schemas/sources.schema.json",
@@ -21,17 +36,52 @@
     "core001:case": "schemas/case.schema.json"
   },
   "documents": [
-    { "key": "sources", "input": "sources.yml" },
-    { "key": "ontology", "input": "ontology.yml" },
-    { "key": "semantics", "input": "semantics.json" },
-    { "key": "decisions", "input": "decisions.yml" },
-    { "key": "cases", "input": "conformance/cases.yml" }
+    {
+      "key": "sources",
+      "input": "sources.yml"
+    },
+    {
+      "key": "ontology",
+      "input": "ontology.yml"
+    },
+    {
+      "key": "semantics",
+      "input": "semantics.json"
+    },
+    {
+      "key": "decisions",
+      "input": "decisions.yml"
+    },
+    {
+      "key": "cases",
+      "input": "conformance/cases.yml"
+    }
   ],
   "relations": [
-    { "name": "fragment", "from": "provision", "to": "fragment", "cardinality": "one" },
-    { "name": "terms", "from": "provision", "to": "term", "cardinality": "many" },
-    { "name": "dependsOn", "from": "provision", "to": "decision", "cardinality": "many" },
-    { "name": "mentions", "from": "provision", "to": "decision", "cardinality": "many" },
+    {
+      "name": "fragment",
+      "from": "provision",
+      "to": "fragment",
+      "cardinality": "one"
+    },
+    {
+      "name": "terms",
+      "from": "provision",
+      "to": "term",
+      "cardinality": "many"
+    },
+    {
+      "name": "dependsOn",
+      "from": "provision",
+      "to": "decision",
+      "cardinality": "many"
+    },
+    {
+      "name": "mentions",
+      "from": "provision",
+      "to": "decision",
+      "cardinality": "many"
+    },
     {
       "name": "provision",
       "from": "case",
@@ -39,15 +89,38 @@
       "cardinality": "one",
       "inverse": "vectors"
     },
-    { "name": "rationaleFragment", "from": "case", "to": "fragment", "cardinality": "one" },
-    { "name": "fragment", "from": "term", "to": "fragment", "cardinality": "one" }
+    {
+      "name": "rationaleFragment",
+      "from": "case",
+      "to": "fragment",
+      "cardinality": "one"
+    },
+    {
+      "name": "fragment",
+      "from": "term",
+      "to": "fragment",
+      "cardinality": "one"
+    }
   ],
   "provenance": [
-    { "kind": "fragment", "source": "source", "ref": "source_ref", "quote": "quote" },
-    { "kind": "decision", "source": "source", "ref": "source_ref", "quote": "source_quote" }
+    {
+      "kind": "fragment",
+      "source": "source",
+      "ref": "source_ref",
+      "quote": "quote"
+    },
+    {
+      "kind": "decision",
+      "source": "source",
+      "ref": "source_ref",
+      "quote": "source_quote"
+    }
   ],
   "files": [
     "profile.json",
+    "view.ts",
+    "validator.ts",
+    "catalog.json",
     "schemas/sources.schema.json",
     "schemas/ontology.schema.json",
     "schemas/semantics.schema.json",
@@ -57,7 +130,21 @@
     "schemas/term.schema.json",
     "schemas/provision.schema.json",
     "schemas/decision.schema.json",
-    "schemas/case.schema.json"
+    "schemas/case.schema.json",
+    "checks/source.ts",
+    "checks/ontology.ts",
+    "checks/provision.ts",
+    "checks/cases.ts",
+    "checks/review.ts",
+    "checks/coverage.ts",
+    "checks/terms.ts",
+    "checks/dependencies.ts",
+    "context.ts",
+    "slice.ts",
+    "text.ts"
   ],
-  "dependencies": {}
+  "dependencies": {},
+  "view": "view.ts",
+  "validator": "validator.ts",
+  "diagnostics": "catalog.json"
 }

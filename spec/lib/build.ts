@@ -4,10 +4,19 @@ import { Diagnostics, type Diagnostic } from "./diagnostics.js";
 import { loadProject } from "./load.js";
 import { loadSchemas, validateDocuments } from "./schema.js";
 import { buildProjectModel } from "./ir.js";
-import { analyze } from "./semantic.js";
+import { DEFAULT_ADAPTERS } from "./adapters/index.js";
+import {
+  resolveFindings,
+  type DiagnosticCatalog,
+  type ProfileValidator,
+  type ProfileViewModule,
+  type ValidatorContext,
+} from "./hook.js";
+import { messageOf } from "./guards.js";
 import { renderMarkdown, type BuildMode } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import type { SourceAdapter } from "./source.js";
+import { pathToFileURL } from "node:url";
 
 export interface BuildOptions {
   specDir: string;
@@ -60,11 +69,62 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const legacyName = path.basename(model.manifest.sources?.[0]?.path ?? "source");
-  const spec = await analyze(model, legacyName, diags, options.adapters);
-  if (spec === null) {
+  const viewModule = await loadProfileModule<ProfileViewModule>(loaded.project, "view", diags);
+  if (viewModule === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }
+  for (const key of viewModule.requires ?? []) {
+    if (model.documents[key] === undefined) {
+      diags.error(
+        "core.profile.invalid",
+        "profile.json",
+        "/documents",
+        `Профиль не связывает обязательный документ "${key}"`,
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+  }
+  const view = viewModule.buildView(model);
+
+  const validator = await loadProfileModule<ProfileValidator>(
+    loaded.project,
+    "validator",
+    diags,
+  );
+  if (validator === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const catalog = await loadCatalog(loaded.project, diags);
+  if (catalog === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const legacyName = path.basename(model.manifest.sources?.[0]?.path ?? "source");
+  const legacyText = new TextDecoder().decode(model.sources[0]?.bytes ?? new Uint8Array());
+  const sourcesById = new Map(model.sources.map((source) => [source.id, source]));
+  const adapters = options.adapters ?? DEFAULT_ADAPTERS;
+
+  const context: ValidatorContext = {
+    view,
+    sources: model.sources,
+    legacyText,
+    legacyName,
+    async verifyQuote(sourceId, ref, quote) {
+      const source = sourcesById.get(sourceId);
+      if (source === undefined) return "unknown-locator";
+      const adapter = adapters[source.adapter];
+      if (adapter === undefined) return "unknown-locator";
+      return adapter.verifyQuote(source, ref, quote);
+    },
+  };
+
+  const findings = await validator.validate(model, context);
+  if (!resolveFindings(findings, model, catalog, diags)) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const spec = view as Parameters<typeof renderMarkdown>[0];
 
   if (diags.errors > 0) {
     return result(options, diags, null, outputPath, false, "errors");
@@ -162,6 +222,75 @@ async function resolveOutputPath(
   }
 
   return target.abs;
+}
+
+async function loadProfileModule<T>(
+  project: ResolvedProject,
+  key: "view" | "validator",
+  diags: Diagnostics,
+): Promise<T | null> {
+  const relative = key === "view" ? project.profile.view : project.profile.validator;
+  if (relative === undefined) {
+    diags.error("core.profile.invalid", "profile.json", `/${key}`, `Профиль не объявляет ${key}`);
+    return null;
+  }
+
+  const located = await resolveContained(project.profileDir, relative);
+  if (!located.inside) {
+    diags.error(
+      "core.path.outside-root",
+      "profile.json",
+      `/${key}`,
+      `Модуль профиля "${relative}" выходит за пределы каталога профиля`,
+    );
+    return null;
+  }
+
+  try {
+    return (await import(pathToFileURL(located.abs).href)) as T;
+  } catch (error) {
+    diags.error(
+      "core.profile.invalid",
+      relative,
+      "",
+      `Модуль профиля не загружен: ${messageOf(error)}`,
+    );
+    return null;
+  }
+}
+
+async function loadCatalog(
+  project: ResolvedProject,
+  diags: Diagnostics,
+): Promise<DiagnosticCatalog | null> {
+  const relative = project.profile.diagnostics;
+  if (relative === undefined) {
+    diags.error("core.profile.invalid", "profile.json", "/diagnostics", "Профиль не объявляет каталог");
+    return null;
+  }
+
+  const located = await resolveContained(project.profileDir, relative);
+  if (!located.inside) {
+    diags.error(
+      "core.path.outside-root",
+      "profile.json",
+      "/diagnostics",
+      `Каталог "${relative}" выходит за пределы каталога профиля`,
+    );
+    return null;
+  }
+
+  try {
+    return JSON.parse(await readFile(located.abs, "utf8")) as DiagnosticCatalog;
+  } catch (error) {
+    diags.error(
+      "core.profile.invalid",
+      relative,
+      "",
+      `Каталог профиля не прочитан: ${messageOf(error)}`,
+    );
+    return null;
+  }
 }
 
 function result(

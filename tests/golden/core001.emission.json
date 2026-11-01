@@ -1,38 +1,10 @@
 [
   {
-    "code": "WARN_UNDEFINED_TERM_IN_QUOTE",
-    "severity": "warning",
-    "file": "semantics.json",
-    "pointer": "/provisions/0/source_quote",
-    "message": "В цитате положения \"REQ-TEMPORAL-MOMENT-DEFINED\" упоминаются термины вне среза: Credential. Они не определены в ontology.yml и не моделируются."
-  },
-  {
     "code": "WARN_OUTSIDE_SLICE_REF",
     "severity": "warning",
     "file": "semantics.json",
     "pointer": "/provisions/1/outside_slice_refs/0",
     "message": "Ссылка \"UIA-CORE-001#4.4.2\" ведёт за пределы среза; содержание не импортировано."
-  },
-  {
-    "code": "REVIEW_NORMALIZATION_PENDING",
-    "severity": "review",
-    "file": "semantics.json",
-    "pointer": "/provisions/1/normalized_statement",
-    "message": "Нормализация положения \"REQ-REVOCATION-NOT-AUTO-INVALID\" отличается от источника и не подтверждена человеком."
-  },
-  {
-    "code": "WARN_UNDEFINED_TERM_IN_QUOTE",
-    "severity": "warning",
-    "file": "semantics.json",
-    "pointer": "/provisions/1/source_quote",
-    "message": "В цитате положения \"REQ-REVOCATION-NOT-AUTO-INVALID\" упоминаются термины вне среза: Credential. Они не определены в ontology.yml и не моделируются."
-  },
-  {
-    "code": "WARN_OUTSIDE_SLICE_REF",
-    "severity": "warning",
-    "file": "semantics.json",
-    "pointer": "/provisions/2/decision_mentions/0",
-    "message": "Решение \"DEC-TRUSTED-TIME\" объявлено вне среза. Содержание не импортируется; отображается только ссылка."
   },
   {
     "code": "WARN_NON_BINDING_PROVISION",
@@ -49,32 +21,11 @@
     "message": "Условие положения \"REQ-SIGNED-AT-TRUST-CONDITION\" не определено в срезе: применимый механизм доверенной временной фиксации."
   },
   {
-    "code": "REVIEW_NORMALIZATION_PENDING",
-    "severity": "review",
-    "file": "semantics.json",
-    "pointer": "/provisions/2/normalized_statement",
-    "message": "Нормализация положения \"REQ-SIGNED-AT-TRUST-CONDITION\" отличается от источника и не подтверждена человеком."
-  },
-  {
-    "code": "WARN_OUTSIDE_SLICE_REF",
-    "severity": "warning",
-    "file": "semantics.json",
-    "pointer": "/provisions/3/decision_mentions/0",
-    "message": "Решение \"DEC-TRUSTED-TIME\" объявлено вне среза. Содержание не импортируется; отображается только ссылка."
-  },
-  {
     "code": "WARN_NON_BINDING_PROVISION",
     "severity": "warning",
     "file": "semantics.json",
     "pointer": "/provisions/3/normative_effect",
     "message": "Положение \"INV-NO-GLOBAL-TRUSTED-TIME\" имеет норм. эффект \"scope_statement\" и не является связывающим требованием. Отображается как таковое."
-  },
-  {
-    "code": "REVIEW_EFFECT_CLASSIFICATION",
-    "severity": "review",
-    "file": "semantics.json",
-    "pointer": "/provisions/4/classification_basis",
-    "message": "Нормативный эффект \"semantic_constraint\" выведен редакторски, а не дословно. Требуется подтверждение."
   },
   {
     "code": "REVIEW_CASE_INTERPRETATION",
@@ -91,6 +42,27 @@
     "message": "Исход кейса \"CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-NEG-1\" получен логическим выводом, а не дословно. Требуется нормативное подтверждение."
   },
   {
+    "code": "REVIEW_NORMALIZATION_PENDING",
+    "severity": "review",
+    "file": "semantics.json",
+    "pointer": "/provisions/1/normalized_statement",
+    "message": "Нормализация положения \"REQ-REVOCATION-NOT-AUTO-INVALID\" отличается от источника и не подтверждена человеком."
+  },
+  {
+    "code": "REVIEW_NORMALIZATION_PENDING",
+    "severity": "review",
+    "file": "semantics.json",
+    "pointer": "/provisions/2/normalized_statement",
+    "message": "Нормализация положения \"REQ-SIGNED-AT-TRUST-CONDITION\" отличается от источника и не подтверждена человеком."
+  },
+  {
+    "code": "REVIEW_EFFECT_CLASSIFICATION",
+    "severity": "review",
+    "file": "semantics.json",
+    "pointer": "/provisions/4/classification_basis",
+    "message": "Нормативный эффект \"semantic_constraint\" выведен редакторски, а не дословно. Требуется подтверждение."
+  },
+  {
     "code": "WARN_NO_VIOLATED_VECTOR",
     "severity": "warning",
     "file": "semantics.json",
@@ -103,5 +75,33 @@
     "file": "semantics.json",
     "pointer": "/provisions/3/id",
     "message": "У положения \"INV-NO-GLOBAL-TRUSTED-TIME\" нет violated-вектора. Это допустимо: источник может не устанавливать нарушения."
+  },
+  {
+    "code": "WARN_UNDEFINED_TERM_IN_QUOTE",
+    "severity": "warning",
+    "file": "semantics.json",
+    "pointer": "/provisions/0/source_quote",
+    "message": "В цитате положения \"REQ-TEMPORAL-MOMENT-DEFINED\" упоминаются термины вне среза: Credential. Они не определены в ontology.yml и не моделируются."
+  },
+  {
+    "code": "WARN_UNDEFINED_TERM_IN_QUOTE",
+    "severity": "warning",
+    "file": "semantics.json",
+    "pointer": "/provisions/1/source_quote",
+    "message": "В цитате положения \"REQ-REVOCATION-NOT-AUTO-INVALID\" упоминаются термины вне среза: Credential. Они не определены в ontology.yml и не моделируются."
+  },
+  {
+    "code": "WARN_OUTSIDE_SLICE_REF",
+    "severity": "warning",
+    "file": "semantics.json",
+    "pointer": "/provisions/2/decision_mentions/0",
+    "message": "Решение \"DEC-TRUSTED-TIME\" объявлено вне среза. Содержание не импортируется; отображается только ссылка."
+  },
+  {
+    "code": "WARN_OUTSIDE_SLICE_REF",
+    "severity": "warning",
+    "file": "semantics.json",
+    "pointer": "/provisions/3/decision_mentions/0",
+    "message": "Решение \"DEC-TRUSTED-TIME\" объявлено вне среза. Содержание не импортируется; отображается только ссылка."
   }
 ]

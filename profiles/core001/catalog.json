@@ -1,0 +1,232 @@
+{
+  "codes": [
+    {
+      "code": "ERR_SOURCE_REVISION_MISMATCH",
+      "severity": "error",
+      "message": "Первые строки источника не содержат \"{{expectedHeader}}\". Источник изменился или объявлена неверная ревизия."
+    },
+    {
+      "code": "ERR_SOURCE_QUOTE_NOT_FOUND",
+      "variant": "fragment",
+      "severity": "error",
+      "message": "Цитата фрагмента \"{{id}}\" не найдена в {{legacyName}}. Источник и машинное представление разошлись."
+    },
+    {
+      "code": "ERR_SOURCE_QUOTE_NOT_FOUND",
+      "variant": "decision",
+      "severity": "error",
+      "message": "Цитата решения \"{{id}}\" не найдена в {{legacyName}}."
+    },
+    {
+      "code": "ERR_SOURCE_LOCATOR_UNKNOWN",
+      "variant": "fragment",
+      "severity": "error",
+      "message": "source_ref \"{{ref}}\" не разобран или раздел не найден в {{legacyName}}. Ожидается \"<SOURCE>#<section>[/table/<column>|/<item>]\"."
+    },
+    {
+      "code": "ERR_SOURCE_LOCATOR_UNKNOWN",
+      "variant": "decision",
+      "severity": "error",
+      "message": "source_ref \"{{ref}}\" не разобран или раздел не найден в {{legacyName}}."
+    },
+    {
+      "code": "ERR_SOURCE_LOCATOR_MISMATCH",
+      "variant": "fragment",
+      "severity": "error",
+      "message": "Цитата фрагмента \"{{id}}\" найдена в документе, но не внутри объявленного места \"{{ref}}\"."
+    },
+    {
+      "code": "ERR_SOURCE_LOCATOR_MISMATCH",
+      "variant": "decision",
+      "severity": "error",
+      "message": "Цитата решения \"{{id}}\" найдена в документе, но не внутри объявленного места \"{{ref}}\"."
+    },
+    {
+      "code": "ERR_OUT_OF_SLICE_CONTENT",
+      "variant": "fragment",
+      "severity": "error",
+      "message": "Фрагмент \"{{id}}\" расположен вне объявленного среза ({{ref}}). Содержание вне среза не импортируется."
+    },
+    {
+      "code": "ERR_OUT_OF_SLICE_CONTENT",
+      "variant": "provision",
+      "severity": "error",
+      "message": "Положение \"{{id}}\" опирается на фрагмент вне среза \"{{fragment}}\"."
+    },
+    {
+      "code": "ERR_OUT_OF_SLICE_CONTENT",
+      "variant": "outside-ref",
+      "severity": "error",
+      "message": "Ссылка \"{{target}}\" должна быть помечена in_scope: false"
+    },
+    {
+      "code": "ERR_QUOTE_NOT_IN_FRAGMENT",
+      "variant": "term",
+      "severity": "error",
+      "message": "Определение термина \"{{id}}\" не является дословной частью фрагмента \"{{fragment}}\". Пересказ в определении запрещён."
+    },
+    {
+      "code": "ERR_QUOTE_NOT_IN_FRAGMENT",
+      "variant": "provision",
+      "severity": "error",
+      "message": "source_quote положения \"{{id}}\" не является частью фрагмента \"{{fragment}}\"."
+    },
+    {
+      "code": "ERR_SOURCE_REF_MISMATCH",
+      "variant": "term",
+      "severity": "error",
+      "message": "source_ref термина \"{{sourceRef}}\" не совпадает с source_ref фрагмента \"{{fragmentRef}}\""
+    },
+    {
+      "code": "ERR_SOURCE_REF_MISMATCH",
+      "variant": "provision",
+      "severity": "error",
+      "message": "source_ref положения \"{{sourceRef}}\" не совпадает с source_ref фрагмента \"{{fragmentRef}}\""
+    },
+    {
+      "code": "ERR_CLAIM_NOT_IN_SOURCE",
+      "severity": "error",
+      "message": "claim_quote положения \"{{id}}\" не является частью source_quote."
+    },
+    {
+      "code": "ERR_CLAUSE_NOT_IN_SOURCE",
+      "severity": "error",
+      "message": "Цитата {{field}} положения \"{{id}}\" не найдена в source_quote."
+    },
+    {
+      "code": "ERR_MODALITY_MARKER",
+      "variant": "provision-empty",
+      "severity": "error",
+      "message": "Для source_modality={{modality}} требуется лексический маркер из claim_quote."
+    },
+    {
+      "code": "ERR_MODALITY_MARKER",
+      "variant": "provision-missing",
+      "severity": "error",
+      "message": "Маркер \"{{marker}}\" отсутствует в claim_quote положения \"{{id}}\"."
+    },
+    {
+      "code": "ERR_MODALITY_MARKER",
+      "variant": "clause-empty",
+      "severity": "error",
+      "message": "Для source_modality={{modality}} в {{field}} положения \"{{id}}\" требуется непустой лексический маркер из цитаты."
+    },
+    {
+      "code": "ERR_MODALITY_MARKER",
+      "variant": "clause-missing",
+      "severity": "error",
+      "message": "Маркер \"{{marker}}\" отсутствует в цитате {{field}} положения \"{{id}}\"."
+    },
+    {
+      "code": "ERR_MODALITY_UPGRADE",
+      "variant": "provision",
+      "severity": "error",
+      "message": "source_modality={{modality}} не подтверждает normative_effect={{effect}}. Допустимо: {{allowed}}."
+    },
+    {
+      "code": "ERR_MODALITY_UPGRADE",
+      "variant": "case",
+      "severity": "error",
+      "message": "Кейс \"{{id}}\" ожидает violated, опираясь на {{basis}}. Это превращает разрешение или утверждение об области в обязанность."
+    },
+    {
+      "code": "ERR_CLASSIFICATION_BASIS",
+      "severity": "error",
+      "message": "Основание классификации должно ссылаться на текст внутри claim_quote. Цитата \"{{quote}}\" там не найдена."
+    },
+    {
+      "code": "ERR_UNEXPLAINED_PARAPHRASE",
+      "severity": "error",
+      "message": "normalized_statement положения \"{{id}}\" отличается от source_quote, но explications пуст. Пересказ обязан быть объяснён."
+    },
+    {
+      "code": "ERR_EXPLICATION_NOT_IN_STATEMENT",
+      "severity": "error",
+      "message": "Экспликация \"{{text}}\" не найдена в normalized_statement."
+    },
+    {
+      "code": "ERR_CASE_VIOLATED_UNDETERMINED",
+      "severity": "error",
+      "message": "Кейс \"{{id}}\" ожидает violated при source_determination={{determination}}. Нарушение нельзя выводить из неопределённого или отсутствующего в источнике исхода."
+    },
+    {
+      "code": "WARN_OUTSIDE_SLICE_REF",
+      "variant": "mention",
+      "severity": "warning",
+      "message": "Решение \"{{id}}\" объявлено вне среза. Содержание не импортируется; отображается только ссылка."
+    },
+    {
+      "code": "WARN_OUTSIDE_SLICE_REF",
+      "variant": "outside-ref",
+      "severity": "warning",
+      "message": "Ссылка \"{{target}}\" ведёт за пределы среза; содержание не импортировано."
+    },
+    {
+      "code": "REVIEW_OPEN_NORMATIVE_DEPENDENCY",
+      "severity": "review",
+      "message": "Положение \"{{id}}\" зависит от открытого нормативного решения \"{{decisionId}}\". В draft публикуется с маркером; выпуск release запрещён до решения."
+    },
+    {
+      "code": "WARN_OPEN_EDITORIAL_DEPENDENCY",
+      "severity": "warning",
+      "message": "Положение \"{{id}}\" зависит от открытого редакционного решения \"{{decisionId}}\". Нормативная семантика не затронута."
+    },
+    {
+      "code": "WARN_NON_BINDING_PROVISION",
+      "severity": "warning",
+      "message": "Положение \"{{id}}\" имеет норм. эффект \"{{effect}}\" и не является связывающим требованием. Отображается как таковое."
+    },
+    {
+      "code": "WARN_UNRESOLVED_CONDITION",
+      "severity": "warning",
+      "message": "Условие положения \"{{id}}\" не определено в срезе: {{conditions}}."
+    },
+    {
+      "code": "REVIEW_NORMALIZATION_PENDING",
+      "severity": "review",
+      "message": "Нормализация положения \"{{id}}\" отличается от источника и не подтверждена человеком."
+    },
+    {
+      "code": "REVIEW_EFFECT_CLASSIFICATION",
+      "severity": "review",
+      "message": "Нормативный эффект \"{{effect}}\" выведен редакторски, а не дословно. Требуется подтверждение."
+    },
+    {
+      "code": "WARN_REVIEW_WITHOUT_REVIEWER",
+      "variant": "provision",
+      "severity": "warning",
+      "message": "Положение \"{{id}}\" помечено подтверждённым, но ревьюер не указан."
+    },
+    {
+      "code": "WARN_REVIEW_WITHOUT_REVIEWER",
+      "variant": "case",
+      "severity": "warning",
+      "message": "Кейс \"{{id}}\" помечен подтверждённым, но ревьюер не указан."
+    },
+    {
+      "code": "WARN_UNDEFINED_TERM_IN_QUOTE",
+      "severity": "warning",
+      "message": "В цитате положения \"{{id}}\" упоминаются термины вне среза: {{terms}}. Они не определены в ontology.yml и не моделируются."
+    },
+    {
+      "code": "WARN_TRACE_INCOMPLETE",
+      "severity": "warning",
+      "message": "Обоснование кейса \"{{id}}\" ссылается на фрагмент, не входящий в source_quote положения \"{{provision}}\"."
+    },
+    {
+      "code": "REVIEW_CASE_INTERPRETATION",
+      "severity": "review",
+      "message": "Исход кейса \"{{id}}\" получен логическим выводом, а не дословно. Требуется нормативное подтверждение."
+    },
+    {
+      "code": "ERR_MISSING_VECTOR",
+      "severity": "error",
+      "message": "У положения \"{{id}}\" нет ни одного вектора соответствия."
+    },
+    {
+      "code": "WARN_NO_VIOLATED_VECTOR",
+      "severity": "warning",
+      "message": "У положения \"{{id}}\" нет violated-вектора. Это допустимо: источник может не устанавливать нарушения."
+    }
+  ]
+}
