@@ -434,18 +434,22 @@ core normalization. With the current renderer the core step is a no-op, so bytes
 ## 11. Build identity
 
 ```ts
-identity: {
-  projectId: "uia-core-001",
-  engineVersion: "0.1.0",
-  manifestVersion: "0.1",
-  inputDigest: string,
-  extensions: [
-    { kind: "profile",  id: "core001",          version: "0.1.0" },
-    { kind: "adapter",  id: "markdown",         version: "0.1.0" },
-    { kind: "renderer", id: "core001-markdown", version: "0.1.0" },
-  ],
+interface BuildIdentity {
+  projectId: string;        // "uia-core-001"
+  engineVersion: string;    // "0.1.0"
+  manifestVersion: string;  // "0.1"
+  inputDigest: string;      // "sha256:<hex>"
+  extensions: Array<{
+    kind: "profile" | "adapter" | "renderer";
+    id: string;
+    version: string;
+  }>;
 }
 ```
+
+For CORE-001 the resolved value is `projectId: "uia-core-001"`, `engineVersion: "0.1.0"`,
+`manifestVersion: "0.1"`, and three extensions: `core001` (profile), `markdown` (adapter) and
+`core001-markdown` (renderer), each at `0.1.0`.
 
 `inputDigest` = SHA-256 over, in this order:
 
@@ -461,8 +465,13 @@ Excluded: clock, locale, environment, absolute paths, file mtimes, user identity
 **Implementation choice (closure declaration).** The contract says an extension's closure is its
 declared files plus its lockfile dependencies but does not say where the declaration lives. M1
 puts it in `profiles/core001/profile.json` as `files: string[]` and
-`dependencies: Record<string, string>`, and validates it with a static import scan of the
-profile's TypeScript files.
+`dependencies: Record<string, string>`, and validates it by scanning the profile's TypeScript
+files for static imports **and** dynamic `import()` expressions with literal specifiers.
+
+The scan is a guard, not a sandbox. A computed specifier (`import(name)`), `createRequire`, or
+`process.binding` bypasses it, and D28 already places that class of violation on the profile
+author. `core.extension.unpinned-dependency` therefore means "an undeclared literal import was
+found", not "the closure is provably complete".
 
 ---
 
@@ -632,8 +641,9 @@ the relation inventory, the provenance choice and the PR sequence.
 2. Unknown renderer id → `core.registry.missing`, exit 1.
 3. A second trivial renderer (test-only, emits a plain text listing) produces a valid artifact
    through the same boundary — the core does not require Markdown.
-4. The renderer receives only `{model, mode, templates, labels}`; a test asserts it cannot read
-   the filesystem (it is passed no `fs`).
+4. The renderer receives only `{model, mode, templates, labels}`; a test asserts no `fs` is passed
+   to it. This checks the interface, not runtime isolation: a renderer can still import
+   `node:fs` itself, which is the D32 trust boundary and is not something this test enforces.
 5. Artifact ends with exactly one `\n` and contains no `\r`.
 
 **Revert:** restore `render.ts`, move template back.
@@ -801,8 +811,9 @@ deleting three data files, one test file and one accessor.
 
 Exact acceptance tests:
 
-1. `sha256((await runBuild(base())).markdown)` equals the recorded hash, and the recorded hash
-   equals the hash of the committed artifact:
+1. `const result = await runBuild(base()); assert.ok(result.markdown !== null);` then
+   `sha256(result.markdown)` equals the recorded hash, and the recorded hash equals the hash of
+   the committed artifact:
    `sha256sum spec/output/CORE-001.draft.md` → `a29ce609269a8ad9185ed50576d4e6276b586f740d2ea8b4ef7f06f6c05988df`.
 2. `diagnostics.sorted()` deep-equals the 15-entry rendered snapshot, in this exact order
    (`severity code file pointer`):
