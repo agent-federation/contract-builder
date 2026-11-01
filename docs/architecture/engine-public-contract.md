@@ -197,31 +197,39 @@ no boolean algebra, no user-defined functions.
 
 ```ts
 type FieldSelector = string;
-
-type FieldRef = { entity: EntityRole; field: FieldSelector };
-// FieldSelector grammar: "name" | "name.sub" | "name[].sub" (one array level, no expressions)
+// grammar: "name" | "name.sub" | "name[].sub" (one array level, no expressions)
 
 type Condition =
-  | { field: FieldRef; equals: string }
-  | { field: FieldRef; in: string[] }
-  | { field: FieldRef; notIn: string[] }
-  | { field: FieldRef; nonEmpty: true }
-  | { field: FieldRef; empty: true };
+  | { field: FieldSelector; equals: string }
+  | { field: FieldSelector; oneOf: string[] }
+  | { field: FieldSelector; notIn: string[] }
+  | { field: FieldSelector; nonEmpty: true }
+  | { field: FieldSelector; empty: true };
 
 type RuleInstance =
-  | { kind: "matrix";      when: FieldRef; then: FieldRef;
+  | { kind: "matrix";      entity: EntityRole;
+      when: FieldSelector; then: FieldSelector;
       allowed: Record<string, string[]>; code: string }
-  | { kind: "substring";   field: FieldRef; within: FieldRef;
+  | { kind: "substring";   entity: EntityRole;
+      field: FieldSelector; within: FieldSelector;
       when?: Condition; code: string }
-  | { kind: "substringOfProvenance"; field: FieldRef; code: string }
-  | { kind: "requiredIf";  when: Condition; require: FieldRef[]; code: string }
-  | { kind: "forbidden";   fields: [FieldRef, FieldRef];
+  | { kind: "substringOfProvenance"; entity: EntityRole;
+      field: FieldSelector; code: string }
+  | { kind: "requiredIf";  entity: EntityRole;
+      when: Condition; require: FieldSelector[]; code: string }
+  | { kind: "forbidden";   entity: EntityRole;
+      fields: [FieldSelector, FieldSelector];
       pairs: Array<[string, string]>; code: string }
-  | { kind: "coverage";    role: EntityRole; link: FieldSelector;
-      min: number; code: string }
-  | { kind: "gate";        when: Condition; code: string;
-      blocking: { draft: boolean; release: boolean } };
+  | { kind: "coverage";    target: EntityRole; source: EntityRole;
+      link: FieldSelector; min: number; code: string }
+  | { kind: "gate";        entity: EntityRole; when: Condition;
+      code: string; blocking: { draft: boolean; release: boolean } };
 ```
+
+The entity is scoped at the rule level, so a rule cannot reference two different entities;
+`coverage` names the covered role (`target`), the role holding the link (`source`), and the
+link field on the source (for CORE-001: `target: "provision"`, `source: "case"`,
+`link: "provision"`).
 
 **Profile validator hook.** A profile may ship a TypeScript module implementing:
 
@@ -275,11 +283,11 @@ Mapping of the current CORE-001 checks:
 Invariants that are **not** policy: unique IDs, resolvable references, provenance binding
 shape, reserved field names, determinism.
 
-**Cross-entity scope.** `matrix`, `forbidden`, `gate`, `substring` and `requiredIf` constrain
-fields of one entity instance; the core never joins entities inside a primitive.
-`substringOfProvenance` is the only predefined join (entity field → its bound fragment text),
-and `coverage` uses the declared vector link. Any other cross-entity check belongs to the
-profile hook until a link primitive is justified by a second profile.
+**Cross-entity scope.** `matrix`, `forbidden`, `gate`, `substring`, `requiredIf` and
+`substringOfProvenance` constrain one entity instance named by `entity`; the core never joins
+entities inside them. `substringOfProvenance` resolves the entity's own provenance;
+`coverage` is the only primitive with an explicit link. Any other cross-entity check belongs
+to the profile hook until a link primitive is justified by a second profile.
 
 ### 3.4 Minimal valid project
 
@@ -653,6 +661,7 @@ interface FileSystem {
   readFile(path: string): Promise<Uint8Array>;
   writeFile(path: string, bytes: Uint8Array): Promise<void>;
   readdir(path: string): Promise<string[]>;
+  mkdir(path: string): Promise<void>;   // creates missing parents
 }
 
 interface LoadOptions {
@@ -669,9 +678,13 @@ interface LoadedProject {
 
 export function loadProject(options: LoadOptions): Promise<LoadedProject>;
 
-export function validateProject(
-  project: LoadedProject,
-): { ok: boolean; diagnostics: Diagnostic[]; phases: Record<Phase, PhaseState> };
+export interface ValidationResult {
+  ok: boolean;
+  diagnostics: Diagnostic[];
+  phases: Record<Phase, PhaseState>;
+}
+
+export function validateProject(project: LoadedProject): ValidationResult;
 
 export function buildProject(
   project: LoadedProject,
@@ -740,7 +753,7 @@ interface SourceAdapter {
   id: string;
   version: string;
   load(io: FileSystem, descriptor: SourceDecl): Promise<SourceDocument>;
-  verifyQuote(source: SourceDocument, ref: string, quote: string): LocatorResult;
+  verifyQuote(source: SourceDocument, ref: string, quote: string): Promise<LocatorResult>;
 }
 
 type LocatorResult = "found" | "outside" | "unsupported" | "unknown-locator";
