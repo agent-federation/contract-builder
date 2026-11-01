@@ -141,7 +141,10 @@
     "checks/dependencies.ts",
     "context.ts",
     "slice.ts",
-    "text.ts"
+    "text.ts",
+    "renderer.ts",
+    "labels.ru.json",
+    "templates/core001.md.j2"
   ],
   "dependencies": {},
   "view": "view.ts",

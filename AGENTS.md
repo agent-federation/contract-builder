@@ -49,14 +49,16 @@ specification leaves the working tree clean.
 
 - `spec/` — declared inputs (`contract-builder.json`, `sources.yml`,
   `ontology.yml`, `semantics.json`, `decisions.yml`, `conformance/cases.yml`),
-  the builder (`build.ts`, `lib/`), the template (`templates/core001.md.j2`) and
-  the generated `output/`.
-- `profiles/` — `core001/profile.json`, `core001/view.ts` and document plus
-  entity-kind JSON Schemas under `core001/schemas/`.
+  the builder (`build.ts`, `lib/`) and the generated `output/`.
+- `profiles/` — `core001/profile.json`, `core001/view.ts`, the validator
+  (`validator.ts`, `checks/`, `catalog.json`), the renderer (`renderer.ts`,
+  `labels.ru.json`, `templates/`) and document plus entity-kind JSON Schemas
+  under `core001/schemas/`.
 - `fixtures/` — intentionally broken specs (`broken-modality`,
   `broken-source-drift`, `open-decision`) used by tests and examples.
 - `tests/` — `build.test.ts`, `golden.test.ts`, `ir.test.ts`,
-  `manifest.test.ts`, with golden baselines under `tests/golden/`.
+  `manifest.test.ts`, `checks.test.ts`, `hook.test.ts`, `renderer.test.ts`,
+  `genericity.test.ts`, with golden baselines under `tests/golden/`.
 - `docs/` — architecture contract, M1 implementation plan and the design record.
 - `CORE-001.legacy.md` — the read-only source document.
 

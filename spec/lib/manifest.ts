@@ -426,6 +426,13 @@ function validateRender(
       outputs[mode] = target;
     }
 
+    // An omitted optional field is fine; a present but invalid one is not.
+    for (const key of ["renderer", "template", "labels"] as const) {
+      if (item[key] !== undefined && !isNonEmptyString(item[key])) {
+        return fail(`/render/${index}/${key}`, `${key} должен быть непустой строкой`);
+      }
+    }
+
     render.push({
       outputs,
       ...(isNonEmptyString(item.renderer) ? { renderer: item.renderer } : {}),

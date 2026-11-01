@@ -13,7 +13,12 @@ import {
   type ValidatorContext,
 } from "./hook.js";
 import { messageOf } from "./guards.js";
-import { renderMarkdown, type BuildMode } from "./render.js";
+import {
+  loadRenderInputs,
+  normalizeArtifact,
+  type BuildMode,
+  type Renderer,
+} from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import type { SourceAdapter } from "./source.js";
 import { pathToFileURL } from "node:url";
@@ -28,6 +33,8 @@ export interface BuildOptions {
   diagnostics?: Diagnostics;
   /** Optional adapter registry; defaults to the built-in markdown adapter. */
   adapters?: Record<string, SourceAdapter>;
+  /** Renderer registry supplied by the consumer; the core never loads the profile. */
+  renderers?: Record<string, Renderer>;
 }
 
 export interface BuildResult {
@@ -152,13 +159,69 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const spec = view as Parameters<typeof renderMarkdown>[0];
+  const renderDeclaration = loaded.project.manifest.render[0];
+  if (renderDeclaration === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      "/render",
+      "Манифест не объявляет ни одного render",
+    );
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const renderInputs = await loadRenderInputs(loaded.project, renderDeclaration, diags);
+  if (renderInputs === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  const renderer = resolveRenderer(renderDeclaration.renderer, options.renderers, diags);
+  if (renderer === null) {
+    return result(options, diags, null, outputPath, false, "errors");
+  }
 
   if (diags.errors > 0) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const markdown = renderMarkdown(spec, options.mode, diags.sorted(), legacyName);
+  let markdown: string;
+  try {
+    const artifacts = await renderer.render(model, {
+      mode: options.mode,
+      templates: renderInputs.templates,
+      ...(renderInputs.labels !== undefined ? { labels: renderInputs.labels } : {}),
+      diagnostics: diags.sorted(),
+    });
+    if (artifacts.length !== 1) {
+      diags.error(
+        "core.render.invalid",
+        "contract-builder.json",
+        "/render/0",
+        `Рендерер должен вернуть ровно один артефакт в M1, получено ${artifacts.length}`,
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    const artifact = artifacts[0]!;
+    const declared = renderDeclaration.outputs[options.mode] ?? "";
+    if (artifact.path !== declared) {
+      diags.error(
+        "core.render.invalid",
+        "contract-builder.json",
+        "/render/0",
+        `Рендерер вернул путь "${artifact.path}", ожидается "${declared}"`,
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    markdown = new TextDecoder().decode(normalizeArtifact(artifact.bytes));
+  } catch (error) {
+    diags.error(
+      "core.render.failed",
+      "contract-builder.json",
+      "/render/0",
+      `Рендерер завершился с ошибкой: ${messageOf(error)}`,
+    );
+    return result(options, diags, null, outputPath, false, "errors");
+  }
 
   const blocking = diags.sorted().filter((d) => {
     if (d.severity === "error" || d.severity === "review") return true;
@@ -329,6 +392,35 @@ async function loadCatalog(
     );
     return null;
   }
+}
+
+function resolveRenderer(
+  id: string | undefined,
+  registry: Record<string, Renderer> | undefined,
+  diags: Diagnostics,
+): Renderer | null {
+  if (id === undefined) {
+    diags.error(
+      "core.manifest.invalid",
+      "contract-builder.json",
+      "/render/0/renderer",
+      "render.renderer обязателен",
+    );
+    return null;
+  }
+
+  const renderer = registry?.[id];
+  if (renderer === undefined) {
+    diags.error(
+      "core.registry.missing",
+      "contract-builder.json",
+      "/render/0/renderer",
+      `Рендерер "${id}" не зарегистрирован`,
+    );
+    return null;
+  }
+
+  return renderer;
 }
 
 function isCatalog(value: unknown): value is DiagnosticCatalog {

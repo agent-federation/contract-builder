@@ -12,8 +12,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
  * quoted kind/relation names, unquoted domain words (except the TypeScript `case`
  * keyword), the CORE-001 token, and CORE-001 Russian labels. It is a ratchet, not a
  * proof: an arbitrary identifier or template expression could still carry domain
- * meaning without matching. `render.ts` is the last CORE-001-aware engine module and
- * moves in PR 5.
+ * meaning without matching.
  */
 const QUOTED_KIND = /["'](fragment|term|provision|decision|case|dependsOn|mentions|vectors)["']/;
 const UNQUOTED_KIND = /\b(fragment|term|provision|decision|dependsOn|mentions|vectors)\b/;
@@ -21,7 +20,6 @@ const CORE_TOKEN = /CORE-001|core001/;
 const DOMAIN_LABEL =
   /обязанность|запрет|разрешение|дословно|пересказ|положение|кейс|термин|фрагмент/i;
 
-const ALLOWED = new Set(["render.ts"]);
 
 async function walk(dir: string): Promise<string[]> {
   const files: string[] = [];
@@ -37,7 +35,6 @@ async function walk(dir: string): Promise<string[]> {
 export async function scanEngine(dir: string): Promise<string[]> {
   const offenders: string[] = [];
   for (const file of await walk(dir)) {
-    if (ALLOWED.has(path.basename(file))) continue;
     const text = await readFile(file, "utf8");
     if (
       QUOTED_KIND.test(text) ||

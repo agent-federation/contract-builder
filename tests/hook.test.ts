@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { resolveFindings, type DiagnosticCatalog } from "../spec/lib/hook.js";
 import { ORDER } from "../profiles/core001/validator.js";
-import { entity, modelWith, copyProjectWithProfile } from "./support.js";
+import { entity, modelWith, copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
 import { runBuild } from "../spec/lib/build.js";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -117,6 +117,7 @@ test("hook: an unknown finding code fails the build", async () => {
     write: false,
     check: false,
     strict: false,
+    renderers: TEST_RENDERERS,
   });
 
   assert.equal(result.exitCode, 1);
@@ -133,6 +134,7 @@ test("hook: a view module without buildView fails the build", async () => {
     write: false,
     check: false,
     strict: false,
+    renderers: TEST_RENDERERS,
   });
 
   assert.equal(result.exitCode, 1);
@@ -149,6 +151,7 @@ test("hook: a validator without validate fails the build", async () => {
     write: false,
     check: false,
     strict: false,
+    renderers: TEST_RENDERERS,
   });
 
   assert.equal(result.exitCode, 1);
@@ -169,6 +172,7 @@ test("hook: a malformed catalog fails the build", async () => {
     write: false,
     check: false,
     strict: false,
+    renderers: TEST_RENDERERS,
   });
 
   assert.equal(result.exitCode, 1);
@@ -188,6 +192,7 @@ test("hook: a project without a source fails early", async () => {
     write: false,
     check: false,
     strict: false,
+    renderers: TEST_RENDERERS,
   });
 
   assert.equal(result.exitCode, 1);
