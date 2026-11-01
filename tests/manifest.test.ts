@@ -1,0 +1,164 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { runBuild, type BuildOptions } from "../spec/lib/build.js";
+import { loadProject } from "../spec/lib/load.js";
+import { Diagnostics } from "../spec/lib/diagnostics.js";
+
+/**
+ * PR 2 acceptance: manifest, project boundary and declared-input loading.
+ * These tests use temporary copies of the real project; they never touch `spec/`.
+ */
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+const specDir = path.join(root, "spec");
+const profileDir = path.join(root, "profiles", "core001");
+const legacyPath = path.join(root, "CORE-001.legacy.md");
+
+interface MutableManifest {
+  profile: { source: string; external?: boolean };
+  inputs: Array<Record<string, unknown>>;
+  sources: Array<{ path: string; external?: boolean }>;
+  render: Array<{ outputs: Record<string, string> }>;
+}
+
+const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
+  specDir: dir,
+  mode: "draft",
+  write: false,
+  check: false,
+  strict: false,
+  ...overrides,
+});
+
+const codes = (result: Awaited<ReturnType<typeof runBuild>>): string[] =>
+  result.diagnostics.map((d) => d.code);
+
+async function copyProject(name: string): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), `m1-${name}-`));
+  for (const file of [
+    "contract-builder.json",
+    "sources.yml",
+    "ontology.yml",
+    "semantics.json",
+    "decisions.yml",
+  ]) {
+    await cp(path.join(specDir, file), path.join(dir, file));
+  }
+  await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), {
+    recursive: true,
+  });
+
+  // Absolute paths plus `external: true` keep the temporary project self-contained
+  // without copying the profile or the legacy document.
+  await editManifest(dir, (manifest) => {
+    manifest.profile.source = profileDir;
+    manifest.sources[0]!.path = legacyPath;
+  });
+
+  return dir;
+}
+
+async function editManifest(
+  dir: string,
+  mutate: (manifest: MutableManifest) => void,
+): Promise<void> {
+  const file = path.join(dir, "contract-builder.json");
+  const manifest = JSON.parse(await readFile(file, "utf8")) as MutableManifest;
+  mutate(manifest);
+  await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+test("manifest: a missing manifest is core.manifest.missing", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "m1-no-manifest-"));
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("core.manifest.missing"));
+});
+
+test("manifest: an input outside the project root without external is rejected", async () => {
+  const dir = await copyProject("outside-input");
+  await editManifest(dir, (manifest) => {
+    manifest.inputs.push({
+      path: legacyPath,
+      format: "yaml",
+      schema: "core001:sources",
+      entities: [],
+    });
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("core.path.outside-root"));
+});
+
+test("manifest: an optional absent input is skipped without error", async () => {
+  const dir = await copyProject("optional-input");
+  await editManifest(dir, (manifest) => {
+    manifest.inputs.push({
+      path: "absent.yml",
+      format: "yaml",
+      schema: "core001:sources",
+      entities: [],
+      optional: true,
+    });
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 0, result.diagnostics.map((d) => d.message).join("\n"));
+  assert.equal(codes(result).includes("ERR_IO"), false);
+});
+
+test("manifest: an output path escaping the output root is rejected and nothing is written", async () => {
+  const dir = await copyProject("output-escape");
+  const escapeName = `escape-${path.basename(dir)}.md`;
+  const escapePath = path.join(path.dirname(dir), escapeName);
+  await editManifest(dir, (manifest) => {
+    manifest.render[0]!.outputs.draft = `../${escapeName}`;
+  });
+
+  const result = await runBuild(base(dir, { write: true }));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("core.path.outside-root"));
+  assert.equal(existsSync(escapePath), false);
+});
+
+test("manifest: a source outside the project root without external is rejected", async () => {
+  const dir = await copyProject("outside-source");
+  await editManifest(dir, (manifest) => {
+    delete manifest.sources[0]!.external;
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("core.path.outside-root"));
+});
+
+test("manifest: the transitional view carries the manifest sources", async () => {
+  const diagnostics = new Diagnostics();
+  const loaded = await loadProject(specDir, diagnostics);
+  assert.ok(loaded !== null, diagnostics.report());
+
+  const declared = loaded.project.manifest.sources ?? [];
+  const view = loaded.files.sources as {
+    sources: Array<{ id: string; path: string; document: string; revision: string }>;
+  };
+
+  assert.equal(view.sources.length, declared.length);
+  assert.deepEqual(
+    view.sources.map((source) => ({
+      id: source.id,
+      document: source.document,
+      revision: source.revision,
+    })),
+    declared.map((source) => ({
+      id: source.id,
+      document: source.identity?.document,
+      revision: source.identity?.revision,
+    })),
+  );
+});
