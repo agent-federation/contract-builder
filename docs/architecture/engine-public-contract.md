@@ -150,6 +150,7 @@ interface Profile {
     typeField?: string;                // optional discriminator
   }>>;
   vocabularies?: Record<string, string[]>;   // named enums used by fields
+  relations: RelationMapping;                // how core fills relations.* from fields
   rules: RuleInstance[];
   validator?: string;                        // optional profile hook module
   diagnostics: DiagnosticCatalog;
@@ -170,6 +171,19 @@ interface Profile {
 ```
 
 The profile carries **no project content**. Two projects can share one profile.
+
+Relation fields are declared, not hardcoded:
+
+```ts
+interface RelationMapping {
+  dependsOn?: FieldSelector;                 // entity field listing decision ids
+  mentions?: FieldSelector;                  // entity field listing decision ids
+  vectors?: { role: EntityRole; field: FieldSelector };  // e.g. { role: "case", field: "provision" }
+}
+```
+
+The core fills `Entity.relations` only through this mapping, so a profile can use
+`decision_dependencies` or `decisions` or anything else without touching the engine.
 
 ### 3.3 Validation policy: closed primitives plus a profile hook
 
@@ -261,6 +275,12 @@ Mapping of the current CORE-001 checks:
 Invariants that are **not** policy: unique IDs, resolvable references, provenance binding
 shape, reserved field names, determinism.
 
+**Cross-entity scope.** `matrix`, `forbidden`, `gate`, `substring` and `requiredIf` constrain
+fields of one entity instance; the core never joins entities inside a primitive.
+`substringOfProvenance` is the only predefined join (entity field → its bound fragment text),
+and `coverage` uses the declared vector link. Any other cross-entity check belongs to the
+profile hook until a link primitive is justified by a second profile.
+
 ### 3.4 Minimal valid project
 
 ```text
@@ -293,7 +313,7 @@ interface Entity {
   type?: string;                       // profile-defined discriminator
   fields: Readonly<Record<string, unknown>>;  // validated by the profile schema
   provenance?: ProvenanceBinding;
-  relations: {
+  relations: {                         // filled from Profile.relations mapping
     dependsOn: string[];
     mentions: string[];
     vectors: string[];                 // case -> provision
@@ -317,7 +337,7 @@ interface ProvenanceBinding {
 
 interface ReviewState {
   dimensions: Record<string, "pending" | "confirmed">;
-  reviewedBy?: Record<string, string>;
+  reviewed_by?: Record<string, string>;
 }
 ```
 
@@ -823,6 +843,10 @@ second profile, and external consumers.
 | `tests/` | core contract tests + profile acceptance | M1 |
 | `fixtures/` | test infrastructure | M1 |
 | `CORE-001.legacy.md` | project source document | M1 |
+
+Review shape: M1 keeps the legacy single `review.status` + `reviewed_by` and maps it to
+`ReviewState.dimensions.default`; per-dimension review arrives with #3 in M4. The mapping is
+declared in the profile, not hardcoded, so CORE-001 data does not need a migration in M1.
 
 ---
 
