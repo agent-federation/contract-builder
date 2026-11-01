@@ -77,6 +77,9 @@ export interface Profile {
   documents: ProfileDocumentBinding[];
   relations?: RelationDecl[];
   provenance?: ProvenanceMapping[];
+  view?: string;
+  validator?: string;
+  diagnostics?: string;
   files?: string[];
   dependencies?: Record<string, string>;
 }
@@ -539,6 +542,28 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     }
   }
 
+  let view: string | undefined;
+  if (value.view !== undefined) {
+    if (!isNonEmptyString(value.view)) return fail("/view", "view должен быть непустой строкой");
+    view = value.view;
+  }
+
+  let validator: string | undefined;
+  if (value.validator !== undefined) {
+    if (!isNonEmptyString(value.validator)) {
+      return fail("/validator", "validator должен быть непустой строкой");
+    }
+    validator = value.validator;
+  }
+
+  let diagnostics: string | undefined;
+  if (value.diagnostics !== undefined) {
+    if (!isNonEmptyString(value.diagnostics)) {
+      return fail("/diagnostics", "diagnostics должен быть непустой строкой");
+    }
+    diagnostics = value.diagnostics;
+  }
+
   let provenance: ProvenanceMapping[] | undefined;
   if (value.provenance !== undefined) {
     if (!Array.isArray(value.provenance)) {
@@ -572,6 +597,9 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     documents,
     ...(relations !== undefined ? { relations } : {}),
     ...(provenance !== undefined ? { provenance } : {}),
+    ...(view !== undefined ? { view } : {}),
+    ...(validator !== undefined ? { validator } : {}),
+    ...(diagnostics !== undefined ? { diagnostics } : {}),
     ...(files !== undefined ? { files } : {}),
     ...(dependencies !== undefined ? { dependencies } : {}),
   };

@@ -11,7 +11,7 @@
 ```bash
 bun install
 bun run build          # draft → spec/output/CORE-001.draft.md
-bun test               # 41 тест
+bun test               # 63 теста
 bun run check          # артефакт соответствует модели?
 bun run build:release  # release (сейчас намеренно заблокирован)
 ```
@@ -46,7 +46,7 @@ spec/
     ir.ts                       общий IR: сущности, индексы, извлечение
     relations.ts                объявления и разрешение связей
     provenance.ts               прямые привязки происхождения
-    semantic.ts                 ID, ссылки, цитаты, модальность, зависимости
+    hook.ts                     контракт хука и разрешение находок
     render.ts                   Nunjucks + нормализация байтов
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
     guards.ts                   общие проверки типов
@@ -61,11 +61,17 @@ spec/
   output/CORE-001.draft.md      сгенерированный артефакт
 profiles/core001/
   profile.json                  виды, связи, происхождение, привязки документов
-  view.ts                       типы представления CORE-001
+  view.ts                       представление CORE-001 и производные значения
+  validator.ts                  агрегатор проверок профиля
+  checks/*.ts                   проверки CORE-001 по семействам
+  catalog.json                  коды, важность и сообщения диагностик
   schemas/*.schema.json         схемы документов и схемы видов сущностей
 tests/build.test.ts
 tests/manifest.test.ts          манифест и границы проекта
 tests/ir.test.ts                IR, связи и происхождение
+tests/checks.test.ts            проверки профиля по модулям
+tests/hook.test.ts              каталог, находки и порядок модулей
+tests/genericity.test.ts        защита ядра от лексики CORE-001
 tests/golden.test.ts            эталонная сборка CORE-001
 fixtures/
   broken-modality/              violated выведен из permission

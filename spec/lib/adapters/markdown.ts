@@ -2,11 +2,11 @@
  * Markdown source adapter: section/table/item locators plus the `SourceAdapter` boundary.
  *
  * A `source_ref` is `<SOURCE_ID>#<section>[/<block>]`, for example:
- *   SRC-CORE001#10.2
- *   SRC-CORE001#10/table/asserted_at
- *   SRC-CORE001#15/5
+ *   SRC-EXAMPLE#10.2
+ *   SRC-EXAMPLE#10/table/asserted_at
+ *   SRC-EXAMPLE#15/5
  *
- * A locator is verified against the legacy document: the fragment's quote must
+ * A locator is verified against the legacy document: the quoted text must
  * occur inside the declared block, not merely somewhere in the file. This is
  * still a section-level locator (headings are matched by their numeric label),
  * not a content hash or a line range.
