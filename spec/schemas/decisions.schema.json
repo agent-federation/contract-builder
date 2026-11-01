@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core001.local/schemas/decisions.schema.json",
+  "title": "Decisions: open, resolved and rejected",
+  "type": "object",
+  "required": ["decisions"],
+  "additionalProperties": false,
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "question", "status", "scope", "resolution",
+          "source", "source_ref", "source_quote", "in_scope"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DEC-[A-Z0-9-]+$" },
+          "question": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["open", "resolved", "rejected"] },
+          "scope": { "enum": ["normative", "editorial"] },
+          "resolution": { "type": ["string", "null"] },
+          "source": { "type": "string", "pattern": "^SRC-[A-Z0-9-]+$" },
+          "source_ref": { "type": "string", "minLength": 1 },
+          "source_quote": { "type": "string", "minLength": 1 },
+          "in_scope": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,171 @@
+# {{ document.id }} — машинно-читаемый срез
+
+> Сгенерированный артефакт сборки. Источник истины — файлы `spec/`.
+> Этот документ не редактируется вручную и не является источником нормативных изменений.
+
+| Поле | Значение |
+|---|---|
+| Документ | `{{ document.id }}` — {{ document.title }} |
+| Ревизия источника | `{{ document.revision }}` |
+| Исходный файл | `{{ source.path }}` |
+| Срез | `{{ slice.id }}` — {{ document.slice_title }} |
+| Включает разделы | {{ slice.includes }} |
+| Исключает разделы | {{ slice.excludes }} |
+| Режим сборки | `{{ modeLabel }}` |
+| Терминов | {{ counts.terms }} |
+| Положений | {{ counts.provisions }} (связывающих: {{ counts.binding }}) |
+| Векторов соответствия | {{ counts.cases }} |
+| Открытых решений | {{ counts.openDecisions }} |
+| Диагностика | ERROR={{ counts.errors }} · REVIEW_REQUIRED={{ counts.reviews }} · WARNING={{ counts.warnings }} |
+
+{% if isDraft and counts.reviews > 0 %}
+> **Черновик.** Есть {{ counts.reviews }} диагностик `REVIEW_REQUIRED`: часть нормативного содержания не подтверждена человеком. Режим `release` для такого состояния запрещён.
+{% endif %}
+
+## Как читать этот документ
+
+Дословный текст источника и его структурированная интерпретация разделены явно.
+
+| Обозначение | Значение |
+|---|---|
+| дословно | `normalized_statement` совпадает с `source_quote`; редакторского пересказа нет |
+| пересказ, не подтверждён | нормализация отличается от источника и требует нормативного ревью |
+| пересказ, подтверждён | отличие внесено осознанно и подтверждено человеком |
+| satisfied | сценарий не противоречит положению |
+| violated | сценарий противоречит обязанности или запрету, которые источник действительно устанавливает |
+| определён источником | исход сценария прямо следует из текста |
+| выведен логически | исход получен выводом (например, контрапозицией), а не дословно |
+| недоопределён источником | источник рассматривает ситуацию, но оставляет исход открытым |
+| источник молчит | источник не рассматривает ситуацию |
+
+## Термины
+
+| ID | Термин | Определение | Источник |
+|---|---|---|---|
+{% for t in terms %}
+| `{{ t.id }}` | `{{ t.name }}` | {{ t.definition }} | `{{ t.sourceRef }}` |
+{% endfor %}
+
+## Нормативные положения
+
+{% for p in provisions %}
+### {{ p.id }} — {{ p.title }}
+
+| Свойство | Значение |
+|---|---|
+| Источник | `{{ p.sourceRef }}` (фрагмент `{{ p.fragmentId }}`) |
+| Нормализация | {{ p.normalizationLabel }} |
+| Модальность источника | `{{ p.sourceModality }}`{% if p.modalityMarker %} (маркер: «{{ p.modalityMarker }}»){% endif %} |
+| Нормативный эффект | `{{ p.normativeEffect }}` — {{ p.effectLabel }} |
+| Основание классификации | {{ p.classificationKindLabel }}: «{{ p.classificationQuote }}» |
+| Связывающее требование | {{ p.bindingLabel }} |
+| Применимость | {{ p.applicabilityLabel }} |
+| Ревью | {{ p.reviewStatusLabel }}{% if p.reviewedBy %} ({{ p.reviewedBy }}){% endif %} |
+| Термины | {% if p.terms.length %}{% for t in p.terms %}`{{ t.id }}`{% if not loop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %} |
+
+**Источник (дословно):**
+
+{{ p.sourceQuote | blockquote }}
+
+{% if p.verbatim %}
+Нормализованная формулировка совпадает с источником дословно.
+{% else %}
+**Нормализованная формулировка** — {{ p.normalizationLabel }}:
+
+{{ p.normalizedStatement | blockquote }}
+
+| Вид экспликации | Фрагмент нормализации | Обоснование |
+|---|---|---|
+{% for e in p.explications %}
+| {{ e.kindLabel }} | {{ e.text }} | {{ e.rationale }} |
+{% endfor %}
+{% endif %}
+
+{% if p.precondition %}
+**Предусловие**{% if p.precondition.conditionKindLabel %} ({{ p.precondition.conditionKindLabel }}){% endif %}: {{ p.precondition.text }}
+
+{{ p.precondition.quote | blockquote }}
+{% endif %}
+
+{% if p.exception %}
+**Исключение** (`{{ p.exception.sourceModality }}`): {{ p.exception.text }}
+
+{{ p.exception.quote | blockquote }}
+{% endif %}
+
+{% if p.dependencies.length %}
+**Нормативные зависимости от решений:** {% for d in p.dependencies %}`{{ d.id }}` ({{ d.statusLabel }}, {{ d.scopeLabel }}){% if not loop.last %}, {% endif %}{% endfor %}.
+{% else %}
+**Нормативные зависимости от решений:** нет.
+{% endif %}
+
+{% if p.mentions.length %}
+**Связанные решения без нормативной зависимости:** {% for d in p.mentions %}`{{ d.id }}` ({{ d.statusLabel }}, {{ d.scopeLabel }}, {{ d.inScopeLabel }}){% if not loop.last %}, {% endif %}{% endfor %}. Упоминание не является зависимостью и не блокирует выпуск.
+{% endif %}
+
+{% if p.unresolvedConditions.length %}
+**Условия, не определённые в срезе:**
+
+{% for c in p.unresolvedConditions %}
+- {{ c.text }} — {{ c.reason }}
+{% endfor %}
+{% endif %}
+
+{% if p.outsideSliceRefs.length %}
+**Ссылки вне среза (содержание не импортировано):**
+
+{% for r in p.outsideSliceRefs %}
+- `{{ r.target }}` — {{ r.note }}
+{% endfor %}
+{% endif %}
+
+**Векторы соответствия** — декларативные, не исполняются сборщиком. Ожидаемый исход оценивается относительно положения, а определённость показывает, насколько этот исход установлен источником.
+
+| ID | Сценарий | Ожидаемый исход | Определённость источником | Основание |
+|---|---|---|---|---|
+{% for c in p.cases %}
+| `{{ c.id }}` | {{ c.given }} → {{ c.action }} | {{ c.outcomeLabel }} | {{ c.determinationLabel }} | {{ c.basisLabel }} |
+{% endfor %}
+
+{% for c in p.cases %}
+- `{{ c.id }}`: {{ c.rationale }} (источник обоснования: `{{ c.rationaleFragment }}`)
+{% endfor %}
+
+{% if p.violatedCount == 0 %}
+> Для этого положения источник не даёт ни одного `violated`-вектора. Это зафиксировано явно и не восполнено редакторским решением.
+{% endif %}
+
+{% endfor %}
+
+## Решения
+
+| ID | Вопрос | Статус | Область | В срезе | Источник |
+|---|---|---|---|---|---|
+{% for d in decisions %}
+| `{{ d.id }}` | {{ d.question }} | {{ d.statusLabel }} | {{ d.scopeLabel }} | {{ d.inScopeLabel }} | `{{ d.sourceRef }}` |
+{% endfor %}
+
+Открытое решение не является действующей нормой. Положение, зависящее от открытого нормативного решения, публикуется в `draft` с маркером, а в `release` блокирует выпуск. Простое упоминание решения зависимостью не считается.
+
+## Приложение A. Матрица трассируемости
+
+| Фрагмент | `source_ref` | Положение | Нормативные зависимости | Векторы |
+|---|---|---|---|---|
+{% for row in trace %}
+| `{{ row.fragmentId }}` | `{{ row.sourceRef }}` | `{{ row.provisionId }}` | {{ row.decisions }} | {{ row.cases }} |
+{% endfor %}
+
+## Приложение B. Диагностика сборки
+
+{% for g in diagnosticsGroups %}
+{% if g.items.length %}
+### {{ g.label }} — {{ g.items.length }}
+
+| Код | Файл | Указатель | Сообщение |
+|---|---|---|---|
+{% for d in g.items %}
+| `{{ d.code }}` | `{{ d.file }}` | `{{ d.pointer }}` | {{ d.message }} |
+{% endfor %}
+
+{% endif %}
+{% endfor %}

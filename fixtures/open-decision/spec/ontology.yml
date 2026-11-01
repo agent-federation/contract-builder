@@ -1,0 +1,20 @@
+document:
+  id: UIA-CORE-001
+  title: "Идентичность участников, мандаты, граф происхождения и локальное признание"
+  revision: "0.3.3"
+  source: SRC-CORE001
+  slice: SLICE-CORE001-10
+  slice_title: "§10.1–10.2. Temporal Reference Model: доверие к меткам времени и временная валидация"
+
+terms:
+  - id: TERM-ASSERTED-AT
+    name: asserted_at
+    definition: "Время заявления, указанное автором"
+    fragment: FRAG-10-TABLE-ASSERTED-AT
+    source_ref: "SRC-CORE001#10/table/asserted_at"
+
+  - id: TERM-SIGNED-AT
+    name: signed_at
+    definition: "Время подписания, если оно удостоверено применимым механизмом"
+    fragment: FRAG-10-TABLE-SIGNED-AT
+    source_ref: "SRC-CORE001#10/table/signed_at"
