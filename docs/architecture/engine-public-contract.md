@@ -1,7 +1,7 @@
 # Contract Builder Engine — Public Contract
 
 **Status:** proposed for maintainer review
-**Document version:** 0.2
+**Document version:** 0.3
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
 **Implementation status:** not started
@@ -99,13 +99,13 @@ interface Manifest {
   sources?: SourceDecl[];
   policy?: PolicyOverlay;              // project-level overrides
   render: RenderDecl[];
-  output?: { root?: string };          // default: "."
+  output?: { root?: string };          // default: "."; must stay inside the project root
 }
 
 interface InputDecl {
   path: string;                        // relative to the manifest
   format: "json" | "yaml";
-  schema: string;                      // profile-declared schema id
+  schema: string;                      // document schema id (validates the whole file)
   entities: Array<{                    // JSON Pointer -> array of entities
     kind: string;                      // declared in profile.entityKinds
     pointer: string;                   // e.g. "/provisions"
@@ -142,7 +142,9 @@ interface RenderDecl {
 resolution both must be present (`core.manifest.render` otherwise).
 
 Path resolution and trust are defined in **5.7**; no path may leave the project root without an
-explicit `external: true` on the declaration that owns it.
+explicit `external: true` on the declaration that owns it. Output paths are stricter: neither
+`output.root` nor any `render[].outputs` path may leave the canonical output root, which itself
+must stay inside the project root.
 
 ### 3.2 Profile
 
@@ -290,7 +292,7 @@ applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
   dependencies must participate in build identity: the profile declares its files and exact
   dependency versions (lockfile); the engine hashes them into `profileDigest`, which is part of
   `inputDigest`. Code outside that declared set is an author violation; an unpinned dependency
-  is reported as `core.profile.unpinned-dependency`.
+  is reported as `core.extension.unpinned-dependency`.
 
 #### Why both
 
@@ -396,6 +398,16 @@ Generic guarantees:
 - every entity kind and relation name is declared by the profile;
 - output is deterministic.
 
+**Identity scope.** Global uniqueness across all kinds is a mandatory core invariant. A
+relation may target an id from any input, so one namespace keeps lookups unambiguous; a
+profile that wants per-kind identity encodes the kind in the id (for example
+`API-REQ-014`). The core does not vary the scope per profile.
+
+**Review state.** `pending` and `confirmed` are core-standardized: renderers, diagnostics and
+review gates need one stable meaning for these two values. Dimension names and the blocking
+policy remain profile-defined, and a profile may leave `review` unused. The core does not add
+statuses beyond these two.
+
 `ResolvedManifest` and `ResolvedProfile` are the loader's resolved forms (absolute paths,
 loaded profile module). They stay internal; the public model exposes the declared `Manifest`
 and `Profile`, so internal loader changes cannot break profile hooks.
@@ -444,29 +456,36 @@ are extracted by JSON Pointers declared in the manifest.
 }
 ```
 
-Extraction and normalization, step by step:
+Extraction and normalization, step by step. Steps 1–5 run for every input before any relation
+is resolved; a relation may target an entity from another input.
 
-1. **Pointer.** Every `pointer` must resolve to an array of objects. Missing value or wrong
-   shape is `core.extract.pointer`; an `optional` input that is absent is skipped.
-2. **Kind.** The `kind` must exist in `profile.entityKinds`; otherwise
-   `core.profile.unknown-kind`.
-3. **Identity.** The kind's `identity` selector (default `id`) must yield a non-empty string.
-   Missing or empty is `core.identity.missing`; a duplicate across the whole project is
-   `core.identity.duplicate`.
-4. **Fields.** The object is validated by the kind schema; the validated object becomes
-   `Entity.fields` minus the reserved names.
-5. **Relations.** For every `RelationDecl` with a `field`, the field value (a string or an
-   array of strings) is resolved against `to` (`"*"` means any kind). A missing target is
-   `core.reference.unresolved`; `cardinality: "one"` rejects arrays. The resolved ids populate
+1. **Document schema.** `InputDecl.schema` validates the complete input document as a whole.
+   A document that does not match is `core.schema.document`; extraction does not start.
+2. **Pointer.** Every `pointer` must resolve to an array of objects inside the validated
+   document. Missing value or wrong shape is `core.extract.pointer`; an `optional` input that
+   is absent is skipped.
+3. **Kind and entity schema.** The `kind` must exist in `profile.entityKinds`, and every
+   extracted object is validated by that kind's `EntityKindDecl.schema`. Unknown kind is
+   `core.profile.unknown-kind`; a failed entity schema is `core.schema.entity`.
+4. **Identity and fields.** The kind's `identity` selector (default `id`) must yield a
+   non-empty string. Missing or empty is `core.identity.missing`; a duplicate across the whole
+   project is `core.identity.duplicate`. The validated object becomes `Entity.fields` minus the
+   reserved names; **fields named by relation or provenance mappings are retained** — the
+   mappings are projections, not moves.
+5. **Index (pass 1).** After all inputs are processed, every entity is indexed by id and kind.
+   This is the point after which any reference can be resolved.
+6. **Relations (pass 2).** For every `RelationDecl` with a `field`, the field value (a string
+   or an array of strings) is resolved against `to` (`"*"` means any kind). A missing target is
+   `core.reference.unresolved`; `cardinality: "one"` rejects arrays. Resolved ids populate
    `Entity.relations[name]`; the inverse relation, if declared, is populated on the target.
    Fields not named by a `RelationDecl` stay typed fields.
-6. **Provenance.** For every `ProvenanceMapping` of the kind, the three selectors are read
-   verbatim into `ProvenanceBinding`. Missing or empty is `core.provenance.incomplete`. The
-   `ref` is passed unchanged to the source adapter's `verifyQuote`, which returns `found`,
-   `outside`, `unsupported` or `unknown-locator`; the core maps these to
-   `core.provenance.outside`, `core.provenance.unsupported` and `core.provenance.locator`
-   (`unsupported` is an error when the profile requires provenance).
-7. **Unknown relations.** An entity object carrying a relation key that no `RelationDecl`
+7. **Provenance.** For every `ProvenanceMapping` of the kind, the three selectors are read
+   verbatim into `ProvenanceBinding`; the source fields stay in `Entity.fields`. Missing or
+   empty is `core.provenance.incomplete`. The `ref` is passed unchanged to the source adapter's
+   `verifyQuote`, which returns `found`, `outside`, `unsupported` or `unknown-locator`; the core
+   maps these to `core.provenance.outside`, `core.provenance.unsupported` and
+   `core.provenance.locator` (`unsupported` is an error when the profile requires provenance).
+8. **Unknown relations.** An entity object carrying a relation key that no `RelationDecl`
    defines is `core.relation.unknown`; it is never interpreted or dropped silently.
 
 Generic vs profile:
@@ -567,7 +586,7 @@ examples:
     expect: { orders_created: 1 }
 ```
 
-Transformation to the IR:
+Transformation to the IR (mapped fields stay in `fields`; `provenance` is a projection):
 
 ```json
 {
@@ -575,7 +594,9 @@ Transformation to the IR:
   "kind": "requirement",
   "fields": {
     "level": "MUST", "effect": "binding", "category": "endpoint",
-    "applies_to": "POST /v1/orders"
+    "applies_to": "POST /v1/orders",
+    "source": "SRC-OPENAPI", "source_ref": "#/paths/~1orders/post",
+    "quote": "A repeated request with the same Idempotency-Key MUST NOT create a second order."
   },
   "provenance": {
     "source": "SRC-OPENAPI",
@@ -614,12 +635,15 @@ before the check, so it cannot escape silently.
 | Source documents | yes | `sources[].external: true` |
 | Local profile directory | yes | `profile.external: true` |
 | Renderer templates/assets | yes | `render[].external: true` |
-| Output root | no | rejected |
+| Output root and artifacts | no | canonicalized, containment-checked; traversal or symlink escape is `core.path.outside-root` |
 | Installed packages | n/a | resolved by the host resolver |
 
 Rules:
 
 - Without the matching `external: true`, an out-of-root path is `core.path.outside-root`.
+- Every output path is resolved against the canonical output root and must remain inside it;
+  `..`, absolute paths and symlinks that escape the output root are rejected with the same
+  code. Outputs are never allowed outside the project root.
 - `external: true` is an explicit trust declaration in the manifest; it is visible in review
   and participates in `inputDigest`.
 - Installed profile/adapter/renderer packages are resolved by the runtime's package resolver,
@@ -647,7 +671,7 @@ type PhaseState = "passed" | "failed" | "skipped";
 | Phase | Guarantee | Not guaranteed |
 |---|---|---|
 | `load` | bytes read, manifest parsed, profile resolved | content correctness |
-| `structure` | inputs match profile schemas | semantic meaning |
+| `structure` | documents match input schemas; extracted entities match kind schemas | semantic meaning |
 | `reference` | IDs unique, relations resolvable | that references are *appropriate* |
 | `provenance` | quoted text located in the declared place via adapter | that the quote was well chosen |
 | `consistency` | declared fields do not contradict profile rules | normative truth |
@@ -770,16 +794,32 @@ interface Artifact {
 
 ### 8.1 Determinism guarantee
 
-> Same `engineVersion` + `rendererVersion` + `inputDigest` ⇒ byte-identical artifacts.
+> Same `engineVersion` + `inputDigest` + the identity of every executable extension ⇒
+> byte-identical artifacts, **provided every extension honours its deterministic contract**.
 
-`inputDigest` covers: canonicalized manifest, all text input bytes normalized to LF (JSON,
-YAML, Markdown, templates), binary sources hashed as raw bytes, `profileDigest`, renderer
-id/version. `profileDigest` covers the profile's declared files (including the hook module),
-its schemas, rules, labels and template set, plus the exact versions of its behavior-affecting
-dependencies (lockfile). A dependency absent from the lockfile is reported as
-`core.profile.unpinned-dependency`; code outside the declared profile set is an author
-violation the engine cannot detect. It deliberately excludes: clock, locale, environment
-variables, absolute paths, file mtimes, user identity, network state.
+`inputDigest` covers:
+
+- the canonicalized manifest, including `external` flags;
+- all text input bytes normalized to LF (JSON, YAML, Markdown, templates); binary sources
+  hashed as raw bytes;
+- `profileDigest` — the profile extension, including its hook module;
+- for every source adapter used: `{ id, version, closureDigest }`;
+- for every renderer used: `{ id, version, closureDigest }`.
+
+An extension identity is `{ id, version, closureDigest }`. `closureDigest` hashes the
+extension's declared files and its **complete dependency closure** as recorded in its lockfile
+(name, exact version, integrity). For a profile this includes the hook module and everything
+the hook can import; a dependency absent from the lockfile is
+`core.extension.unpinned-dependency`. Code outside the declared closure is an author violation
+the engine cannot detect.
+
+Determinism is **conditional**: adapters, renderers and profile hooks are trusted executable
+extensions. They run in-process, are not sandboxed, and the engine cannot enforce that they
+avoid clocks, randomness, network, filesystem, environment or mutable external state. If any
+extension violates its deterministic contract, byte-identical output is not guaranteed.
+
+Excluded from `inputDigest`: clock, locale, environment variables, absolute paths, file
+mtimes, user identity, network state.
 
 ### 8.2 Controls
 
@@ -794,7 +834,9 @@ variables, absolute paths, file mtimes, user identity, network state.
 The engine does not guarantee byte stability across engine or renderer versions, across
 profiles, or when inputs change. It does not guarantee that a rebuild on another OS produces
 identical bytes unless the renderer contract is respected; CI covers Linux, and cross-platform
-byte equality is a renderer test, not a core promise.
+byte equality is a renderer test, not a core promise. Nor does it guarantee determinism when a
+trusted extension violates its deterministic contract — the identity in `inputDigest` makes
+such a violation visible only if the extension's bytes or closure change.
 
 ---
 
@@ -929,9 +971,11 @@ the template root (the entry's directory by default) and passes them as a `Templ
 `{% include %}` and `{% extends %}` work without file access. All template files participate
 in `inputDigest`; rendering stays a pure function of the model and the supplied content.
 
-Adapters and renderers are resolved by id from registries supplied by the consumer; the CLI
-wires the built-in packages (`adapter-yaml-json`, `renderer-markdown`). A missing id is
-`core.registry.missing`, not a silent fallback.
+Adapters and renderers are **trusted executable extensions**: they run in-process, are not
+sandboxed, and must honour the deterministic contract. They are resolved by id from registries
+supplied by the consumer; the CLI wires the built-in packages (`adapter-yaml-json`,
+`renderer-markdown`). A missing id is `core.registry.missing`, not a silent fallback. Each
+extension's `{ id, version, closureDigest }` participates in `inputDigest` (§8.1).
 
 Provenance verification belongs to the adapter because locator grammar is format-specific
 (`#10.2`, `#/paths/~1orders/get`). The core only knows that a quote must resolve to
@@ -1121,13 +1165,13 @@ without the decision.
 | D7 | Public operations | A (§1.4) | `load/validate/build/render/check`; phases internal | eight public phase calls | no consumer requires per-phase API | phase data stays in diagnostics | no |
 | D8 | Diagnostic axes | A (§1.5) | severity + disposition + blocking | severity only | separates impact from policy | new shape in M2 | no |
 | D9 | Blocking policy | A (§1.5) | profile/project policy + mode | hardcode per code | same code may gate differently | policy lives in profile | no |
-| D10 | Determinism scope | A (§1.6) | byte equality per engine+renderer+inputDigest | absolute reproducibility | honest boundary | digest + check contract | no |
+| D10 | Determinism scope | A (§1.6) | byte equality per engine + inputDigest + extension identities, conditional on extension contracts | absolute reproducibility | extensions are trusted and not sandboxed | adapter/renderer/hook closures in digest | no |
 | D11 | Conformance | A (§1.7) | declarative only | execution in core | avoids a rule language | execution is a separate future package | no |
 | D12 | Self-hosting | A (§1.8) | planned, not a blocker | require before 1.0 | keeps M1 bounded | M5 | no |
 | D13 | Non-CORE-001 evaluation | A (§1.9) | worked example, no implementation | build it now | proves separation cheaply | §5.6 in this doc | no |
 | D14 | Package layout | P | core + cli + renderer-markdown + adapter-yaml-json + profile-core001 | single package with subpaths | boundaries match responsibilities; published separately | M2 | no |
 | D15 | Validation policy mechanism | P | closed primitives keyed by `entityKind` + trusted profile hook (§3.3) | data-only; code-only | byte-identical M1 needs checks that primitives cannot express without a DSL | profile hook is versioned and participates in inputDigest | yes |
-| D16 | IR envelope | P | `id/kind/type/fields/provenance/relations/review` | typed per-domain entities | keeps any one specification's ontology out of core | `kind` and relation names are profile strings; `extensions` experimental | yes |
+| D16 | IR envelope | P | `id/kind/type/fields/provenance/relations/review` | typed per-domain entities | keeps any one specification's ontology out of core | global id namespace; review states core-standardized, dimensions profile-defined; `extensions` experimental | yes |
 | D17 | Code format | P | `profile.domain.name` strings + registry | numeric codes | readable, namespaced, stable | registry + migration map in M2 | no |
 | D18 | Build status | P | `ok/review-required/invalid/io-error` | boolean ok | distinguishes review from invalid | API + exit mapping | no |
 | D19 | Runtime | P | Node 20+ library, Bun dev/CI | Bun-only | library consumers use Node | CI matrix | no |
@@ -1135,14 +1179,14 @@ without the decision.
 | D21 | Multi-source | P | array in core, one in MVP | single-source for good | schema already allows list; #5 decides semantics | adapter boundary | no |
 | D22 | Provenance optional | P | profile flag `requireProvenance` | always required | greenfield specs | profiles without sources | no |
 | D23 | `slice` | P | not first-class; profile scoping data | core concept | migration-specific | CORE-001 profile carries it | no |
-| D24 | Review dimensions | P | N named dimensions declared by profile | single flag | #3 in progress | M4 | no |
+| D24 | Review dimensions | P | N named dimensions declared by profile; `pending`/`confirmed` core-standardized | fully profile-defined states | gating needs one vocabulary | M4 | no |
 | D25 | Locator ownership | P | adapter verifies quotes | core parser | format-specific | adapter interface | yes |
 | D26 | Self-hosting scope | D | manifest/registry/rules only | full pipeline | keep M5 bounded | revisit in M5 | no |
 | D27 | Conformance execution | D | not in core | separate evaluator | needs its own contract (#8) | none now | no |
 | D28 | Profile hook trust and identity | A (rev. §2) | trusted code, no sandbox, author-owed determinism, digest-pinned | sandbox; forbid hooks | the engine cannot enforce purity | security review, lockfile, `profileDigest` | yes |
 | D29 | Profile distribution | U | local dir in M1, package in M5 | package in M1 | avoids premature publishing | M1 uses local profile | no |
 | D30 | Policy override scope | P | profile defaults + project overlay, profile may forbid overrides | project free override | prevents accidental weakening | manifest `policy` | no |
-| D31 | Path and trust boundary | A (rev. §4) | root-contained by default; explicit `external: true`; packages by resolver | implicit relative paths | prevents silent traversal and makes trust visible | manifest flags, `core.path.outside-root` | yes |
+| D31 | Path and trust boundary | A (rev. §4) | root-contained by default; explicit `external: true`; outputs always contained | implicit relative paths | prevents silent traversal and symlink escape | manifest flags, `core.path.outside-root` | yes |
 | D32 | Isolated hook execution | D | not in 0.x; hooks run in-process | sandbox/worker isolation | no implementation in this PR | revisit if isolation is required | no |
 
 **Corrections to current behavior explicitly required by this contract** (to be approved
