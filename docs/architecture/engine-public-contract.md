@@ -980,6 +980,7 @@ interface RenderOptions {
   mode: BuildMode;
   templates: TemplateSet;
   labels?: Record<string, string>;
+  diagnostics: readonly Diagnostic[];
 }
 ```
 
@@ -987,6 +988,12 @@ Renderers perform no I/O: the engine resolves `profile:` paths, preloads every t
 the template root (the entry's directory by default) and passes them as a `TemplateSet`, so
 `{% include %}` and `{% extends %}` work without file access. All template files participate
 in `inputDigest`; rendering stays a pure function of the model and the supplied content.
+
+`diagnostics` is **required**: the engine always passes the deterministic diagnostic snapshot
+produced up to the render phase, in rendered order (`Diagnostic[]`). It is supplied because an
+artifact may embed the diagnostics report, and passing it keeps that artifact a pure function of
+the model, the options and the template. A renderer that does not embed diagnostics may ignore
+the field.
 
 Adapters and renderers are **trusted executable extensions**: they run in-process, are not
 sandboxed, and must honour the deterministic contract. They are resolved by id from registries

@@ -458,8 +458,10 @@ the core under their existing strings (section 9.2).
 - The manifest selects it by id: `render[].renderer = "core001-markdown"`.
 - The core looks the id up in the consumer registry. A miss is `core.registry.missing`; there is
   no fallback.
-- The core passes only `{ model, mode, templates, labels }`. It preloads every file under the
-  template root into a `TemplateSet`, so the renderer performs no I/O.
+- The core passes `{ model, mode, templates, labels, diagnostics }`. It preloads every file under
+  the template root into a `TemplateSet`, so the renderer performs no I/O. `diagnostics` is the
+  deterministic build snapshot in rendered order (contract §11); a renderer that does not embed
+  it may ignore the field.
 - The core never imports the profile. `profiles/core001/` is loaded by the consumer, exactly as
   contract §11 describes for extensions.
 
