@@ -132,6 +132,16 @@ export async function loadManifest(
   const profile = await loadProfile(profileDir, diags);
   if (profile === null) return null;
 
+  if (profile.id !== manifest.profile.id || profile.version !== manifest.profile.version) {
+    diags.error(
+      "core.profile.invalid",
+      "contract-builder.json",
+      "/profile",
+      `Профиль "${profile.id}@${profile.version}" не совпадает с объявленным "${manifest.profile.id}@${manifest.profile.version}"`,
+    );
+    return null;
+  }
+
   let failed = false;
   for (const [index, input] of manifest.inputs.entries()) {
     const located = await resolveContained(root, input.path);

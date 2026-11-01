@@ -168,6 +168,28 @@ test("manifest: containment handles the filesystem root and shared prefixes", as
   assert.equal((await resolveContained("/tmp/project", "/tmp/project/file")).inside, true);
 });
 
+test("manifest: a profile whose id or version differs from the pin is rejected", async () => {
+  const dir = await copyProject("profile-mismatch");
+  await cp(profileDir, path.join(dir, "profile"), { recursive: true });
+  await editManifest(dir, (manifest) => {
+    manifest.profile.source = "./profile";
+    delete manifest.profile.external;
+  });
+
+  const profilePath = path.join(dir, "profile", "profile.json");
+  const original = JSON.parse(await readFile(profilePath, "utf8")) as Record<string, unknown>;
+
+  await writeFile(profilePath, `${JSON.stringify({ ...original, version: "9.9.9" }, null, 2)}\n`);
+  const versionMismatch = await runBuild(base(dir));
+  assert.equal(versionMismatch.exitCode, 1);
+  assert.ok(codes(versionMismatch).includes("core.profile.invalid"));
+
+  await writeFile(profilePath, `${JSON.stringify({ ...original, id: "other" }, null, 2)}\n`);
+  const idMismatch = await runBuild(base(dir));
+  assert.equal(idMismatch.exitCode, 1);
+  assert.ok(codes(idMismatch).includes("core.profile.invalid"));
+});
+
 test("manifest: the transitional view carries the manifest sources", async () => {
   const diagnostics = new Diagnostics();
   const loaded = await loadProject(specDir, diagnostics);
