@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
+import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 
 /**
@@ -136,6 +137,35 @@ test("manifest: a source outside the project root without external is rejected",
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   assert.ok(codes(result).includes("core.path.outside-root"));
+});
+
+test("manifest: a profile without a sources binding fails without crashing", async () => {
+  const dir = await copyProject("no-sources-binding");
+  await cp(path.join(root, "profiles", "core001"), path.join(dir, "profile"), {
+    recursive: true,
+  });
+  await editManifest(dir, (manifest) => {
+    manifest.profile.source = "./profile";
+    delete manifest.profile.external;
+  });
+
+  const profilePath = path.join(dir, "profile", "profile.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
+    documents: Array<{ key: string }>;
+  };
+  profile.documents = profile.documents.filter((binding) => binding.key !== "sources");
+  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("ERR_UNKNOWN_REF"));
+});
+
+test("manifest: containment handles the filesystem root and shared prefixes", async () => {
+  assert.equal((await resolveContained("/", "/etc")).inside, true);
+  assert.equal((await resolveContained("/tmp", "/tmp")).inside, true);
+  assert.equal((await resolveContained("/tmp/project", "/tmp/project-other/file")).inside, false);
+  assert.equal((await resolveContained("/tmp/project", "/tmp/project/file")).inside, true);
 });
 
 test("manifest: the transitional view carries the manifest sources", async () => {

@@ -205,7 +205,12 @@ export async function resolveContained(
 ): Promise<{ abs: string; inside: boolean }> {
   const abs = path.resolve(root, relative);
   const real = await realpathNearest(abs);
-  const inside = real === root || real.startsWith(root + path.sep);
+  // `path.relative` is used instead of a prefix check: a prefix check fails when the
+  // root is "/" and misclassifies siblings such as "/tmp/a" and "/tmp/ab".
+  const fromRoot = path.relative(root, real);
+  const inside =
+    fromRoot === "" ||
+    (!path.isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith(`..${path.sep}`));
   return { abs, inside };
 }
 

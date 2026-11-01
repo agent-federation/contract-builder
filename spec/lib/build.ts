@@ -48,7 +48,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   }
 
   const raw = loaded.files as unknown as RawSpec;
-  const declaredSource = raw.sources.sources[0];
+  const declaredSource = raw.sources?.sources?.[0];
   if (declaredSource === undefined) {
     diags.error("ERR_UNKNOWN_REF", "sources.yml", "/sources", "Не объявлен источник документа");
     return result(options, diags, null, outputPath, false, "errors");
