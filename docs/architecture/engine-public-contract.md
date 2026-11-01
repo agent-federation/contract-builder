@@ -125,7 +125,8 @@ interface PolicyOverlay {
 
 interface RenderDecl {
   renderer?: string;                   // defaults to profile.renderDefaults.renderer
-  template?: string;                   // defaults to profile.renderDefaults.template
+  template?: string;                   // entry, defaults to profile.renderDefaults.template
+  templates?: string;                  // root preloaded as TemplateSet; default: dirname(entry)
   labels?: string;
   outputs: Record<string, string>;     // mode -> path
 }
@@ -165,6 +166,7 @@ interface Profile {
     dimensions: string[];              // e.g. ["normalization", "classification", "interpretation"]
     blocking: Record<string, { draft: boolean; release: boolean }>;
   };
+  overridablePolicyKeys?: string[];    // project PolicyOverlay may change only these (D30)
   renderDefaults?: {
     renderer: string;
     template: string;
@@ -181,7 +183,7 @@ Relation fields are declared, not hardcoded:
 interface RelationMapping {
   dependsOn?: FieldSelector;                 // entity field listing decision ids
   mentions?: FieldSelector;                  // entity field listing decision ids
-  vectors?: { role: EntityRole; field: FieldSelector };  // e.g. { role: "case", field: "provision" }
+  incoming?: { role: EntityRole; field: FieldSelector };  // inbound link, e.g. case -> provision
 }
 ```
 
@@ -202,10 +204,12 @@ no boolean algebra, no user-defined functions.
 type FieldSelector = string;
 // grammar: "name" | "name.sub" | "name[].sub" (one array level, no expressions)
 
+type Scalar = string | boolean | number;
+
 type Condition =
-  | { field: FieldSelector; equals: string }
-  | { field: FieldSelector; oneOf: string[] }
-  | { field: FieldSelector; notIn: string[] }
+  | { field: FieldSelector; equals: Scalar }
+  | { field: FieldSelector; oneOf: Scalar[] }
+  | { field: FieldSelector; notIn: Scalar[] }
   | { field: FieldSelector; nonEmpty: true }
   | { field: FieldSelector; empty: true };
 
@@ -267,7 +271,8 @@ versioned with the profile and participates in `inputDigest`.
 A profile is trusted code: loading a project executes its hook with the process's privileges.
 Profiles must be reviewed and pinned like any other dependency. The hook is loaded with a
 dynamic `import()`: under Node it must be runnable JavaScript (compiled from TypeScript);
-Bun also accepts `.ts` directly.
+Bun also accepts `.ts` directly. Local paths are converted with `pathToFileURL` before import
+so Windows absolute paths work.
 
 **Why both.** Three current MVP checks would force the primitive set to become a query
 language: counting related vectors with a field filter (`violated`-vector warning), scanning
@@ -339,7 +344,7 @@ interface Entity {
   relations: {                         // filled from Profile.relations mapping
     dependsOn: string[];
     mentions: string[];
-    vectors: string[];                 // case -> provision
+    incoming: string[];                // inbound links from other entities
   };
   review: ReviewState;                 // { dimensions: Record<string, "pending"|"confirmed"> }
 }
@@ -646,8 +651,9 @@ interface Artifact {
 
 > Same `engineVersion` + `rendererVersion` + `inputDigest` ⇒ byte-identical artifacts.
 
-`inputDigest` covers: canonicalized manifest, all input file bytes, profile content (schemas,
-rules, labels, template), renderer id/version. It deliberately excludes: clock, locale,
+`inputDigest` covers: canonicalized manifest, all text input bytes normalized to LF (JSON,
+YAML, Markdown, templates), binary sources hashed as raw bytes, profile content (schemas,
+rules, labels, template set), renderer id/version. It deliberately excludes: clock, locale,
 environment variables, absolute paths, file mtimes, user identity, network state.
 
 ### 8.2 Controls
@@ -781,16 +787,22 @@ interface Renderer {
   render(model: ProjectModel, options: RenderOptions): Promise<Artifact[]>;
 }
 
+interface TemplateSet {
+  entry: string;                       // e.g. "core001.md.j2"
+  files: Record<string, string>;       // path -> text, all preloaded
+}
+
 interface RenderOptions {
   mode: BuildMode;
-  template?: { path: string; text: string };  // engine-resolved and loaded
+  templates: TemplateSet;
   labels?: Record<string, string>;
 }
 ```
 
-Renderers perform no I/O: the engine resolves `profile:` paths, loads template and labels, and
-passes their content. This keeps the `FileSystem` abstraction intact and makes rendering a
-pure function of the model and the supplied content.
+Renderers perform no I/O: the engine resolves `profile:` paths, preloads every text file under
+the template root (the entry's directory by default) and passes them as a `TemplateSet`, so
+`{% include %}` and `{% extends %}` work without file access. All template files participate
+in `inputDigest`; rendering stays a pure function of the model and the supplied content.
 
 Adapters and renderers are resolved by id from registries supplied by the consumer; the CLI
 wires the built-in packages (`adapter-yaml-json`, `renderer-markdown`). A missing id is
