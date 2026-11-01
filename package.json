@@ -1,0 +1,25 @@
+{
+  "name": "core001-spec-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype builder for a machine-readable normative specification (CORE-001 slice §10.1-10.2)",
+  "scripts": {
+    "build": "tsx spec/build.ts --mode draft",
+    "build:release": "tsx spec/build.ts --mode release",
+    "check": "tsx spec/build.ts --mode draft --check",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "nunjucks": "^3.2.4",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/nunjucks": "^3.2.6",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

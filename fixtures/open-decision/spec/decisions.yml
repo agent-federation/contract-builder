@@ -1,0 +1,10 @@
+decisions:
+  - id: DEC-TRUSTED-TIME
+    question: "Универсальный механизм доверенного времени"
+    status: open
+    scope: normative
+    resolution: null
+    source: SRC-CORE001
+    source_ref: "SRC-CORE001#15/5"
+    source_quote: "Универсальный механизм доверенного времени."
+    in_scope: false

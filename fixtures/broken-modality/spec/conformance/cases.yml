@@ -1,0 +1,211 @@
+cases:
+  - id: CASE-REQ-TEMPORAL-MOMENT-DEFINED-POS-1
+    provision: REQ-TEMPORAL-MOMENT-DEFINED
+    scenario:
+      given:
+        - "Домен выполняет проверку Credential"
+        - "Для операции установлен временной момент (например, момент подписания)"
+        - "Выбор момента зафиксирован в правиле проверки"
+      action: "Проверка выполняется относительно установленного момента"
+    expected_outcome: satisfied
+    source_determination: determined
+    expectation_basis: obligation
+    rationale: "Источник обязывает определить момент для операции; сценарий это выполняет. Какой именно момент выбрать, источник не предписывает."
+    rationale_fragment: FRAG-10.2-P1-MOMENT-DEFINED
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-TEMPORAL-MOMENT-DEFINED-NEG-1
+    provision: REQ-TEMPORAL-MOMENT-DEFINED
+    scenario:
+      given:
+        - "Домен выполняет проверку Credential"
+        - "Временной момент для операции не установлен"
+        - "Результат проверки не соотнесён ни с одним временным моментом"
+      action: "Проверка выполняется без определения временного момента"
+    expected_outcome: violated
+    source_determination: determined
+    expectation_basis: obligation
+    rationale: "Обязанность «MUST определить» не выполнена: операция не соотнесена ни с одним моментом."
+    rationale_fragment: FRAG-10.2-P1-MOMENT-DEFINED
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-REVOCATION-NOT-AUTO-INVALID-POS-1
+    provision: REQ-REVOCATION-NOT-AUTO-INVALID
+    scenario:
+      given:
+        - "Credential подписал документ в T1"
+        - "Credential отозван в T2, T2 > T1"
+        - "Подтверждённой компрометации нет"
+      action: "Домен не помечает подпись недействительной только из-за отзыва"
+    expected_outcome: satisfied
+    source_determination: determined
+    expectation_basis: negative_entailment
+    rationale: "Сценарий не делает вывода «отзыв ⇒ недействительность», который источник прямо отрицает."
+    rationale_fragment: FRAG-10.2-P4-5-REVOCATION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-1
+    provision: REQ-REVOCATION-NOT-AUTO-INVALID
+    scenario:
+      given:
+        - "Credential подписал документ в T1"
+        - "Credential отозван в T2, T2 > T1"
+        - "Компрометация подтверждена"
+      action: "Домен помечает историческую подпись непригодной как доказательство"
+    expected_outcome: satisfied
+    source_determination: underdetermined
+    expectation_basis: permission
+    rationale: "Источник говорит «может сделать непригодной»: последствие разрешено, но не обязательно. Применение разрешения не противоречит положению; обязанность применять его источником не установлена."
+    rationale_fragment: FRAG-10.2-P4-5-REVOCATION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-2
+    provision: REQ-REVOCATION-NOT-AUTO-INVALID
+    scenario:
+      given:
+        - "Credential подписал документ в T1"
+        - "Credential отозван в T2, T2 > T1"
+        - "Компрометация подтверждена"
+      action: "Домен продолжает использовать историческую подпись как доказательство"
+    expected_outcome: violated
+    source_determination: determined
+    expectation_basis: permission
+    rationale: "Намеренно повреждённый кейс: violated выведен из разрешения."
+    rationale_fragment: FRAG-10.2-P4-5-REVOCATION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-REVOCATION-NOT-AUTO-INVALID-NAS-1
+    provision: REQ-REVOCATION-NOT-AUTO-INVALID
+    scenario:
+      given:
+        - "Credential подписал документ в T1"
+        - "Компрометация лишь подозревается, не подтверждена"
+      action: "Домен переводит подпись в состояние, требующее переоценки"
+    expected_outcome: satisfied
+    source_determination: not_asserted_by_source
+    expectation_basis: absent
+    rationale: "§10.2 говорит о подтверждённой компрометации; случай подозрения не рассматривается. Смежные положения §4.4.1 находятся вне среза."
+    rationale_fragment: FRAG-10.2-P4-5-REVOCATION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-SIGNED-AT-TRUST-CONDITION-POS-1
+    provision: REQ-SIGNED-AT-TRUST-CONDITION
+    scenario:
+      given:
+        - "Применимый механизм доверенной временной фиксации существует"
+        - "signed_at подтверждён этим механизмом"
+      action: "Домен считает signed_at удостоверенным временем"
+    expected_outcome: satisfied
+    source_determination: determined
+    expectation_basis: permission
+    rationale: "Разрешение применено при наличии необходимого условия. Источник не требует этого, но и не запрещает."
+    rationale_fragment: FRAG-10.1-P2-TRUST-CONDITION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-SIGNED-AT-TRUST-CONDITION-UNDET-1
+    provision: REQ-SIGNED-AT-TRUST-CONDITION
+    scenario:
+      given:
+        - "Применимый механизм доверенной временной фиксации существует"
+        - "signed_at подтверждён этим механизмом"
+      action: "Домен отказывается считать signed_at удостоверенным временем"
+    expected_outcome: satisfied
+    source_determination: underdetermined
+    expectation_basis: permission
+    rationale: "Источник разрешает, но не обязывает считать время удостоверенным. Отказ не противоречит положению."
+    rationale_fragment: FRAG-10.1-P2-TRUST-CONDITION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-SIGNED-AT-TRUST-CONDITION-NEG-1
+    provision: REQ-SIGNED-AT-TRUST-CONDITION
+    scenario:
+      given:
+        - "Применимый механизм доверенной временной фиксации отсутствует"
+      action: "Домен трактует signed_at как удостоверенное время"
+    expected_outcome: violated
+    source_determination: inferred
+    expectation_basis: permission_with_necessary_condition
+    rationale: "«Может считаться только при наличии» прочитано как необходимое условие; без механизма удостоверенность не следует. Контрапозиция в источнике явно не сформулирована."
+    rationale_fragment: FRAG-10.1-P2-TRUST-CONDITION
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-INV-NO-GLOBAL-TRUSTED-TIME-POS-1
+    provision: INV-NO-GLOBAL-TRUSTED-TIME
+    scenario:
+      given:
+        - "Спецификация не требует единого глобального источника времени"
+        - "Домены используют собственные временные основания"
+      action: "Валидация опирается на локальное временное основание домена"
+    expected_outcome: satisfied
+    source_determination: determined
+    expectation_basis: scope_statement
+    rationale: "Сценарий согласуется с утверждением об отсутствии допущения единого глобального времени."
+    rationale_fragment: FRAG-10.1-P5-NO-GLOBAL-TIME
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-INV-NO-GLOBAL-TRUSTED-TIME-NAS-1
+    provision: INV-NO-GLOBAL-TRUSTED-TIME
+    scenario:
+      given:
+        - "Реализация использует единственный глобальный источник доверенного времени как обязательное условие валидации"
+      action: "Архитектура опирается на единое глобальное доверенное время"
+    expected_outcome: satisfied
+    source_determination: not_asserted_by_source
+    expectation_basis: scope_statement
+    rationale: "Источник фиксирует отсутствие допущения у UIA, а не запрет для реализаций. violated из этой формулировки не выводится."
+    rationale_fragment: FRAG-10.1-P5-NO-GLOBAL-TIME
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-POS-1
+    provision: REQ-TIMESTAMPS-NOT-INTERCHANGEABLE
+    scenario:
+      given:
+        - "asserted_at и signed_at хранятся и используются раздельно"
+        - "Каждая метка применяется по своему назначению"
+      action: "Домен не подставляет одну метку вместо другой"
+    expected_outcome: satisfied
+    source_determination: determined
+    expectation_basis: semantic_constraint
+    rationale: "Раздельное использование не нарушает неэквивалентность меток."
+    rationale_fragment: FRAG-10-P-NOT-INTERCHANGEABLE
+    review:
+      status: unreviewed
+      reviewed_by: null
+
+  - id: CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-NEG-1
+    provision: REQ-TIMESTAMPS-NOT-INTERCHANGEABLE
+    scenario:
+      given:
+        - "Домен подставляет asserted_at как время подписания"
+        - "Проверка исторической подписи опирается на asserted_at вместо signed_at"
+      action: "Одна временная метка используется вместо другой"
+    expected_outcome: violated
+    source_determination: inferred
+    expectation_basis: semantic_constraint
+    rationale: "Неэквивалентность меток перенесена на поведение реализации. Шаг «свойство модели → ограничение реализации» — экспликация, дословного MUST NOT в источнике нет."
+    rationale_fragment: FRAG-10-P-NOT-INTERCHANGEABLE
+    review:
+      status: unreviewed
+      reviewed_by: null
