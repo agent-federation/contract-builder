@@ -44,6 +44,10 @@ constraint there, not the hash.
 | **Implementation choice** | A decision this document makes inside the space the contract leaves open. Reviewable, not an ADR. |
 | **Open** | Not decided. Blocks nothing in M1 unless stated; must not be resolved silently. |
 
+**Section references.** `section N` means a section of this document. `contract §N` means a
+section of `engine-public-contract.md`. Bare `§N` is not used, because both documents have
+sections with the same numbers.
+
 M1 proves **separability**, not genericity. Moving CORE-001 policy into `profiles/core001/`
 demonstrates that the core can run without it. Only an independent profile (PR 7, synthetic)
 gives evidence about genericity, and a synthetic profile is weak evidence.
@@ -277,7 +281,7 @@ estimate of "eight entities need `source`" is withdrawn — it assumed direct pr
 kinds whose provenance is fragment-mediated.
 
 `requireProvenance: true` is declared at profile level (D22). The contract places the flag in
-`PolicyOverlay` (§3.1) and in the profile (D22); M1 uses the profile, and the project overlay
+`PolicyOverlay` (contract §3.1) and in the profile (D22); M1 uses the profile, and the project overlay
 stays unused (D30 is proposed).
 
 ### 8.3 Quote resolution stays in the profile hook (implementation choice)
@@ -336,7 +340,7 @@ assertions (`ERR_SCHEMA`, `ERR_DUPLICATE_ID`, `ERR_OUTPUT_STALE`) therefore stay
 The profile catalog carries `code`, `severity`, `message`, and optional `remediation`. In M1
 `severity` uses the legacy vocabulary `error | warning | review` so `SEVERITY_LABEL` and the
 artifact stay identical. The three-axis shape (`severity` + `disposition` + `blocking`) is M2
-(D8, §18 corrections).
+(D8, contract §18 corrections).
 
 **Message resolution (implementation choice).** `{{name}}` resolves against the finding's
 `data` first, then against the entity's fields. Some current messages contain computed
@@ -348,7 +352,7 @@ without extending the catalog into a template language.
 
 Unchanged: `error` and `review` block, `warning` blocks only under `--strict`, and `release`
 refuses to write when anything blocks. `blockedBy` keeps its four values. Per-code blocking
-from profile policy is M2 (D9, §18 correction 2). Consequence: the catalog's severity values
+from profile policy is M2 (D9, contract §18 correction 2). Consequence: the catalog's severity values
 must reproduce today's mapping exactly, and a test asserts it.
 
 ### 9.5 Emission order
@@ -395,7 +399,7 @@ the core under their existing strings (section 9.2).
 - The core passes only `{ model, mode, templates, labels }`. It preloads every file under the
   template root into a `TemplateSet`, so the renderer performs no I/O.
 - The core never imports the profile. `profiles/core001/` is loaded by the consumer, exactly as
-  §11 describes for extensions.
+  contract §11 describes for extensions.
 
 All CORE-001 view logic — label maps, `provisionView`, derived axes (`normalization_status`,
 `applicability`, `binding`, `violated_cases`) — lives in `profiles/core001/renderer.ts` (with
@@ -418,7 +422,7 @@ relative path, each entry hashed as `path \0 bytes`:
 Its runtime dependency is `nunjucks`, pinned at `3.2.4` in `bun.lock`. The profile declares its
 **direct** imports in `dependencies: { "nunjucks": "3.2.4" }`; the closure digest additionally
 folds in each declared package's transitive closure as recorded in `bun.lock` (name, exact
-version, integrity), per §8.1. A bare import not in the direct map, or a version that does not
+version, integrity), per contract §8.1. A bare import not in the direct map, or a version that does not
 match `bun.lock`, is `core.extension.unpinned-dependency`. Relative imports must resolve to a
 file in the declared set.
 
@@ -502,7 +506,7 @@ found", not "the closure is provably complete".
 | Excluded | Reason |
 |---|---|
 | Package split, published packages, public API surface | D14/D20 deferred; M2 |
-| `BuildStatus` enum, new exit codes, three-axis diagnostics, code namespacing | M2 per §18; each changes behaviour the artifact or tests pin |
+| `BuildStatus` enum, new exit codes, three-axis diagnostics, code namespacing | M2 per contract §18; each changes behaviour the artifact or tests pin |
 | Rule primitives | D15 narrowed to hook-only for M1; M3 |
 | Second *real* profile, OpenAPI adapter | M3; a synthetic profile is enough to prove separability |
 | Multi-source, review dimensions, typed `ReviewState`, `Entity.type`, `extensions` | M4 / not justified in M1 |
@@ -560,6 +564,12 @@ the relation inventory, the provenance choice and the PR sequence.
   intermediate state is green and the declaration is not dead for long.
 - Path containment and `external: true` (`core.path.outside-root`).
 - `lib/build.ts` resolves output paths from `render[].outputs`.
+- **Transitional view assembly.** Removing `sources:` breaks both readers of
+  `raw.sources.sources`: `lib/build.ts:48` and `lib/semantic.ts:78,98,173`. PR 2 therefore has
+  `lib/load.ts` re-insert the manifest's `sources` array into the assembled `RawSpec` view, so
+  both keep working unchanged through PR 3. One shim in one place rather than two call-site
+  edits; it is removed in PR 4, when `semantic.ts` is deleted and `build.ts` reads the source
+  from the manifest.
 - The three fixture projects get manifests and the same `sources.yml` edit.
 
 **Acceptance tests**
@@ -570,6 +580,8 @@ the relation inventory, the provenance choice and the PR sequence.
 4. Input outside the project root without `external: true` → `core.path.outside-root`.
 5. Optional absent input is skipped without error.
 6. Output path escaping the output root → `core.path.outside-root`, nothing written.
+7. The transitional view's `sources` array deep-equals the manifest's `sources`, so `build.ts`
+   and `semantic.ts` see the same source id, document and revision as before.
 
 **Revert:** restore `sources.yml`, delete the manifest and profile skeleton, restore `load.ts`.
 
@@ -586,7 +598,10 @@ the relation inventory, the provenance choice and the PR sequence.
 - Data migration in `spec/` and all three fixtures: the seven relation field occurrences move
   into `relations`; `semantic.ts` reads relations (forward) and `vectors` (inverse).
 - `spec/lib/model.ts` is replaced by `spec/lib/ir.ts`; the CORE-001 types move to
-  `profiles/core001/view.ts`.
+  `profiles/core001/view.ts`. Recorded debt: `spec/lib/semantic.ts` (deleted in PR 4) and
+  `spec/lib/render.ts` (made generic in PR 5) import those types from the profile until they
+  move. The imports are `import type` only — erased at compile time, no runtime dependency — and
+  the last one disappears in PR 5.
 
 **Acceptance tests**
 
@@ -791,7 +806,7 @@ resolved silently.
 | 2 | `gate` cannot express the open-decision condition (cross-entity) | D15 hook-only | resolved by decision |
 | 3 | `{{field}}` interpolation cannot reproduce computed messages | Resolve from `data`; hook supplies pre-joined strings | implementation choice |
 | 4 | No contract surface for profile view logic | Profile renderer via consumer registry | resolved by D14 clarification |
-| 5 | §15 claims a declared `ReviewState` mapping that §3.2 does not define | `review` stays opaque in `fields` | resolved by D16 narrowing |
+| 5 | contract §15 claims a declared `ReviewState` mapping that contract §3.2 does not define | `review` stays opaque in `fields` | resolved by D16 narrowing |
 | 6 | `ProvenanceMapping.source` needs a field that `term`/`provision` lack | Fragment-mediated provenance; two mappings only | resolved by enumeration (8.2) |
 | 7 | `documents` keying unspecified | Profile declares named document bindings | implementation choice |
 | 8 | Entity schemas reject `relations` (`additionalProperties: false`) | Schema split; reserved names permitted | migration item |
@@ -799,8 +814,8 @@ resolved silently.
 | 10 | Source references look like relations | Section 7.2: not relations; core never routes them | recorded |
 | 11 | Appendix A's `./profiles/core001` does not resolve from `spec/` | `../profiles/core001` + `external: true` | implementation choice |
 | 12 | `LocatorResult` cannot express "absent from document" | Quote resolution stays in the hook; D25 undecided | open (D25) |
-| 13 | §7.1 says codes stay verbatim in M1, §3.2 names `core.*` codes | Existing strings verbatim, new codes `core.*` | implementation choice |
-| 14 | `requireProvenance` is in `PolicyOverlay` (§3.1) and in the profile (D22) | Profile-level flag; overlay unused | open (D22/D30) |
+| 13 | contract §7.1 says codes stay verbatim in M1, contract §3.2 names `core.*` codes | Existing strings verbatim, new codes `core.*` | implementation choice |
+| 14 | `requireProvenance` is in `PolicyOverlay` (contract §3.1) and in the profile (D22) | Profile-level flag; overlay unused | open (D22/D30) |
 
 ---
 
