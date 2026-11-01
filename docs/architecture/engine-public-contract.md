@@ -1,14 +1,15 @@
 # Contract Builder Engine — Public Contract
 
 **Status:** proposed for maintainer review
-**Document version:** 0.1
+**Document version:** 0.2
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
 **Implementation status:** not started
 
 > **Reading statuses.** `accepted` in this document means *explicitly directed by the
-> maintainer in the iteration brief (§1.1–1.9)*. Nothing here was accepted on the agent's
-> own judgment. Every other decision is `proposed`, `deferred` or `unresolved`.
+> maintainer* — in the iteration brief (§1.1–1.9) or in the final revision brief (§1–§4).
+> Nothing here was accepted on the agent's own judgment. Every other decision is `proposed`,
+> `deferred` or `unresolved`.
 
 ---
 
@@ -44,12 +45,12 @@ A successful build is evidence of internal consistency, not of normative correct
 
 | Term | Meaning |
 |---|---|
-| **Engine (core)** | Generic mechanisms: loading, validation pipeline, diagnostics, build orchestration, artifact checking |
-| **Profile** | Domain contract: vocabularies, schemas, rule instances, provenance policy, review policy, labels, template |
+| **Engine (core)** | Generic mechanisms: loading, extraction, identity and reference integrity, provenance plumbing, diagnostics, build orchestration, artifact checking |
+| **Profile** | Domain contract: entity kinds, relation types, schemas, provenance mappings, rules, review policy, labels, templates |
 | **Project** | Concrete specification content plus manifest: the data a consumer owns |
-| **Adapter** | Reads one input format (YAML/JSON, OpenAPI, Markdown source) into the generic model |
+| **Adapter** | Reads one input format and resolves locators into source text |
 | **Renderer** | Turns a validated model into artifacts (Markdown first) |
-| **CLI** | Argument parsing and presentation; contains no validation logic |
+| **CLI** | Argument parsing and presentation; no validation logic |
 | **Specification owner** | Human accountable for normative content and review decisions |
 
 ### 2.1 Responsibility map
@@ -57,20 +58,21 @@ A successful build is evidence of internal consistency, not of normative correct
 | Responsibility | Core | Profile | Project | Adapter | Renderer | CLI |
 |---|---|---|---|---|---|---|
 | Read files, resolve paths | ✔ | | | ✔ | | |
+| Declare entity kinds and relation types | | ✔ | | | | |
 | Structural validation | mechanism | schemas | data | | | |
-| ID uniqueness, reference integrity | ✔ | | | | | |
+| Identity extraction and indexing | ✔ | identity field | values | | | |
+| Reference integrity | ✔ | relation declarations | values | | | |
 | Declared consistency rules | mechanism | rule instances / hook | | | | |
-| Provenance: quote located in source | mechanism | policy flag | data | ✔ | | |
-| Review gating | mechanism | policy | review state | | | |
+| Provenance binding | mechanism | field mapping + policy | data | ✔ | | |
+| Review metadata | mechanism | policy | state | | | |
 | Vocabularies and classifications | | ✔ | values | | | |
 | Normative content | | | ✔ | | | |
 | Output format and layout | interface | config | config | | ✔ | |
 | Arguments, exit codes, JSON output | contract | | | | | ✔ |
 
-**Rule of thumb:** if removing CORE-001 would change the code path, the logic belongs to the
-profile or the project, not to the core.
-
----
+**Rule of thumb:** no entity kind name, relation name or vocabulary value from any one
+specification may appear in the core's code or schemas. The core mentions `kind` and
+`relation` only as strings supplied by the profile.
 
 ## 3. Project manifest and profile model
 
@@ -90,7 +92,8 @@ interface Manifest {
   profile: {
     id: string;
     version: string;
-    source?: string;                   // local path or package specifier
+    source?: string;                   // package specifier or local path
+    external?: boolean;                // required when a local path leaves the project root
   };
   inputs: InputDecl[];
   sources?: SourceDecl[];
@@ -104,23 +107,25 @@ interface InputDecl {
   format: "json" | "yaml";
   schema: string;                      // profile-declared schema id
   entities: Array<{                    // JSON Pointer -> array of entities
-    role: EntityRole;
+    kind: string;                      // declared in profile.entityKinds
     pointer: string;                   // e.g. "/provisions"
   }>;
+  external?: boolean;                  // default false; see 5.7
   optional?: boolean;
 }
 
 interface SourceDecl {
   id: string;
-  path: string;                        // relative to the manifest
+  path: string;                        // relative to the manifest or project root
   adapter: string;                     // "markdown" | "openapi" | ...
+  external?: boolean;                  // default false; see 5.7
   identity?: Record<string, unknown>;  // revision, digest, etc.
 }
 
 interface PolicyOverlay {
   requireProvenance?: boolean;
   reviewBlocking?: Record<string, { draft: boolean; release: boolean }>;
-  // the profile declares which keys may be overridden (D30)
+  // the profile declares which keys may be overridden (overridablePolicyKeys)
 }
 
 interface RenderDecl {
@@ -128,6 +133,7 @@ interface RenderDecl {
   template?: string;                   // entry, defaults to profile.renderDefaults.template
   templates?: string;                  // root preloaded as TemplateSet; default: dirname(entry)
   labels?: string;
+  external?: boolean;                  // required when templates leave the project root
   outputs: Record<string, string>;     // mode -> path
 }
 ```
@@ -135,10 +141,8 @@ interface RenderDecl {
 `renderer` and `template` may be omitted when `profile.renderDefaults` supplies them; after
 resolution both must be present (`core.manifest.render` otherwise).
 
-Manifest path rules: all paths resolve relative to the manifest; profile `source` may be a
-package specifier or a local directory; the project **may not** reach outside its root except
-through declared `sources`. In `render`, a `profile:` prefix resolves inside the profile
-package; without it, paths are project-relative.
+Path resolution and trust are defined in **5.7**; no path may leave the project root without an
+explicit `external: true` on the declaration that owns it.
 
 ### 3.2 Profile
 
@@ -148,52 +152,62 @@ A profile is a versioned package (or local directory) containing:
 interface Profile {
   id: string;
   version: string;
-  entityTypes: Partial<Record<EntityRole, {
-    schema: string;                    // JSON Schema id
-    idField: string;                   // default "id"
-    typeField?: string;                // optional discriminator
-  }>>;
-  vocabularies?: Record<string, string[]>;   // named enums used by fields
-  relations: RelationMapping;                // how core fills relations.* from fields
+  entityKinds: Record<string, EntityKindDecl>;
+  relations?: RelationDecl[];
+  provenance?: ProvenanceMapping[];
+  vocabularies?: Record<string, Array<string | boolean | number>>;
   rules: RuleInstance[];
   validator?: string;                        // optional profile hook module
   diagnostics: DiagnosticCatalog;
-  provenance: {
-    required: boolean;
-    adapter: string;                   // adapter used to verify quotes
-  };
-  review: {
-    dimensions: string[];              // e.g. ["normalization", "classification", "interpretation"]
-    blocking: Record<string, { draft: boolean; release: boolean }>;
-  };
-  overridablePolicyKeys?: string[];    // project PolicyOverlay may change only these (D30)
+  review?: ReviewPolicy;
+  overridablePolicyKeys?: string[];          // project PolicyOverlay may change only these
   renderDefaults?: {
     renderer: string;
     template: string;
     labels?: string;
   };
 }
+
+interface EntityKindDecl {
+  schema: string;                            // JSON Schema id
+  identity: FieldSelector;                   // default "id"
+  description?: string;
+}
+
+interface RelationDecl {
+  name: string;                              // relation type, e.g. "dependsOn"
+  from: string;                              // entity kind
+  to: string;                                // entity kind or "*"
+  field?: FieldSelector;                     // field on `from` holding target id(s)
+  cardinality?: "one" | "many";
+  inverse?: string;                          // optional inverse relation to populate
+}
+
+interface ProvenanceMapping {
+  kind: string;
+  source: FieldSelector;                     // field with a source id
+  ref: FieldSelector;                        // adapter locator
+  quote: FieldSelector;                      // verbatim text
+}
+
+interface ReviewPolicy {
+  dimensions: string[];
+  blocking: Record<string, { draft: boolean; release: boolean }>;
+}
 ```
 
 The profile carries **no project content**. Two projects can share one profile.
 
-Relation fields are declared, not hardcoded:
-
-```ts
-interface RelationMapping {
-  dependsOn?: FieldSelector;                 // entity field listing decision ids
-  mentions?: FieldSelector;                  // entity field listing decision ids
-  incoming?: Array<{ role: EntityRole; field: FieldSelector }>;  // inbound links
-}
-```
-
-The core fills `Entity.relations` only through this mapping, so a profile can use
-`decision_dependencies` or `decisions` or anything else without touching the engine.
+**Unknown kinds and relations are not guessed.** An input that declares a kind missing from
+`entityKinds`, a `RelationDecl` with an unknown `from`/`to`, or an entity carrying a relation
+key that no declaration defines, is reported with a catalog code
+(`core.profile.unknown-kind`, `core.profile.unknown-relation`, `core.relation.unknown`). The
+profile's catalog decides the disposition; the core never silently accepts or interprets it.
 
 ### 3.3 Validation policy: closed primitives plus a profile hook
 
-The core always enforces invariants: unique IDs, resolvable references, provenance binding
-shape, reserved field names, and deterministic output.
+The core always enforces invariants: unique identities, resolvable declared references,
+provenance binding shape, known declared kinds and relations, and deterministic output.
 
 Everything else is policy, and policy has two forms.
 
@@ -214,31 +228,31 @@ type Condition =
   | { field: FieldSelector; empty: true };
 
 type RuleInstance =
-  | { kind: "matrix";      entity: EntityRole;
+  | { rule: "matrix";      entityKind: string;
       when: FieldSelector; then: FieldSelector;
-      allowed: Record<string, string[]>; code: string }
-  | { kind: "substring";   entity: EntityRole;
+      allowed: Record<string, Scalar[]>; code: string }
+  | { rule: "substring";   entityKind: string;
       field: FieldSelector; within: FieldSelector;
       when?: Condition; code: string }
-  | { kind: "substringOfProvenance"; entity: EntityRole;
+  | { rule: "substringOfProvenance"; entityKind: string;
       field: FieldSelector; code: string }
-  | { kind: "requiredIf";  entity: EntityRole;
+  | { rule: "requiredIf";  entityKind: string;
       when: Condition; require: FieldSelector[]; code: string }
-  | { kind: "forbidden";   entity: EntityRole;
+  | { rule: "forbidden";   entityKind: string;
       fields: [FieldSelector, FieldSelector];
-      pairs: Array<[string, string]>; code: string }
-  | { kind: "coverage";    target: EntityRole; source: EntityRole;
-      link: FieldSelector; min: number; code: string }
-  | { kind: "gate";        entity: EntityRole; when: Condition;
+      pairs: Array<[Scalar, Scalar]>; code: string }
+  | { rule: "coverage";    targetKind: string; sourceKind: string;
+      relation: string; min: number; code: string }
+  | { rule: "gate";        entityKind: string; when: Condition;
       code: string; blocking: { draft: boolean; release: boolean } };
 ```
 
-The entity is scoped at the rule level, so a rule cannot reference two different entities;
-`coverage` names the covered role (`target`), the role holding the link (`source`), and the
-link field on the source (for CORE-001: `target: "provision"`, `source: "case"`,
-`link: "provision"`).
+The entity kind is scoped at the rule level, so a rule cannot reference two kinds;
+`coverage` names the covered kind (`targetKind`), the kind holding the link (`sourceKind`), and
+a relation declared on the source that points at the target. For CORE-001:
+`targetKind: "provision"`, `sourceKind: "case"`, `relation: "vectors"`.
 
-**Profile validator hook.** A profile may ship a TypeScript module implementing:
+**Profile validator hook.** A profile may ship a module implementing:
 
 ```ts
 interface ValidatorFinding {
@@ -253,39 +267,48 @@ interface ProfileValidator {
 }
 ```
 
-The hook receives the model only: project id, profile and documents are already inside it, and
-no ambient context (logger, clock, environment) is passed. It must be pure and deterministic:
-no I/O, no clock, no environment, no mutation of the model. An exception is reported as
-`core.profile.validator-failed` and fails the build. It is versioned with the profile and
-participates in `inputDigest`.
-
 The hook reports findings, not diagnostics. The core looks the code up in the profile catalog,
 applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
-`phase: "consistency"`. A finding with an unknown code fails the build
+`phase: "consistency"`. A finding with an unknown code fails validation
 (`core.profile.unknown-code`).
 
-A profile is trusted code: loading a project executes its hook with the process's privileges.
-Profiles must be reviewed and pinned like any other dependency. The hook is loaded with a
-dynamic `import()`: under Node it must be runnable JavaScript (compiled from TypeScript);
-Bun also accepts `.ts` directly. Local paths are converted with `pathToFileURL` before import
-so Windows absolute paths work.
+#### Hook trust and determinism boundary
 
-**Why both.** Three current MVP checks would force the primitive set to become a query
-language: counting related vectors with a field filter (`violated`-vector warning), scanning
-capitalised tokens (undefined-term warning), and conjunctions over review state and effect
-(review gating). Byte-identical M1 therefore cannot rely on primitives alone. The hook keeps
-those checks in the profile without inventing a DSL; primitives cover the checks that
-generalise cleanly. The second profile (M3) is the evidence for promoting hook checks into
-primitives.
+- The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and
+  runs it in the same process, with the same privileges. **The engine does not sandbox it.**
+- Withholding I/O from the hook's signature is not isolation: the code can import `node:fs`,
+  `node:process`, network clients or anything else. Purity is not enforced by the engine.
+- Therefore **determinism is a profile-author obligation**, not an engine guarantee, unless
+  execution is isolated or otherwise constrained (deferred, `D32`).
+- A hook must not depend on clocks, randomness, network, filesystem, process environment or
+  mutable external state, and must not mutate the model. Violations are author defects the
+  engine cannot detect.
+- Local profiles are arbitrary code writable by the user; package profiles add supply-chain
+  risk. Pin exact versions, review the code, and prefer first-party profiles. Loading a
+  profile is a trust decision equivalent to installing a dependency.
+- The hook is versioned with the profile. Its module bytes and all behavior-affecting
+  dependencies must participate in build identity: the profile declares its files and exact
+  dependency versions (lockfile); the engine hashes them into `profileDigest`, which is part of
+  `inputDigest`. Code outside that declared set is an author violation; an unpinned dependency
+  is reported as `core.profile.unpinned-dependency`.
 
-Mapping of the current CORE-001 checks:
+#### Why both
+
+Three current MVP checks would force the primitive set to become a query language: counting
+related entities with a field filter (the no-`violated`-vector warning), scanning capitalised
+tokens (undefined-term warning), and conjunctions over review state and effect (review
+gating). Byte-identical M1 therefore cannot rely on primitives alone. The hook keeps those
+checks in the profile without inventing a DSL; primitives cover checks that generalise
+cleanly. The second profile (M3) is the evidence for promoting hook checks into primitives.
+
+Mapping of the current CORE-001 checks (kind names are CORE-001 profile data, not core):
 
 | Current check | Mechanism |
 |---|---|
-| modality → effect compatibility | primitive `matrix` |
+| modality → effect compatibility | primitive `matrix` on kind `provision` |
 | marker present in claim quote | primitive `substring` |
 | classification basis inside claim | primitive `substring` |
-| term definition inside source fragment | primitive `substringOfProvenance` |
+| term definition inside source fragment | primitive `substringOfProvenance` on kind `term` |
 | paraphrase requires explications | primitive `requiredIf` |
 | `violated` + `permission`/`absent` | primitive `forbidden` |
 | each provision has ≥ 1 vector | primitive `coverage` |
@@ -296,20 +319,15 @@ Mapping of the current CORE-001 checks:
 | non-binding / unresolved / outside-slice warnings | profile hook |
 | undefined-term scan, no-`violated`-vector warning | profile hook |
 
-Invariants that are **not** policy: unique IDs, resolvable references, provenance binding
-shape, reserved field names, determinism.
-
-**Cross-entity scope.** `matrix`, `forbidden`, `gate`, `substring`, `requiredIf` and
-`substringOfProvenance` constrain one entity instance named by `entity`; the core never joins
-entities inside them. `substringOfProvenance` resolves the entity's own provenance;
-`coverage` is the only primitive with an explicit link. Any other cross-entity check belongs
-to the profile hook until a link primitive is justified by a second profile.
-
+**Cross-entity scope.** The primitives constrain one entity kind named by `entityKind`;
+`substringOfProvenance` resolves the entity's own provenance; `coverage` is the only primitive
+with an explicit relation. Any other cross-entity check belongs to the profile hook until a
+link primitive is justified by a second profile.
 ### 3.4 Minimal valid project
 
 ```text
 contract-builder.json
-spec.yml                 # one input, any role the profile declares
+spec.yml                 # one input, any kind the profile declares
 profile/                 # local profile (or a package reference)
 ```
 
@@ -328,34 +346,29 @@ interface ProjectModel {
   entities: Entity[];
   documents: Readonly<Record<string, unknown>>;  // non-entity input blocks, opaque
   byId: ReadonlyMap<string, Entity>;
-  byRole: ReadonlyMap<EntityRole, Entity[]>;
+  byKind: ReadonlyMap<string, Entity[]>;
+  relations: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>;  // name -> from -> targets
 }
 
 interface Entity {
   id: string;
-  role: EntityRole;
-  type?: string;                       // profile-defined discriminator
-  fields: Readonly<Record<string, unknown>>;  // validated by the profile schema
+  kind: string;                        // declared in profile.entityKinds
+  type?: string;                       // optional profile discriminator
+  fields: Readonly<Record<string, unknown>>;  // validated by the kind schema
   provenance?: ProvenanceBinding;
-  relations: {                         // filled from Profile.relations mapping
-    dependsOn: string[];
-    mentions: string[];
-    incoming: string[];                // inbound links from other entities
-  };
-  review: ReviewState;                 // { dimensions: Record<string, "pending"|"confirmed"> }
+  relations: Readonly<Record<string, string[]>>;  // declared relation -> target ids
+  review?: ReviewState;
 }
 ```
 
-**Reserved field names** (core-owned, may not be redefined by a profile): `id`, `role`,
-`type`, `provenance`, `relations`, `review`. Everything else is profile data and opaque to the
-core.
+**Reserved field names** (core-owned, may not be redefined by a profile): `id`, `kind`,
+`type`, `fields`, `provenance`, `relations`, `review`. Everything else is profile data and
+opaque to the core.
 
 ```ts
-type EntityRole = "fragment" | "term" | "provision" | "decision" | "case" | "extension";
-
 interface ProvenanceBinding {
   source: string;                      // manifest source id
-  ref: string;                         // adapter-specific locator
+  ref: string;                         // adapter-specific locator, passed verbatim
   quote: string;                       // verbatim text
 }
 
@@ -365,13 +378,31 @@ interface ReviewState {
 }
 ```
 
+**The core assigns no domain meaning to `kind` or relation names.** It indexes them, verifies
+that they are declared, and enforces the generic guarantees below. A specification's ontology
+lives entirely in its profile:
+
+- kinds: `fragment | term | provision | decision | case` in CORE-001; `requirement | example |
+  operation` in the HTTP API example;
+- relations: `dependsOn`, `mentions`, `vectors` in CORE-001; `requirement`, `examples` in the
+  HTTP API example.
+
+Generic guarantees:
+
+- every entity has a non-empty identity, unique across the project;
+- every declared relation target resolves to an existing entity;
+- every `ProvenanceBinding` has the mapped fields, and its quote resolves through the source
+  adapter;
+- every entity kind and relation name is declared by the profile;
+- output is deterministic.
+
 `ResolvedManifest` and `ResolvedProfile` are the loader's resolved forms (absolute paths,
 loaded profile module). They stay internal; the public model exposes the declared `Manifest`
 and `Profile`, so internal loader changes cannot break profile hooks.
 
-**Extension boundary.** A profile adds entity types and fields by declaring them in its
-schemas; the core exposes them as `Entity.fields` and never interprets them. A profile cannot
-add new core mechanisms without a new rule primitive — that would be a contract change.
+**Extension boundary.** A profile adds kinds and fields by declaring them in its schemas; the
+core exposes them as `Entity.fields` and never interprets them. A profile cannot add new core
+mechanisms without a new primitive or contract change.
 
 An **experimental** `extensions` map on entities may be used by renderers, never by core
 validation. It is not part of the stable contract (`proposed`, see D16).
@@ -380,56 +411,84 @@ validation. It is not part of the stable contract (`proposed`, see D16).
 
 ## 5. Public input contract
 
-### 5.1 Roles
+### 5.1 Entity kinds are declared, not assumed
 
-The core defines a fixed, minimal role set because its guarantees are about these roles:
+There is no built-in kind list. The profile declares every kind it needs:
 
-| Role | Why the core knows it |
-|---|---|
-| `fragment` | quoted unit of a source |
-| `term` | definition bound to provenance |
-| `provision` | normative claim; target of review and vectors |
-| `decision` | open/resolved state that can gate provisions |
-| `case` | declarative conformance vector |
-| `extension` | opaque profile data with integrity checks only |
-
-A profile may leave roles unused. The role set is a **contract decision** (D6): if the second
-profile shows it is CORE-001-shaped, it changes before 1.0.
-
-### 5.2 Input extraction
-
-Each input file is validated against its profile schema, and entities are extracted by JSON
-Pointers declared in the manifest. Non-entity keys remain opaque project data.
-
-```json
-{
-  "path": "ontology.yml",
-  "format": "yaml",
-  "schema": "core001:ontology",
-  "entities": [{ "role": "term", "pointer": "/terms" }]
+```ts
+entityKinds: {
+  requirement: { schema: "http-api:requirement", identity: "id" },
+  example:     { schema: "http-api:example",     identity: "id" },
+  operation:   { schema: "http-api:operation",   identity: "operationId" },
 }
 ```
 
-Rules:
+CORE-001 declares `fragment`, `term`, `provision`, `decision`, `case`; the HTTP API profile
+declares `requirement`, `example`, `operation`. The core never names any of them. Rules,
+relations and coverage refer to kinds by the strings the profile supplied.
 
-- every pointer must resolve to an array of objects;
-- every extracted object must satisfy the schema of its role;
-- non-entity content is exposed as `ProjectModel.documents[path]` and never interpreted by
-  the core;
-- a file may declare several entity arrays, but each pointer maps to exactly one role.
+The set of kinds is open: an input that declares an undeclared kind fails with
+`core.profile.unknown-kind`; nothing is inferred from the name.
 
-This is deliberately not an extraction language: pointers and roles only.
+### 5.2 Input extraction
+
+Each input file is validated against the schema of each declared kind it extracts. Entities
+are extracted by JSON Pointers declared in the manifest.
+
+```json
+{
+  "path": "requirements.yml",
+  "format": "yaml",
+  "schema": "http-api:requirements",
+  "entities": [{ "kind": "requirement", "pointer": "/requirements" }]
+}
+```
+
+Extraction and normalization, step by step:
+
+1. **Pointer.** Every `pointer` must resolve to an array of objects. Missing value or wrong
+   shape is `core.extract.pointer`; an `optional` input that is absent is skipped.
+2. **Kind.** The `kind` must exist in `profile.entityKinds`; otherwise
+   `core.profile.unknown-kind`.
+3. **Identity.** The kind's `identity` selector (default `id`) must yield a non-empty string.
+   Missing or empty is `core.identity.missing`; a duplicate across the whole project is
+   `core.identity.duplicate`.
+4. **Fields.** The object is validated by the kind schema; the validated object becomes
+   `Entity.fields` minus the reserved names.
+5. **Relations.** For every `RelationDecl` with a `field`, the field value (a string or an
+   array of strings) is resolved against `to` (`"*"` means any kind). A missing target is
+   `core.reference.unresolved`; `cardinality: "one"` rejects arrays. The resolved ids populate
+   `Entity.relations[name]`; the inverse relation, if declared, is populated on the target.
+   Fields not named by a `RelationDecl` stay typed fields.
+6. **Provenance.** For every `ProvenanceMapping` of the kind, the three selectors are read
+   verbatim into `ProvenanceBinding`. Missing or empty is `core.provenance.incomplete`. The
+   `ref` is passed unchanged to the source adapter's `verifyQuote`, which returns `found`,
+   `outside`, `unsupported` or `unknown-locator`; the core maps these to
+   `core.provenance.outside`, `core.provenance.unsupported` and `core.provenance.locator`
+   (`unsupported` is an error when the profile requires provenance).
+7. **Unknown relations.** An entity object carrying a relation key that no `RelationDecl`
+   defines is `core.relation.unknown`; it is never interpreted or dropped silently.
+
+Generic vs profile:
+
+| Step | Core mechanism | Profile configuration |
+|---|---|---|
+| Pointer extraction | executes pointers, validates shapes | which pointers, which kinds |
+| Identity | uniqueness, indexing | identity field per kind |
+| References | resolution, inverse population, integrity | relation names, endpoints, fields |
+| Provenance | binding shape, adapter call, diagnostics | field mapping, required flag |
+| Field semantics | none | schemas, vocabularies, rules |
 
 ### 5.3 Multiple sources
 
-`Manifest.sources` is an array. The core supports N sources; each fragment binds to exactly
-one source; provenance is verified through that source's adapter. The first milestone ships
-with one source; multi-source remains a core capability with no extra API surface.
+`Manifest.sources` is an array. The core supports N sources; each provenance binding names
+exactly one source; provenance is verified through that source's adapter. The first milestone
+ships with one source; multi-source remains a core capability with no extra API surface.
 
 ### 5.4 Formats
 
-The core ships one adapter (`yaml-json`). Additional formats are adapters, not core changes.
-A project declares the adapter per input or source.
+The default distribution ships one adapter (`yaml-json`). Additional formats are adapters, not
+core changes. A project declares the adapter per input or source.
 
 ### 5.5 Schema versions
 
@@ -438,22 +497,20 @@ profile declares its own version; input schemas are identified by id, not by fil
 
 ### 5.6 Worked example: a non-CORE-001 project
 
-`pub-api-001` — an HTTP API specification. Different ontology (`endpoint`, `payload`,
-`error`), different classification (`level` from RFC 2119, `category`), different source model
-(OpenAPI document, JSON Pointer locators), no decisions file.
+`pub-api-001` — an HTTP API specification. It declares its own kinds, relations and
+vocabularies; none of CORE-001's names appear.
 
 ```json
 {
   "manifestVersion": "0.1",
   "project": { "id": "pub-api-001", "title": "Public Orders API", "revision": "2.1.0" },
-  "profile": { "id": "http-api", "version": "0.1.0", "source": "../../profiles/http-api" },
+  "profile": { "id": "http-api", "version": "0.1.0",
+               "source": "../../profiles/http-api", "external": true },
   "inputs": [
-    { "path": "fragments.yml", "format": "yaml", "schema": "http-api:fragments",
-      "entities": [{ "role": "fragment", "pointer": "/fragments" }] },
     { "path": "requirements.yml", "format": "yaml", "schema": "http-api:requirements",
-      "entities": [{ "role": "provision", "pointer": "/requirements" }] },
+      "entities": [{ "kind": "requirement", "pointer": "/requirements" }] },
     { "path": "examples.yml", "format": "yaml", "schema": "http-api:examples",
-      "entities": [{ "role": "case", "pointer": "/examples" }] }
+      "entities": [{ "kind": "example", "pointer": "/examples" }] }
   ],
   "sources": [
     { "id": "SRC-OPENAPI", "path": "openapi.yaml", "adapter": "openapi" }
@@ -466,44 +523,112 @@ profile declares its own version; input schemas are identified by id, not by fil
 }
 ```
 
-A fragment, a requirement and its vector, in the profile's own vocabulary:
+The profile declares kinds, relations, provenance and rules:
 
-```yaml
-- id: FRAG-OPENAPI-POST-ORDERS
-  source: SRC-OPENAPI
-  source_ref: "#/paths/~1orders/post"
-  quote: "A repeated request with the same Idempotency-Key MUST NOT create a second order."
+```ts
+entityKinds: {
+  requirement: { schema: "http-api:requirement", identity: "id" },
+  example:     { schema: "http-api:example",     identity: "id" },
+  operation:   { schema: "http-api:operation",   identity: "operationId" },
+},
+relations: [
+  { name: "requirement", from: "example", to: "requirement",
+    field: "requirement", cardinality: "one", inverse: "examples" },
+],
+provenance: [
+  { kind: "requirement", source: "source", ref: "source_ref", quote: "quote" },
+],
+rules: [
+  { rule: "matrix", entityKind: "requirement", when: "level", then: "effect",
+    allowed: { MUST: ["binding"], SHOULD: ["recommended"], MAY: ["permitted"] },
+    code: "http-api.consistency.level" },
+  { rule: "coverage", targetKind: "requirement", sourceKind: "example",
+    relation: "requirement", min: 1, code: "http-api.conformance.coverage" },
+],
 ```
 
-```yaml
-- id: API-REQ-014
-  title: Order creation is idempotent
-  level: MUST                      # http-api vocabulary, not CORE-001 modality
-  category: endpoint
-  applies_to: "POST /v1/orders"
-  fragment: FRAG-OPENAPI-POST-ORDERS
-  statement: "A repeated request with the same Idempotency-Key MUST NOT create a second order."
-```
+Input data:
 
 ```yaml
-- id: CASE-API-REQ-014-1
-  requirement: API-REQ-014
-  kind: example
-  given: { method: POST, path: /v1/orders, key: "k-1" }
-  when: "the same key is sent twice"
-  expect: { orders_created: 1 }
-  rationale: "Specified behaviour in §3.2"
-  rationale_ref: "SRC-OPENAPI#/paths/~1orders/post"
+requirements:
+  - id: API-REQ-014
+    level: MUST
+    effect: binding
+    category: endpoint
+    applies_to: "POST /v1/orders"
+    source: SRC-OPENAPI
+    source_ref: "#/paths/~1orders/post"
+    quote: "A repeated request with the same Idempotency-Key MUST NOT create a second order."
+
+examples:
+  - id: CASE-API-REQ-014-1
+    requirement: API-REQ-014
+    given: { method: POST, path: /v1/orders, key: "k-1" }
+    expect: { orders_created: 1 }
 ```
 
-What the core does: unique IDs, resolvable references, provenance through the OpenAPI adapter
-(JSON Pointer), the profile's matrix (`MUST → endpoint-constraint`), coverage (`min: 1`),
-review gating. What the profile supplies: `level`/`category` vocabularies, the effect names,
-the rule instances, English labels, the template, output paths.
+Transformation to the IR:
 
-No CORE-001 concept (`slice`, `normative_effect`, `source_modality`, `negative_entailment`)
-appears in the core. This example is the acceptance test for the role set (D6) and the rule
-primitives (D15); it is not implemented in this iteration.
+```json
+{
+  "id": "API-REQ-014",
+  "kind": "requirement",
+  "fields": {
+    "level": "MUST", "effect": "binding", "category": "endpoint",
+    "applies_to": "POST /v1/orders"
+  },
+  "provenance": {
+    "source": "SRC-OPENAPI",
+    "ref": "#/paths/~1orders/post",
+    "quote": "A repeated request with the same Idempotency-Key MUST NOT create a second order."
+  },
+  "relations": { "examples": ["CASE-API-REQ-014-1"] }
+}
+```
+
+Validation trace:
+
+1. `requirement` and `example` are declared kinds — otherwise `core.profile.unknown-kind`.
+2. Identities are present and unique — otherwise `core.identity.missing` /
+   `core.identity.duplicate`.
+3. `example.requirement` resolves to an entity — otherwise `core.reference.unresolved`; the
+   inverse `examples` is populated on the requirement.
+4. The OpenAPI adapter locates the quote at `#/paths/~1orders/post` — otherwise
+   `core.provenance.outside` or `core.provenance.locator`.
+5. `level=MUST` allows `effect=binding` — otherwise `http-api.consistency.level`.
+6. The requirement has at least one example — otherwise `http-api.conformance.coverage`.
+
+No CORE-001 concept (`slice`, `fragment`, `normative_effect`, `source_modality`) appears in the
+core or in this profile. The example is the acceptance test for D6 and D15; it is not
+implemented in this iteration.
+
+### 5.7 Path resolution and trust
+
+The project root is the directory containing the manifest, canonicalized with `realpath`.
+Every declared path is resolved against it and then checked for containment; `..` is applied
+before the check, so it cannot escape silently.
+
+| Category | May leave the root? | Condition |
+|---|---|---|
+| Project inputs | yes | `inputs[].external: true` |
+| Source documents | yes | `sources[].external: true` |
+| Local profile directory | yes | `profile.external: true` |
+| Renderer templates/assets | yes | `render[].external: true` |
+| Output root | no | rejected |
+| Installed packages | n/a | resolved by the host resolver |
+
+Rules:
+
+- Without the matching `external: true`, an out-of-root path is `core.path.outside-root`.
+- `external: true` is an explicit trust declaration in the manifest; it is visible in review
+  and participates in `inputDigest`.
+- Installed profile/adapter/renderer packages are resolved by the runtime's package resolver,
+  not by path traversal; their exact version is pinned in the manifest and hashed into the
+  build identity.
+- Symlinks are resolved before the containment check; a symlink that escapes the root is
+  treated as out-of-root.
+- The engine never rewrites or normalizes a source locator (`ref`); it is opaque and passed to
+  the adapter verbatim.
 
 ---
 
@@ -648,9 +773,13 @@ interface Artifact {
 > Same `engineVersion` + `rendererVersion` + `inputDigest` ⇒ byte-identical artifacts.
 
 `inputDigest` covers: canonicalized manifest, all text input bytes normalized to LF (JSON,
-YAML, Markdown, templates), binary sources hashed as raw bytes, profile content (schemas,
-rules, labels, template set), renderer id/version. It deliberately excludes: clock, locale,
-environment variables, absolute paths, file mtimes, user identity, network state.
+YAML, Markdown, templates), binary sources hashed as raw bytes, `profileDigest`, renderer
+id/version. `profileDigest` covers the profile's declared files (including the hook module),
+its schemas, rules, labels and template set, plus the exact versions of its behavior-affecting
+dependencies (lockfile). A dependency absent from the lockfile is reported as
+`core.profile.unpinned-dependency`; code outside the declared profile set is an author
+violation the engine cannot detect. It deliberately excludes: clock, locale, environment
+variables, absolute paths, file mtimes, user identity, network state.
 
 ### 8.2 Controls
 
@@ -819,7 +948,7 @@ profile data reads it from `model.profile`.
 |---|---|
 | Store vectors | yes |
 | Validate vector structure and references | yes |
-| Validate declared relation to provisions | yes (coverage rule) |
+| Validate declared relation to the target kind | yes (coverage rule) |
 | Execute scenarios | no |
 | Evaluate an implementation | no |
 
@@ -874,7 +1003,7 @@ second profile, and external consumers.
 | `spec/lib/load.ts` | core loader + `yaml-json` adapter + manifest paths | M1 |
 | `spec/lib/schema.ts` | core structure phase + profile schemas | M1 |
 | `spec/lib/semantic.ts` | core invariants + profile rule instances + profile hook + catalog | M1 |
-| `spec/lib/model.ts` | core IR + profile-declared fields | M2 |
+| `spec/lib/model.ts` | core IR: ids, kinds and relations from profile declarations | M2 |
 | `spec/lib/render.ts` | `renderer-markdown` + profile labels/template | M3 |
 | `spec/lib/diagnostics.ts` | diagnostic contract + registry | M2 |
 | `spec/lib/locator.ts` | `adapter-markdown` | M1 (interface), M3 (package) |
@@ -902,15 +1031,16 @@ changing the generated result.
 In scope:
 
 1. Add `spec/contract-builder.json` describing inputs, sources, profile, renderer and outputs.
-2. Move to `profiles/core001/`: schemas, vocabularies, rule instances, diagnostic catalog,
-   labels, template, output names.
-3. Make the loader read the manifest instead of the hardcoded five files.
+2. Move to `profiles/core001/`: entity kind declarations, relation declarations, schemas,
+   vocabularies, rule instances, diagnostic catalog, labels, template, output names, hook.
+3. Make the loader read the manifest and extract entities by declared kind and pointer.
 4. Move policy checks out of core: declarative primitives where they fit, profile hook
    otherwise (§3.3). **Keep the existing diagnostic code strings** in M1 (rename in M2).
-5. Keep the current IR essentially unchanged; introduce the envelope only as far as the rules
-   require.
-6. Add one synthetic minimal profile in tests with a different vocabulary (e.g. two
-   modalities, a different effect name) to prove separation; it is not a second real profile.
+5. Introduce the IR envelope with `kind` as a profile string and declared relation names; no
+   CORE-001 kind or relation name may appear in core code or core schemas.
+6. Add one synthetic minimal profile in tests with different kinds and vocabulary (e.g.
+   `requirement` and `example`, not renamed CORE-001 kinds) to prove separation; it is not a
+   second real profile.
 
 Out of scope for M1: package split, public API, new diagnostic codes, multi-source, review
 dimensions, OpenAPI adapter, CLI changes.
@@ -919,6 +1049,10 @@ Acceptance criteria:
 
 - [ ] CORE-001 is represented as a project with a manifest and a profile.
 - [ ] No CORE-001 vocabulary, matrix, label, path or output name remains in generic code.
+- [ ] No CORE-001 kind or relation name (`fragment`, `term`, `provision`, `decision`, `case`,
+      `dependsOn`, `mentions`, `vectors`) appears in core code or core schemas.
+- [ ] The profile hook is loaded from the profile; its module and declared dependencies are in
+      `profileDigest`.
 - [ ] Pre-refactor and post-refactor artifacts are byte-identical (baseline hash recorded
       before the refactor and asserted after).
 - [ ] Existing tests pass; assertions are unchanged (imports may move).
@@ -933,7 +1067,7 @@ CLI rewritten over the API. Acceptance: contract tests; CLI output unchanged exc
 ### M3 — Second profile (validation of the IR)
 
 Implement the hypothetical HTTP API profile from §5.6, including an OpenAPI adapter. This is
-the evidence that the role set and rule primitives are not CORE-001-shaped.
+the evidence that the kind set and rule primitives are not CORE-001-shaped.
 
 ### M4 — Capabilities
 
@@ -961,10 +1095,10 @@ general-purpose expression language.
    *Changed by:* a second consumer needing shared profiles earlier.
 3. **Runtime matrix.** *Default:* library targets Node 20+, development/CI on Bun; no
    Bun-only APIs in the library. *Changed by:* maintainers deciding Bun-only.
-4. **Profile hook.** *Default:* a pure, versioned profile validator hook is allowed in 0.x for
-   checks the primitives cannot express; data-only remains preferred. *Changed by:* a second
-   profile showing the hook is unnecessary, or a security requirement forbidding code in
-   profiles.
+4. **Profile hook.** *Default:* a trusted, digest-pinned profile validator hook is allowed in
+   0.x for checks the primitives cannot express; determinism is an author obligation, data-only
+   remains preferred. *Changed by:* a second profile showing the hook is unnecessary, or a
+   requirement to isolate execution.
 5. **Self-hosting depth.** *Default:* manifest schema + diagnostic registry + rule kinds are
    self-described; the full document pipeline is not. *Changed by:* M5 scope decision.
 
@@ -972,17 +1106,18 @@ general-purpose expression language.
 
 ## 18. Decision register
 
-Legend: `A` accepted (directed in the brief §1.x), `P` proposed, `D` deferred, `U`
-unresolved. "Blocks M1" means the first milestone cannot start without the decision.
+Legend: `A` accepted (directed in the iteration brief §1.x or the final revision brief §1–§4),
+`P` proposed, `D` deferred, `U` unresolved. "Blocks M1" means the first milestone cannot start
+without the decision.
 
 | ID | Decision | Status | Selected option | Alternatives | Rationale | Consequence / impact | Blocks M1 |
 |---|---|---|---|---|---|---|---|
 | D1 | Core/profile/project split | A (§1.1) | core mechanisms, profile semantics, project content | core with built-in CORE-001 defaults | prevents domain leakage | profiles become a first-class artifact | no |
 | D2 | Manifest | A (§1.2) | required `contract-builder.json` | convention over paths | only fixed name; everything else declared | loader rewritten in M1 | yes |
 | D3 | Manifest contents | A (§1.2) | identity, versions, inputs, sources, outputs | implicit discovery | explicit contract surface | schema + tests | yes |
-| D4 | Do not reuse `spec/` layout | A (§1.2) | manifest-driven roles | keep five files | layout is project policy | files become declarative | yes |
+| D4 | Do not reuse `spec/` layout | A (§1.2) | manifest-driven inputs and kinds | keep five files | layout is project policy | files become declarative | yes |
 | D5 | IR stability | A (§1.3) | experimental, versioned, unstable before 1.0 | freeze now | no second profile yet | IR changes allowed with notice | no |
-| D6 | Fixed role set | P | fragment/term/provision/decision/case/extension | free-form entity kinds | guarantees need known roles; sources are manifest objects, not extracted entities | validated by §5.6 example | yes |
+| D6 | Entity kinds and relation types | A (rev. §1) | declared by the profile; core indexes strings | fixed enum; free-form without declarations | no domain assumptions in core | profile declares its ontology; validated by §5.6 | yes |
 | D7 | Public operations | A (§1.4) | `load/validate/build/render/check`; phases internal | eight public phase calls | no consumer requires per-phase API | phase data stays in diagnostics | no |
 | D8 | Diagnostic axes | A (§1.5) | severity + disposition + blocking | severity only | separates impact from policy | new shape in M2 | no |
 | D9 | Blocking policy | A (§1.5) | profile/project policy + mode | hardcode per code | same code may gate differently | policy lives in profile | no |
@@ -991,8 +1126,8 @@ unresolved. "Blocks M1" means the first milestone cannot start without the decis
 | D12 | Self-hosting | A (§1.8) | planned, not a blocker | require before 1.0 | keeps M1 bounded | M5 | no |
 | D13 | Non-CORE-001 evaluation | A (§1.9) | worked example, no implementation | build it now | proves separation cheaply | §5.6 in this doc | no |
 | D14 | Package layout | P | core + cli + renderer-markdown + adapter-yaml-json + profile-core001 | single package with subpaths | boundaries match responsibilities; published separately | M2 | no |
-| D15 | Validation policy mechanism | P | closed primitives + pure profile hook (§3.3) | data-only; code-only | byte-identical M1 needs checks that primitives cannot express without a DSL | profile hook is versioned and participates in inputDigest | yes |
-| D16 | IR envelope | P | `id/role/type/fields/provenance/relations/review` | typed per-domain entities | keeps CORE-001 out of core | `extensions` experimental | yes |
+| D15 | Validation policy mechanism | P | closed primitives keyed by `entityKind` + trusted profile hook (§3.3) | data-only; code-only | byte-identical M1 needs checks that primitives cannot express without a DSL | profile hook is versioned and participates in inputDigest | yes |
+| D16 | IR envelope | P | `id/kind/type/fields/provenance/relations/review` | typed per-domain entities | keeps any one specification's ontology out of core | `kind` and relation names are profile strings; `extensions` experimental | yes |
 | D17 | Code format | P | `profile.domain.name` strings + registry | numeric codes | readable, namespaced, stable | registry + migration map in M2 | no |
 | D18 | Build status | P | `ok/review-required/invalid/io-error` | boolean ok | distinguishes review from invalid | API + exit mapping | no |
 | D19 | Runtime | P | Node 20+ library, Bun dev/CI | Bun-only | library consumers use Node | CI matrix | no |
@@ -1004,9 +1139,11 @@ unresolved. "Blocks M1" means the first milestone cannot start without the decis
 | D25 | Locator ownership | P | adapter verifies quotes | core parser | format-specific | adapter interface | yes |
 | D26 | Self-hosting scope | D | manifest/registry/rules only | full pipeline | keep M5 bounded | revisit in M5 | no |
 | D27 | Conformance execution | D | not in core | separate evaluator | needs its own contract (#8) | none now | no |
-| D28 | Profile code hooks | P | allowed, pure, versioned (§3.3) | defer until primitives suffice | required for M1 behaviour parity | profile package contains code | yes |
+| D28 | Profile hook trust and identity | A (rev. §2) | trusted code, no sandbox, author-owed determinism, digest-pinned | sandbox; forbid hooks | the engine cannot enforce purity | security review, lockfile, `profileDigest` | yes |
 | D29 | Profile distribution | U | local dir in M1, package in M5 | package in M1 | avoids premature publishing | M1 uses local profile | no |
 | D30 | Policy override scope | P | profile defaults + project overlay, profile may forbid overrides | project free override | prevents accidental weakening | manifest `policy` | no |
+| D31 | Path and trust boundary | A (rev. §4) | root-contained by default; explicit `external: true`; packages by resolver | implicit relative paths | prevents silent traversal and makes trust visible | manifest flags, `core.path.outside-root` | yes |
+| D32 | Isolated hook execution | D | not in 0.x; hooks run in-process | sandbox/worker isolation | no implementation in this PR | revisit if isolation is required | no |
 
 **Corrections to current behavior explicitly required by this contract** (to be approved
 before implementation, not silently applied):
@@ -1025,18 +1162,17 @@ M1 keeps the current behavior and codes; the corrections above are M2 work.
 
 Only decisions that need an explicit answer before implementation:
 
-1. D6 — fixed role set: accept or replace with free-form entity kinds?
-2. D14 — package layout: accept the five-package split?
-3. D15/D28 — validation policy: accept closed primitives plus a pure profile hook, or
-   require data-only rules (which delays M1 or drops checks)?
-4. D16 — IR envelope and `extensions` status.
-5. D18 — build status enum.
-6. D20 — distribution and scope (blocked by #10).
-7. D29 — profile distribution in M1 (local directory).
-8. Confirm the four behavior corrections listed at the end of §18 for M2.
+1. D14 — package layout: accept the five-package split?
+2. D15 — validation primitives: accept the closed set keyed by `entityKind` (the hook itself
+   is directed in rev. §2)?
+3. D16 — IR envelope and `extensions` status.
+4. D18 — build status enum.
+5. D20 — distribution and scope (blocked by #10).
+6. D29 — profile distribution in M1 (local directory).
+7. Confirm the four behavior corrections listed at the end of §18 for M2.
 
-Everything else is either directed by the brief (`accepted`) or has a recommended default in
-§17.
+Everything else is either directed by the briefs (`accepted`) or has a recommended default in
+§17. D6 (profile-declared kinds and relations) and D31 (path trust, rev. §4) are directed.
 
 ---
 
@@ -1053,18 +1189,19 @@ Everything else is either directed by the brief (`accepted`) or has a recommende
   "profile": { "id": "core001", "version": "0.1.0", "source": "./profiles/core001" },
   "inputs": [
     { "path": "sources.yml", "format": "yaml", "schema": "core001:sources",
-      "entities": [{ "role": "fragment", "pointer": "/fragments" }] },
+      "entities": [{ "kind": "fragment", "pointer": "/fragments" }] },
     { "path": "ontology.yml", "format": "yaml", "schema": "core001:ontology",
-      "entities": [{ "role": "term", "pointer": "/terms" }] },
+      "entities": [{ "kind": "term", "pointer": "/terms" }] },
     { "path": "semantics.json", "format": "json", "schema": "core001:semantics",
-      "entities": [{ "role": "provision", "pointer": "/provisions" }] },
+      "entities": [{ "kind": "provision", "pointer": "/provisions" }] },
     { "path": "decisions.yml", "format": "yaml", "schema": "core001:decisions",
-      "entities": [{ "role": "decision", "pointer": "/decisions" }] },
+      "entities": [{ "kind": "decision", "pointer": "/decisions" }] },
     { "path": "conformance/cases.yml", "format": "yaml", "schema": "core001:cases",
-      "entities": [{ "role": "case", "pointer": "/cases" }] }
+      "entities": [{ "kind": "case", "pointer": "/cases" }] }
   ],
   "sources": [
     { "id": "SRC-CORE001", "path": "../CORE-001.legacy.md", "adapter": "markdown",
+      "external": true,
       "identity": { "document": "UIA-CORE-001", "revision": "0.3.3" } }
   ],
   "render": [
@@ -1081,6 +1218,10 @@ Everything else is either directed by the brief (`accepted`) or has a recommende
 `sources.yml` keeps `slice` and `fragments`; the redundant `sources` block moves to the
 manifest with the same ids. `ontology.yml` keeps the document header as opaque project data.
 Both are data migrations that do not change artifacts.
+
+The profile declares the kinds `fragment`, `term`, `provision`, `decision`, `case` and the
+relations `dependsOn`, `mentions`, `vectors`; these strings exist only in `profiles/core001`,
+never in the core.
 
 ## Appendix B — Diagnostic examples
 
