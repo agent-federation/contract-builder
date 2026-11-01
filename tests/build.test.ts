@@ -94,6 +94,19 @@ test("намеренно повреждённая модальность: violat
   assert.deepEqual(codes(result).filter((c) => c.startsWith("ERR_")), ["ERR_MODALITY_UPGRADE"]);
 });
 
+test("дрейф источника: legacy изменён под спецификацией", async () => {
+  const dir = await copySpec("legacy-drift", (text) =>
+    text.replace(
+      "Эти временные метки не являются взаимозаменяемыми.",
+      "Эти временные метки не являются эквивалентными.",
+    ),
+  );
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("ERR_SOURCE_QUOTE_NOT_FOUND"));
+});
+
 test("дрейф источника: цитата не найдена в legacy", async () => {
   const result = await runBuild(base({ specDir: fixture("broken-source-drift") }));
   assert.equal(result.exitCode, 1);
@@ -217,13 +230,21 @@ test("вывод не содержит абсолютных путей и вре
   assert.equal(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(result.markdown), false);
 });
 
-async function copySpec(name: string): Promise<string> {
+async function copySpec(
+  name: string,
+  mutateLegacy?: (text: string) => string,
+): Promise<string> {
   const dir = await mkdtemp(path.join("/tmp/opencode", `spec-${name}-`));
   for (const file of ["sources.yml", "ontology.yml", "semantics.json", "decisions.yml"]) {
     await cp(path.join(specDir, file), path.join(dir, file));
   }
   await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), { recursive: true });
-  await cp(path.join(root, "CORE-001.legacy.md"), path.join(dir, "legacy.md"));
+  const legacyText = await readFile(path.join(root, "CORE-001.legacy.md"), "utf8");
+  await writeFile(
+    path.join(dir, "legacy.md"),
+    mutateLegacy === undefined ? legacyText : mutateLegacy(legacyText),
+    "utf8",
+  );
   const sourcesPath = path.join(dir, "sources.yml");
   const sources = await readFile(sourcesPath, "utf8");
   await writeFile(

@@ -175,16 +175,16 @@
       "title": "Временные метки не взаимозаменяемы",
       "fragment": "FRAG-10-P-NOT-INTERCHANGEABLE",
       "source_ref": "SRC-CORE001#10",
-      "source_quote": "Эти временные метки не являются взаимозаменяемыми.",
-      "claim_quote": "Эти временные метки не являются взаимозаменяемыми.",
-      "normalized_statement": "Эти временные метки не являются взаимозаменяемыми.",
+      "source_quote": "Эти временные метки не являются эквивалентными.",
+      "claim_quote": "Эти временные метки не являются эквивалентными.",
+      "normalized_statement": "Эти временные метки не являются эквивалентными.",
       "explications": [],
       "source_modality": "DECLARATIVE_NEGATION",
       "modality_marker": "не являются",
       "normative_effect": "semantic_constraint",
       "classification_basis": {
         "kind": "editorial_inference",
-        "quote": "не являются взаимозаменяемыми",
+        "quote": "не являются эквивалентными",
         "text": "Источник утверждает неэквивалентность меток. Следствие для реализаций — не подставлять одну метку вместо другой — экспликация: дословного запрета действия (MUST NOT) источник не содержит."
       },
       "terms": [

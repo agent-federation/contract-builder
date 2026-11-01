@@ -7,29 +7,31 @@
 ## Быстрый старт
 
 ```bash
-npm install
-npm run build          # draft → spec/output/CORE-001.draft.md
-npm test               # 15 тестов
-npm run check          # артефакт соответствует модели?
-npm run build:release  # release (сейчас намеренно заблокирован)
+bun install
+bun run build          # draft → spec/output/CORE-001.draft.md
+bun test               # 16 тестов
+bun run check          # артефакт соответствует модели?
+bun run build:release  # release (сейчас намеренно заблокирован)
 ```
 
-Требуется Node 22+.
+Требуется Bun 1.4+. Зависимости ставятся и код запускается через Bun; тесты написаны на API `node:test`, который Bun исполняет.
 
 ## Команды
 
 | Команда | Что делает |
 |---|---|
-| `npm run build` | `--mode draft`: собирает и записывает `spec/output/CORE-001.draft.md`, exit 0 при отсутствии ERROR |
-| `npm run build:release` | `--mode release`: пишет `spec/output/CORE-001.md` только если нет ERROR и REVIEW_REQUIRED |
-| `npm run check` | собирает в память и сравнивает с сохранённым артефактом |
-| `npm test` | тесты сборщика |
-| `npm run typecheck` | `tsc --noEmit` |
-| `tsx spec/build.ts --spec <dir> --no-write --json` | сборка произвольной спецификации с машиночитаемой диагностикой |
+| `bun run build` | `--mode draft`: собирает и записывает `spec/output/CORE-001.draft.md`, exit 0 при отсутствии ERROR |
+| `bun run build:release` | `--mode release`: пишет `spec/output/CORE-001.md` только если нет ERROR и REVIEW_REQUIRED |
+| `bun run check` | собирает в память и сравнивает с сохранённым артефактом |
+| `bun test` | тесты сборщика |
+| `bun run typecheck` | `tsc --noEmit` |
+| `bun spec/build.ts --spec <dir> --no-write --json` | сборка произвольной спецификации с машиночитаемой диагностикой |
 
 ## Структура
 
 ```text
+.github/workflows/ci.yml        typecheck + tests + --check
+bun.lock                        lockfile Bun
 CORE-001.legacy.md              исходный документ, только читается
 spec/
   build.ts                      CLI
@@ -112,7 +114,7 @@ CORE-001.legacy.md
 ## Пример намеренно повреждённой спецификации
 
 ```bash
-npx tsx spec/build.ts --spec fixtures/broken-modality/spec --no-write
+bun spec/build.ts --spec fixtures/broken-modality/spec --no-write
 ```
 
 Ожидаемый результат (exit code 1):
@@ -129,7 +131,7 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 
 Другие фикстуры:
 
-- `fixtures/broken-source-drift/spec` → `ERR_SOURCE_QUOTE_NOT_FOUND` (legacy изменён, цитата не совпала);
+- `fixtures/broken-source-drift/spec` → `ERR_SOURCE_QUOTE_NOT_FOUND` (цитата в spec не совпадает с источником);
 - `fixtures/open-decision/spec` → draft проходит с `REVIEW_OPEN_NORMATIVE_DEPENDENCY`, release блокируется.
 
 ## Ограничения MVP

@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": ">=1.4.0"
+  },
   "description": "Prototype builder for a machine-readable normative specification (CORE-001 slice §10.1-10.2)",
   "scripts": {
-    "build": "tsx spec/build.ts --mode draft",
-    "build:release": "tsx spec/build.ts --mode release",
-    "check": "tsx spec/build.ts --mode draft --check",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "build": "bun spec/build.ts --mode draft",
+    "build:release": "bun spec/build.ts --mode release",
+    "check": "bun spec/build.ts --mode draft --check",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,7 +23,6 @@
   "devDependencies": {
     "@types/node": "^22.7.5",
     "@types/nunjucks": "^3.2.6",
-    "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   }
 }
