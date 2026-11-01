@@ -147,7 +147,7 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
   });
   await cp(profileDir, path.join(dir, "profile"), { recursive: true });
   // The profile renderer imports `nunjucks`; resolve it from the repository.
-  await symlink(path.join(root, "node_modules"), path.join(dir, "node_modules"), "dir");
+  await symlink(path.join(root, "node_modules"), path.join(dir, "node_modules"), "junction");
 
   for (const file of await walkTs(path.join(dir, "profile"))) {
     const text = await readFile(file, "utf8");

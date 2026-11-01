@@ -28,7 +28,10 @@ class MemoryLoader extends nunjucks.Loader {
   }
 }
 
-const label = (options: RenderOptions, key: string): string => options.labels?.[key] ?? key;
+const label = (options: RenderOptions, key: string): string => {
+  const value = options.labels?.[key];
+  return typeof value === "string" ? value : key;
+};
 
 export const renderer: Renderer = {
   id: "core001-markdown",
@@ -44,12 +47,13 @@ export const renderer: Renderer = {
       throwOnUndefined: true,
     });
 
-    env.addFilter("blockquote", (value: unknown) =>
-      String(value)
+    env.addFilter("blockquote", (value: unknown) => {
+      if (value == null) return "";
+      return String(value)
         .split("\n")
         .map((line) => (line.length > 0 ? `> ${line}` : ">"))
-        .join("\n"),
-    );
+        .join("\n");
+    });
 
     const view = toTemplateView(spec, options, legacyName);
     return finalize(env.render(options.templates.entry, view));
