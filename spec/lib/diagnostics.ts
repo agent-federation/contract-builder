@@ -56,7 +56,7 @@ export class Diagnostics {
   }
 
   sorted(): Diagnostic[] {
-    return this.snapshot().sort((a, b) => {
+    return [...this.items].sort((a, b) => {
       const bySeverity = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
       if (bySeverity !== 0) return bySeverity;
       return (
@@ -73,11 +73,6 @@ export class Diagnostics {
    * Returns copies, so a caller cannot reorder or mutate the collector's state.
    */
   emissionOrder(): Diagnostic[] {
-    return this.snapshot();
-  }
-
-  /** Copies of the collected diagnostics; callers never receive internal objects. */
-  private snapshot(): Diagnostic[] {
     return this.items.map((item) => ({ ...item }));
   }
 

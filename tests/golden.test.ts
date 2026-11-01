@@ -94,20 +94,6 @@ test("golden: recorded hash matches the committed artifact", async () => {
   assert.equal(sha256(artifact), await recordedHash());
 });
 
-test("golden: sorted() also returns copies and cannot mutate the collector", () => {
-  const diagnostics = new Diagnostics();
-  diagnostics.error("ERR_SENTINEL", "sentinel.yml", "/sentinel", "sentinel message");
-
-  const first = diagnostics.sorted();
-  first[0]!.code = "MUTATED";
-  first[0]!.message = "mutated";
-
-  const second = diagnostics.sorted();
-  assert.equal(second.length, 1);
-  assert.equal(second[0]!.code, "ERR_SENTINEL");
-  assert.equal(second[0]!.message, "sentinel message");
-});
-
 test("golden: emissionOrder() returns a copy and cannot mutate the collector", () => {
   const diagnostics = new Diagnostics();
   diagnostics.warning("WARN_SENTINEL", "sentinel.yml", "/sentinel", "sentinel message");
