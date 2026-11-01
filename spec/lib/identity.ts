@@ -686,21 +686,21 @@ function sortJson(value: unknown): unknown {
 function stripComments(text: string): string {
   let result = "";
   let index = 0;
-  let inString = false;
+  let stringQuote: string | null = null;
   let escaped = false;
 
   while (index < text.length) {
     const char = text[index]!;
-    if (inString) {
+    if (stringQuote !== null) {
       result += char;
       if (escaped) escaped = false;
       else if (char === "\\") escaped = true;
-      else if (char === '"') inString = false;
+      else if (char === stringQuote) stringQuote = null;
       index += 1;
       continue;
     }
     if (char === '"' || char === "'" || char === "`") {
-      inString = true;
+      stringQuote = char;
       result += char;
       index += 1;
       continue;

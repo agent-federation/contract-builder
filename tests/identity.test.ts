@@ -8,6 +8,7 @@ import {
   canonicalManifestJson,
   computeClosureDigest,
   frameRecord,
+  importSpecifiers,
   normalizeTextBytes,
   parseLockfile,
   readLockfile,
@@ -355,6 +356,16 @@ test("identity: canonical manifest sorts keys but preserves array order", () => 
     sources: [{ id: "s", path: "../doc.md", adapter: "markdown" }],
   } satisfies Manifest;
   assert.notEqual(canonicalManifestJson(withExternal), canonicalManifestJson(withoutExternal));
+});
+
+test("identity: import scanning survives single-quoted and template literals", () => {
+  const source = [
+    "const single = 'not a comment //';",
+    "const template = `template // not a comment ${single}`;",
+    '// import "commented-out";',
+    'import "real-package";',
+  ].join("\n");
+  assert.deepEqual(importSpecifiers(source), ["real-package"]);
 });
 
 test("identity: record framing resists ambiguous concatenation", () => {
