@@ -1,3 +1,10 @@
+/**
+ * CORE-001 view types.
+ *
+ * These shapes are profile data, not part of the generic IR. `semantic.ts` and `render.ts`
+ * import them with `import type` until PR 4/5 move those modules into the profile.
+ */
+
 export type SourceModality =
   | "MUST"
   | "MUST_NOT"

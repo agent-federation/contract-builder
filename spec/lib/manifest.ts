@@ -1,6 +1,7 @@
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { Diagnostics } from "./diagnostics.js";
+import { isMissingFile, isNonEmptyString, isObject, messageOf } from "./guards.js";
 
 export type InputFormat = "json" | "yaml";
 
@@ -53,12 +54,29 @@ export interface ProfileDocumentBinding {
   input: string;
 }
 
+export interface RelationDecl {
+  name: string;
+  from: string;
+  to: string;
+  cardinality?: "one" | "many";
+  inverse?: string;
+}
+
+export interface ProvenanceMapping {
+  kind: string;
+  source: string;
+  ref: string;
+  quote: string;
+}
+
 export interface Profile {
   id: string;
   version: string;
   entityKinds: Record<string, ProfileEntityKind>;
   schemas: Record<string, string>;
   documents: ProfileDocumentBinding[];
+  relations?: RelationDecl[];
+  provenance?: ProvenanceMapping[];
   files?: string[];
   dependencies?: Record<string, string>;
 }
@@ -88,7 +106,7 @@ export async function loadManifest(
   try {
     text = await readFile(manifestPath, "utf8");
   } catch (error) {
-    if (isMissing(error)) {
+    if (isMissingFile(error)) {
       diags.error("core.manifest.missing", "contract-builder.json", "", "Манифест проекта не найден");
     } else {
       diags.error(
@@ -479,29 +497,69 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     }
   }
 
+  let relations: RelationDecl[] | undefined;
+  if (value.relations !== undefined) {
+    if (!Array.isArray(value.relations)) return fail("/relations", "relations должен быть массивом");
+    relations = [];
+    for (const [index, item] of value.relations.entries()) {
+      if (
+        !isObject(item) ||
+        !isNonEmptyString(item.name) ||
+        !isNonEmptyString(item.from) ||
+        !isNonEmptyString(item.to)
+      ) {
+        return fail(`/relations/${index}`, "name, from и to обязательны");
+      }
+      if (item.cardinality !== undefined && item.cardinality !== "one" && item.cardinality !== "many") {
+        return fail(`/relations/${index}/cardinality`, "cardinality должен быть one или many");
+      }
+      relations.push({
+        name: item.name,
+        from: item.from,
+        to: item.to,
+        ...(item.cardinality === "one" || item.cardinality === "many"
+          ? { cardinality: item.cardinality }
+          : {}),
+        ...(isNonEmptyString(item.inverse) ? { inverse: item.inverse } : {}),
+      });
+    }
+  }
+
+  let provenance: ProvenanceMapping[] | undefined;
+  if (value.provenance !== undefined) {
+    if (!Array.isArray(value.provenance)) {
+      return fail("/provenance", "provenance должен быть массивом");
+    }
+    provenance = [];
+    for (const [index, item] of value.provenance.entries()) {
+      if (
+        !isObject(item) ||
+        !isNonEmptyString(item.kind) ||
+        !isNonEmptyString(item.source) ||
+        !isNonEmptyString(item.ref) ||
+        !isNonEmptyString(item.quote)
+      ) {
+        return fail(`/provenance/${index}`, "kind, source, ref и quote обязательны");
+      }
+      provenance.push({
+        kind: item.kind,
+        source: item.source,
+        ref: item.ref,
+        quote: item.quote,
+      });
+    }
+  }
+
   return {
     id: value.id,
     version: value.version,
     entityKinds,
     schemas,
     documents,
+    ...(relations !== undefined ? { relations } : {}),
+    ...(provenance !== undefined ? { provenance } : {}),
     ...(files !== undefined ? { files } : {}),
     ...(dependencies !== undefined ? { dependencies } : {}),
   };
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
-}
-
-function isMissing(error: unknown): boolean {
-  return isObject(error) && error.code === "ENOENT";
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

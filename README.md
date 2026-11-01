@@ -9,7 +9,7 @@
 ```bash
 bun install
 bun run build          # draft → spec/output/CORE-001.draft.md
-bun test               # 16 тестов
+bun test               # 41 тест
 bun run check          # артефакт соответствует модели?
 bun run build:release  # release (сейчас намеренно заблокирован)
 ```
@@ -39,12 +39,17 @@ spec/
   lib/
     build.ts                    оркестрация сборки
     manifest.ts                 манифест, профиль и границы проекта
-    load.ts                     чтение объявленных входов и legacy
-    schema.ts                   JSON Schema (ajv)
+    load.ts                     чтение объявленных входов
+    schema.ts                   JSON Schema (ajv): документы и виды сущностей
+    ir.ts                       общий IR: сущности, индексы, извлечение
+    relations.ts                объявления и разрешение связей
+    provenance.ts               прямые привязки происхождения
     semantic.ts                 ID, ссылки, цитаты, модальность, зависимости
-    model.ts                    типы и производные оси
     render.ts                   Nunjucks + нормализация байтов
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
+    guards.ts                   общие проверки типов
+    source.ts                   SourceDocument и SourceAdapter
+    adapters/markdown.ts        локаторы markdown и адаптер источника
   sources.yml                   границы среза и дословные фрагменты
   ontology.yml                  документ и термины
   semantics.json                нормативные положения
@@ -53,10 +58,12 @@ spec/
   templates/core001.md.j2       шаблон
   output/CORE-001.draft.md      сгенерированный артефакт
 profiles/core001/
-  profile.json                  виды сущностей, схемы, привязки документов
-  schemas/*.schema.json         по схеме на каждый входной файл
+  profile.json                  виды, связи, происхождение, привязки документов
+  view.ts                       типы представления CORE-001
+  schemas/*.schema.json         схемы документов и схемы видов сущностей
 tests/build.test.ts
 tests/manifest.test.ts          манифест и границы проекта
+tests/ir.test.ts                IR, связи и происхождение
 tests/golden.test.ts            эталонная сборка CORE-001
 fixtures/
   broken-modality/              violated выведен из permission

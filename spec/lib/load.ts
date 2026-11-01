@@ -1,42 +1,15 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { Diagnostics } from "./diagnostics.js";
-import {
-  loadManifest,
-  resolveContained,
-  type ManifestSource,
-  type ResolvedProject,
-} from "./manifest.js";
-
-/**
- * Transitional view of the five CORE-001 documents.
- *
- * The names match the pre-manifest `SpecFiles` shape so `build.ts` and `semantic.ts`
- * keep working unchanged until PR 3 replaces them with the generic IR. The view is
- * assembled from the profile's `documents` bindings, not from fixed file names.
- */
-export interface SpecFiles {
-  sources: unknown;
-  ontology: unknown;
-  semantics: unknown;
-  decisions: unknown;
-  cases: unknown;
-}
-
-export interface LegacySource {
-  id: string;
-  path: string;
-  document: string;
-  revision: string;
-}
+import { isMissingFile, messageOf } from "./guards.js";
+import { loadManifest, resolveContained, type ResolvedProject } from "./manifest.js";
 
 export interface LoadedSpec {
   project: ResolvedProject;
   /** Parsed documents keyed by the declared input path. */
   documents: Record<string, unknown>;
-  /** Transitional `RawSpec` view; removed with `semantic.ts` in PR 4. */
-  files: SpecFiles;
+  /** The same documents keyed by the profile's document binding, for non-entity consumers. */
+  byKey: Record<string, unknown>;
 }
 
 /**
@@ -60,7 +33,7 @@ export async function loadProject(
     try {
       text = await readFile(located.abs, "utf8");
     } catch (error) {
-      if (isMissing(error) && input.optional === true) continue;
+      if (isMissingFile(error) && input.optional === true) continue;
       diags.error("ERR_IO", input.path, "", `Не удалось прочитать файл: ${messageOf(error)}`);
       failed = true;
       continue;
@@ -82,7 +55,7 @@ export async function loadProject(
 
   if (failed) return null;
 
-  const files = {} as SpecFiles;
+  const byKey: Record<string, unknown> = {};
   for (const [index, binding] of project.profile.documents.entries()) {
     const document = documents[binding.input];
     if (document === undefined) {
@@ -94,52 +67,8 @@ export async function loadProject(
       );
       return null;
     }
-    (files as unknown as Record<string, unknown>)[binding.key] = document;
+    byKey[binding.key] = document;
   }
 
-  // Transitional shim: `sources:` moved to the manifest, but `build.ts` and `semantic.ts`
-  // still read `raw.sources.sources`. Removed in PR 4 together with the view.
-  const sourcesDocument = files.sources;
-  if (sourcesDocument !== null && typeof sourcesDocument === "object") {
-    (files as unknown as Record<string, unknown>).sources = {
-      ...(sourcesDocument as Record<string, unknown>),
-      sources: (project.manifest.sources ?? []).map(toLegacySource),
-    };
-  }
-
-  return { project, documents, files };
-}
-
-export async function readLegacySource(
-  specDir: string,
-  relativePath: string,
-  diags: Diagnostics,
-): Promise<string | null> {
-  try {
-    return await readFile(path.resolve(specDir, relativePath), "utf8");
-  } catch (error) {
-    diags.error("ERR_IO", relativePath, "", `Не удалось прочитать источник: ${messageOf(error)}`);
-    return null;
-  }
-}
-
-function toLegacySource(source: ManifestSource): LegacySource {
-  return {
-    id: source.id,
-    path: source.path,
-    document: source.identity?.document ?? "",
-    revision: source.identity?.revision ?? "",
-  };
-}
-
-function isMissing(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "ENOENT"
-  );
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return { project, documents, byKey };
 }

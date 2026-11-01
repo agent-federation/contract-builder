@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core001.local/schemas/term.schema.json",
+  "title": "Entity: term",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "definition",
+        "source_ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TERM-[A-Z0-9-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "object"
+        },
+        "relations": {
+          "type": "object"
+        },
+        "review": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/base"
+    },
+    {
+      "type": "object",
+      "required": [
+        "relations"
+      ],
+      "properties": {
+        "relations": {
+          "type": "object",
+          "required": [
+            "fragment"
+          ],
+          "properties": {
+            "fragment": {
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 import type { Diagnostics } from "./diagnostics.js";
-import { locateQuote, parseLocator } from "./locator.js";
+import { isObject } from "./guards.js";
+import { locateQuote, parseLocator } from "./adapters/markdown.js";
+import type { Entity, ProjectModel } from "./ir.js";
 import type {
   AnalyzedProvision,
   AnalyzedSpec,
@@ -7,11 +9,14 @@ import type {
   Decision,
   Fragment,
   NormativeEffect,
+  OntologyDoc,
   Provision,
   RawSpec,
+  SourceDecl,
   SourceModality,
+  SourcesDoc,
   Term,
-} from "./model.js";
+} from "../../profiles/core001/view.js";
 
 const BINDING_EFFECTS = new Set<NormativeEffect>([
   "obligation",
@@ -52,11 +57,22 @@ const FILE = {
 };
 
 export function analyze(
-  raw: RawSpec,
-  legacy: string,
+  model: ProjectModel,
   legacyName: string,
   diags: Diagnostics,
-): AnalyzedSpec {
+): AnalyzedSpec | null {
+  if (!isObject(model.documents.sources) || !isObject(model.documents.ontology)) {
+    diags.error(
+      "core.profile.invalid",
+      "profile.json",
+      "/documents",
+      "Профиль CORE-001 должен связывать документы sources и ontology",
+    );
+    return null;
+  }
+
+  const raw = projectView(model);
+  const legacy = new TextDecoder().decode(model.sources[0]?.bytes ?? new Uint8Array());
   const legacyFlat = collapse(legacy);
   const termById = new Map(raw.ontology.terms.map((t) => [t.id, t]));
   const fragmentById = new Map(raw.sources.fragments.map((f) => [f.id, f]));
@@ -523,11 +539,15 @@ export function analyze(
     }
   });
 
-  for (const testCase of cases) {
-    const provision = analyzedById.get(testCase.provision);
-    if (provision === undefined) continue;
-    provision.cases.push(testCase);
-    if (testCase.expected_outcome === "violated") provision.violated_cases += 1;
+  const caseById = new Map(cases.map((testCase) => [testCase.id, testCase]));
+  for (const provision of provisions) {
+    const vectorIds = model.byId.get(provision.id)?.relations.vectors ?? [];
+    provision.cases = vectorIds
+      .map((id) => caseById.get(id))
+      .filter((testCase): testCase is Case => testCase !== undefined);
+    provision.violated_cases = provision.cases.filter(
+      (testCase) => testCase.expected_outcome === "violated",
+    ).length;
   }
 
   for (const provision of provisions) {
@@ -667,4 +687,83 @@ export function collapse(value: string): string {
 
 export function normalizeText(value: string): string {
   return value.replace(/\r\n/g, "\n").trim();
+}
+
+/**
+ * Builds the CORE-001 view from the generic model. This is the only place that knows how
+ * profile entities map onto the view; PR 4 moves it into the profile.
+ */
+function projectView(model: ProjectModel): RawSpec {
+  const sources = model.documents.sources as SourcesDoc;
+  const ontology = model.documents.ontology as OntologyDoc;
+
+  return {
+    sources: {
+      sources: legacySources(model),
+      slice: sources.slice,
+      fragments: byKind(model, "fragment").map(toFragment),
+    },
+    ontology: {
+      document: ontology.document,
+      terms: byKind(model, "term").map(toTerm),
+    },
+    semantics: { provisions: byKind(model, "provision").map(toProvision) },
+    decisions: { decisions: byKind(model, "decision").map(toDecision) },
+    cases: { cases: byKind(model, "case").map(toCase) },
+  };
+}
+
+function byKind(model: ProjectModel, kind: string): Entity[] {
+  return model.byKind.get(kind) ?? [];
+}
+
+function toFragment(entity: Entity): Fragment {
+  return { ...(entity.fields as unknown as Omit<Fragment, "id">), id: entity.id };
+}
+
+function toTerm(entity: Entity): Term {
+  const fields = entity.fields as unknown as Omit<Term, "id" | "fragment">;
+  return { ...fields, id: entity.id, fragment: firstRelation(entity, "fragment") };
+}
+
+function toProvision(entity: Entity): Provision {
+  const fields = entity.fields as unknown as Omit<
+    Provision,
+    "id" | "fragment" | "terms" | "decision_dependencies" | "decision_mentions"
+  >;
+  return {
+    ...fields,
+    id: entity.id,
+    fragment: firstRelation(entity, "fragment"),
+    terms: entity.relations.terms ?? [],
+    decision_dependencies: entity.relations.dependsOn ?? [],
+    decision_mentions: entity.relations.mentions ?? [],
+  };
+}
+
+function toDecision(entity: Entity): Decision {
+  return { ...(entity.fields as unknown as Omit<Decision, "id">), id: entity.id };
+}
+
+function toCase(entity: Entity): Case {
+  const fields = entity.fields as unknown as Omit<Case, "id" | "provision" | "rationale_fragment">;
+  return {
+    ...fields,
+    id: entity.id,
+    provision: firstRelation(entity, "provision"),
+    rationale_fragment: firstRelation(entity, "rationaleFragment"),
+  };
+}
+
+function firstRelation(entity: Entity, name: string): string {
+  return entity.relations[name]?.[0] ?? "";
+}
+
+function legacySources(model: ProjectModel): SourceDecl[] {
+  return (model.manifest.sources ?? []).map((source) => ({
+    id: source.id,
+    path: source.path,
+    document: source.identity?.document ?? "",
+    revision: source.identity?.revision ?? "",
+  }));
 }

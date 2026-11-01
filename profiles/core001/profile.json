@@ -13,7 +13,12 @@
     "core001:ontology": "schemas/ontology.schema.json",
     "core001:semantics": "schemas/semantics.schema.json",
     "core001:decisions": "schemas/decisions.schema.json",
-    "core001:cases": "schemas/cases.schema.json"
+    "core001:cases": "schemas/cases.schema.json",
+    "core001:fragment": "schemas/fragment.schema.json",
+    "core001:term": "schemas/term.schema.json",
+    "core001:provision": "schemas/provision.schema.json",
+    "core001:decision": "schemas/decision.schema.json",
+    "core001:case": "schemas/case.schema.json"
   },
   "documents": [
     { "key": "sources", "input": "sources.yml" },
@@ -22,13 +27,37 @@
     { "key": "decisions", "input": "decisions.yml" },
     { "key": "cases", "input": "conformance/cases.yml" }
   ],
+  "relations": [
+    { "name": "fragment", "from": "provision", "to": "fragment", "cardinality": "one" },
+    { "name": "terms", "from": "provision", "to": "term", "cardinality": "many" },
+    { "name": "dependsOn", "from": "provision", "to": "decision", "cardinality": "many" },
+    { "name": "mentions", "from": "provision", "to": "decision", "cardinality": "many" },
+    {
+      "name": "provision",
+      "from": "case",
+      "to": "provision",
+      "cardinality": "one",
+      "inverse": "vectors"
+    },
+    { "name": "rationaleFragment", "from": "case", "to": "fragment", "cardinality": "one" },
+    { "name": "fragment", "from": "term", "to": "fragment", "cardinality": "one" }
+  ],
+  "provenance": [
+    { "kind": "fragment", "source": "source", "ref": "source_ref", "quote": "quote" },
+    { "kind": "decision", "source": "source", "ref": "source_ref", "quote": "source_quote" }
+  ],
   "files": [
     "profile.json",
     "schemas/sources.schema.json",
     "schemas/ontology.schema.json",
     "schemas/semantics.schema.json",
     "schemas/decisions.schema.json",
-    "schemas/cases.schema.json"
+    "schemas/cases.schema.json",
+    "schemas/fragment.schema.json",
+    "schemas/term.schema.json",
+    "schemas/provision.schema.json",
+    "schemas/decision.schema.json",
+    "schemas/case.schema.json"
   ],
   "dependencies": {}
 }
