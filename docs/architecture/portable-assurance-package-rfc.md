@@ -9,8 +9,8 @@ Portable Assurance Package v0.1 and independent verifier CLI».
 **Baseline:** `f1ddcf7` (main after #46).
 **Document version:** 0.1
 **Gate 1 audit:** [`pap-v0.1-gate1-decision-audit.md`](pap-v0.1-gate1-decision-audit.md) reviews
-D1–D12 and every §13.8 area, and records the amendments in this revision as proposals. It does
-not accept a decision; §16 still governs.
+D1–D12 and every §13.8 area. Its recommendations were accepted by the maintainer on 2026-11-02;
+§16 and the decision record on #57 are authoritative.
 **Implementation status:** not started. This change is documentation only; no code, data or
 generated artifact is modified by the RFC pull request.
 
@@ -76,7 +76,7 @@ dimensions that v0.1 never evaluates.
 
 ### 1.1 Decisions at a glance
 
-All rows are `proposed`; §16 records alternatives, rationale and consequences.
+All rows are `accepted`; §16 records alternatives, rationale and consequences.
 
 | ID | Decision | Recommendation |
 |---|---|---|
@@ -3596,27 +3596,26 @@ Explicitly deferred, with the condition for revisiting:
 
 ## 16. Decision register
 
-All decisions are `proposed` until a maintainer records acceptance. The "Selected" column is the
-recommendation; alternatives are kept for review. The Gate 1 audit
-(`docs/architecture/pap-v0.1-gate1-decision-audit.md`) reviews every row, recommends an explicit
-disposition and separates the choices that still need maintainer approval. The clarifications in
-that audit are reflected in this document but do not accept a decision; recording acceptance
-remains the maintainer's act.
+All decisions D1–D12 are `accepted` by the maintainer on 2026-11-02. The "Selected" column is
+the accepted choice; alternatives are retained for historical traceability. OD-1–OD-7 are also
+accepted as recommended in the Gate 1 audit and recorded on #57. Explicitly deferred sub-parts:
+signed/authenticated human-review approvals (D8/OD-2) and full text-output layout standardization
+beyond required lines/tokens (D10/OD-3). Other v0.1 exclusions remain listed in §16.1 and the audit.
 
 | ID | Decision | Status | Selected | Alternatives | Rationale | Consequence |
 |---|---|---|---|---|---|---|
-| D1 | Archive support | proposed | directory-only v0.1; archive deferred with safe-extraction rules | directory + tar/zip; OCI only | removes zip-slip, duplicate-entry, case-collision and bomb classes; offline directory is enough for the first demo | no single-file transport; §14 lists the condition to revisit |
-| D2 | Canonical JSON | proposed | RFC 8785 JCS over I-JSON, integers only | custom canonical JSON; canonical CBOR | standard, testable, language-neutral; JCS covers number/string edge cases | verifier must implement JCS; floats rejected in core/claims |
-| D3 | Hash and domains | proposed | SHA-256, `H(domain, bytes)` with fixed domains | SHA-512; BLAKE3; multi-algorithm negotiation | ubiquitous, fast, no agility attack surface in v0.1 | algorithm change is a format change; input digests use `pap.input.file.v1` (per file) and `pap.input.set.v1` (set) so one input cannot collide with the set, a refinement recorded during RFC integration |
-| D4 | Source snapshots | proposed | optional in format, required for source-dependent PASS; embedded or referenced | always embed; always reference | offline verification requires bytes, but confidential sources need a referenced-only mode | missing snapshot → `UNAVAILABLE`/`INCOMPLETE`, never a pass |
-| D5 | Unknown fields | proposed | strict core; `extensions` + `requiredFeatures`; unknown critical → `UNSUPPORTED` | permissive ignore; ignore-all-with-warning | security-relevant fields must not be silently ignored; forward compatibility is explicit | producers must namespace extensions; core schema frozen per major |
-| D6 | Claims vs results | proposed | separate files, schemas, namespaces; claims never affect verdict | merge claims into report; producer-supplied results | producer output is untrusted; comparison is evidence, not authority | an extra report block and a comparison field |
-| D7 | Status model | proposed | eight independent dimensions, check outcomes, verdict precedence, coverage `full` | single boolean; one aggregate enum | prevents partial/unsupported from becoming success; matches issue #44 | larger report; every status must be explained by a limitation code |
-| D8 | Trust policy | proposed | local offline JSON, operator-supplied, optional signatures, expiry → `STALE` | signature mandatory; infer trust from package; online status | preserves integrity-only use; keeps authority out of the package | operator must supply a policy for trust decisions; no revocation |
-| D9 | v0.1 checks | proposed | digest-integrity, source-quote (byte range), relation-consistency | also rendering checks; execute profile checks | smallest useful set; all independently checkable without producer code | source-quote requires exact byte ranges; Markdown adapters stay producer-side |
-| D10 | CLI | proposed | `pap verify/inspect/explain`; exit 0/1/2/3/4; deterministic JSON | single `verify` command; `contract-builder verify` subcommand | single-purpose consumer; report authoritative; CI-friendly exits | new binary/project; TTY/format work |
-| D11 | Compatibility | proposed | major.minor, core frozen within major, additive only | unversioned format; semver immutability | implementable by two teams; explicit `UNSUPPORTED` instead of guessing | minor releases limited to extensions/features |
-| D12 | Independence | proposed | second implementation from spec + vectors, different language preferred, unsigned first | same-language port; shared library | only a genuinely separate implementation tests the spec | requires publishing schemas/vectors and a second team's time |
+| D1 | Archive support | accepted | directory-only v0.1; archive deferred with safe-extraction rules | directory + tar/zip; OCI only | removes zip-slip, duplicate-entry, case-collision and bomb classes; offline directory is enough for the first demo | no single-file transport; §14 lists the condition to revisit |
+| D2 | Canonical JSON | accepted | RFC 8785 JCS over I-JSON, integers only | custom canonical JSON; canonical CBOR | standard, testable, language-neutral; JCS covers number/string edge cases | verifier must implement JCS; floats rejected in core/claims |
+| D3 | Hash and domains | accepted | SHA-256, `H(domain, bytes)` with fixed domains | SHA-512; BLAKE3; multi-algorithm negotiation | ubiquitous, fast, no agility attack surface in v0.1 | algorithm change is a format change; input digests use `pap.input.file.v1` (per file) and `pap.input.set.v1` (set) so one input cannot collide with the set, a refinement recorded during RFC integration |
+| D4 | Source snapshots | accepted | optional in format, required for source-dependent PASS; embedded or referenced | always embed; always reference | offline verification requires bytes, but confidential sources need a referenced-only mode | missing snapshot → `UNAVAILABLE`/`INCOMPLETE`, never a pass |
+| D5 | Unknown fields | accepted | strict core; `extensions` + `requiredFeatures`; unknown critical → `UNSUPPORTED` | permissive ignore; ignore-all-with-warning | security-relevant fields must not be silently ignored; forward compatibility is explicit | producers must namespace extensions; core schema frozen per major |
+| D6 | Claims vs results | accepted | separate files, schemas, namespaces; claims never affect verdict | merge claims into report; producer-supplied results | producer output is untrusted; comparison is evidence, not authority | an extra report block and a comparison field |
+| D7 | Status model | accepted | eight independent dimensions, check outcomes, verdict precedence, coverage `full` | single boolean; one aggregate enum | prevents partial/unsupported from becoming success; matches issue #44 | larger report; every status must be explained by a limitation code |
+| D8 | Trust policy | accepted | local offline JSON, operator-supplied, optional signatures, expiry → `STALE` | signature mandatory; infer trust from package; online status | preserves integrity-only use; keeps authority out of the package | operator must supply a policy for trust decisions; no revocation |
+| D9 | v0.1 checks | accepted | digest-integrity, source-quote (byte range), relation-consistency | also rendering checks; execute profile checks | smallest useful set; all independently checkable without producer code | source-quote requires exact byte ranges; Markdown adapters stay producer-side |
+| D10 | CLI | accepted | `pap verify/inspect/explain`; exit 0/1/2/3/4; deterministic JSON | single `verify` command; `contract-builder verify` subcommand | single-purpose consumer; report authoritative; CI-friendly exits | new binary/project; TTY/format work |
+| D11 | Compatibility | accepted | major.minor, core frozen within major, additive only | unversioned format; semver immutability | implementable by two teams; explicit `UNSUPPORTED` instead of guessing | minor releases limited to extensions/features |
+| D12 | Independence | accepted | second implementation from spec + vectors, different language preferred, unsigned first | same-language port; shared library | only a genuinely separate implementation tests the spec | requires publishing schemas/vectors and a second team's time |
 
 ### 16.1 Open questions not resolvable in v0.1
 
