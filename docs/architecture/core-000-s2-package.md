@@ -493,6 +493,7 @@ Approve this bounded S2 package and decide:
 - **S2-D4** full-matrix placement (recommended S3; S2 adds focused new-check tests).
 
 S2 implementation is authorized only after this package is merged and a dedicated implementation
-task references this merged package. Until then, no S2 coding starts. The four deferred S1
-items remain open, and S2 does not claim H2, H3, security isolation, independent verification or
-semantic truth.
+task references this merged package. Approval of this package authorizes at most S2.1 after that
+task; S2.2 and S2.3 remain separately gated and require their own explicit authorization. Until
+then, no S2 coding starts. The four deferred S1 items remain open, and S2 does not claim H2, H3,
+security isolation, independent verification or semantic truth.
