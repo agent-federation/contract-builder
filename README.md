@@ -30,9 +30,14 @@ bun run build:release  # release (сейчас намеренно заблоки
 | `bun run build` | `--mode draft`: собирает и записывает `spec/output/CORE-001.draft.md`, exit 0 при отсутствии ERROR |
 | `bun run build:release` | `--mode release`: пишет `spec/output/CORE-001.md` только если нет ERROR и REVIEW_REQUIRED |
 | `bun run check` | собирает в память и сравнивает с сохранённым артефактом |
-| `bun test` | тесты сборщика |
+| `bun test` | тесты сборщика и PAP-верификатора |
 | `bun run typecheck` | `tsc --noEmit` |
+| `bun run pap -- verify <PACKAGE>` | независимый PAP v0.1 verifier: `verify`, `inspect`, `explain` |
 | `bun spec/build.ts --spec <dir> --no-write --json --allow-executable-profile` | сборка произвольной спецификации с машиночитаемой диагностикой |
+
+The independent Portable Assurance Package v0.1 verifier lives under `pap/`.
+It does not import the builder, profiles or renderers; see `pap/README.md` for the
+CLI, the 61-case conformance corpus and the test commands.
 
 ## Профиль: данные и код
 
