@@ -201,6 +201,6 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 
 Статус реализации архитектуры и публичного контракта (снимок на `f1ddcf7`, 2026-11-02): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
 
-## License
+## Лицензия
 
-Licensed under the [Apache License 2.0](LICENSE).
+Распространяется под лицензией [Apache License 2.0](LICENSE).
