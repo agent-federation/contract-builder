@@ -1,0 +1,7 @@
+examples:
+  - id: EX-IDEMPOTENT-1
+    title: Duplicate submit creates one order
+    given: The same request key is submitted twice
+    expect: One order exists for that key
+    relations:
+      requirement: REQ-MISSING

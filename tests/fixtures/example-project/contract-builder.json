@@ -1,0 +1,47 @@
+{
+  "manifestVersion": "0.1",
+  "project": {
+    "id": "example-project",
+    "title": "Orders example",
+    "revision": "0.1.0"
+  },
+  "profile": {
+    "id": "example",
+    "version": "0.1.0",
+    "source": "../../../profiles/example",
+    "external": true
+  },
+  "inputs": [
+    {
+      "path": "requirements.yml",
+      "format": "yaml",
+      "schema": "example:requirements",
+      "entities": [{ "kind": "requirement", "pointer": "/requirements" }]
+    },
+    {
+      "path": "examples.yml",
+      "format": "yaml",
+      "schema": "example:examples",
+      "entities": [{ "kind": "example", "pointer": "/examples" }]
+    }
+  ],
+  "sources": [
+    {
+      "id": "SRC-EXAMPLE",
+      "path": "source.md",
+      "adapter": "markdown",
+      "identity": { "document": "EXAMPLE-PROJECT", "revision": "0.1.0" }
+    }
+  ],
+  "render": [
+    {
+      "renderer": "example-markdown",
+      "template": "profile:templates/example.md.j2",
+      "outputs": {
+        "draft": "output/EXAMPLE.draft.md",
+        "release": "output/EXAMPLE.md"
+      }
+    }
+  ],
+  "output": { "root": "." }
+}

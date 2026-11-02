@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/example.schema.json",
+  "title": "Entity: example",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "given",
+        "expect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EX-[A-Z0-9-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "given": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relations": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/base"
+    },
+    {
+      "type": "object",
+      "required": [
+        "relations"
+      ],
+      "properties": {
+        "relations": {
+          "type": "object",
+          "required": [
+            "requirement"
+          ],
+          "properties": {
+            "requirement": {
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}
