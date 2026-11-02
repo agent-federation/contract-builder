@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Diagnostic } from "./diagnostics.js";
+import type { ExtensionClosureDeclaration } from "./extension.js";
 import type { ProjectModel } from "./ir.js";
 import type { Diagnostics } from "./diagnostics.js";
 import {
@@ -42,6 +43,8 @@ export interface Artifact {
 export interface Renderer {
   id: string;
   version: string;
+  /** Declared closure for build identity; required for a build that computes identity. */
+  closure?: ExtensionClosureDeclaration;
   render(model: ProjectModel, options: RenderOptions): Promise<Artifact[]>;
 }
 

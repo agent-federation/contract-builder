@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import nunjucks from "nunjucks";
 import { SEVERITY_LABEL, type Diagnostic, type Severity } from "../../spec/lib/diagnostics.js";
 import type { ProjectModel } from "../../spec/lib/ir.js";
@@ -36,6 +37,17 @@ const label = (options: RenderOptions, key: string): string => {
 export const renderer: Renderer = {
   id: "core001-markdown",
   version: "0.1.0",
+  closure: {
+    root: fileURLToPath(new URL(".", import.meta.url)),
+    files: [
+      "renderer.ts",
+      "view.ts",
+      "text.ts",
+      "templates/core001.md.j2",
+      "labels.ru.json",
+    ],
+    dependencies: { nunjucks: "3.2.4" },
+  },
   async render(model: ProjectModel, options: RenderOptions) {
     const spec = buildView(model);
     const legacyName = path.basename(model.manifest.sources?.[0]?.path ?? "source");

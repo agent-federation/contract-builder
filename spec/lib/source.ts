@@ -1,3 +1,5 @@
+import type { ExtensionClosureDeclaration } from "./extension.js";
+
 export interface SourceDocument {
   id: string;
   bytes: Uint8Array;
@@ -11,6 +13,8 @@ export type LocatorResult = "found" | "outside" | "unsupported" | "unknown-locat
 export interface SourceAdapter {
   id: string;
   version: string;
+  /** Declared closure for build identity; required for a build that computes identity. */
+  closure?: ExtensionClosureDeclaration;
   load(
     path: string,
     descriptor: { id: string; adapter: string; identity?: Record<string, unknown> },

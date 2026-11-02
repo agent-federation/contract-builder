@@ -6,6 +6,8 @@ import { loadManifest, resolveContained, type ResolvedProject } from "./manifest
 
 export interface LoadedSpec {
   project: ResolvedProject;
+  /** Raw bytes of every loaded input, keyed by the declared input path. */
+  bytes: Record<string, Uint8Array>;
   /** Parsed documents keyed by the declared input path. */
   documents: Record<string, unknown>;
   /** The same documents keyed by the profile's document binding, for non-entity consumers. */
@@ -23,15 +25,16 @@ export async function loadProject(
   const project = await loadManifest(specDir, diags);
   if (project === null) return null;
 
+  const bytes: Record<string, Uint8Array> = {};
   const documents: Record<string, unknown> = {};
   let failed = false;
 
   for (const input of project.manifest.inputs) {
     const located = await resolveContained(project.root, input.path);
 
-    let text: string;
+    let raw: Uint8Array;
     try {
-      text = await readFile(located.abs, "utf8");
+      raw = new Uint8Array(await readFile(located.abs));
     } catch (error) {
       if (isMissingFile(error) && input.optional === true) continue;
       diags.error("ERR_IO", input.path, "", `Не удалось прочитать файл: ${messageOf(error)}`);
@@ -40,12 +43,14 @@ export async function loadProject(
     }
 
     try {
+      const text = new TextDecoder().decode(raw);
       const parsed = input.format === "json" ? JSON.parse(text) : parseYaml(text);
       if (parsed === null || typeof parsed !== "object") {
         diags.error("ERR_PARSE", input.path, "", "Файл должен содержать объект верхнего уровня");
         failed = true;
         continue;
       }
+      bytes[input.path] = raw;
       documents[input.path] = parsed;
     } catch (error) {
       diags.error("ERR_PARSE", input.path, "", `Ошибка разбора: ${messageOf(error)}`);
@@ -70,5 +75,5 @@ export async function loadProject(
     byKey[binding.key] = document;
   }
 
-  return { project, documents, byKey };
+  return { project, bytes, documents, byKey };
 }
