@@ -1,10 +1,11 @@
 # CORE-000 decision record — D1, D13, D14, D15 and P-1–P-6
 
-**Status:** maintainer decision recorded 2026-11-02. This is the canonical CORE-000 decision
-record for the S1 package. Six decisions are accepted (D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A);
-four are explicitly deferred for S1 (D14, P-2, P-3, P-6). The full record remains open for the four
-deferred items. This document does not implement CORE-000 and does not change code, tests,
-schemas, fixtures, evidence or generic-core behaviour.
+**Status:** canonical CORE-000 decision record. The original S1 decisions were recorded on
+2026-11-02; D14, P-2, P-3 and P-6 were deferred for S1 at that time and were subsequently accepted
+for the full-model planning scope on 2026-11-03. S2-D1–S2-D4 were also accepted on 2026-11-03.
+These later decisions do not authorize S2.1, S2.2 or S2.3 implementation. This document does not
+implement CORE-000 and does not change code, tests, schemas, fixtures, evidence or generic-core
+behaviour.
 **Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47), refreshed by
 [#72](https://github.com/agent-federation/contract-builder/issues/72).
 **Decision recorded:** 2026-11-02, after PR #74 merged as
@@ -19,12 +20,12 @@ the refresh found no code or profile change that affects these decisions (see
 [`core-000-self-contract.md`](core-000-self-contract.md) (PR #51); the accepted execution plan is
 [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59).
 
-> **What this is.** The canonical record of the ten decisions for the CORE-000 S1 package:
-> D1, D13, D14, D15 and P-1–P-6. Six are accepted (D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A); four
-> are explicitly deferred for S1 (D14, P-2, P-3, P-6). A deferral leaves the item open; the full
-> record remains open for those four items. For each item the record states the exact question,
-> viable options, the decision or deferral, consequences and trade-offs, dependencies,
-> reversibility, and the repository evidence that informs it.
+> **What this is.** The canonical record of the CORE-000 S1 decisions and subsequent S2 planning
+> decisions. The 2026-11-02 S1 deferrals of D14, P-2, P-3 and P-6 remain part of the historical
+> decision trail; the 2026-11-03 maintainer decision below accepts those four options for the
+> full-model planning scope and accepts S2-D1–S2-D4.
+> For each item the record states the exact question, viable options, decision, consequences and
+> trade-offs, dependencies, reversibility, and the repository evidence that informs it.
 >
 > **What this is not.** It is not an implementation, a generic-core change, or an independent
 > verification. No code or CORE-000 artifact is created by this record. The first-slice proposal in
@@ -39,7 +40,7 @@ the refresh found no code or profile change that affects these decisions (see
 on 2026-11-02. This section is the canonical acceptance record; the detailed sections below retain
 the full rationale and the open-item analysis.
 
-| ID | Decision status | Effect for S1 |
+| ID | Decision status as of 2026-11-02 | Effect for S1 |
 |---|---|---|
 | D1 | **Accepted — A** | CORE-000 project at `contracts/core000/`, profile at `profiles/core000/`; no package publication is implied. |
 | D13 | **Accepted — A** | Distinct `independent_verification` entity kind/schema; do not reuse the core `VerificationRecord`. |
@@ -52,6 +53,10 @@ the full rationale and the open-item analysis.
 | P-3 | **Deferred for S1 — open** | Do not commit the generated CORE-000 draft in S1. |
 | P-6 | **Deferred for S1 — open** | Do not commit run evidence or external verification records in S1. |
 
+**Historical S1 decision snapshot (2026-11-02).** The statuses in the table above record the
+maintainer's S1 decision at that date. The later 2026-11-03 decision below accepts D14, P-2, P-3
+and P-6 for the full-model planning scope; it does not rewrite what S1 actually did.
+
 **G4 / consumer harness.** Confirmed for S1 only: the bounded consumer harness may be used for the
 first slice. This does not close G4, does not close the generic CLI/API gap, and is not independent
 verification.
@@ -63,8 +68,40 @@ when the implementation task references this record. S1 remains limited to the p
 slice, its positive/negative tests and transient evidence. No generic-core changes,
 arbitrary/untrusted profile execution, security-sandbox claims, independent certification or
 semantic-truth claims are authorized. A temporary workspace is not a security sandbox. Any scope
-expansion or material deviation requires a new maintainer decision. The four deferred items remain
-open for later resolution; they are not finally resolved by this record.
+expansion or material deviation requires a new maintainer decision. The four items deferred in
+that historical S1 snapshot were subsequently accepted for the full-model planning scope below.
+
+---
+
+## Maintainer decision — 2026-11-03
+
+**Source:** explicit maintainer approval in the project-owner conversation on 2026-11-03.
+This section records the eight decisions in this canonical file. It supersedes the open status of
+the four S1 deferrals for the subsequent full-model planning scope; it does not rewrite the
+historical S1 snapshot above.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| D14 | **Accepted — A** | Represent the consent surface with API option, CLI flag and diagnostic entity; settle the trust boundary as `explicit_consent`. This does not claim sandboxing or process isolation. |
+| P-2 | **Accepted — A** | Persist producer run evidence at `evidence/core000/<run>/result.json` and maintain the human-readable summary at `docs/architecture/core-000-execution-evidence.md`. |
+| P-3 | **Accepted — A** | Commit `contracts/core000/output/CORE-000.draft.md` after a successful, reviewed run. A committed draft is an output for review, not a correctness or truth certification. |
+| P-6 | **Accepted — A, run evidence only** | Commit producer-generated run evidence in Git. Independent-verification records remain separate and are not generated by the engine; S2 creates zero such records. Future records under `verification/core000/` require a distinct verifier and a separate maintainer decision. |
+| S2-D1 | **Accepted — A** | The 24 enumerated policy-check codes are normative; the prose count of 23 is an error. Historical S1 snapshots remain historical. |
+| S2-D2 | **Accepted — A** | Encode all 78 accepted claims with original IDs and statuses. No status promotion from structural completeness or build success; any status change requires source evidence and a separately authorized decision. |
+| S2-D3 | **Accepted — A** | Include the `conformance_case` kind/schema with `conformanceCases: []`. Use a synthetic fixture only to test `conformance.case-uncovered`; it is not project data or independent evidence. |
+| S2-D4 | **Accepted — A** | Keep the full N1–N18 negative-test matrix in S3. S2.3 covers focused tests for the 11 new checks only. |
+
+**Mandatory evidence-separation invariant.** Producer-generated run records belong under
+`evidence/core000/` and are producer evidence, not independent verification. Synthetic fixtures
+are test inputs only. S2 creates zero `independent_verification` records and zero
+`verification/core000/` records. Any future independent-verification record must be produced by a
+distinct verifier and accepted under a separate maintainer decision; engine-generated evidence must
+never be represented as independent.
+
+**Authorization boundary.** This decision-record update records planning decisions only. It does
+not authorize S2.1, S2.2 or S2.3. Each stage requires its own separate, explicit maintainer
+authorization after review of that stage's exact scope. Approval or merge of this documentation PR,
+or creation/linking of an implementation issue, is not implementation authorization.
 
 ---
 
@@ -79,10 +116,10 @@ For each item, one of the following is enough:
 | `defer` | Leave the item open; state what the first slice may do without it. |
 | `record: <text>` | Record a different decision and its consequence. |
 
-The six S1 decisions have been answered by the 2026-11-02 maintainer decision above. The four
-deferred items (D14, P-2, P-3, P-6) remain open; the answer format below applies to them and to any
-later material deviation. S1 implementation starts only after this canonical record is merged and
-the implementation task references it.
+The six original S1 decisions were answered on 2026-11-02. The four items deferred for S1 were
+subsequently accepted for the full-model planning scope by the 2026-11-03 decision above. The
+answer format below applies to any later material deviation; it does not reopen accepted decisions
+or authorize implementation.
 
 ---
 
@@ -92,21 +129,20 @@ the implementation task references it.
 |---|---|---|---|---|
 | D1 | Where do the CORE-000 project and profile live? | A: `contracts/core000/` + `profiles/core000/` | **Accepted — A** | Yes — all paths depend on it. |
 | D13 | How is an independent verification represented? | A: separate `independent_verification` kind | **Accepted — A** | Yes — S1 includes the kind schema. |
-| D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | **Deferred for S1 — open** | Only if the slice models consent as interface/diagnostic entities; S1 defers it. |
+| D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | **Accepted — A (2026-11-03)** | Full-model planning includes the API option, CLI flag, diagnostic and `explicit_consent` boundary; no sandbox claim. |
 | D15 | Must every normative source statement have a checked verification record? | A: require a stored `verified` record; failed/stale/unavailable is an error | **Accepted — A** | Yes — S1 includes the provenance policy. |
 | P-1 | Complete per-case fixture projects or base + mutations? | B: base project + one deterministic temp-copy mutation per case | **Accepted — B** | Yes — S1 includes negative tests. |
-| P-2 | Durable evidence publication/location and summary format? | A: `evidence/core000/<run>/result.json` + human summary | **Deferred for S1 — open** | May follow S1 for durable publication; S1 still writes/asserts the transient record. |
-| P-3 | Commit the generated CORE-000 draft? | A: commit after a successful reviewed run | **Deferred for S1 — open** | Can follow the first slice; needed before accepting the generated artifact. |
+| P-2 | Durable evidence publication/location and summary format? | A: `evidence/core000/<run>/result.json` + human summary | **Accepted — A (2026-11-03)** | Durable producer evidence plus human-readable summary; transient run evidence remains required. |
+| P-3 | Commit the generated CORE-000 draft? | A: commit after a successful reviewed run | **Accepted — A (2026-11-03)** | Commit the full-model draft after a successful, reviewed run; this is not certification. |
 | P-4 | Renderer dependency? | A: `nunjucks` 3.2.4, declared and lockfile-pinned | **Accepted — A** | Yes — S1 includes the renderer. |
 | P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | **Accepted — A** | Yes — S1 includes the harness. |
-| P-6 | Evidence and independent records in git? | A: commit run evidence and external verification records | **Deferred for S1 — open** | Can follow the first slice; needed before evidence publication. |
+| P-6 | Evidence and independent records in git? | A: commit producer run evidence; keep future independent records separate | **Accepted — A (2026-11-03), run evidence only** | Commit producer evidence under `evidence/core000/`; zero independent records in S2; future external records require a distinct verifier and separate decision. |
 
-“Needed before the first slice” is a dependency note, not a decision. The maintainer accepted
-D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A on 2026-11-02 and explicitly deferred D14, P-2, P-3 and
-P-6 for S1. The separate consumer-harness/G4 confirmation is also recorded for S1; it does not
-close G4. A deferral does not resolve an item: the full record remains open for the four deferred
-items, and P-2's deferral covers only durable publication/location and the summary format; S1 still
-writes and asserts the transient evidence record in every case.
+“Needed before the first slice” is a dependency note, not a decision. The six original S1
+decisions and four S1 deferrals were recorded on 2026-11-02; the four deferred items were later
+accepted for the full-model planning scope on 2026-11-03. The separate consumer-harness/G4
+confirmation remains for S1 only and does not close G4. The historical S1 deferrals did not remove
+the requirement to write and assert transient evidence in S1.
 
 ---
 
@@ -211,8 +247,10 @@ slice.
 
 **Question.** How should CORE-000 represent the merged consent API/CLI surface?
 
-**Decision status:** **Deferred for S1 — open.** S1 does not add consent interface/diagnostic
-entities; the item remains open for a later decision.
+**Decision status:** **Accepted — A (2026-11-03)** for the full-model planning scope. The original
+S1 deferral remains historical; the full model represents the API option, CLI flag and
+`core.profile.consent-required` diagnostic, with `TB-PROFILE-EXEC` settled /
+`explicit_consent`. This does not imply sandboxing or process isolation.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -250,8 +288,8 @@ trust-boundary values; review of the current consent facts at the pinned commit 
 `spec/build.ts`, `spec/cli-renderers.ts`, `tests/consent.test.ts`); and an explicit statement that
 no sandbox or per-module isolation is modelled as existing.
 
-**Answer needed:** accept A, choose B/C, or defer the consent-surface entities from the first
-slice.
+**Decision recorded:** A accepted on 2026-11-03 for the full-model planning scope. The original S1
+deferral is historical.
 
 ---
 
@@ -367,8 +405,10 @@ accompanies it? P-2 does **not** re-open the transient JSON record shape: the ac
 plan §6.2 already defines the required base shape, and S1 must use and test it (plus its S1
 additions) regardless of P-2.
 
-**Decision status:** **Deferred for S1 — open.** Only durable publication/location and the
-human-readable summary format are deferred; S1 still writes and asserts the transient record.
+**Decision status:** **Accepted — A (2026-11-03)** for durable producer evidence and its human-readable
+summary. The original S1 deferral remains historical; S1 still wrote and asserted the transient
+record. The accepted durable paths are `evidence/core000/<run>/result.json` and
+`docs/architecture/core-000-execution-evidence.md`.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -398,8 +438,8 @@ writes the transient record to a temporary path and does not publish it.
 review of a sample record against the no-absolute-paths/no-secrets rule; and confirmation that the
 published record is sufficient to reproduce under the pinned inputs without claiming authenticity.
 
-**Answer needed:** accept A, choose B, or defer **durable publication and the summary format**; the
-transient S1 evidence record and its schema assertion remain required in every case.
+**Decision recorded:** A accepted on 2026-11-03. The transient S1 evidence record and its schema
+assertion remained required regardless of the durable-publication decision.
 
 ---
 
@@ -408,8 +448,9 @@ transient S1 evidence record and its schema assertion remain required in every c
 **Question.** Should `contracts/core000/output/CORE-000.draft.md` be committed after a successful
 run?
 
-**Decision status:** **Deferred for S1 — open.** S1 does not commit the generated draft; the item
-remains open for a later decision.
+**Decision status:** **Accepted — A (2026-11-03)** for the full-model planning scope. The original
+S1 deferral remains historical. Commit `contracts/core000/output/CORE-000.draft.md` only after a
+successful, reviewed run; the committed artifact is reviewable output, not a certification.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -436,7 +477,7 @@ not commit a CORE-000 draft; if A is chosen, the commit policy applies to a late
 reviewed draft in a later slice; and a CI check that rebuilds and compares the artifact. If P-3 is
 deferred, the evidence is explicitly absent, and no draft is committed.
 
-**Answer needed:** accept A, choose B, or defer the commit policy.
+**Decision recorded:** A accepted on 2026-11-03 for the full-model planning scope.
 
 ---
 
@@ -523,17 +564,19 @@ repository. S1 uses A and keeps the harness in the same PR as its test.
 repository? S2 creates **zero** independent-verification records, and no engine-generated record
 counts as independent.
 
-**Decision status:** **Deferred for S1 — open.** S1 does not commit run evidence or external
-verification records; the item remains open for a later decision. The S2 package recommends A for
-run evidence only, with zero independent records in S2.
+**Decision status:** **Accepted — A (2026-11-03), run evidence only.** The original S1 deferral
+remains historical. Commit producer run evidence under `evidence/core000/`. Independent records
+remain separate; S2 creates zero independent-verification records and zero files under
+`verification/core000/`. Future records there require a distinct verifier and a separate
+maintainer decision.
 
 | Option | What it means | Main consequence |
 |---|---|---|
-| **A (recommended)** | Commit run evidence under `evidence/core000/`. Future independent records produced by a distinct verifier may be committed under `verification/core000/` only when a later maintainer decision accepts them; S2 creates zero such records, so it commits none. Generated artifacts stay separate per P-3. | Reviewable, diffable, linked to commits; no private material may be committed; no engine-generated record counts as independent. |
+| **A (accepted)** | Commit producer run evidence under `evidence/core000/`. Future independent records produced by a distinct verifier may be committed under `verification/core000/` only after a separate maintainer decision; S2 creates zero such records. Generated artifacts stay separate per P-3. | Reviewable, diffable, linked to commits; no private material may be committed; no engine-generated record counts as independent. |
 | B | Keep evidence/verification records external only. | Avoids repository noise, but review depends on external links and may be less durable. |
 | `defer` | Decide after the first run. | The first slice can run without committing evidence; publication waits. |
 
-**Recommended default: A for run evidence; zero independent records in S2.** The issue asks for
+**Accepted decision: A for producer run evidence; zero independent records in S2.** The issue asks for
 reviewable evidence and the plan's format is designed to be diffable without secrets. Independent
 records must be authored by a distinct verifier and must never be engine-generated; committing a
 future external record makes the independence claim inspectable, but S2 creates none and does not
@@ -557,8 +600,9 @@ statement that S2 creates zero independent records and no engine-generated recor
 independent. A future external record would additionally need a verifier distinct from the author
 and an external record locator.
 
-**Answer needed:** accept A (run evidence; future external records only under the stated
-conditions), choose B, or defer record publication. S1 and S2 create no independent record.
+**Decision recorded:** A accepted on 2026-11-03 for producer run evidence only. S2 creates zero
+independent-verification records; any future independent record requires a distinct verifier and
+a separate maintainer decision.
 
 ---
 
@@ -622,9 +666,9 @@ plan §7/§8 and G4; `pap/README.md` (separate boundary).
 The first-slice proposal is in
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. The maintainer approved the bounded
 S1 package on 2026-11-02: **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A are accepted**;
-**D14, P-2, P-3 and P-6 are explicitly deferred for S1** and remain open; the consumer harness is
-confirmed for S1. P-2's deferral does not defer the transient S1 evidence record or its schema
-assertion.
+**D14, P-2, P-3 and P-6 were deferred for S1 in the 2026-11-02 decision and accepted for the
+full-model planning scope on 2026-11-03.** The consumer harness is confirmed for S1. P-2's original
+S1 deferral did not defer the transient S1 evidence record or its schema assertion.
 
 **Authorization:** S1 implementation may start only after this canonical decision-record update is
 merged and a dedicated implementation task references the merged record. S1 remains bounded to the
@@ -658,9 +702,9 @@ record merges.
   decisions and is not independent verification of CORE-000.
 - This record is documentation-only; it creates no CORE-000 project/profile, code, tests, schemas,
   fixtures, evidence or generated artifact, and changes no generic-core behaviour.
-- Six decisions are accepted; D14, P-2, P-3 and P-6 are explicitly deferred for S1 and remain
-  open. Recommendations for those open items remain proposals. The whole record is not fully
-  closed.
+- The six original S1 decisions remain accepted. D14, P-2, P-3 and P-6 were historically deferred
+  for S1 and subsequently accepted for the full-model planning scope; S2-D1–S2-D4 were also
+  accepted on 2026-11-03. The record does not authorize implementation.
 - The consumer harness is a test consumer; G4 remains open and is recorded as a separate proposal.
   Harness use is not independent verification.
 - No independent verification, certification, security, cross-platform determinism or production
@@ -668,11 +712,10 @@ record merges.
 - The S1 package is approved, but S1 implementation is authorized only after this canonical record
   is merged and a dedicated implementation task references it. No implementation is included. The
   four deferred items remain open for later decisions.
-- **S2 follow-up:** the four open items and the full-model scope are carried into
-  [`core-000-s2-package.md`](core-000-s2-package.md). That package is proposed, not authorized, and
-  does not resolve any of the four deferred items.
+- **S2 follow-up:** the accepted planning decisions are reflected in
+  [`core-000-s2-package.md`](core-000-s2-package.md). The package remains a planning document;
+  none of the decisions authorizes S2.1, S2.2 or S2.3 implementation.
 
-**Requested maintainer action:** merge this documentation-only canonical decision record. No further
-decision is needed for S1; after merge, S1 implementation may start when a dedicated implementation
-task references this record. The four deferred items (D14, P-2, P-3, P-6) remain open and require
-later decisions; the full decision record is not fully closed.
+**Requested maintainer action:** review and merge this documentation-only update to record the
+2026-11-03 decisions. No implementation authorization is requested or implied. S2.1, S2.2 and
+S2.3 each remain separately gated by explicit maintainer authorization.
