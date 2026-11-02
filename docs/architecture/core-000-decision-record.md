@@ -520,21 +520,24 @@ repository. S1 uses A and keeps the harness in the same PR as its test.
 ## 11. P-6 — Evidence and independent-verification records in git
 
 **Question.** Should run evidence and future independent-verification records be committed to the
-repository?
+repository? S2 creates **zero** independent-verification records, and no engine-generated record
+counts as independent.
 
 **Decision status:** **Deferred for S1 — open.** S1 does not commit run evidence or external
-verification records; the item remains open for a later decision.
+verification records; the item remains open for a later decision. The S2 package recommends A for
+run evidence only, with zero independent records in S2.
 
 | Option | What it means | Main consequence |
 |---|---|---|
-| **A (recommended)** | Commit `evidence/core000/` run records and `verification/core000/` external records; keep generated artifacts separate per P-3. | Reviewable, diffable, linked to commits; no private material may be committed. |
+| **A (recommended)** | Commit run evidence under `evidence/core000/`. Future independent records produced by a distinct verifier may be committed under `verification/core000/` only when a later maintainer decision accepts them; S2 creates zero such records, so it commits none. Generated artifacts stay separate per P-3. | Reviewable, diffable, linked to commits; no private material may be committed; no engine-generated record counts as independent. |
 | B | Keep evidence/verification records external only. | Avoids repository noise, but review depends on external links and may be less durable. |
 | `defer` | Decide after the first run. | The first slice can run without committing evidence; publication waits. |
 
-**Recommended default: A.** The issue asks for reviewable evidence and the plan's format is
-designed to be diffable without secrets. Independent records must be authored by a distinct
-verifier and must never be engine-generated; committing them makes the independence claim
-inspectable. B is acceptable only if durable external storage exists.
+**Recommended default: A for run evidence; zero independent records in S2.** The issue asks for
+reviewable evidence and the plan's format is designed to be diffable without secrets. Independent
+records must be authored by a distinct verifier and must never be engine-generated; committing a
+future external record makes the independence claim inspectable, but S2 creates none and does not
+imply one. B is acceptable only if durable external storage exists.
 
 **Consequences/trade-offs.** A adds data files and a maintenance surface; B avoids them but weakens
 review. Neither option makes the engine the authority for `independently_verified`; a maintainer
@@ -549,11 +552,13 @@ the baseline. AGENTS.md prohibits secrets in files. The PAP verifier's records a
 output and are not CORE-000 evidence.
 
 **Evidence needed to accept:** maintainer approval of the retention/publication policy; a review
-that the evidence contains no secrets, private material or absolute host paths; and, for
-independent records, a verifier distinct from the author and an external record locator. S1 does
-not publish evidence and therefore does not depend on this answer.
+that the evidence contains no secrets, private material or absolute host paths; and an explicit
+statement that S2 creates zero independent records and no engine-generated record counts as
+independent. A future external record would additionally need a verifier distinct from the author
+and an external record locator.
 
-**Answer needed:** accept A, choose B, or defer record publication.
+**Answer needed:** accept A (run evidence; future external records only under the stated
+conditions), choose B, or defer record publication. S1 and S2 create no independent record.
 
 ---
 
@@ -663,6 +668,9 @@ record merges.
 - The S1 package is approved, but S1 implementation is authorized only after this canonical record
   is merged and a dedicated implementation task references it. No implementation is included. The
   four deferred items remain open for later decisions.
+- **S2 follow-up:** the four open items and the full-model scope are carried into
+  [`core-000-s2-package.md`](core-000-s2-package.md). That package is proposed, not authorized, and
+  does not resolve any of the four deferred items.
 
 **Requested maintainer action:** merge this documentation-only canonical decision record. No further
 decision is needed for S1; after merge, S1 implementation may start when a dedicated implementation
