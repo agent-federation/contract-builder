@@ -1,4 +1,13 @@
 #!/usr/bin/env bun
 import { runCli } from "../src/cli.ts";
 
-process.exitCode = await runCli(process.argv.slice(2));
+// `runCli` maps expected failures itself; this guard covers an unexpected
+// exception from the entry point or a module initialiser and keeps the RFC §9
+// internal-error exit code instead of a raw stack trace and exit 1.
+try {
+  process.exitCode = await runCli(process.argv.slice(2));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`pap: pap.internal.error: ${message}\n`);
+  process.exitCode = 70;
+}
