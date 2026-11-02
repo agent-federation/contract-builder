@@ -847,6 +847,17 @@ export async function loadPayloads(
         state.invalid = true;
         state.message = parsed.message;
         diag("pap.package.claim-invalid", "error", kind, parsed.message);
+        if (
+          kind === "producerReport" &&
+          parsed.message.includes("mimics a verifier check record")
+        ) {
+          diag(
+            "pap.claims.spoofed-result",
+            "error",
+            kind,
+            "producer report contains verifier-only fields",
+          );
+        }
       }
     } else {
       state.parsed = parsed.claim;

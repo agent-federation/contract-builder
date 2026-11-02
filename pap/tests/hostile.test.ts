@@ -173,6 +173,25 @@ test("Ed25519 non-canonical S is rejected", () => {
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"));
 });
 
+test("a producer report that mimics a verifier record is invalid", () => {
+  const dir = tempPackage();
+  const report = JSON.parse(
+    readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8"),
+  );
+  report.claims[0].outcome = "PASS";
+  delete report.claims[0].claimedOutcome;
+  const bytes = Buffer.from(JSON.stringify(report));
+  writeFileSync(path.join(dir, "claims", "producer-report.json"), bytes);
+  const value = manifest(dir);
+  value.claims.producerReport.digest = domainHash("pap.claims.v1", bytes);
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.dimensions.integrity.package, "FAIL");
+  assert.ok(parsed.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.claims.spoofed-result"));
+});
+
 test("inspect reports structure without producing a verdict", () => {
   const result = runPap(["inspect", ".", "--format", "json"], base);
   assert.equal(result.status, 0);
