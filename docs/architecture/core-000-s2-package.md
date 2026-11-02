@@ -406,9 +406,9 @@ the existing five claims still build.
 | `profiles/core000/schemas/diagnostic.schema.json` | New entity schema. |
 | `profiles/core000/schemas/conformance-case.schema.json` | New entity schema. |
 | `tests/core000.test.ts` | Add S2.1 structure/profile/positive assertions; keep S1-POS tests. |
-| `docs/architecture/core-000-self-contract.md` | If S2-D1 A: count-only correction (23 → 24), no normative change; if B: keep 23 and name the excluded code. |
-| `docs/architecture/core-000-execution-plan.md` | If S2-D1 A: reconcile the forward-looking §1, §2.2 and §3.4 references to 24; if B: reconcile to 23 with the excluded code named. |
-| `docs/architecture/core-000-self-build-poc.md` | If S2-D1 A: reconcile forward-looking §2.1/§11.1; retain historical §10.6/§10.7/§10.10 as S1 snapshots (label them, do not blanket-replace). If B: reconcile the forward-looking references to 23 with the excluded code named. |
+| `docs/architecture/core-000-self-contract.md` | Correct the prose count to 24; no normative change to the 24-row check table. |
+| `docs/architecture/core-000-execution-plan.md` | Reconcile the forward-looking §1, §2.2 and §3.4 references to 24. |
+| `docs/architecture/core-000-self-build-poc.md` | Reconcile forward-looking §2.1/§11.1 to 24; retain historical §10.6/§10.7/§10.10 as S1 snapshots (label them, do not blanket-replace). |
 | `docs/architecture/implementation-status.md` | No S2.1 count change: §4.1 is labeled historical in this revision; future reconciliation belongs to a separate status-matrix update. |
 
 S2.1 is reviewable without the full 78-claim register because it keeps the S1 claims and adds the
