@@ -1,8 +1,7 @@
 import path from "node:path";
 import { runBuild, type BuildResult } from "./lib/build.js";
-import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
 import { SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
-import type { BuildMode } from "./lib/render.js";
+import type { BuildMode, Renderer } from "./lib/render.js";
 
 interface CliOptions {
   mode: BuildMode;
@@ -11,10 +10,11 @@ interface CliOptions {
   write: boolean;
   strict: boolean;
   json: boolean;
+  allowExecutableProfile: boolean;
 }
 
 const USAGE =
-  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--check] [--no-write] [--strict] [--json]";
+  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
@@ -24,6 +24,7 @@ function parseArgs(argv: string[]): CliOptions {
     write: true,
     strict: false,
     json: false,
+    allowExecutableProfile: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -56,6 +57,9 @@ function parseArgs(argv: string[]): CliOptions {
         break;
       case "--json":
         options.json = true;
+        break;
+      case "--allow-executable-profile":
+        options.allowExecutableProfile = true;
         break;
       case "--help":
       case "-h":
@@ -109,6 +113,18 @@ function printHuman(result: BuildResult, specDir: string): void {
   console.log(lines.join("\n"));
 }
 
+/**
+ * The built-in CORE-001 renderer is an executable profile-owned module. The CLI, as the
+ * consumer that wires it, imports it only when the caller passed the same explicit consent
+ * flag that `runBuild` requires. Without the flag the registry stays empty and the build
+ * fails closed before any profile code is imported.
+ */
+async function loadProfileRenderers(allow: boolean): Promise<Record<string, Renderer>> {
+  if (!allow) return {};
+  const { renderer } = await import("../profiles/core001/renderer.js");
+  return { [renderer.id]: renderer };
+}
+
 async function main(): Promise<void> {
   let cli: CliOptions;
   try {
@@ -120,9 +136,20 @@ async function main(): Promise<void> {
     return;
   }
 
+  let renderers: Record<string, Renderer>;
+  try {
+    renderers = await loadProfileRenderers(cli.allowExecutableProfile);
+  } catch (error) {
+    console.error(
+      `Не удалось загрузить рендерер профиля: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const result = await runBuild({
     ...cli,
-    renderers: { [core001Renderer.id]: core001Renderer },
+    renderers,
   });
 
   if (cli.json) {

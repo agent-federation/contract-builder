@@ -300,6 +300,29 @@ applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
   `inputDigest`. Code outside that declared set is an author violation; an unpinned dependency
   is reported as `core.extension.unpinned-dependency`.
 
+#### Executable profile consent
+
+A profile is **declarative** when it supplies only validated data — schemas, relations,
+declarative rules, the diagnostic catalogue, labels and templates. It is **executable** when it
+ships code modules that the engine imports, currently `view` and `validator` (with their
+transitive imports). Declarative data is not thereby risk-free: parsing, schema validation and
+resource exhaustion are separate risks.
+
+The engine must not import or evaluate an executable profile module without an explicit
+caller decision. Consent is a caller-supplied build option (`allowExecutableProfile: true`; the
+M1 CLI flag is `--allow-executable-profile`), never an environment variable and never a
+manifest or profile field: a project cannot grant trust to itself. A build whose profile
+declares executable modules fails closed with `core.profile.consent-required` before the
+first profile module is imported.
+
+Consent is permission to run trusted code in the builder process with the builder's
+privileges. It is not sandboxing, capability restriction or isolation; process or WASM
+isolation remains deferred (`D32`). Build identity and the static import scan are
+integrity/accounting mechanisms, not security boundaries, and they neither grant consent nor
+isolate execution. Consumer-supplied adapters and renderers are imported by the consumer and
+are trusted by construction; the M1 CLI gates its own profile renderer import on the same
+consent flag.
+
 #### Why both
 
 Three current MVP checks would force the primitive set to become a query language: counting
@@ -902,6 +925,7 @@ export function buildProject(
     write?: boolean;
     fs?: FileSystem;                   // defaults to the fs used by loadProject
     signal?: AbortSignal;
+    allowExecutableProfile?: boolean;  // explicit consent; see §3.3
   },
 ): Promise<BuildResult>;
 
@@ -926,6 +950,11 @@ Public vs internal: everything under `@contract-builder/core/internal` (pipeline
 schema runner, loader internals) is not part of the contract. Type exports are versioned with
 the package.
 
+The M1 implementation exposes only `runBuild(BuildOptions)` from `spec/lib/build.ts`; the
+operations above are the M2 target and are not implemented (see the
+[implementation-status matrix](implementation-status.md)). `BuildOptions` carries the same
+consent field: `allowExecutableProfile?: boolean`, default `false`, as described in §3.3.
+
 ---
 
 ## 10. CLI contract
@@ -935,6 +964,11 @@ contract-builder validate [root] [--json] [--strict]
 contract-builder build    [root] [--mode draft|release] [--check] [--json] [--strict]
 contract-builder check    [root] [--json]
 ```
+
+The M1 CLI exposes `--allow-executable-profile`; without it a build whose profile declares
+executable modules fails closed with `core.profile.consent-required` and imports no profile
+code. The contract CLI must carry an equivalent explicit consent flag when it is implemented;
+consent must never be supplied by a manifest, profile or environment variable alone.
 
 - `validate` runs the pipeline without rendering; exits by the same status rules.
 - `build` writes artifacts only when the mode allows it; `--check` never writes.
@@ -1000,7 +1034,10 @@ Adapters and renderers are **trusted executable extensions**: they run in-proces
 sandboxed, and must honour the deterministic contract. They are resolved by id from registries
 supplied by the consumer; the CLI wires the built-in packages (`adapter-yaml-json`,
 `renderer-markdown`). A missing id is `core.registry.missing`, not a silent fallback. Each
-extension's `{ id, version, closureDigest }` participates in `inputDigest` (§8.1).
+extension's `{ id, version, closureDigest }` participates in `inputDigest` (§8.1). The engine's
+consent option governs profile modules it loads from the manifest; a consumer that imports an
+adapter or renderer before calling the engine has made its own trust decision. The M1 CLI must
+not import the profile-owned renderer unless the caller passed the consent flag.
 
 Provenance verification belongs to the adapter because locator grammar is format-specific
 (`#10.2`, `#/paths/~1orders/get`). The core only knows that a quote must resolve to

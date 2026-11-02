@@ -28,6 +28,7 @@ const base = (dir: string): BuildOptions => ({
   check: false,
   strict: false,
   renderers: TEST_RENDERERS,
+  allowExecutableProfile: true,
 });
 
 const codes = (result: Awaited<ReturnType<typeof runBuild>>): string[] =>

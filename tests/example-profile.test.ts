@@ -53,6 +53,7 @@ const options = (specDir: string, overrides: Partial<BuildOptions> = {}): BuildO
   check: false,
   strict: false,
   renderers: EXAMPLE_RENDERERS,
+  allowExecutableProfile: true,
   ...overrides,
 });
 
@@ -142,6 +143,15 @@ async function identityOf(projectDir: string, overrides: Partial<BuildOptions> =
   assert.ok(result.identity !== null, "build produced no identity");
   return result.identity;
 }
+
+test("example: executable profile requires explicit consent", async () => {
+  const result = await runBuild(options(exampleProjectDir, { allowExecutableProfile: false }));
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.equal(result.markdown, null);
+  assert.equal(codes(result).includes("core.profile.consent-required"), true);
+});
 
 test("example: the synthetic project builds through the ordinary core entry point", async () => {
   const result = await runBuild(options(exampleProjectDir));

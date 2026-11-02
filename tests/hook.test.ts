@@ -118,6 +118,7 @@ test("hook: an unknown finding code fails the build", async () => {
     check: false,
     strict: false,
     renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
   });
 
   assert.equal(result.exitCode, 1);
@@ -135,6 +136,7 @@ test("hook: a view module without buildView fails the build", async () => {
     check: false,
     strict: false,
     renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
   });
 
   assert.equal(result.exitCode, 1);
@@ -152,6 +154,7 @@ test("hook: a validator without validate fails the build", async () => {
     check: false,
     strict: false,
     renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
   });
 
   assert.equal(result.exitCode, 1);
@@ -173,6 +176,7 @@ test("hook: a malformed catalog fails the build", async () => {
     check: false,
     strict: false,
     renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
   });
 
   assert.equal(result.exitCode, 1);
@@ -193,6 +197,7 @@ test("hook: a project without a source fails early", async () => {
     check: false,
     strict: false,
     renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
   });
 
   assert.equal(result.exitCode, 1);

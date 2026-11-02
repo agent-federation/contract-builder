@@ -9,9 +9,9 @@
   },
   "description": "Prototype builder for a machine-readable normative specification (CORE-001 slice §10.1-10.2)",
   "scripts": {
-    "build": "bun spec/build.ts --mode draft",
-    "build:release": "bun spec/build.ts --mode release",
-    "check": "bun spec/build.ts --mode draft --check",
+    "build": "bun spec/build.ts --mode draft --allow-executable-profile",
+    "build:release": "bun spec/build.ts --mode release --allow-executable-profile",
+    "check": "bun spec/build.ts --mode draft --check --allow-executable-profile",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
