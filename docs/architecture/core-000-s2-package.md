@@ -332,6 +332,11 @@ acceptance remains S3.
 | S2-POS-04 | write the draft in a temp copy, then `--mode draft --check true` | no `ERR_OUTPUT_STALE`; artifact bytes match the temp copy. |
 | S2-POS-05 | one claim/evidence mutation in a temp copy | `inputDigest` and artifact hash change; no crash. |
 
+The full-model positive run may emit `core000.surface.claim-missing` or `core000.evidence.orphan`
+**warnings** if the encoded data leaves a public surface or evidence row unused. Tests assert the
+exact observed code set; warnings do not block a draft but must be accounted for in the evidence,
+not silently ignored.
+
 ### 6.3 S2 focused check coverage
 
 S2.3 covers each of the 11 new check codes with focused unit or harness tests. It does not claim
