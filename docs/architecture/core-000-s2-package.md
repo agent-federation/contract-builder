@@ -472,8 +472,8 @@ Evidence for review: per-stage PR diffs, test output, evidence JSON (if publishe
 4. **Evidence staleness.** Code/test files cited as evidence are outside `inputDigest` (G1); external
    review must re-check them.
 5. **Provenance is coarse.** The locator grammar is section/table/item; V4 is not implemented.
-6. **No H2/H3.** Same-environment repeatability is not reproducibility; the engine is the producer,
-   not an independent verifier.
+6. **No H2/H3.** Same-environment, fresh-workspace repeatability is not reproducibility; the engine
+   is the producer, not an independent verifier.
 7. **No sandbox.** The full model may run more profile code; a temporary workspace is not isolation.
 8. **No core change.** If the full checks need a core feature, S2 stops rather than patching core.
 9. **Conformance representation.** An empty `conformanceCases` list and the S3 N1–N18 harness are
