@@ -7,6 +7,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
+import { Diagnostics } from "../spec/lib/diagnostics.js";
+import { validateProfileClosure } from "../spec/lib/identity.js";
+import { loadManifest } from "../spec/lib/manifest.js";
 import type { Renderer } from "../spec/lib/render.js";
 import { loadProfileRenderers } from "../spec/cli-renderers.js";
 import { copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
@@ -224,4 +227,41 @@ test("consent: the CLI preflight skips the renderer for another profile", async 
 
   assert.equal(imported, 0);
   assert.deepEqual(renderers, {});
+});
+
+test("consent: the CLI preflight does not import the renderer when the lockfile is unreadable", async () => {
+  const dir = await copyProjectWithProfile("lockfile-unavailable");
+  let imported = 0;
+
+  const renderers = await loadProfileRenderers(
+    true,
+    dir,
+    async () => {
+      imported += 1;
+      return FAKE_RENDERER;
+    },
+    (project, diagnostics) =>
+      validateProfileClosure(project, diagnostics, async () => {
+        throw new Error("bun.lock is unavailable");
+      }),
+  );
+
+  assert.equal(imported, 0, "renderer imported although the lockfile was unreadable");
+  assert.deepEqual(renderers, {});
+});
+
+test("identity: a lockfile read failure fails the profile closure preflight with ERR_IO", async () => {
+  const dir = await copyProjectWithProfile("lockfile-error");
+  const diagnostics = new Diagnostics();
+  const project = await loadManifest(dir, diagnostics);
+  assert.ok(project !== null);
+
+  const ok = await validateProfileClosure(project, diagnostics, async () => {
+    throw new Error("bun.lock is unavailable");
+  });
+
+  assert.equal(ok, false);
+  assert.ok(
+    diagnostics.sorted().some((item) => item.code === "ERR_IO" && item.file === "bun.lock"),
+  );
 });

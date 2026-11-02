@@ -324,7 +324,9 @@ are trusted by construction; the M1 CLI gates its own profile renderer import on
 consent flag, on the selected project's declared profile id and `render[].renderer`, and on
 successful validation of the selected profile's declared closure. It therefore executes no
 built-in renderer that the project did not request and imports no profile code before the
-closure is validated.
+closure is validated. An unreadable lockfile is not treated as a pass: the closure is
+unverifiable, so the preflight returns false and the build fails closed with `ERR_IO` before
+profile code is imported.
 
 #### Why both
 

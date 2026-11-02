@@ -15,6 +15,11 @@ unless the caller passes `allowExecutableProfile: true` (CLI:
 `--allow-executable-profile`). The scan and the digest are integrity/accounting mechanisms;
 they neither grant consent nor isolate execution.
 
+An unreadable lockfile is a hard closure-preflight failure: `validateProfileClosure` reports
+`ERR_IO` and returns false, so the build and the CLI preflight stop before importing profile
+code. `computeBuildIdentity` keeps the same `ERR_IO` diagnostic for direct identity
+computation.
+
 ## Public result
 
 `BuildResult.identity` has the accepted shape:
