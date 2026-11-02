@@ -133,6 +133,69 @@ test("manifest: an output path escaping the output root is rejected and nothing 
   assert.equal(existsSync(escapePath), false);
 });
 
+test("manifest: zero render declarations are rejected before writing", async () => {
+  const dir = await copyProject("zero-render");
+  await editManifest(dir, (manifest) => {
+    manifest.render = [];
+  });
+
+  const result = await runBuild(base(dir, { write: true }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.equal(result.written, false);
+  assert.equal(codes(result).includes("core.manifest.invalid"), true);
+
+  const diagnostic = result.diagnostics.find((d) => d.code === "core.manifest.invalid");
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.pointer, "/render");
+  assert.match(diagnostic.message, /ровно один render target/);
+  assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
+});
+
+test("manifest: more than one render declaration is rejected before writing", async () => {
+  const dir = await copyProject("many-render");
+  await editManifest(dir, (manifest) => {
+    manifest.render.push({
+      outputs: { draft: "output/extra.draft.md", release: "output/extra.md" },
+    });
+  });
+
+  const result = await runBuild(base(dir, { write: true }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.equal(result.written, false);
+  assert.equal(codes(result).includes("core.manifest.invalid"), true);
+
+  const diagnostic = result.diagnostics.find((d) => d.code === "core.manifest.invalid");
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.pointer, "/render");
+  assert.match(diagnostic.message, /ровно один render target/);
+  assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
+  assert.equal(existsSync(path.join(dir, "output", "extra.draft.md")), false);
+});
+
+test("manifest: exactly one render declaration builds and --check stays deterministic", async () => {
+  const dir = await copyProject("single-render");
+  const artifact = path.join(dir, "output", "CORE-001.draft.md");
+
+  const written = await runBuild(base(dir, { write: true }));
+  assert.equal(written.exitCode, 0, written.diagnostics.map((d) => d.message).join("\n"));
+  assert.equal(written.written, true);
+  assert.ok(written.markdown);
+  assert.equal(existsSync(artifact), true);
+
+  const checked = await runBuild(base(dir, { check: true }));
+  assert.equal(checked.exitCode, 0, checked.diagnostics.map((d) => d.message).join("\n"));
+  assert.equal(checked.written, false);
+
+  const checkedAgain = await runBuild(base(dir, { check: true }));
+  assert.equal(checkedAgain.exitCode, 0);
+  assert.equal(checkedAgain.markdown, checked.markdown);
+
+  const rebuilt = await runBuild(base(dir, { write: true }));
+  assert.equal(rebuilt.markdown, written.markdown);
+});
+
 test("manifest: a source outside the project root without external is rejected", async () => {
   const dir = await copyProject("outside-source");
   await editManifest(dir, (manifest) => {

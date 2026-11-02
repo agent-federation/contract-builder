@@ -40,6 +40,7 @@ export interface Manifest {
   profile: { id: string; version: string; source: string; external?: boolean };
   inputs: ManifestInput[];
   sources?: ManifestSource[];
+  /** M1 supports exactly one render declaration; zero or many are rejected by the loader. */
   render: ManifestRender[];
   output?: { root?: string };
 }
@@ -408,8 +409,15 @@ function validateRender(
   value: unknown,
   fail: (pointer: string, message: string) => null,
 ): ManifestRender[] | null {
-  if (!Array.isArray(value) || value.length === 0) {
-    return fail("/render", "render обязателен и непуст");
+  if (!Array.isArray(value)) {
+    return fail("/render", "M1 поддерживает ровно один render target: render должен быть массивом");
+  }
+  if (value.length !== 1) {
+    return fail(
+      "/render",
+      `M1 поддерживает ровно один render target; объявлено ${value.length}. ` +
+        "Оставьте ровно одно объявление в render[]",
+    );
   }
 
   const render: ManifestRender[] = [];

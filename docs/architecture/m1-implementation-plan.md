@@ -177,6 +177,11 @@ manifest in `spec/`. That resolves to `spec/profiles/core001`, which does not ex
 correct declaration for a repository-root `profiles/` directory is `../profiles/core001` with
 `external: true`.
 
+**Render cardinality in M1.** `render` declares exactly one target. The manifest stays an
+array for forward compatibility, but the loader rejects zero or multiple declarations with
+`core.manifest.invalid` before any artifact is written. Multi-target rendering is out of
+scope.
+
 **Data migration in the same PR.** The `sources:` block is removed from `sources.yml`; the
 document schema for `core001:sources` drops that property. `slice` and `fragments` stay.
 `fragment.source` keeps referencing `SRC-CORE001`, now declared in the manifest.
