@@ -3,10 +3,14 @@
 **Status:** proposed for explicit maintainer answers. Planning and decision-preparation only.
 Nothing in this document is accepted or decided; it does not implement CORE-000, change code,
 tests, schemas, fixtures, evidence or generic-core behaviour.
-**Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47).
+**Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47), refreshed by
+[#72](https://github.com/agent-federation/contract-builder/issues/72).
 **Baseline:** current `main` at
-[`b8e67a8`](https://github.com/agent-federation/contract-builder/commit/b8e67a8bf74897b8c44399931d17477abccd78ec)
-(the PR base; includes merged execution plan PR #59 and the later #58 work). The accepted design is
+[`da9a5f0`](https://github.com/agent-federation/contract-builder/commit/da9a5f06f546ef19ac5b4355d222394570080a99)
+(PR #64; includes #59, #60, #61, #66, #67 and the PAP verifier). The original record baseline was
+[`b8e67a8`](https://github.com/agent-federation/contract-builder/commit/b8e67a8bf74897b8c44399931d17477abccd78ec);
+the refresh found no code or profile change that affects these decisions (see
+[`core-000-baseline-refresh.md`](core-000-baseline-refresh.md)). The accepted design is
 [`core-000-self-contract.md`](core-000-self-contract.md) (PR #51); the accepted execution plan is
 [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59).
 
@@ -16,9 +20,11 @@ tests, schemas, fixtures, evidence or generic-core behaviour.
 > recommended default and why, consequences and trade-offs, dependencies, reversibility, and the
 > repository evidence that informs the recommendation.
 >
-> **What this is not.** It is not a decision, an implementation plan, a first-slice proposal, a
-> generic-core change, or an independent verification. The recommendations below are proposals;
-> only the maintainer can accept them. No code or CORE-000 artifact is created by this record.
+> **What this is not.** It is not a decision, a generic-core change, or an independent verification.
+> The recommendations below are proposals; only the maintainer can accept them. No code or
+> CORE-000 artifact is created by this record. The first-slice proposal now exists in
+> [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10, but it is conditional on these
+> answers and is not authorized by it.
 
 ---
 
@@ -33,10 +39,10 @@ For each item, one of the following is enough:
 | `defer` | Leave the item open; state what the first slice may do without it. |
 | `record: <text>` | Record a different decision and its consequence. |
 
-The record stays open until each item has an answer. The first-slice proposal is deliberately not
-made here: it depends on these answers. After the answers, the worker will propose a small first
-slice with exact files, behaviour, tests, expected outputs and exclusions, and wait for explicit
-authorization before implementing it.
+The record stays open until each item has an answer. The bounded first-slice proposal is in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10; it is shaped for the recommended
+defaults, is re-scoped if an answer differs, and does not decide any item. Implementation waits
+for these answers and an explicit authorization.
 
 ---
 
@@ -95,6 +101,11 @@ published, a move requires re-running and re-linking evidence.
 is the CORE-001 project root; `profiles/example` is a profile outside its project root; `package.json`
 is private with no `exports`. There is no `contracts/` directory at the baseline.
 
+**Evidence needed to accept:** a maintainer instruction naming the paths and confirming that no
+package or publication is implied; a check that the chosen paths do not collide with existing
+top-level directories; and review of the S1 file list in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10.2 for those paths.
+
 **Answer needed:** accept A, choose B/C, or defer with an explicit statement that the first slice
 may not create project/profile paths.
 
@@ -136,6 +147,11 @@ renaming/migrating is a data change.
 design already has the `independent_verification` kind and the C000-VF claims with zero independent
 verification.
 
+**Evidence needed to accept:** maintainer approval of the field set and the distinction from the
+core `VerificationRecord`; review of the schema and the `verifies`/`verifiedBy` declarations; and a
+check that no engine-generated record is presented as an independent one. The PAP verifier's
+report schema is a separate product contract and is not evidence for this choice.
+
 **Answer needed:** accept A, choose B/C, or defer independent-verification modeling from the first
 slice.
 
@@ -175,6 +191,11 @@ flag `--allow-executable-profile`, fail-closed `core.profile.consent-required`, 
 renderer preflight; `tests/consent.test.ts` covers rejection/success/preflight. The accepted design
 records the trust boundary as settled/explicit_consent and the execution plan expects a
 `core000.trust.consent-facts` check.
+
+**Evidence needed to accept:** maintainer approval of the interface/diagnostic rows and the settled
+trust-boundary values; review of the current consent facts at the pinned commit (`spec/lib/build.ts`,
+`spec/build.ts`, `spec/cli-renderers.ts`, `tests/consent.test.ts`); and an explicit statement that
+no sandbox or per-module isolation is modelled as existing.
 
 **Answer needed:** accept A, choose B/C, or defer the consent-surface entities from the first
 slice.
@@ -224,6 +245,11 @@ the affected claims/artifacts re-run. C is not compatible with the accepted desi
 validates claims; the design has `core000.source.verification-missing`/`-failed`/`-unavailable`
 checks. `sourceDigest` records the bytes checked, not a declared pin; V4 remains unimplemented.
 
+**Evidence needed to accept:** maintainer approval of the `verified` requirement and of
+failed/stale/unavailable as errors; review of the profile verifier design and of positive and
+negative tests for each status; and an explicit acknowledgement that `sourceDigest` is not a
+declared source pin and that V4 remains open.
+
 **Answer needed:** accept A, choose B, reject C explicitly, or defer provenance policy from the
 first slice.
 
@@ -240,12 +266,13 @@ copied and mutated per case?
 | **B (recommended)** | One base project (`contracts/core000`) plus one deterministic, named mutation per case in a fresh temporary copy (`contracts/core000/mutations.ts`); no per-case complete-project copies. | Smaller and less duplicative; each run is isolated by a fresh temp copy and exactly one mutation. |
 | `defer` | Defer negative fixtures until after the first slice. | The first slice can be positive-only; negative coverage waits. |
 
-**Recommended default: B.** The plan selected B, but it needs explicit confirmation because it
-refines the design’s illustrative fixture layout. The run semantics are unchanged: one project,
-one mutation, one expected diagnostic, no artifact. Isolation/reproducibility: each run copies the
-base to a new temp directory, applies exactly one named deterministic mutation, rewrites only temp
-paths/profile imports, records the base commit and mutation ID in evidence, and never writes to the
-repository. The accepted design §7.8 is reconciled by this paragraph; if the maintainer prefers the
+**Recommended default: B.** The execution plan recommends B, but it needs explicit confirmation
+because it refines the design’s illustrative fixture layout. The run semantics are unchanged: one
+project, one mutation, one expected diagnostic, no artifact. Isolation/reproducibility: each run
+copies the base to a new temp directory, applies exactly one named deterministic mutation, rewrites
+only temp paths/profile imports, records the base commit and mutation ID in evidence, and never
+writes to the repository. The accepted design §7.8 is reconciled by this paragraph; if the
+maintainer prefers the
 literal A, the mutation table can materialize complete fixture directories, but B is recommended.
 
 **Consequences and trade-offs.**
@@ -262,8 +289,13 @@ materialize A later from the same mutation table; moving A→B is harder. The de
 before negative fixtures are implemented.
 
 **Repository evidence/constraint.** The accepted design §7.8 describes per-case complete projects;
-the execution plan §3/§5/§9 selects B and explains the reconciliation. No fixture exists at the
-baseline.
+the execution plan §3/§5/§9 recommends B and explains the reconciliation. No fixture exists at the
+baseline. The earlier execution-plan wording that called B “selected” is not a maintainer answer
+and should be read as a recommendation until this item is answered.
+
+**Evidence needed to accept:** maintainer confirmation of B and of the §7.8 reconciliation; review
+of the mutation table and its one-mutation-per-fresh-copy rule; and evidence from the first
+negative runs that each mutation produces exactly the expected diagnostic and no artifact.
 
 **Answer needed:** confirm B (with the §7.8 reconciliation), choose A, or defer negative fixtures.
 
@@ -291,7 +323,12 @@ hostnames, environment values or secrets.
 be revised before records are accepted; after publication, changes require re-recording.
 
 **Repository evidence/constraint.** The accepted execution plan §6 defines the record; `runBuild`
-returns the fields; the repository has no `evidence/` directory at the baseline.
+returns the fields; the repository has no `evidence/` directory at the baseline. S1 writes its
+evidence to a temporary path only and does not publish it.
+
+**Evidence needed to accept:** maintainer approval of the path and JSON shape; review of a sample
+record against the no-absolute-paths/no-secrets rule; and confirmation that the record is
+sufficient to reproduce under the pinned inputs without claiming authenticity.
 
 **Answer needed:** accept A, choose B, or defer evidence capture.
 
@@ -320,7 +357,12 @@ weakens reviewability. `defer` is acceptable for the first slice if the artifact
 low risk, but changing it changes the evidence’s artifact hash.
 
 **Repository evidence/constraint.** AGENTS.md “artifact rule”; CORE-001 `spec/output/CORE-001.draft.md`
-is generated and checked by `bun run check`. There is no CORE-000 output at the baseline.
+is generated and checked by `bun run check`. There is no CORE-000 output at the baseline. S1 does
+not commit a CORE-000 draft; if A is chosen, the commit policy applies to a later slice.
+
+**Evidence needed to accept:** maintainer approval of the artifact rule for CORE-000; a successful
+reviewed draft in a later slice; and a CI check that rebuilds and compares the artifact. If P-3 is
+deferred, the evidence is explicitly absent, and no draft is committed.
 
 **Answer needed:** accept A, choose B, or defer the commit policy.
 
@@ -352,6 +394,10 @@ reversible; after artifacts/evidence exist, switching renderers changes the arti
 3.2.4; `profiles/core001/renderer.ts` uses it; `profiles/example` has an empty dependency map. The
 profile closure requires exact declared versions.
 
+**Evidence needed to accept:** maintainer approval; a lockfile check that `nunjucks` resolves to
+3.2.4; a profile-closure test that rejects an undeclared or differently pinned dependency; and a
+review of the renderer/template surface. S1 uses A and records the exact version.
+
 **Answer needed:** accept A, choose B, or defer rendering.
 
 ---
@@ -380,7 +426,13 @@ profile; once evidence is published, changing its command/record shape requires 
 
 **Repository evidence/constraint.** `tests/example-profile.test.ts` and `tests/consent.test.ts` use
 `runBuild` with a consumer renderer registry; the package is private with no public API; the CLI
-only wires CORE-001 (G4).
+only wires CORE-001 (G4). The PAP verifier under `pap/` is not a generic CORE-000 harness, and it
+does not close G4.
+
+**Evidence needed to accept:** maintainer approval of the harness shape and its command surface;
+review of the harness's use of the public `runBuild` path with a caller-supplied renderer and
+consent; and a demonstration that the harness never bypasses the pipeline or writes to the
+repository. S1 uses A and keeps the harness in the same PR as its test.
 
 **Answer needed:** accept A, choose B, or defer the harness.
 
@@ -411,7 +463,13 @@ published records requires preserving the old evidence for audit.
 
 **Repository evidence/constraint.** The design §8 defines an external verification record; the
 execution plan §6 defines `evidence/core000/` and `verification/core000/`; no such paths exist at
-the baseline. AGENTS.md prohibits secrets in files.
+the baseline. AGENTS.md prohibits secrets in files. The PAP verifier's records are its own package
+output and are not CORE-000 evidence.
+
+**Evidence needed to accept:** maintainer approval of the retention/publication policy; a review
+that the evidence contains no secrets, private material or absolute host paths; and, for
+independent records, a verifier distinct from the author and an external record locator. S1 does
+not publish evidence and therefore does not depend on this answer.
 
 **Answer needed:** accept A, choose B, or defer record publication.
 
@@ -453,46 +511,66 @@ verification. Its results are scoped to `runBuild` plus the supplied renderer/pr
 close G4. The positive harness’s static renderer import is also not consent-boundary evidence; N14
 uses the CLI without consent and a renderer/view/validator evaluation marker (execution plan §4.1).
 
+**Refresh (Issue #72).** The PAP v0.1 verifier under `pap/` is a separate product boundary; it
+does not import `spec/` or `profiles/`, does not select a CORE-000 profile, does not supply the
+CORE-000 renderer and does not produce a CORE-000 artifact. It is not the consumer harness and
+does not close G4. `package.json` remains private with no `exports`; `runBuild` remains the only
+engine entry point. S1 uses the consumer harness in `core-000-self-build-poc.md` §10.4.
+
+**Evidence needed to accept the harness boundary:** maintainer confirmation that a test consumer
+may call `runBuild` with a caller-supplied renderer while G4 is open; review of the harness's
+import of the internal module and its static renderer import; and a negative N14 test that proves
+the consent boundary through the CLI, not through the positive harness.
+
 **Evidence/constraint.** `spec/lib/build.ts` `runBuild` and `BuildOptions.renderers`;
 `spec/cli-renderers.ts` CORE-001 constants; `spec/build.ts` CLI; `package.json` private; execution
-plan §7/§8 and G4.
+plan §7/§8 and G4; `pap/README.md` (separate boundary).
 
 ---
 
-## 13. First implementation slice after the answers
+## 13. First implementation slice
 
-**No first-slice proposal is made in this record.** The task requires it only after the decisions
-are answered; the answers determine paths, schema, policy and test layout. Once they are recorded,
-the worker will propose a small slice with:
+The first-slice proposal is now in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. It is shaped for the recommended
+defaults **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A** and does not implement D14, P-2, P-3 or P-6.
+It is proposed, not authorized, and it is re-scoped if an answer differs.
+
+S1 is a bounded vertical slice with:
 
 - exact files and paths (no generic-core change);
 - exact behaviour and expected outputs/diagnostics;
-- focused tests and negative cases;
+- focused tests and negative cases (N2, N3, N8, N11, N14);
 - exclusions (what the slice deliberately does not implement);
-- a stop condition if a generic-core gap is hit;
-- a review request and explicit authorization gate before implementation.
+- stop conditions if a generic-core gap is hit;
+- a review request and an explicit authorization gate before implementation.
 
-A likely bounded shape is a profile-skeleton/schema slice with a consent smoke test, but that is a
-candidate, not a proposal; it may change after D1/D13/D14/D15/P-1–P-6 are answered.
+The earlier record deliberately deferred the first-slice proposal until the decisions were
+answered; Issue #72 asks for it now, so it is provided as a conditional proposal. The answers are
+still required before implementation, and no answer is assumed.
 
 ---
 
 ## 14. Evidence, constraints and limitations of this record
 
-- Baseline `b8e67a8` (PR base, including #59 and #58); accepted design PR #51; 169 tests, typecheck and
-  `bun run check` green at the time of writing; CORE-001 artifact unchanged. These are repository
-  facts, not independent verification of CORE-000.
+- Baseline `da9a5f0` (PR #64), refreshed from the original `b8e67a8`; accepted design PR #51;
+  execution plan PR #59. The refresh run: `bun test` 292 pass / 0 fail (21 files; 169 engine + 123
+  PAP), typecheck clean, `bun run check` clean, CORE-001 artifact unchanged. See
+  [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md). These are repository facts, not
+  independent verification of CORE-000.
+- The PAP verifier is implemented as a separate product boundary; it does not change these
+  decisions and is not independent verification of CORE-000.
 - This record is documentation-only; it creates no CORE-000 project/profile, code, tests, schemas,
   fixtures, evidence or generated artifact, and changes no generic-core behaviour.
 - Recommendations are proposals. D1, D13, D14, D15 and P-1–P-6 remain open until the maintainer
-  answers; `defer` is valid only where stated.
+  answers; `defer` is valid only where stated. No “selected” wording in an earlier plan is treated
+  as an answer.
 - The consumer harness is a test consumer; G4 remains open and is recorded as a separate proposal.
 - No independent verification, certification, security, cross-platform determinism or production
   readiness is claimed.
-- The first-slice proposal is intentionally deferred until the decisions are answered.
+- The first-slice proposal is conditional on the answers and is not authorized by this record.
 
 **Requested maintainer action:** answer D1, D13, D14, D15 and P-1–P-6 using the format in §0,
-confirm the consumer-harness/G4 boundary in §12, and authorize (or reject) the preparation of the
-first-slice proposal. The decisions remain open; implementation stays blocked until those answers
-and an explicit authorization. Whether this documentation-only record is merged is the
-maintainer's review decision.
+confirm the consumer-harness/G4 boundary in §12, and approve or reject the conditional S1 proposal
+in [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. The decisions remain open;
+implementation stays blocked until those answers and an explicit authorization. Whether this
+documentation-only record is merged is the maintainer's review decision.
