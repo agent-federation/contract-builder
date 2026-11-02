@@ -97,3 +97,8 @@ specification leaves the working tree clean.
 - `docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md` — design
   record, including unresolved questions.
 - `README.md` — user-facing overview of the project.
+
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->
