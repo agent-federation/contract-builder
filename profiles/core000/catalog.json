@@ -1,0 +1,69 @@
+{
+  "codes": [
+    {
+      "code": "core000.claim.implemented-without-evidence",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" is marked implemented but has no code, test or CI evidence."
+    },
+    {
+      "code": "core000.claim.tested-without-test",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" is marked tested but has no test/CI evidence or a verification method."
+    },
+    {
+      "code": "core000.claim.decision-required",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" has decision \"{{status.decision}}\" but its decidedBy relation does not agree with that status."
+    },
+    {
+      "code": "core000.decision.unresolved",
+      "severity": "review",
+      "message": "Claim \"{{id}}\" is linked to unresolved decision \"{{decisionId}}\"."
+    },
+    {
+      "code": "core000.claim.missing-subject",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" has no subject relation."
+    },
+    {
+      "code": "core000.claim.subject-kind-mismatch",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" subject \"{{subjectId}}\" has kind \"{{subjectKind}}\", expected \"{{subject_kind}}\"."
+    },
+    {
+      "code": "core000.source.verification-missing",
+      "severity": "error",
+      "message": "Source statement \"{{id}}\" has no stored provenance verification record."
+    },
+    {
+      "code": "core000.source.verification-failed",
+      "severity": "error",
+      "message": "Source statement \"{{id}}\" failed provenance verification with outcome \"{{outcome}}\"."
+    },
+    {
+      "code": "core000.source.verification-unavailable",
+      "severity": "error",
+      "message": "Source statement \"{{id}}\" has an unavailable provenance verification record."
+    },
+    {
+      "code": "core000.claim.verification-not-independent",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" is marked independently_verified without a valid independent-verification record."
+    },
+    {
+      "code": "core000.independent-verification.missing",
+      "severity": "review",
+      "message": "Claim \"{{id}}\" (authority \"{{authority}}\") has no independent verification record."
+    },
+    {
+      "code": "core000.claim.policy-mismatch",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" contradicts the settled executable-profile consent policy."
+    },
+    {
+      "code": "core000.trust.consent-facts",
+      "severity": "review",
+      "message": "Trust boundary \"{{id}}\" must be policy_status settled with enforcement explicit_consent; found \"{{policy_status}}\" and \"{{enforcement}}\"."
+    }
+  ]
+}

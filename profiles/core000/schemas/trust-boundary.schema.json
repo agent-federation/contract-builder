@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/trust-boundary.schema.json",
+  "title": "Entity: trust_boundary",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "inside",
+        "outside",
+        "enforcement",
+        "statement",
+        "policy_status",
+        "policy_ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^TB-[A-Z0-9-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "inside": { "type": "string", "minLength": 1 },
+        "outside": { "type": "string", "minLength": 1 },
+        "enforcement": {
+          "enum": ["none", "declared_trust", "explicit_consent", "isolation_deferred"]
+        },
+        "statement": { "type": "string", "minLength": 1 },
+        "policy_status": { "enum": ["settled", "pending", "not_applicable"] },
+        "policy_ref": { "type": "string", "minLength": 1 },
+        "limitations": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

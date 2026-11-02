@@ -1,0 +1,111 @@
+# {{title}}
+
+**Mode:** {{modeLabel}}
+**Counts:** components={{counts.components}} · interfaces={{counts.interfaces}} · claims={{counts.claims}} · source statements={{counts.sourceStatements}} · evidence={{counts.evidence}} · decisions={{counts.decisions}}
+
+## Components
+
+{% for component in components %}
+### {{component.id}} — {{component.name}}
+
+- Boundary: `{{component.boundary}}`
+- Public: {{component.public}}
+- Responsibility: {{component.responsibility}}
+{% if component.interfaces.length > 0 %}
+- Provides: {% for iface in component.interfaces %}{% if not loop.first %}, {% endif %}`{{iface}}`{% endfor %}
+{% endif %}
+{% endfor %}
+## Interfaces
+
+{% for iface in interfaces %}
+### {{iface.id}} — {{iface.name}}
+
+- Surface: `{{iface.surface}}`
+- Stability: `{{iface.stability}}`
+- Owner: `{{iface.owner}}`
+- Description: {{iface.description}}
+
+{% endfor %}
+## Trust boundary
+
+{% for boundary in trustBoundaries %}
+### {{boundary.id}} — {{boundary.name}}
+
+- Policy status: `{{boundary.policyStatus}}`
+- Enforcement: `{{boundary.enforcement}}`
+- Policy reference: {{boundary.policyRef}}
+- Inside: {{boundary.inside}}
+- Outside: {{boundary.outside}}
+- Statement: {{boundary.statement}}
+
+{% endfor %}
+## Claims
+
+{% for claim in claims %}
+### {{claim.id}}
+
+- Class: `{{claim.className}}`
+- Status: decision=`{{claim.status.decision}}`, implementation=`{{claim.status.implementation}}`, tests=`{{claim.status.tests}}`, verification=`{{claim.status.verification}}`
+- Authority: `{{claim.authority}}`
+- Lifecycle: `{{claim.lifecycle}}`
+- Statement: {{claim.statement}}
+- Scope: {{claim.scope}}
+- Verification method: {{claim.verificationMethod}}
+{% if claim.subjects.length > 0 %}
+- Subjects: {% for subject in claim.subjects %}{% if not loop.first %}, {% endif %}`{{subject.id}}` ({{subject.kind}}){% endfor %}
+{% endif %}
+{% if claim.citations.length > 0 %}
+- Cites: {% for citation in claim.citations %}{% if not loop.first %}, {% endif %}`{{citation.id}}` ({{citation.sourceRef}}){% endfor %}
+{% endif %}
+{% if claim.evidence.length > 0 %}
+- Evidence: {% for evidence in claim.evidence %}{% if not loop.first %}, {% endif %}`{{evidence.id}}` ({{evidence.kind}}: {{evidence.locator}}){% endfor %}
+{% endif %}
+{% if claim.decisions.length > 0 %}
+- Decisions: {% for decision in claim.decisions %}{% if not loop.first %}, {% endif %}`{{decision.id}}` ({{decision.status}}){% endfor %}
+{% endif %}
+
+{% endfor %}
+## Source statements and provenance verification
+
+{% for statement in sourceStatements %}
+### {{statement.id}}
+
+- Locator: `{{statement.ref}}`
+- Verification status: `{{statement.status}}`
+- Outcome: `{{statement.outcome}}`
+- Method: `{{statement.method}}`
+- Verifier: `{{statement.verifier}}`
+- Source version: {{statement.sourceVersion}}
+- Source digest: `{{statement.sourceDigest}}`
+- Quote: {{statement.quote}}
+
+{% endfor %}
+## Evidence
+
+{% for item in evidence %}
+- `{{item.id}}` ({{item.kind}}) — {{item.locator}} @ {{item.revision}}: {{item.description}}
+{% endfor %}
+## Decisions
+
+{% for decision in decisions %}
+### {{decision.id}} — {{decision.title}}
+
+- Status: `{{decision.status}}`
+- Owner: {{decision.owner}}
+- Source: {{decision.source}}
+- Consequence: {{decision.consequence}}
+
+{% endfor %}
+## Independent verification
+
+{{independentVerificationNote}}
+
+## Build diagnostics
+
+{% if diagnostics.length === 0 %}
+_None._
+{% else %}
+{% for diagnostic in diagnostics %}
+- `{{diagnostic.severityLabel}}` `{{diagnostic.code}}` {{diagnostic.file}}{{diagnostic.pointer}}: {{diagnostic.message}}
+{% endfor %}
+{% endif %}

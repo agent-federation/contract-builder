@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/interface.schema.json",
+  "title": "Entity: interface",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "name", "surface", "stability", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^IF-[A-Z0-9-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "surface": { "enum": ["api", "data", "cli", "file", "protocol"] },
+        "stability": { "enum": ["accepted", "proposed", "deferred", "experimental"] },
+        "description": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "pattern": "^COMP-[A-Z0-9-]+$" },
+        "contract_section": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}
