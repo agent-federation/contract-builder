@@ -211,10 +211,21 @@ half of the same edge set, so the pair must agree: the inverse is declared from 
 declaration's `to` kind, names the forward relation back in its own `inverse`, and reverses the
 forward `from`/`to` endpoints. A pair that fails any of these is `core.profile.invalid` before
 resolution starts, and a forward declaration whose `to` is `"*"` cannot declare an inverse
-because the inverse's kind would be undetermined. Cardinality describes the values of one
-direction, not the declaration pair; the resolver enforces it when it synthesizes the inverse,
-so an inverse declared `cardinality: "one"` rejects the second source with
-`core.relation.cardinality`.
+because the inverse's kind would be undetermined. A declared `inverse` that is not a non-empty
+string is `core.profile.invalid` as well: it is never normalized away into "no inverse".
+
+Cardinality describes the values of one direction, not the declaration pair, so the two
+declarations do not have to agree; every combination is a legitimate relationship shape:
+
+| Forward | Inverse | Relationship |
+|---|---|---|
+| `one` | `one` | one-to-one |
+| `one` | `many` | one-to-many |
+| `many` | `one` | many-to-one |
+| `many` | `many` | many-to-many |
+
+The resolver enforces the inverse column on the values it synthesizes, so an inverse declared
+`cardinality: "one"` rejects the second source with `core.relation.cardinality`.
 
 Relation values live in a dedicated `relations` object on the entity, never among ordinary
 fields (option A in the audit). Inferring intent from an ordinary field name would require

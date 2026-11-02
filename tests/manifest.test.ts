@@ -295,6 +295,8 @@ test("manifest: an inverse declaration must point back at the forward relation",
 test("manifest: an inverse declaration must reverse the forward endpoints", async () => {
   const dir = await copyProjectWithProfile("inverse-kind-mismatch");
   await editRelations(dir, (relations) => {
+    // The inverse lookup is keyed by (forward.to, forward.inverse) = (provision, vectors), so
+    // changing vectors.to keeps the declaration found and reaches the endpoint comparison.
     relation(relations, "vectors").to = "fragment";
   });
 
@@ -303,8 +305,28 @@ test("manifest: an inverse declaration must reverse the forward endpoints", asyn
   const diagnostic = profileInvalid(result);
   assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
   assert.equal(diagnostic.pointer, "/relations/4/inverse");
+  assert.ok(diagnostic.message.includes("ведёт на вид"), diagnostic.message);
   assert.ok(diagnostic.message.includes('"fragment"'), diagnostic.message);
   assert.ok(diagnostic.message.includes('"case"'), diagnostic.message);
+});
+
+test("manifest: a declared inverse must be a non-empty string", async () => {
+  const dir = await copyProjectWithProfile("inverse-invalid");
+  for (const invalid of [42, null, ""]) {
+    await editRelations(dir, (relations) => {
+      relation(relations, "vectors").inverse = invalid;
+    });
+
+    const result = await runBuild(base(dir));
+    assert.equal(result.exitCode, 1, `inverse: ${JSON.stringify(invalid)}`);
+    const diagnostic = profileInvalid(result);
+    assert.ok(
+      diagnostic !== undefined,
+      `inverse: ${JSON.stringify(invalid)}\n${result.diagnostics.map((item) => item.message).join("\n")}`,
+    );
+    assert.equal(diagnostic.pointer, "/relations/5/inverse");
+    assert.ok(diagnostic.message.includes("inverse"), diagnostic.message);
+  }
 });
 
 test("manifest: a wildcard target cannot declare an inverse", async () => {

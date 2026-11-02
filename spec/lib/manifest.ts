@@ -523,6 +523,12 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
       if (item.cardinality !== undefined && item.cardinality !== "one" && item.cardinality !== "many") {
         return fail(`/relations/${index}/cardinality`, "cardinality должен быть one или many");
       }
+      // A declared inverse is part of the contract, so a value that is not a name is an error
+      // rather than an implicit "no inverse": normalizing it away would let a malformed
+      // declaration pass as if it had never been declared.
+      if (item.inverse !== undefined && !isNonEmptyString(item.inverse)) {
+        return fail(`/relations/${index}/inverse`, "inverse должен быть непустой строкой");
+      }
       relations.push({
         name: item.name,
         from: item.from,
