@@ -1,8 +1,8 @@
 # PAP v0.1 Gate 1 decision audit and readiness report
 
-**Status:** proposed for maintainer review. The D1–D12 dispositions below are
-recommendations, not recorded acceptances; §16 of the PAP RFC still controls. The
-RFC amendments described here are proposed text, not an acceptance of any decision.
+**Status:** maintainer-approved decision audit (2026-11-02). D1–D12 and OD-1–OD-7 were
+accepted as recommended. Gate 1 was separately recorded as PASS on #43. This report remains a
+readiness audit, not evidence of Gate 3 or an independent implementation.
 **Issue:** [#57](https://github.com/agent-federation/contract-builder/issues/57) — «Resolve
 normative ambiguities and finalize PAP v0.1 decisions».
 **Audited document:** [`portable-assurance-package-rfc.md`](portable-assurance-package-rfc.md),
@@ -30,10 +30,9 @@ agree; only Gate 3 can test that.
 | Vectors | Every Appendix E digest vector was recomputed independently from the document's own bytes and matches exactly: E.1 package identity, E.2 payload/quote/claim digests, E.3 checker identity, E.4 verification-record identity, E.5 normalization, E.6 domain/framing, E.7 PAE. E.4 is revised at Gate 1 to include the check records (C17/OD-7); E.9 adds JCS edge vectors and E.10 adds identity mutation vectors. |
 | RFC patch | Contradictions, missing diagnostic codes, schema/status mismatches, determinism gaps and fixture defects are amended in place; 15 new cases (F47–F61) specify every newly pinned rule; the fixture policy set is split so each case has one deterministic policy. The cases are normative descriptions, not executable tests yet (§5.1). |
 | Owner input | Seven decisions embedded in the patch change conformance or compatibility semantics and are separated in §7 for explicit maintainer approval. |
-| Gate 1 | Specification readiness is proposed **pending** the maintainer's approval of §7 and the recorded D1–D12 dispositions. This is not Gate 3: no second implementation exists, so cross-implementation agreement is untested. |
+| Gate 1 | **PASS**, separately recorded by the maintainer on #43 after acceptance of §7 and D1–D12. This is not Gate 3: no second implementation exists, so cross-implementation agreement is untested. |
 
-The audit does **not** implement the verifier, change Gate 1 status, close #43/#44, or record any
-decision as accepted.
+The audit does **not** implement the verifier or establish Gate 3. The maintainer accepted the recommendations and recorded Gate 1 PASS separately on #43.
 
 ### 1.1 What "Gate 1" and "Gate 3" mean here
 
@@ -276,8 +275,8 @@ implicitly.
 | OD-6 | Should a partially evaluated required check be `INCOMPLETE` or `FAIL` when evidence is missing? | (a) Always `INCOMPLETE`, never `PASS`; a limit that skips required inputs also forces `INCOMPLETE`; (b) `FAIL` when the policy asks for full coverage. | Recommendation: (a). Option (b) needs a policy field that does not exist; treating missing evidence as a disproved assertion would misstate what the verifier knows. |
 | OD-7 | Should `verificationRecordIdentity` cover the top-level `checks[]` records and witnesses? | (a) Exclude `checks[]`; the identity covers only `dimensions.checks.results[]` and `coverage`, so different check subjects/scopes/witnesses can share an identity. (b) Include every record and witness field, exclude only presentation (`messages`, optional `quoteBase64`), pin deterministic witness emission, and revise E.4. | Recommendation: (b). Option (a) lets two reports with materially different verification evidence share an identity, which is exactly the auditability property the record is supposed to provide. The cost is a revised E.4 value and a small witness-emission rule; E.10 demonstrates the sensitivity. |
 
-**Action requested:** approve, amend or defer OD-1–OD-7, and record the D1–D12 dispositions in
-§16. Until that record exists, Gate 1 is not closed and Phase 2 remains gated.
+**Maintainer decision (2026-11-02):** OD-1–OD-7 and D1–D12 are accepted as recommended,
+with the deferred sub-parts stated above and in §16. Gate 1 is PASS; Gate 3 remains open.
 
 ---
 
@@ -353,13 +352,15 @@ Two residual risks remain, and they are not defects this audit can close:
   the existing repository suite; it does not execute F01–F61, E.9 or E.10, which have no PAP
   harness or fixture corpus yet (Phase 3a).
 
-### 8.5 What the maintainer needs to do
+### 8.5 Decision recorded
 
-1. Approve, amend or defer OD-1–OD-7 (§7).
-2. Record the D1–D12 dispositions in §16 of the RFC (recommended: `accepted`, with the two
-   deferred sub-parts noted).
-3. Then record the Gate 1 decision on #43/#57. This audit deliberately does not close either
-   issue or change the gate status.
+On 2026-11-02 the maintainer accepted OD-1–OD-7 and D1–D12 as recommended, recorded Gate 1 PASS
+and authorized Phase 2 verifier implementation under the accepted v0.1 contract. The decision
+comment is
+[#57 comment 6574200695](https://github.com/agent-federation/contract-builder/issues/57#issuecomment-6574200695);
+the Gate 1 PASS is recorded on #43, and §16 of the RFC carries the accepted D1–D12 statuses.
 
-Once those records exist, the format is ready for the Phase 2 verifier and the Phase 3
-interoperability demonstration; until then, Phase 2 remains gated on Gate 1.
+The accepted specification is ready for Phase 2. Gate 3 remains the separate interoperability
+demonstration required before any cross-implementation claim; F47–F61/E.9/E.10 remain normative
+descriptions rather than executable tests, and the unexercised branches in §5.1 remain explicit
+implementation/test risks.
