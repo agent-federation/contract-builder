@@ -19,7 +19,7 @@ The latest revision:
 - defines `results.json` as a proposed runner/reporting artifact, not a normative PAP schema;
 - documents unresolved dependency-integrity semantics and other implementation assumptions.
 
-The plan has been reviewed as a planning artifact. No Phase 2b implementation has been authorized or started.
+The plan has been reviewed as a planning artifact. The plan has been reviewed as a planning artifact. Phase 2b implementation is authorized by this ODR, subject to the scope and constraints recorded below.
 
 This record makes the owner decisions necessary to establish an unambiguous implementation boundary.
 
@@ -186,4 +186,4 @@ Gate 3 remains OPEN and requires a separate independent field-by-field compariso
 
 **Owner approval reference:** [ODR-PAP-002](https://github.com/agent-federation/contract-builder/issues/62#issuecomment-6586872238)
 
-**Approved record commit:** To be recorded after the ODR is committed.
+**Approved record commit:** `966f1689e5a1ad185f348277321da2ed6e6a84a9`
