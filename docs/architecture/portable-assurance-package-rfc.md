@@ -13,8 +13,9 @@ Portable Assurance Package v0.1 and independent verifier CLI».
 D1–D12 and every §13.8 area. Its recommendations were accepted by the maintainer on 2026-11-02;
 §16 and the decision record on #57 are authoritative. A Gate 1 PASS records specification
 readiness for independent implementation only; it is not Gate 3.
-**Implementation status:** Phase 2 authorized; verifier implementation not started. No verifier,
-executable conformance harness or independent implementation exists yet.
+**Implementation status:** Phase 2 authorized; verifier implementation not started. Gate 0 is
+recorded COMPLETE on #43; no verifier, executable conformance harness or independent implementation
+exists yet.
 **Conformance status:** Gate 3 is **OPEN**; no cross-implementation agreement is claimed.
 
 **Related:** [`docs/architecture/build-identity.md`](build-identity.md) (implemented
@@ -209,9 +210,11 @@ the current status. PAP does not claim to close any of them.
 ### 2.4 Relationship to roadmap #43 Phases 0–3
 
 > **Baseline versus current status.** The `State at f1ddcf7` column is historical. The RFC has
-> since been accepted (2026-11-02), Gate 1 PASS is recorded, and the maintainer has authorized
-> Phase 2 verifier implementation; verifier implementation has not started. Gate 3 remains OPEN.
-> This note does not re-audit Gate 0.
+> since been accepted (2026-11-02), Gate 1 PASS is recorded, and Gate 0 is recorded COMPLETE on
+> #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
+> #32/#33/#35. The maintainer then authorized Phase 2 verifier implementation; verifier
+> implementation has not started. Gate 3 remains OPEN. This note cites those records and does not
+> independently re-audit Gate 0.
 
 | Phase | Content | State at `f1ddcf7` | PAP implication |
 |---|---|---|---|
@@ -238,9 +241,11 @@ coverage.* Measured against that text at `f1ddcf7`:
 
 #44 says RFC drafting may proceed in parallel with Phase 0, but implementation must respect Gate 0
 and the RFC's acceptance. At the baseline, acceptance of this document did not authorize Phase 2,
-and Phase 2 could not begin while #35 remained open. The maintainer's 2026-11-02 decision
-separately authorized Phase 2 verifier implementation under the accepted contract (#57); verifier
-implementation has not started. This document does not re-audit Gate 0.
+and Phase 2 could not begin while #35 remained open. Subsequently, Gate 0 was recorded COMPLETE on
+#43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
+#32/#33/#35. The maintainer's 2026-11-02 decision then authorized Phase 2 verifier implementation
+under the accepted contract (#57); verifier implementation has not started. This document cites
+those records and does not independently re-audit Gate 0.
 
 ### 2.5 A new product track, not M1
 
@@ -307,8 +312,9 @@ policy.
 The producer and the verifier are separate products. A package is untrusted input to the verifier;
 the verifier MUST NOT import the producer runtime, execute producer or profile code, or use the
 network in v0.1. This RFC does not implement either product. The maintainer accepted the v0.1
-specification on 2026-11-02 and authorized Phase 2; verifier implementation has not started. This
-status does not re-audit Gate 0 (§2.4; #43; #44).
+specification on 2026-11-02; Gate 0 is recorded COMPLETE on #43 (comment 6570952005); and Phase 2
+was then authorized. Verifier implementation has not started. This status cites those records and
+does not independently re-audit Gate 0 (§2.4; #43; #44).
 
 The document is organised as follows. §4 defines the package layout and the manifest; §5 the
 identities, hash domains and digest rules; §6 the trust model and the local policy input; §7 the
@@ -337,11 +343,16 @@ RFC 2119 sense.
 | R9 | DSSE/in-toto and Sigstore-compatible envelopes MUST be treated as optional adapters, not as a bespoke format and not as mandatory for a useful unsigned package; revocation and transparency services MUST be declared deferred with their consequences. | Deliverable 8; AC 10; decision D8 | §11, §14 |
 | R10 | A normative conformance matrix MUST give positive and negative fixtures with expected per-dimension results, aggregate verdict, CLI exit code and diagnostics, and published vectors for the supported subset. | Deliverable 9; AC 8 | §12, Appendix E, Appendix F |
 | R11 | Independence MUST be operational: schemas, algorithms and vectors published; no private producer dependency; language-neutral algorithms; explicit criteria for what counts as an independent implementation; underspecified areas listed as blockers. | Deliverable 10; AC 9; decision D12 | §13, Appendix E |
-| R12 | This RFC MUST be reviewed and accepted before Phase 2 begins, and Gate 0's minimum trust boundary MUST be satisfied first; neither condition may be waived silently. | AC 11; #43 sequencing; #44 relationship to roadmap | Document status, §2.4, Appendix H.2 row 11 |
+| R12 | This RFC MUST be reviewed and accepted before Phase 2 begins, and Gate 0's minimum trust boundary MUST be satisfied first; neither condition may be waived silently. | AC 11; #43 sequencing; #44 relationship to roadmap | Document status, §2.4, Appendix H.2 row 11, #43 Gate 0 record, #57 |
 
 R1–R12 are the acceptance surface for review: if a section does not let a reader decide whether
 its requirement is met, the gap is in the section, not in this table. R12 is the process
 requirement and is resolved by the document status together with §2.4 and §16.
+
+R12's two conditions are recorded as met, not waived: the RFC was accepted on 2026-11-02, and
+Gate 0 is recorded COMPLETE on #43 (comment 6570952005) on the basis of the merged #36–#38 work and
+the previously completed #32/#33/#35. The maintainer's #57 decision then authorized Phase 2. This
+RFC cites those records and does not independently re-audit Gate 0.
 
 ### 3.3 Non-goals N1–N12
 
@@ -3491,8 +3502,9 @@ blocker and escalates it; it is never resolved by adopting the reference behavio
 ### 13.9 Relation to roadmap #43 Phases 2–3 and scope statement
 
 This RFC is **design only**: it adds no verifier, producer, CLI, fixture generator or test code.
-The maintainer accepted the v0.1 specification on 2026-11-02 and authorized Phase 2; verifier
-implementation has not started. This document does not re-audit Gate 0.
+The maintainer accepted the v0.1 specification on 2026-11-02 and authorized Phase 2 after Gate 0
+was recorded COMPLETE on #43 (comment 6570952005); verifier implementation has not started. This
+document cites those records and does not independently re-audit Gate 0.
 
 - **Phase 2** (independent verifier CLI) consumes §4–§9 and §12. Its gate is a recipient verifying
   offline with no Contract Builder service or runtime dependency; §12 cases are the evidence, with
@@ -3511,10 +3523,10 @@ is an RFC amendment, not a silent implementation choice.
 
 ## 14. Implementation sequencing after acceptance
 
-This RFC authorizes no implementation by itself. With the decision register in §16 accepted and
-Phase 2 authorized by the maintainer on 2026-11-02, the following sequence keeps the format
-independently reviewable and matches roadmap #43 Phases 2–3. Verifier implementation has not
-started; the sequence is:
+This RFC authorizes no implementation by itself. With the decision register in §16 accepted,
+Gate 0 recorded COMPLETE on #43, and Phase 2 authorized by the maintainer on 2026-11-02, the
+following sequence keeps the format independently reviewable and matches roadmap #43 Phases 2–3.
+Verifier implementation has not started; the sequence is:
 
 | Step | Work | Exit condition |
 |---|---|---|
@@ -5380,7 +5392,7 @@ during integration, this appendix MUST be updated in the same change.
 | 8 | Positive and negative conformance fixtures have expected results. | §12, §12.2, §12.4 | Every runnable matrix row states expected dimensions, verdict, exit code and diagnostics; no-report CLI rows state exit code and stderr code. Expected results are normative in §12.2/§12.4; Appendix E fixes the digest/JCS values. |
 | 9 | A second implementation can implement the supported subset without private Contract Builder dependencies. | §13 | Algorithms and schemas are language-neutral and published; the independent subset and its equality requirements are defined; no producer import is permitted. |
 | 10 | Non-goals and deferred integrations (Sigstore/SCITT/OCI, production key management, temporal graph, mandates) are explicit. | §14, §11, §3.3 | Twelve non-goals and deferred integrations are listed with their reasons and consequences; none is silently included. |
-| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02) and Phase 2 is authorized; verifier implementation has not started. This row does not re-audit Gate 0. |
+| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2; verifier implementation has not started. This row cites those records and does not independently re-audit Gate 0. |
 
 ### H.3 Required decisions / open questions (12 items)
 
@@ -5513,10 +5525,11 @@ report. Timestamps (`package.createdAt`, `sources[].acquiredAt`, `claims.checked
   execution (§6, §7, §11).
 - Consequence: PAP's verifier sits outside the engine's executable-extension trust boundary, but
   PAP does not make the producer's profile trusted or safe. At the baseline it did not close #35,
-  and the minimum Gate 0 security gate was therefore open (§2.4); this document does not re-audit
-  Gate 0. Recognition of a profile or checker identity is a policy decision, not an assurance that
-  its checks are correct: `profileRecognition` and `checkerRecognition` are separate trust statuses,
-  and no recognition result upgrades semantic truth (§6, §7).
+  and the minimum Gate 0 security gate was therefore open (§2.4); Gate 0 is now recorded COMPLETE
+  on #43, and this document cites that record without independently re-auditing it. Recognition of
+  a profile or checker identity is a policy decision, not an assurance that its checks are correct:
+  `profileRecognition` and `checkerRecognition` are separate trust statuses, and no recognition
+  result upgrades semantic truth (§6, §7).
 
 ### I.5 What PAP does not claim
 
