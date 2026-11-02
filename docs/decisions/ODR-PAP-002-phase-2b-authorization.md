@@ -1,6 +1,6 @@
 # ODR-PAP-002 — Owner Decision Record: Phase 2b Scope and Authorization
 
-**Status:** APPROVED — pending explicit owner approval
+**Status:** APPROVED
 **Date:** 2026-11-02
 **Decision scope:** PAP v0.1 independent verifier, Phase 2b
 **Planning baseline:** `agent-federation/contract-builder-independent`
@@ -148,7 +148,7 @@ Any unresolved environmental assumptions, including parent-component symlink han
 
 ## 7. Authorization boundary
 
-Upon explicit owner approval of this ODR:
+Following the owner's approval recorded on 2026-11-02:
 
 - The blind independent agent may begin Phase 2b implementation within the scope and constraints above.
 - The reviewed plan at commit `2082e79061853696e3696dbc26dc1cabe67418e1` becomes the planning baseline, subject to this ODR.
@@ -184,8 +184,6 @@ Gate 3 remains OPEN and requires a separate independent field-by-field compariso
 
 **Owner decision:** APPROVED
 
-**Owner approval reference:** To be recorded after explicit approval.
+**Owner approval reference:** [ODR-PAP-002](/issues/62#issuecomment-6586872238)
 
 **Approved record commit:** To be recorded after the ODR is committed.
-
-No implementation authorization is effective until the owner explicitly approves this record.
