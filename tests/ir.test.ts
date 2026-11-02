@@ -14,7 +14,7 @@ import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
 import type { Profile } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { TEST_RENDERERS } from "./support.js";
+import { rewriteProfileCoreImports, TEST_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const specDir = path.join(root, "spec");
@@ -65,6 +65,7 @@ async function copyProject(name: string, withProfile = false): Promise<string> {
 
   if (withProfile) {
     await cp(profileDir, path.join(dir, "profile"), { recursive: true });
+    await rewriteProfileCoreImports(path.join(dir, "profile"));
   }
 
   await editManifest(dir, (manifest) => {

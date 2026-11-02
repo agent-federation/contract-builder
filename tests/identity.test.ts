@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -422,6 +422,81 @@ test("identity: import scanning ignores object keys and supports semicolon-less 
 test("identity: literal dynamic import with options is still detected", () => {
   const source = 'const lazy = () => import("dynamic-package", { with: { type: "json" } });';
   assert.deepEqual(importSpecifiers(source), ["dynamic-package"]);
+});
+
+test("identity: a relative import outside the extension root is unpinned", async () => {
+  const base = await mkdtemp(path.join(tmpdir(), "identity-outside-"));
+  const extension = path.join(base, "extension");
+  await mkdir(extension);
+  await writeFile(path.join(base, "outside.ts"), "export const value = 1;\n", "utf8");
+  await writeFile(
+    path.join(extension, "entry.ts"),
+    'import { value } from "../outside.ts";\n',
+    "utf8",
+  );
+
+  const diagnostics = new Diagnostics();
+  const closure = await resolveExtensionClosure(
+    "renderer",
+    "outside-import",
+    "1.0.0",
+    { root: extension, files: ["entry.ts"], dependencies: {} },
+    await readLockfile(),
+    diagnostics,
+  );
+
+  assert.equal(closure, null);
+  assert.ok(diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"));
+});
+
+test("identity: an import of an engine module outside the extension root is allowed", async () => {
+  const base = await mkdtemp(path.join(tmpdir(), "identity-engine-"));
+  const extension = path.join(base, "extension");
+  await mkdir(extension);
+  const engineModule = path.join(root, "spec", "lib", "manifest.ts");
+  await writeFile(
+    path.join(extension, "entry.ts"),
+    `import { resolveContained } from ${JSON.stringify(engineModule)};\n`,
+    "utf8",
+  );
+
+  const diagnostics = new Diagnostics();
+  const closure = await resolveExtensionClosure(
+    "renderer",
+    "engine-import",
+    "1.0.0",
+    { root: extension, files: ["entry.ts"], dependencies: {} },
+    await readLockfile(),
+    diagnostics,
+  );
+
+  assert.ok(closure !== null, diagnostics.report());
+});
+
+test("identity: literal dynamic imports inside template interpolations are detected", () => {
+  const source = [
+    'const value = `${await import("template-package")}`;',
+    'const nested = `a ${1 + `${await import("nested-package")}`} b`;',
+    'const ignored = `plain text import("ignored-package")`;',
+  ].join("\n");
+  assert.deepEqual(importSpecifiers(source), ["template-package", "nested-package"]);
+});
+
+test("identity: template expressions with regex braces are scanned", () => {
+  const source =
+    'const value = `${/}/.test("x") ? import("yes-package") : import("no-package")}`;';
+  assert.deepEqual(importSpecifiers(source), ["yes-package", "no-package"]);
+});
+
+test("identity: a template-interpolation import in a profile is unpinned", async () => {
+  const dir = await copyLocalProject("identity-template-import");
+  const file = path.join(dir, "profile", "checks", "cases.ts");
+  const injection = 'const templateImport = () => `${await import("left-pad")}`;';
+  await writeFile(file, `${await readFile(file, "utf8")}\n${injection}\n`, "utf8");
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.ok(codes(result).includes("core.extension.unpinned-dependency"));
 });
 
 test("identity: record framing resists ambiguous concatenation", () => {

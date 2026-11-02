@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isBuiltin } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { compare, type Diagnostics } from "./diagnostics.js";
 import type { ExtensionClosureDeclaration } from "./extension.js";
 import { isNonEmptyString, isObject, messageOf } from "./guards.js";
@@ -68,6 +69,9 @@ export interface IdentityInput {
 /** Text of the pre-hash envelopes, so the two digest families cannot be confused. */
 const INPUT_ENVELOPE = new TextEncoder().encode("contract-builder/input-digest/v1\n");
 const CLOSURE_ENVELOPE = new TextEncoder().encode("contract-builder/extension-closure/v1\n");
+
+/** Engine source directory; relative imports that land here are engine imports, not closure files. */
+const ENGINE_SOURCE_ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 /** Reads the repository package version, the M1 source of `engineVersion`. */
 export async function readEngineVersion(): Promise<string> {
@@ -521,7 +525,7 @@ async function resolveClosure(request: ClosureRequest): Promise<ResolvedExtensio
   );
   if (dependencies === null) return null;
 
-  if (!scanImports(files, declaration.dependencies ?? {}, diagnostics)) {
+  if (!scanImports(files, declaration.dependencies ?? {}, declaration.root ?? ".", diagnostics)) {
     return null;
   }
 
@@ -592,6 +596,7 @@ async function readDeclaredFiles(
 function scanImports(
   files: ReadonlyArray<{ path: string; bytes: Uint8Array }>,
   dependencies: Readonly<Record<string, string>>,
+  root: string,
   diagnostics: Diagnostics,
 ): boolean {
   const declared = new Set(files.map((file) => file.path));
@@ -607,22 +612,35 @@ function scanImports(
     }
 
     for (const specifier of importSpecifiers(text)) {
-      if (specifier.startsWith(".")) {
-        const candidates = resolveRelativeImport(file.path, specifier);
-        if (candidates === null) continue; // outside the extension root: engine code
-        if (!candidates.some((candidate) => declared.has(candidate))) {
-          diagnostics.error(
-            "core.extension.unpinned-dependency",
-            file.path,
-            "",
-            `Относительный импорт "${specifier}" не входит в объявленные files расширения`,
-          );
-          ok = false;
+      if (specifier.startsWith(".") || specifier.startsWith("/")) {
+        const resolved = resolveImport(root, file.path, specifier);
+        if (!resolved.escapes) {
+          if (!resolved.relative.some((candidate) => declared.has(candidate))) {
+            diagnostics.error(
+              "core.extension.unpinned-dependency",
+              file.path,
+              "",
+              `Относительный импорт "${specifier}" не входит в объявленные files расширения`,
+            );
+            ok = false;
+          }
+          continue;
         }
+
+        if (resolved.absolute.some((candidate) => isInside(ENGINE_SOURCE_ROOT, candidate))) {
+          continue; // engine-owned code is covered by engineVersion
+        }
+
+        diagnostics.error(
+          "core.extension.unpinned-dependency",
+          file.path,
+          "",
+          `Импорт "${specifier}" выходит за пределы files расширения и не является модулем движка`,
+        );
+        ok = false;
         continue;
       }
 
-      if (specifier.startsWith("/")) continue;
       if (isBuiltin(specifier)) continue;
       if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(specifier)) continue;
 
@@ -648,6 +666,7 @@ interface ImportToken {
   value: string;
   lineStart: boolean;
   braceDepth: number;
+  templateExpression: boolean;
 }
 
 const STATEMENT_KEYWORDS = new Set([
@@ -753,6 +772,10 @@ export function importSpecifiers(text: string): string[] {
       if (isPunct(tokens[next], ".")) continue; // import.meta
     }
 
+    // Only dynamic imports are meaningful inside a template interpolation; there is no
+    // statement position for a static import there.
+    if (token.templateExpression) continue;
+
     // A static import/export is a top-level statement. This avoids treating an object key
     // or a function-local identifier as a statement.
     if (token.braceDepth !== 0) continue;
@@ -823,7 +846,13 @@ function tokenize(source: string): ImportToken[] {
     value: string,
     depth: number = braceDepth,
   ): void => {
-    tokens.push({ kind, value, lineStart: atLineStart, braceDepth: depth });
+    tokens.push({
+      kind,
+      value,
+      lineStart: atLineStart,
+      braceDepth: depth,
+      templateExpression: false,
+    });
     atLineStart = false;
   };
 
@@ -851,8 +880,19 @@ function tokenize(source: string): ImportToken[] {
       continue;
     }
     if (char === "`") {
-      index = skipTemplate(source, index);
+      const template = scanTemplate(source, index);
+      for (const expression of template.expressions) {
+        for (const token of tokenize(source.slice(expression.start, expression.end))) {
+          tokens.push({
+            ...token,
+            lineStart: false,
+            braceDepth: 0,
+            templateExpression: true,
+          });
+        }
+      }
       push("literal", "");
+      index = template.next;
       continue;
     }
     if (char === "/" && regexAllowed(tokens)) {
@@ -947,22 +987,34 @@ function skipBlockComment(source: string, start: number): number {
   return Math.min(source.length, index + 2);
 }
 
-function skipTemplate(source: string, start: number): number {
+interface TemplateScan {
+  next: number;
+  expressions: Array<{ start: number; end: number }>;
+}
+
+function scanTemplate(source: string, start: number): TemplateScan {
   let index = start + 1;
+  const expressions: TemplateScan["expressions"] = [];
   while (index < source.length) {
     const char = source[index]!;
     if (char === "\\") {
       index += 2;
       continue;
     }
-    if (char === "`") return index + 1;
+    if (char === "`") return { next: index + 1, expressions };
     if (char === "$" && source[index + 1] === "{") {
-      index = skipTemplateExpression(source, index + 2);
+      const expressionStart = index + 2;
+      const expressionEnd = skipTemplateExpression(source, expressionStart);
+      expressions.push({
+        start: expressionStart,
+        end: Math.max(expressionStart, expressionEnd - 1),
+      });
+      index = expressionEnd;
       continue;
     }
     index += 1;
   }
-  return index;
+  return { next: index, expressions };
 }
 
 /** Skips a `${...}` expression inside a template literal, tracking nested braces and strings. */
@@ -976,7 +1028,7 @@ function skipTemplateExpression(source: string, start: number): number {
       continue;
     }
     if (char === "`") {
-      index = skipTemplate(source, index);
+      index = scanTemplate(source, index).next;
       continue;
     }
     if (char === "/" && source[index + 1] === "/") {
@@ -986,6 +1038,13 @@ function skipTemplateExpression(source: string, start: number): number {
     if (char === "/" && source[index + 1] === "*") {
       index = skipBlockComment(source, index);
       continue;
+    }
+    if (char === "/" && regexAllowedAt(source, index)) {
+      const next = skipRegex(source, index);
+      if (next !== null) {
+        index = next;
+        continue;
+      }
     }
     if (char === "{") {
       depth += 1;
@@ -1023,6 +1082,13 @@ function skipRegex(source: string, start: number): number | null {
     index += 1;
   }
   return null;
+}
+
+function regexAllowedAt(source: string, index: number): boolean {
+  let previous = index - 1;
+  while (previous >= 0 && /\s/.test(source[previous]!)) previous -= 1;
+  if (previous < 0) return true;
+  return /[=(:,![{;?&|+\-*%^~<>]/.test(source[previous]!);
 }
 
 function regexAllowed(tokens: readonly ImportToken[]): boolean {
@@ -1116,17 +1182,47 @@ function stripJsonc(text: string): string {
   return result;
 }
 
-function resolveRelativeImport(file: string, specifier: string): string[] | null {
-  const target = path.posix.normalize(
-    path.posix.join(path.posix.dirname(file), specifier),
-  );
-  if (target.startsWith("..") || path.posix.isAbsolute(target)) return null;
+interface ResolvedImport {
+  /** Candidates relative to the extension root; used to match the declared file set. */
+  relative: string[];
+  /** The same candidates as absolute paths; used to recognize engine-owned code. */
+  absolute: string[];
+  /** True when the import target resolves outside the extension root. */
+  escapes: boolean;
+}
 
-  const withoutExtension = target.replace(/\.(?:js|mjs|cjs|jsx)$/, "");
-  if (withoutExtension !== target) {
-    return [".ts", ".tsx", ".mts", ".cts"].map((extension) => `${withoutExtension}${extension}`);
-  }
-  return [target, `${target}.ts`, `${target}.tsx`, `${target}/index.ts`];
+function resolveImport(root: string, file: string, specifier: string): ResolvedImport {
+  const base = path.isAbsolute(specifier)
+    ? path.resolve(specifier)
+    : path.resolve(root, path.dirname(file), specifier);
+  const relativeTarget = path.relative(root, base).split(path.sep).join("/");
+  const escapes =
+    relativeTarget === ".." ||
+    relativeTarget.startsWith("../") ||
+    path.isAbsolute(relativeTarget);
+
+  const withoutExtension = base.replace(/\.(?:js|mjs|cjs|jsx)$/, "");
+  const absolute =
+    withoutExtension !== base
+      ? [".ts", ".tsx", ".mts", ".cts"].map((extension) => `${withoutExtension}${extension}`)
+      : [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts")];
+  const normalizedAbsolute = [...new Set(absolute.map((candidate) => path.resolve(candidate)))];
+
+  return {
+    absolute: normalizedAbsolute,
+    relative: normalizedAbsolute.map((candidate) =>
+      path.relative(root, candidate).split(path.sep).join("/"),
+    ),
+    escapes,
+  };
+}
+
+function isInside(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return (
+    relative === "" ||
+    (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
+  );
 }
 
 function normalizeRelativePath(value: string): string | null {
