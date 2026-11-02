@@ -10,7 +10,8 @@ inputs. `spec/` holds the machine-readable inputs and the builder; `spec/output/
 holds the rendered Markdown artifact. The demo slice covers §10.1–10.2 of
 `CORE-001.legacy.md`, the read-only source document at the repository root. The
 generated Markdown is never the source of truth: structured files under `spec/`
-are.
+are. `pap/` holds the independent Portable Assurance Package v0.1 verifier; it
+never imports `spec/` or `profiles/`.
 
 ## Commands
 
@@ -24,6 +25,8 @@ bun test                        # run the test suite
 bun run build                   # draft mode; writes spec/output/CORE-001.draft.md
 bun run build:release           # release mode; currently exits 1 by design
 bun run check                   # build in memory, compare with committed artifact
+bun run pap -- verify <PACKAGE> # PAP v0.1 verifier; see pap/README.md
+bun run pap:test                # PAP vectors, conformance corpus, hostile input, CLI
 ```
 
 CI (`.github/workflows/ci.yml`, job `check`) runs, in this order:
@@ -60,6 +63,9 @@ specification leaves the working tree clean.
   `manifest.test.ts`, `checks.test.ts`, `hook.test.ts`, `renderer.test.ts`,
   `genericity.test.ts`, `provenance.test.ts`, with golden baselines under `tests/golden/`.
 - `docs/` — architecture contract, M1 implementation plan and the design record.
+- `pap/` — the independent PAP v0.1 verifier (`src/`, `bin/`, `schemas/`,
+  `fixtures/pap-v0.1/`, `tests/`); its README holds the verifier commands and
+  conformance notes.
 - `CORE-001.legacy.md` — the read-only source document.
 
 ## Pull request rules
