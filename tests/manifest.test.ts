@@ -215,3 +215,119 @@ test("manifest: the model carries the source bytes and identity", async () => {
   assert.equal(source.identity?.revision, "0.3.3");
   assert.ok(new TextDecoder().decode(source.bytes).includes("UIA-CORE-001 (Rev 0.3.3)"));
 });
+
+/**
+ * Issue #36: an inverse declaration is the other half of the same edge set. These tests
+ * mutate a temporary copy of the real profile and never touch `profiles/core001`.
+ */
+
+interface MutableRelationsProfile {
+  relations: Array<Record<string, unknown>>;
+}
+
+async function copyProjectWithProfile(name: string): Promise<string> {
+  const dir = await copyProject(name);
+  await cp(profileDir, path.join(dir, "profile"), { recursive: true });
+  await rewriteProfileCoreImports(path.join(dir, "profile"));
+  await editManifest(dir, (manifest) => {
+    manifest.profile.source = "./profile";
+    delete manifest.profile.external;
+  });
+  return dir;
+}
+
+async function editRelations(
+  dir: string,
+  mutate: (relations: Array<Record<string, unknown>>) => void,
+): Promise<void> {
+  const file = path.join(dir, "profile", "profile.json");
+  const profile = JSON.parse(await readFile(file, "utf8")) as MutableRelationsProfile;
+  mutate(profile.relations);
+  await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+}
+
+function relationIndex(relations: Array<Record<string, unknown>>, name: string): number {
+  return relations.findIndex((item) => item.name === name);
+}
+
+function relation(
+  relations: Array<Record<string, unknown>>,
+  name: string,
+): Record<string, unknown> {
+  const index = relationIndex(relations, name);
+  assert.ok(index >= 0, `relation "${name}" is not declared`);
+  return relations[index]!;
+}
+
+function profileInvalid(result: Awaited<ReturnType<typeof runBuild>>) {
+  return result.diagnostics.find((item) => item.code === "core.profile.invalid");
+}
+
+test("manifest: an inverse declaration must exist on the target kind", async () => {
+  const dir = await copyProjectWithProfile("inverse-missing");
+  await editRelations(dir, (relations) => {
+    relations.splice(relationIndex(relations, "vectors"), 1);
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  const diagnostic = profileInvalid(result);
+  assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(diagnostic.pointer, "/relations/4/inverse");
+  assert.ok(diagnostic.message.includes('"vectors"'), diagnostic.message);
+});
+
+test("manifest: an inverse declaration must point back at the forward relation", async () => {
+  const dir = await copyProjectWithProfile("inverse-not-reciprocal");
+  await editRelations(dir, (relations) => {
+    relation(relations, "vectors").inverse = "terms";
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  const diagnostic = profileInvalid(result);
+  assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(diagnostic.pointer, "/relations/4/inverse");
+  assert.ok(diagnostic.message.includes('"terms"'), diagnostic.message);
+  assert.ok(diagnostic.message.includes('"provision"'), diagnostic.message);
+});
+
+test("manifest: an inverse declaration must reverse the forward endpoints", async () => {
+  const dir = await copyProjectWithProfile("inverse-kind-mismatch");
+  await editRelations(dir, (relations) => {
+    relation(relations, "vectors").to = "fragment";
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  const diagnostic = profileInvalid(result);
+  assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(diagnostic.pointer, "/relations/4/inverse");
+  assert.ok(diagnostic.message.includes('"fragment"'), diagnostic.message);
+  assert.ok(diagnostic.message.includes('"case"'), diagnostic.message);
+});
+
+test("manifest: a wildcard target cannot declare an inverse", async () => {
+  const dir = await copyProjectWithProfile("inverse-wildcard");
+  await editRelations(dir, (relations) => {
+    relations.push({
+      name: "target",
+      from: "provision",
+      to: "*",
+      cardinality: "many",
+      inverse: "sources",
+    });
+  });
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  const diagnostic = profileInvalid(result);
+  assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(diagnostic.pointer, "/relations/8/inverse");
+  assert.ok(diagnostic.message.includes('"*"'), diagnostic.message);
+});
+
+test("manifest: a reciprocal inverse declaration pair is accepted", async () => {
+  const result = await runBuild(base(specDir));
+  assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
+});

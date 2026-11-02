@@ -182,7 +182,7 @@ interface RelationDecl {
   from: string;                              // entity kind
   to: string;                                // entity kind or "*"
   cardinality?: "one" | "many";
-  inverse?: string;                          // optional inverse relation to populate
+  inverse?: string;                          // reciprocal relation, declared from "to"
 }
 
 interface ProvenanceMapping {
@@ -205,6 +205,16 @@ The profile carries **no project content**. Two projects can share one profile.
 `relations` object that no declaration defines, is reported with a catalog code
 (`core.profile.unknown-kind`, `core.profile.unknown-relation`, `core.relation.unknown`). The
 profile's catalog decides the disposition; the core never silently accepts or interprets it.
+
+**An inverse declaration is a bidirectional contract.** `RelationDecl.inverse` names the other
+half of the same edge set, so the pair must agree: the inverse is declared from the forward
+declaration's `to` kind, names the forward relation back in its own `inverse`, and reverses the
+forward `from`/`to` endpoints. A pair that fails any of these is `core.profile.invalid` before
+resolution starts, and a forward declaration whose `to` is `"*"` cannot declare an inverse
+because the inverse's kind would be undetermined. Cardinality describes the values of one
+direction, not the declaration pair; the resolver enforces it when it synthesizes the inverse,
+so an inverse declared `cardinality: "one"` rejects the second source with
+`core.relation.cardinality`.
 
 Relation values live in a dedicated `relations` object on the entity, never among ordinary
 fields (option A in the audit). Inferring intent from an ordinary field name would require
@@ -514,7 +524,9 @@ is resolved; a relation may target an entity from another input.
    value (a string or an array of strings) is resolved against `to` (`"*"` means any kind). A
    missing target is `core.reference.unresolved`; `cardinality: "one"` rejects arrays. Resolved
    ids populate `Entity.relations[name]`; the inverse relation, if declared, is populated on the
-   target.
+   target in input order. The inverse obeys its own reciprocal declaration (section 3.2): a
+   declaration that cannot reciprocate stops the build before resolution, and an inverse
+   declared `cardinality: "one"` rejects a second source with `core.relation.cardinality`.
 7. **Provenance.** For every `ProvenanceMapping` of the kind, the three selectors are read
    verbatim into `ProvenanceBinding`; the source fields stay in `Entity.fields`. Missing or
    empty is `core.provenance.incomplete`. The `ref` is passed unchanged to the source adapter's

@@ -1,12 +1,13 @@
 import type { Diagnostics } from "./diagnostics.js";
 import { isNonEmptyString } from "./guards.js";
 import type { Entity, EntityLocation, RelationIndex } from "./ir.js";
-import type { Profile } from "./manifest.js";
+import type { Profile, RelationDecl } from "./manifest.js";
 
 /**
  * Validates every `RelationDecl` endpoint, then resolves keys inside each entity's reserved
  * `relations` object. Declaration errors stop resolution; an undeclared key or a bad target
- * is reported against the entity.
+ * is reported against the entity. A declared inverse is appended to its target in input order
+ * and obeys its own declared cardinality.
  */
 export function resolveRelations(
   entities: Entity[],
@@ -45,13 +46,28 @@ export function resolveRelations(
   // data, so resolution does not start.
   if (failed) return null;
 
+  // Profile validation rejects a duplicate `(from, name)` declaration, so indexing by that
+  // pair removes the first-match ambiguity a linear search would keep.
+  const declarationsByFrom = new Map<string, Map<string, RelationDecl>>();
+  for (const decl of declarations) {
+    let byName = declarationsByFrom.get(decl.from);
+    if (byName === undefined) {
+      byName = new Map();
+      declarationsByFrom.set(decl.from, byName);
+    }
+    if (!byName.has(decl.name)) byName.set(decl.name, decl);
+  }
+
+  const declaration = (from: string, name: string): RelationDecl | undefined =>
+    declarationsByFrom.get(from)?.get(name);
+
   for (const entity of entities) {
     const raw = rawRelations.get(entity.id);
     if (raw === undefined) continue;
     const location = locations.get(entity.id) ?? { file: "", pointer: "" };
 
     for (const [name, value] of Object.entries(raw)) {
-      const decl = declarations.find((item) => item.name === name && item.from === entity.kind);
+      const decl = declaration(entity.kind, name);
       if (decl === undefined) {
         diags.error(
           "core.relation.unknown",
@@ -118,10 +134,25 @@ export function resolveRelations(
       addToIndex(index, name, entity.kind, unique);
 
       if (decl.inverse !== undefined) {
+        const inverse = declaration(decl.to, decl.inverse);
         for (const targetId of unique) {
           const target = byId.get(targetId);
           if (target === undefined) continue;
           const list = target.relations[decl.inverse] ?? [];
+          if (list.includes(entity.id)) continue;
+          // The inverse is synthesized from the forward edges, so its declared cardinality
+          // constrains the number of sources one target may receive. Both directions are
+          // declared by profile validation, but a resolver called directly may not be.
+          if (inverse?.cardinality === "one" && list.length > 0) {
+            diags.error(
+              "core.relation.cardinality",
+              location.file,
+              `${location.pointer}/relations/${name}`,
+              `Обратная связь "${decl.inverse}" допускает одно значение, но на "${targetId}" ссылаются несколько сущностей`,
+            );
+            failed = true;
+            continue;
+          }
           list.push(entity.id);
           target.relations[decl.inverse] = list;
           addToIndex(index, decl.inverse, target.kind, [entity.id]);
