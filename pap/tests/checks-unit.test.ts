@@ -45,6 +45,7 @@ function checkInput(budget: number, claim: ClaimState): CheckInput {
     claims: [claim],
     normalizedInputDigest: null,
     sourceSpans: new Map([["S\u00000\u00001", ZERO]]),
+    sourceSpanBudgetHit: false,
     checker,
     limits: { provenanceBindings: 1_000 },
     witnessBudget: budget,

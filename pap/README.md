@@ -20,6 +20,13 @@ The implementation does not establish Gate 3. Gate 3 still requires a separately
 implemented checker compared field-by-field against the same corpus under the
 same tier.
 
+**Packaging boundary.** RFC §9.1 requires the verifier to be a separate project
+with its own release and pinned artifacts. During Phase 2, `pap/` is an in-repo
+product boundary and the root `package.json` exposes `pap` as a development
+script/bin only. This is a temporary arrangement, not a conforming standalone
+release: no per-platform artifact, published checksum or separate release channel
+is provided here.
+
 ## Commands
 
 From the repository root:

@@ -57,6 +57,13 @@ export async function evaluateSignatures(options: {
   const diagnostics: Diagnostic[] = [];
   const entries: SignatureEntry[] = [];
   const authorizationStates = new Map<string, "TRUSTED" | "UNTRUSTED" | "UNKNOWN">();
+  const validSignerIndexes = new Set<number>();
+  const signerIndexByKeyId = new Map<string, number>();
+  if (options.policy !== undefined) {
+    options.policy.signers.forEach((signer, index) => {
+      for (const keyId of signer.keyIds) signerIndexByKeyId.set(keyId, index);
+    });
+  }
   const empty = (): SignatureEvaluation => ({
     validity: options.mode === "disabled" ? "NOT_APPLICABLE" : "NOT_APPLICABLE",
     entries,
@@ -253,6 +260,10 @@ export async function evaluateSignatures(options: {
       } else {
         entry.signerIdentity = "TRUSTED";
         entry.policyDecision = "ACCEPTED";
+        if (cryptographic) {
+          const signerIndex = signerIndexByKeyId.get(keyId);
+          if (signerIndex !== undefined) validSignerIndexes.add(signerIndex);
+        }
       }
       entries.push(entry);
     }
@@ -281,7 +292,7 @@ export async function evaluateSignatures(options: {
     options.policy,
     options.mode,
     options.policyFresh,
-    authorizationStates,
+    validSignerIndexes,
   );
 
   if (options.policy === undefined) {
@@ -534,26 +545,16 @@ function aggregatePolicyDecision(
   policy: TrustPolicy | undefined,
   mode: "disabled" | "optional" | "required",
   policyFresh: boolean,
-  authorizationStates: Map<string, "TRUSTED" | "UNTRUSTED" | "UNKNOWN">,
+  validSignerIndexes: Set<number>,
 ): SignatureEvaluation["policyDecision"] {
   if (policy === undefined) return "NOT_EVALUATED";
   if (!policyFresh) return "STALE";
   if (entries.length === 0) return "NOT_EVALUATED";
   if (entries.some((entry) => entry.policyDecision === "REJECTED")) return "REJECTED";
-  const validAuthorized = new Set(
-    entries
-      .filter(
-        (entry) =>
-          entry.validity === "VALID" &&
-          entry.keyId !== undefined &&
-          authorizationStates.get(entry.keyId) === "TRUSTED",
-      )
-      .map((entry) => entry.keyId),
-  );
   if (mode === "required") {
-    if (validAuthorized.size < policy.signature.minimumValidSigners) return "NOT_EVALUATED";
+    if (validSignerIndexes.size < policy.signature.minimumValidSigners) return "NOT_EVALUATED";
     return "ACCEPTED";
   }
-  if (validAuthorized.size > 0) return "ACCEPTED";
+  if (validSignerIndexes.size > 0) return "ACCEPTED";
   return "NOT_EVALUATED";
 }

@@ -531,6 +531,7 @@ export interface Payloads {
   claimMap: Partial<Record<ClaimKind, ClaimState>>;
   normalizedInputDigest: string | null;
   sourceSpans: Map<string, string>;
+  sourceSpanBudgetHit: boolean;
   limitHit: boolean;
   limitedClasses: Set<"artifacts" | "sources" | "inputs">;
 }
@@ -552,6 +553,7 @@ export async function loadPayloads(
     claimMap: {},
     normalizedInputDigest: null,
     sourceSpans: new Map(),
+    sourceSpanBudgetHit: false,
     limitHit: false,
     limitedClasses: new Set(),
   };
@@ -879,8 +881,10 @@ export async function loadPayloads(
   // Compute only the quoted source ranges; source bytes are not retained.
   const provenance = result.claimMap.provenance?.parsed;
   if (provenance !== undefined && provenance.kind === "provenance") {
+    const sourceById = new Map(result.sources.map((entry) => [entry.source.id, entry]));
+    const seenRanges = new Set<string>();
     for (const binding of provenance.bindings) {
-      const source = result.sources.find((entry) => entry.source.id === binding.sourceId);
+      const source = sourceById.get(binding.sourceId);
       if (
         source === undefined ||
         source.source.path === undefined ||
@@ -891,6 +895,21 @@ export async function loadPayloads(
       }
       const { start, end } = binding.locator;
       if (start > end || end > source.size) continue;
+      const key = `${binding.sourceId}\u0000${start}\u0000${end}`;
+      if (seenRanges.has(key)) continue;
+      seenRanges.add(key);
+      const length = end - start;
+      if (totalBytes + length > limits.totalPayloadBytes) {
+        result.limitHit = true;
+        result.sourceSpanBudgetHit = true;
+        diag(
+          "pap.package.limit-exceeded",
+          "error",
+          binding.id,
+          "source-span reads exceed the total payload byte budget",
+        );
+        break;
+      }
       const span = await hashPackageRange(
         root,
         source.source.path,
@@ -900,12 +919,11 @@ export async function loadPayloads(
         limits,
       );
       if (span.ok && span.digest !== undefined) {
-        result.sourceSpans.set(
-          `${binding.sourceId}\u0000${start}\u0000${end}`,
-          span.digest,
-        );
+        totalBytes += length;
+        result.sourceSpans.set(key, span.digest);
       } else if (span.failure === "limit") {
         result.limitHit = true;
+        result.sourceSpanBudgetHit = true;
         diag("pap.package.limit-exceeded", "error", binding.id, span.message ?? "quote range exceeds a limit");
       } else if (span.message !== undefined) {
         diag("pap.package.io", "error", binding.id, span.message);
@@ -968,6 +986,7 @@ function evaluateChecks(options: {
     claims: options.payloads.claims,
     normalizedInputDigest: options.payloads.normalizedInputDigest,
     sourceSpans: options.payloads.sourceSpans,
+    sourceSpanBudgetHit: options.payloads.sourceSpanBudgetHit,
     checker: CHECKER,
     limits: { provenanceBindings: options.limits.provenanceBindings },
     witnessBudget: WITNESS_BUDGET_BYTES,

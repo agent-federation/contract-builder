@@ -282,8 +282,7 @@ function validatePolicy(value: JsonObject, defaults: Limits): TrustPolicy {
     throw new PolicyInvalid("signers exceeds the policy limit");
   }
   const signers: PolicySigner[] = [];
-  let signableKeys = 0;
-  const signable = new Set<string>();
+  const signerForKeyId = new Map<string, number>();
   for (let index = 0; index < value.signers.length; index += 1) {
     const raw = value.signers[index];
     if (!isObject(raw)) throw new PolicyInvalid(`signers[${index}] must be an object`);
@@ -325,7 +324,12 @@ function validatePolicy(value: JsonObject, defaults: Limits): TrustPolicy {
       throw new PolicyInvalid(`signers[${index}].allowedPackageIdentities is invalid`);
     }
     for (const keyId of raw.keyIds as string[]) {
-      signable.add(keyId);
+      if (signerForKeyId.has(keyId)) {
+        throw new PolicyInvalid(
+          `keyId ${keyId} is enrolled in more than one signer entry`,
+        );
+      }
+      signerForKeyId.set(keyId, index);
     }
     signers.push({
       keyIds: raw.keyIds as string[],
@@ -339,14 +343,13 @@ function validatePolicy(value: JsonObject, defaults: Limits): TrustPolicy {
         : {}),
     });
   }
-  signableKeys = signable.size;
   if (mode === "required" && keys.length === 0) {
     throw new PolicyInvalid("signature mode required needs at least one key");
   }
   if (mode === "required" && signers.length === 0) {
     throw new PolicyInvalid("signature mode required needs at least one signer");
   }
-  if (mode === "required" && minimumValidSigners > signableKeys) {
+  if (mode === "required" && minimumValidSigners > signers.length) {
     throw new PolicyInvalid("minimumValidSigners exceeds the configured signer count");
   }
 

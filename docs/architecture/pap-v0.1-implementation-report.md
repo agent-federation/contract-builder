@@ -178,6 +178,16 @@ two P2 structural issues; all were fixed in the follow-up commits:
 - **Nested manifests and parent symlinks.** Every path component is checked for a
   symlink before opening, and any `assurance-package.json` below the package root
   is rejected as a nested manifest. Both have hostile-input regressions.
+- **Bounded source-span work.** Quoted ranges are deduplicated by
+  `(sourceId, start, end)` before a read, sources are indexed by ID once, and
+  every range read is charged against `totalPayloadBytes`. Repeated identical
+  large ranges therefore cost one read, while overlapping non-identical ranges
+  exhaust the aggregate budget and make the source-quote check
+  `NOT_EVALUATED`/`INCOMPLETE`, never `PASS`.
+- **Signature quorum.** The policy rejects a `keyId` enrolled in more than one
+  `signers[]` entry. `minimumValidSigners` counts distinct authorized signer
+  entries with at least one valid signature, not distinct key IDs, so one signer
+  with two keys cannot satisfy a two-signer quorum.
 - **F46/F59.** The maintainer chose option (a) on PR #64: keep RFC §7.5 and the
   F02 transcript, and update only the F46/F59 matrix rows to
   `coverage.full: true`. The RFC rows, corpus and this report now agree; the
@@ -266,6 +276,17 @@ The verifier does not import or execute the producer. `pap/tests/support.ts`
 runs the CLI with sentinel `bun`, `node` and `contract-builder` shims that would
 fail loudly if the verifier executed them; F40 asserts they were never run.
 Package content is never imported, templated, rendered or evaluated.
+
+### 7.1 Packaging boundary
+
+RFC §9.1 requires the verifier to be distributed as a separate project. During
+Phase 2 this repository carries `pap/` as an in-repo product boundary and the
+root `package.json` exposes a `pap` script and bin entry for development and
+conformance testing only. That is a temporary packaging arrangement, not a
+conforming standalone release: no pinned per-platform artifact, published
+checksum or independent release channel is provided here. A standalone release
+must move `pap/` (or an equivalent implementation) behind its own package,
+release and verification instructions as RFC §9.1 requires.
 
 The report deliberately does not claim:
 

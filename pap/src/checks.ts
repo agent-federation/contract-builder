@@ -76,6 +76,8 @@ export interface CheckInput {
   normalizedInputDigest: string | null;
   /** `${sourceId}\u0000${start}\u0000${end}` -> extracted quote digest. */
   sourceSpans: Map<string, string>;
+  /** True when range reads exceeded the remaining totalPayloadBytes budget. */
+  sourceSpanBudgetHit: boolean;
   checker: { id: string; version: string; implementationDigest: string };
   limits: { provenanceBindings: number };
   /** Aggregate serialized witness budget for one check record. */
@@ -225,6 +227,13 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
   let outcome: CheckOutcome = "PASS";
   let witnessBytes = 0;
   let budgetExceeded = false;
+  const sourceById = new Map(input.sources.map((state) => [state.source.id, state]));
+  if (input.sourceSpanBudgetHit) {
+    budgetExceeded = true;
+    diagnostics.push(
+      checkDiagnostic("pap.package.limit-exceeded", "error", "source-span read budget exceeded"),
+    );
+  }
 
   if (claim === undefined) {
     diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "claims/provenance.json is absent"));
@@ -249,7 +258,7 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
   let unavailable = 0;
 
   for (const binding of provenance.bindings) {
-    const source = input.sources.find((state) => state.source.id === binding.sourceId);
+    const source = sourceById.get(binding.sourceId);
     sourcesUsed.add(binding.sourceId);
     if (source === undefined) {
       // The claim parser rejects undeclared source ids; keep this defensive.

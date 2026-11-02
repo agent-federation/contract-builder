@@ -1,9 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { generateKeyPairSync, sign } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
+import { jcsBytes, parseJsonStrict } from "../src/json.js";
+import { paeBytes } from "../src/signatures.js";
 import { CHECKER } from "../src/version.js";
 import { fixtures, runPap } from "./support.js";
 
@@ -175,6 +178,71 @@ test("signature: duplicate signer is reported and counted once", () => {
   const report = JSON.parse(result.stdout);
   assert.equal(report.verdict, "PASS");
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.duplicate-signer"));
+});
+
+test("signature quorum counts distinct signer entries, not key IDs", () => {
+  const dir = tempPackage();
+  const payload = jcsBytes(parseJsonStrict(readFileSync(path.join(dir, "assurance-package.json")), { nesting: 64, stringBytes: 16_777_216 }));
+  const payloadType = "application/vnd.pap.manifest.v0.1+json";
+  const pae = paeBytes(payloadType, payload);
+  const makeKey = (): { publicKey: string; envelope: (keyId: string) => Record<string, unknown> } => {
+    const pair = generateKeyPairSync("ed25519");
+    const raw = pair.publicKey.export({ format: "der", type: "spki" }).subarray(-32);
+    return {
+      publicKey: raw.toString("base64url"),
+      envelope: (keyId: string) => ({
+        payloadType,
+        payload: Buffer.from(payload).toString("base64"),
+        signatures: [{ keyid: keyId, sig: sign(null, pae, pair.privateKey).toString("base64") }],
+      }),
+    };
+  };
+  const first = makeKey();
+  const second = makeKey();
+  mkdirSync(path.join(dir, "signatures"), { recursive: true });
+  writeFileSync(path.join(dir, "signatures/first.dsse.json"), JSON.stringify(first.envelope("key-first")));
+  writeFileSync(path.join(dir, "signatures/second.dsse.json"), JSON.stringify(second.envelope("key-second")));
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+  policy.id = "policy-quorum-two-signers";
+  policy.signature.minimumValidSigners = 2;
+  policy.keys = [
+    { keyId: "key-first", algorithm: "ed25519", publicKey: first.publicKey },
+    { keyId: "key-second", algorithm: "ed25519", publicKey: second.publicKey },
+  ];
+  policy.signers = [
+    { keyIds: ["key-first"], identity: "signer-one", allowedRoles: ["producer"] },
+    { keyIds: ["key-second"], identity: "signer-two", allowedRoles: ["producer"] },
+  ];
+  let result = verify(dir, writePolicy(policy));
+  let report = JSON.parse(result.stdout);
+  assert.equal(result.status, 0, result.stdout);
+  assert.equal(report.verdict, "PASS");
+  assert.equal(report.dimensions.trust.policyDecision, "ACCEPTED");
+
+  // One signer entry with both keys cannot satisfy a two-signer quorum.
+  policy.id = "policy-quorum-one-signer";
+  policy.signers = [
+    { keyIds: ["key-first", "key-second"], identity: "signer-one", allowedRoles: ["producer"] },
+  ];
+  result = verify(dir, writePolicy(policy));
+  assert.equal(result.status, 64, result.stdout);
+  assert.ok(result.stderr.includes("pap.trust.policy-invalid"));
+});
+
+test("a keyId enrolled in two signer entries is a policy error", () => {
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+  policy.id = "policy-duplicate-key-owner";
+  policy.signers = [
+    { keyIds: ["key-acme-producer"], identity: "signer-one", allowedRoles: ["producer"] },
+    { keyIds: ["key-acme-producer"], identity: "signer-two", allowedRoles: ["producer"] },
+  ];
+  const result = verify(tempPackage(), writePolicy(policy));
+  assert.equal(result.status, 64);
+  assert.ok(result.stderr.includes("pap.trust.policy-invalid"));
 });
 
 test("signature: missing keyId leaves the entry unknown and rejects the policy decision", () => {
