@@ -81,7 +81,8 @@ this as an open decision, not a silent correction.
 #### 1.2.1 Complete count-correction scope
 
 A repository-wide search at `9966488` for `23 policy`, `23-policy`, `23 profile`, `23-check`,
-`9 of 23`, `23 CORE-000`, `policy check families` and `24-code` found the references below.
+`9 of 23`, `23 CORE-000`, `policy check families` and `24-code` found the references below. The
+search scope included numbered sections, **preamble/header text**, tables and bullet lists.
 Unrelated uses of `23` (PR numbers, relation #23, table numbers) were excluded. The inventory
 classifies each occurrence rather than mechanically replacing every number; **no count is changed
 while S2-D1 is open**.
@@ -89,6 +90,7 @@ while S2-D1 is open**.
 | File | Exact reference | Classification | Current | Action under S2-D1 |
 |---|---|---|---|---|
 | `docs/architecture/core-000-self-contract.md` | §5.7 prose above the check table | design baseline / source of discrepancy | 23 | If A: correct to 24 (normative count only); if B: keep 23 and name the excluded code |
+| `docs/architecture/core-000-execution-plan.md` | preamble immediately before §0 — “Accepted design: … 23 profile policy checks” | forward-looking accepted-design baseline | 23 | If A: reconcile to 24; if B: retain 23 and name the excluded code |
 | `docs/architecture/core-000-execution-plan.md` | §1 design-register paragraph | forward-looking plan baseline | 23 | If A: correct to 24; if B: keep 23 with the excluded code named |
 | `docs/architecture/core-000-execution-plan.md` | §1 baseline table row “Model” | forward-looking plan baseline | 23 | If A: correct to 24 |
 | `docs/architecture/core-000-execution-plan.md` | §2.2 catalog row “23 CORE-000 diagnostic codes” | forward-looking proposed profile | 23 | If A: correct to 24; if B: reconcile to 23 |
