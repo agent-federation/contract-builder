@@ -254,13 +254,14 @@ the key cell itself, or from another column, would pass (`markdown.ts:111–115`
 2. The addressable text is the row's **value cells**: the cells after the first. Each value cell
    is checked separately, so a quote cannot span cells. A quote found only in the key cell does
    not satisfy the locator.
-3. Cell splitting is the minimal markdown subset: the cells are the segments **between the first
-   and the last `|`** of the row (the outer pipes are delimiters, not empty cells; only the
-   leading/trailing empty segments are dropped), split on unescaped `|` (a `\|` is a literal
-   pipe) and trimmed. A naive split on `|` without dropping the outer segments yields
-   `["", "asserted_at", "Время…", ""]`, so the key lookup would fail. No support for multi-line
-   cells or inline HTML. The existing two CORE-001 terms continue to match their value cells
-   exactly.
+3. Cell splitting is the minimal markdown subset: strip the optional leading `|` and the
+   optional trailing `|` (the adapter's table subset requires the leading pipe, but GFM commonly
+   omits the trailing one), then split the remaining string on unescaped `|` (a `\|` is a
+   literal pipe) and trim each segment. Both naive variants fail: a plain split yields empty
+   outer segments (`["", "asserted_at", "Время…", ""]`), and taking the segments between the
+   first and last `|` discards the value cell when the trailing pipe is omitted
+   (`| asserted_at | Время…`). No support for multi-line cells or inline HTML. The existing two
+   CORE-001 terms continue to match their value cells exactly.
 
 This is a behaviour change on error paths only: no current data is affected, because both
 CORE-001 table quotes are value cells.
