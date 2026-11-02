@@ -99,7 +99,7 @@ interface Manifest {
   inputs: InputDecl[];
   sources?: SourceDecl[];
   policy?: PolicyOverlay;              // project-level overrides
-  render: RenderDecl[];
+  render: RenderDecl[];                // M1: exactly one entry; see below
   output?: { root?: string };          // default: "."; must stay inside the project root
 }
 
@@ -138,6 +138,11 @@ interface RenderDecl {
   outputs: Record<string, string>;     // mode -> path
 }
 ```
+
+`render` keeps its array shape for forward compatibility, but **M1 supports exactly one
+render declaration**. Zero declarations and more than one are rejected with
+`core.manifest.invalid` during manifest validation, before any input is rendered or any
+artifact is written; multi-target rendering is deferred.
 
 `renderer` and `template` may be omitted when `profile.renderDefaults` supplies them; after
 resolution both must be present (`core.manifest.render` otherwise).
@@ -1258,7 +1263,7 @@ In scope:
    §5.2); ordinary fields and generated artifacts are unchanged.
 
 Out of scope for M1: package split, public API, new diagnostic codes, multi-source, review
-dimensions, OpenAPI adapter, CLI changes.
+dimensions, OpenAPI adapter, multi-target rendering, CLI changes.
 
 Acceptance criteria:
 

@@ -217,13 +217,15 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
+  // `validateManifest` guarantees exactly one render declaration; the guard keeps the
+  // build safe for a manifest constructed outside the loader.
   const renderDeclaration = loaded.project.manifest.render[0];
   if (renderDeclaration === undefined) {
     diags.error(
       "core.manifest.invalid",
       "contract-builder.json",
       "/render",
-      "Манифест не объявляет ни одного render",
+      "M1 поддерживает ровно один render target; объявлено 0",
     );
     return result(options, diags, null, outputPath, false, "errors");
   }
@@ -330,8 +332,9 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
 }
 
 /**
- * Resolves the artifact path for `mode` from `render[].outputs`. Both the output root and
- * the artifact must stay inside the project root; neither may escape.
+ * Resolves the artifact path for `mode` from the single render declaration's `outputs`.
+ * Both the output root and the artifact must stay inside the project root; neither may
+ * escape. `validateManifest` has already rejected zero or multiple render declarations.
  */
 async function resolveOutputPath(
   project: ResolvedProject,
@@ -344,7 +347,7 @@ async function resolveOutputPath(
       "core.manifest.invalid",
       "contract-builder.json",
       "/render",
-      "Манифест не объявляет ни одного render",
+      "M1 поддерживает ровно один render target; объявлено 0",
     );
     return null;
   }
