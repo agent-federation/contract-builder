@@ -1,8 +1,9 @@
 # RFC: Portable Assurance Package v0.1 and an independent verifier CLI
 
-**Status:** proposed for maintainer review. Nothing in this document is accepted until the
-decision register in §16 is recorded as accepted by a maintainer. Choices not covered by such a
-decision remain `proposed`.
+**Status:** accepted by the maintainer on 2026-11-02. D1–D12 are accepted and recorded in §16;
+OD-1–OD-7 are accepted as recommended in the Gate 1 audit. Acceptance covers the v0.1
+specification as written: items explicitly deferred or outside v0.1 remain deferred or outside
+scope, and acceptance does not settle every possible extension or future decision.
 **Issue:** [#44](https://github.com/agent-federation/contract-builder/issues/44) — «Specify
 Portable Assurance Package v0.1 and independent verifier CLI».
 **Roadmap:** [#43](https://github.com/agent-federation/contract-builder/issues/43) Phase 1.
@@ -10,9 +11,11 @@ Portable Assurance Package v0.1 and independent verifier CLI».
 **Document version:** 0.1
 **Gate 1 audit:** [`pap-v0.1-gate1-decision-audit.md`](pap-v0.1-gate1-decision-audit.md) reviews
 D1–D12 and every §13.8 area. Its recommendations were accepted by the maintainer on 2026-11-02;
-§16 and the decision record on #57 are authoritative.
-**Implementation status:** not started. This change is documentation only; no code, data or
-generated artifact is modified by the RFC pull request.
+§16 and the decision record on #57 are authoritative. A Gate 1 PASS records specification
+readiness for independent implementation only; it is not Gate 3.
+**Implementation status:** Phase 2 authorized; verifier implementation not started. No verifier,
+executable conformance harness or independent implementation exists yet.
+**Conformance status:** Gate 3 is **OPEN**; no cross-implementation agreement is claimed.
 
 **Related:** [`docs/architecture/build-identity.md`](build-identity.md) (implemented
 `inputDigest`), [`docs/architecture/provenance-hardening-rfc.md`](provenance-hardening-rfc.md)
@@ -24,7 +27,9 @@ generated artifact is modified by the RFC pull request.
 [#38](https://github.com/agent-federation/contract-builder/issues/38),
 [#41](https://github.com/agent-federation/contract-builder/issues/41).
 
-> **Reading statuses.** `proposed` — a recommendation for maintainer review, not accepted.
+> **Reading statuses.**
+> `accepted` — recorded as accepted by the maintainer in the decision register (§16).
+> `proposed` — a recommendation for maintainer review, not accepted.
 > `directed` — already accepted in an existing decision record and merely restated here.
 > `deferred` — deliberately outside v0.1, with a condition to revisit. No choice is marked
 > accepted on the author's own judgment.
