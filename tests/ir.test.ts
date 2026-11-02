@@ -460,5 +460,7 @@ test("ir: quote verification goes through the source adapter", async () => {
 
   const result = await runBuild({ ...base(specDir), adapters: { markdown: spy } });
   assert.equal(result.exitCode, 0, result.diagnostics.map((d) => d.message).join("\n"));
-  assert.ok(calls > 0, "verifyQuote was not called");
+  // Seven fragments and one decision have direct provenance. Each binding must reach the
+  // adapter once through the verifier; the source checks consume that stored result.
+  assert.equal(calls, 8, "verifyQuote must run once per direct binding");
 });

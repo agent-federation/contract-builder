@@ -49,7 +49,6 @@ export const validate: ProfileValidator["validate"] = async (
     view: ctx.view as AnalyzedSpec,
     legacyText: ctx.legacyText,
     legacyName: ctx.legacyName,
-    verifyQuote: ctx.verifyQuote,
   };
 
   const findings: ValidatorFinding[] = [];

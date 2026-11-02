@@ -54,6 +54,18 @@
       "message": "Цитата решения \"{{id}}\" не может быть проверена адаптером источника (source_ref \"{{ref}}\")."
     },
     {
+      "code": "ERR_PROVENANCE_NOT_VERIFIED",
+      "variant": "fragment",
+      "severity": "error",
+      "message": "Происхождение фрагмента \"{{id}}\" не проверено: нет результата проверки цитаты и локатора."
+    },
+    {
+      "code": "ERR_PROVENANCE_NOT_VERIFIED",
+      "variant": "decision",
+      "severity": "error",
+      "message": "Происхождение решения \"{{id}}\" не проверено: нет результата проверки цитаты и локатора."
+    },
+    {
       "code": "ERR_OUT_OF_SLICE_CONTENT",
       "variant": "fragment",
       "severity": "error",

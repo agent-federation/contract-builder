@@ -237,6 +237,22 @@ function invalidClaim(claim: ProvenanceVerificationClaim): string | null {
   if (claim.status === "stale" && claim.sourceDigest === null) {
     return "stale требует sourceDigest";
   }
+
+  // A checked status is evidence that a verifier ran and produced an outcome. A record that
+  // says "no verifier" and "not checked" cannot also claim verified/failed/stale.
+  const checked =
+    claim.status === "verified" || claim.status === "failed" || claim.status === "stale";
+  if (checked) {
+    if (!isNonEmptyString(claim.verifier)) {
+      return `${claim.status} требует непустой verifier`;
+    }
+    if (claim.method === "none") {
+      return `${claim.status} требует method, отличный от "none"`;
+    }
+    if (claim.outcome === "not-checked") {
+      return `${claim.status} требует outcome, отличный от "not-checked"`;
+    }
+  }
   return null;
 }
 

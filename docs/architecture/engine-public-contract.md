@@ -489,6 +489,11 @@ not proof that the quote was well chosen and not a statement about normative mea
 downgrades a `verified` or `failed` record that has no source digest, or whose digest differs
 from the loaded source, to `unavailable` or `stale`.
 
+A checked status (`verified`, `failed` or `stale`) must name a verifier, a method other than
+`"none"` and an outcome other than `"not-checked"`; a contradictory claim is
+`core.provenance.verification`, because it would otherwise present "no verifier ran" as evidence.
+`checkedAt` may stay null: a deterministic build has no trusted clock.
+
 **Identity scope.** Global uniqueness across all kinds is a mandatory core invariant. A
 relation may target an id from any input, so one namespace keeps lookups unambiguous; a
 profile that wants per-kind identity encodes the kind in the id (for example
@@ -588,7 +593,11 @@ is resolved; a relation may target an entity from another input.
    `unavailable`/`not-checked`; the core never invents a verifier, method, time or outcome.
    Locator grammar and quote resolution remain adapter/profile-owned in M1 (D25), so the
    profile hook maps `found`, `outside`, `unsupported` and `unknown-locator` to verification
-   statuses; §8.3 of the M1 plan records that boundary.
+   statuses; §8.3 of the M1 plan records that boundary. Profile checks that need the quote or
+   locator outcome read the stored record instead of calling the adapter again, so one evidence
+   claim has one verification result. CORE-001 maps that result to its existing `ERR_SOURCE_*`
+   diagnostics and reports a missing, unavailable or stale result as
+   `ERR_PROVENANCE_NOT_VERIFIED`.
 9. **Unknown relations.** A key inside `relations` that no `RelationDecl` defines is
    `core.relation.unknown`; it is never interpreted or dropped silently. Ordinary fields are
    exempt by construction, because relations cannot live there.

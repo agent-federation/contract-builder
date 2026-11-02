@@ -160,6 +160,32 @@ test("provenance: a claim without a source digest cannot be verified", () => {
   assert.equal(status(model)?.status, "unavailable");
 });
 
+test("provenance: a checked status cannot claim that no verifier ran", () => {
+  const contradictions: Array<Partial<ProvenanceVerificationClaim>> = [
+    { verifier: null },
+    { method: "none" },
+    { outcome: "not-checked" },
+  ];
+
+  for (const overrides of contradictions) {
+    const { model, diagnostics, ok } = apply({ status: "verified", ...overrides });
+    assert.equal(ok, false, JSON.stringify(overrides));
+    assert.ok(
+      diagnostics.sorted().some((item) => item.code === "core.provenance.verification"),
+      JSON.stringify(overrides),
+    );
+    assert.equal(
+      status(model)?.status,
+      "unavailable",
+      `contradictory verified claim must not be stored: ${JSON.stringify(overrides)}`,
+    );
+  }
+
+  const failed = apply({ status: "failed", verifier: null });
+  assert.equal(failed.ok, false);
+  assert.equal(status(failed.model)?.status, "unavailable");
+});
+
 test("provenance: a stale claim whose digest matches the current source is rejected", () => {
   const { model, diagnostics, ok } = apply({ status: "stale", sourceDigest: claim().sourceDigest });
 
