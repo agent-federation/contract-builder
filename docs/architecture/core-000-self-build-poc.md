@@ -501,7 +501,8 @@ These risks are limitations of the proposed experiment, not reasons to weaken th
 ### 10.1 Purpose
 
 S1 is the smallest useful vertical slice that demonstrates one bounded self-build through the
-existing generic pipeline. It is **not** the full CORE-000 model. It tests whether the engine can
+existing generic pipeline. It is **not** the full CORE-000 model. S1 is a separate implementation
+PR after approval; this planning PR does not contain it. It tests whether the engine can
 load, validate, relate, provenance-check, policy-check, render and identify a small CORE-000
 project with no `spec/lib/` change.
 
@@ -519,7 +520,7 @@ re-scoped.
 |---|---|---|
 | `contracts/core000/contract-builder.json` | project input | Manifest: two documents, one source, one render declaration. |
 | `contracts/core000/structure.yml` | project input | Minimal public structure: `COMP-CORE`; `IF-MANIFEST`, `IF-BUILD-IDENTITY`, `IF-PROFILE-VALIDATOR`; `TB-PROFILE-EXEC`; `provides` relations. |
-| `contracts/core000/claims.yml` | project input | Five accepted claims (`C000-TR-001`, `C000-TR-003`, `C000-CT-025`, `C000-CT-026`, `C000-IM-004`), three source statements, eight evidence rows, three accepted engine decisions with the proposed IDs `DEC-35`, `DEC-PR-55` and `DEC-PR-56` (for the merged #35/#50, #37/#55 and #38/#56 decisions respectively), empty `independentVerifications`. |
+| `contracts/core000/claims.yml` | project input | Five accepted claims (`C000-TR-001`, `C000-TR-003`, `C000-CT-025`, `C000-CT-026`, `C000-IM-004`), three source statements (`SRC-TR-001`, `SRC-MANIFEST-001`, `SRC-PROVENANCE-001`), eight evidence rows, three accepted engine decisions with the proposed IDs `DEC-35`, `DEC-PR-55` and `DEC-PR-56` (for the merged #35/#50, #37/#55 and #38/#56 decisions respectively), empty `independentVerifications`. |
 | `contracts/core000/run.ts` | consumer harness | Calls `runBuild` with consent and the CORE-000 renderer; modes draft/release/check; temporary-copy helper; evidence JSON writer. Not a profile input and not part of `inputDigest`. |
 | `contracts/core000/mutations.ts` | test support | Deterministic, named one-field mutations used only on temporary copies; not a project input and not profile code. |
 | `profiles/core000/profile.json` | profile | Eight kinds, eleven relation declarations, two document bindings, provenance mapping, file closure, `nunjucks` 3.2.4 dependency, view/validator/diagnostics. |
