@@ -4,7 +4,8 @@
 **Depends on:** merged `docs/architecture/engine-public-contract.md` (PR #14)
 **Baseline commit:** `2ace388`
 **Document version:** 1.0
-**Implementation status:** not started
+**Implementation status:** not started (pre-M1 record)
+**Current implementation status:** M1 PRs 1–7 implemented and tested as of `f1ddcf7`; see the [implementation-status matrix](implementation-status.md).
 
 > **Authority.** This document does not accept any ADR. It records the decisions the
 > maintainer approved for M1 (section 3), the implementation choices those decisions force
