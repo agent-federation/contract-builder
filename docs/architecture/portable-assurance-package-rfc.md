@@ -3036,6 +3036,13 @@ check id with its exact outcome token; all coverage counters and the `full` flag
 code; and no colour, absolute path or `verified` result. Text layout beyond those lines is not
 compared across implementations (§13.6). Every case runs twice to assert §9.9 determinism.
 
+**Report-shape assertions (normative).** Every `verify` report MUST validate against Appendix C,
+including the `humanReview.basis` conditional. A report with `humanReview.status: "PASS"` and no
+`basis`, or with a `basis` other than `"unbound-claim"`, is schema-invalid and MUST NOT be emitted.
+F55 asserts the valid shape (`PASS` + `"unbound-claim"`); the harness also validates a negative
+form of F55's report with `basis` removed and requires validation to fail. This is a schema
+assertion over emitted or candidate reports, not a CLI exit-code case.
+
 ### 12.4 Test matrix
 
 Legend: `DI` = `pap.check.digest-integrity/1`, `SQ` = `pap.check.source-quote/1`,
@@ -4364,6 +4371,43 @@ A policy with `signature.mode: "required"` must supply at least one key and one 
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "required": ["dimensions"],
+        "properties": {
+          "dimensions": {
+            "type": "object",
+            "required": ["humanReview"],
+            "properties": {
+              "humanReview": {
+                "type": "object",
+                "required": ["status"],
+                "properties": { "status": { "const": "PASS" } }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "required": ["dimensions"],
+        "properties": {
+          "dimensions": {
+            "type": "object",
+            "required": ["humanReview"],
+            "properties": {
+              "humanReview": {
+                "type": "object",
+                "required": ["basis"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "checkId": { "type": "string", "pattern": "^pap\\.check\\.[a-z0-9-]+/[0-9]+$" },
@@ -4383,8 +4427,11 @@ A policy with `signature.mode: "required"` must supply at least one key and one 
 The report schema references `urn:pap:0.1:check-record` (Appendix D.5). `durationMs` and
 absolute paths are permitted in the report but excluded from the verification-record identity
 (§5.9). `effectiveLimits` is present only when the operator lowered a limit and is part of the
-identity form when present, because it changes what was evaluated. Consumers MUST use `verdict`
-and `dimensions`, never an exit code alone.
+identity form when present, because it changes what was evaluated. The `allOf` conditional makes
+`dimensions.humanReview.basis` required exactly when `dimensions.humanReview.status` is `PASS`,
+and its `const` makes the only accepted value `"unbound-claim"`; a report with `PASS` and no
+`basis`, or with another value, is schema-invalid and MUST never be emitted. Consumers MUST use
+`verdict` and `dimensions`, never an exit code alone.
 
 ---
 
