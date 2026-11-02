@@ -30,8 +30,8 @@ D14, P-2, P-3 and P-6 remain open after the S1 deferrals.
 
 | Part | Content |
 |---|---|
-| **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes in the same workspace (not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 28 relations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
-| **Recommendations** | Approve a staged S2: **S2.1 model surface**, **S2.2 full claim register**, **S2.3 focused check coverage and S2 evidence**. The full N1–N18 matrix stays in S3 unless the maintainer decides otherwise (S2-D4). Decide **D14 = A**, **P-2 = A**, **P-3 = A**, **P-6 = A**. Resolve the check-count discrepancy by treating the **24 enumerated codes as authoritative** (S2-D1 A) and correct the prose count. Encode all **78** accepted claims without inventing claims (S2-D2 A). Model `conformance_case` with an empty data list and leave the full N1–N18 matrix to the S3 harness (S2-D3 A/S2-D4 A). |
+| **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes, each creating its own fresh workspace (same-environment, fresh-workspace repeatability; not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 28 relations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
+| **Recommendations** | Approve a staged S2: **S2.1 model surface**, **S2.2 full claim register**, **S2.3 focused check coverage and S2 evidence**. The full N1–N18 matrix stays in S3 unless the maintainer decides otherwise (S2-D4). Decide **D14 = A**, **P-2 = A**, **P-3 = A**, and **P-6 = A for run evidence only; zero independent records in S2**. Resolve the check-count discrepancy by treating the **24 enumerated codes as authoritative** (S2-D1 A) and correct the prose count. Encode all **78** accepted claims without inventing claims (S2-D2 A). Model `conformance_case` with an empty data list and leave the full N1–N18 matrix to the S3 harness (S2-D3 A/S2-D4 A). |
 | **Open decisions** | D14, P-2, P-3, P-6 and S2-D1–S2-D4 are open. No S2 implementation is authorized. H2 and H3 are not in S2 scope. |
 | **Requested approvals** | (1) Decide D14, P-2, P-3, P-6 and S2-D1–S2-D4. (2) Approve the staged S2 scope and file boundaries. (3) Authorize S2.1 only after this package is approved and merged, with a dedicated implementation task referencing it. (4) Confirm that S2 does not claim H2, H3, security isolation or semantic truth. |
 
@@ -48,7 +48,7 @@ not the full model and does not establish reproducibility or independence.
 |---|---|
 | Merge commit | `07cbf5bd6cbed740e55351612d0300196b8d1464` (PR #77) |
 | H1 | `SELF_BUILD_COMPLETED` for the five-claim slice |
-| Same-environment repeat | S1-POS-02 passed in two processes in the same workspace; this is **not H2** |
+| Same-environment, fresh-workspace repeat | S1-POS-02 passed for two processes, each creating its own fresh workspace; this is **not H2** |
 | H2 | `NOT_TESTED` |
 | H3 | `NOT_PERFORMED`; no CORE-000 claim is independently verified |
 | Security boundary | Temporary workspace only; it is **not** a sandbox |
@@ -108,7 +108,7 @@ S2 positive runs extend **H1 only**. They do not become H2 or H3.
 | Run class | Label | Meaning |
 |---|---|---|
 | `S2-POS-01` | `SELF_BUILD_COMPLETED` | Full-model draft built, with the expected review codes |
-| `S2-POS-02` | same-environment repeat | Same `inputDigest`, artifact hash and diagnostic order in two processes; **not H2** |
+| `S2-POS-02` | same-environment, fresh-workspace repeat | Same `inputDigest`, artifact hash and diagnostic order in two processes, each with its own fresh workspace; **not H2** |
 | `S2-POS-03` | release blocked | Exit 1, `blockedBy: "review"`, no release artifact |
 | S2 focused negatives | expected failure observed | Exact expected code, exit 1, no artifact; subset of N1–N18, full matrix remains S3 |
 | H2 | `NOT_TESTED` | No fresh-environment comparison |
@@ -128,7 +128,7 @@ maintainer decision is not recorded here.
 | D14 | How is the consent surface represented in the full model? | A: add interface entities for `allowExecutableProfile` and the CLI flag, a diagnostic entity for `core.profile.consent-required`, and keep `TB-PROFILE-EXEC` settled/`explicit_consent`; B: trust-boundary prose only; C: separate profile class; `defer` | **A**: the consent API/CLI/diagnostic are public surfaces already referenced by accepted claims | Review of the proposed interface/diagnostic rows; a check that no new consent policy is invented; confirmation that no sandbox/isolation is claimed |
 | P-2 | Where is evidence durably published and what summary format accompanies it? | A: durable `evidence/core000/<run>/result.json` plus a human summary; B: Markdown summary only; `defer` | **A** for the full model, while S2 still writes/asserts the transient record in every case | Sample durable record/summary; no absolute paths or secrets; reviewable by run |
 | P-3 | Is the generated full-model draft committed? | A: commit `contracts/core000/output/CORE-000.draft.md` after a reviewed run; B: keep it in temporary evidence; `defer` | **A**, following the repository artifact rule and making the full artifact reviewable | Successful full-model run; `bun run check`; exact normalized artifact |
-| P-6 | Are run evidence and future independent records committed? | A: commit `evidence/core000/` and external `verification/core000/` records; B: external only; `defer` | **A** for run evidence; independent records remain external and empty for S2 | No-secrets review; evidence paths; confirmation that no engine-generated record is presented as independent |
+| P-6 | Are run evidence and future independent records committed? | A: commit run evidence under `evidence/core000/`; S2 creates **zero** independent-verification records, so none are committed under `verification/core000/`. Future externally produced independent records go there only when a distinct verifier produces them and a later maintainer decision accepts them; no engine-generated record counts as independent. B: external only; `defer` | **A for run evidence; zero independent records in S2** | No-secrets review; evidence paths; a statement that no engine-generated record is presented as independent |
 | S2-D1 | Is the full check set 23 or 24? | A: the 24 enumerated codes are authoritative, implement all 24 and correct the prose count; B: implement 23 and name the excluded code; C: defer the decision | **A**: the enumerated table is the operative list; the prose count is stale | The design check table (24 rows), the S1 catalog (13), the missing list (11), and a docs correction |
 | S2-D2 | Which claim register is encoded? | A: all 78 accepted claims from design §4.2, no new claims; B: a subset; C: regenerate the register | **A**; a subset would not be the full model | A scripted register audit: 78 IDs, no invented IDs, no status upgrades without evidence |
 | S2-D3 | Is `conformance_case` modelled with data in S2? | A: include the kind/schema and keep `conformanceCases: []`; N1–N18 stay in the S3 harness matrix; B: populate planned project cases; C: defer the kind | **A**: the accepted plan says project conformance execution is deferred; N1–N18 are run-matrix cases, not project cases | Schema review; empty list; S3 matrix mapping; no conformance execution claim |
@@ -327,10 +327,25 @@ acceptance remains S3.
 | ID | Command | Expected result |
 |---|---|---|
 | S2-POS-01 | `bun contracts/core000/run.ts --mode draft --write false --run S2-POS-01` | exit 0; `blockedBy: null`; identity non-null; markdown non-null; `written: false`; the expected review-code set from the full register (design predicts `core000.independent-verification.missing` and `core000.decision.unresolved`; actual count recorded); no unexpected error. |
-| S2-POS-02 | same command in a second process | same `inputDigest`, artifact SHA-256 and diagnostic code/order as S2-POS-01; **same-environment only, not H2**. |
+| S2-POS-02 | `bun contracts/core000/run.ts --mode draft --write false --run S2-POS-02a --evidence <temp>/02a.json` and the same for `02b`; no `--spec-dir`, so each process calls `prepareWorkspace()` | same `inputDigest`, artifact SHA-256 and diagnostic code/order as S2-POS-01; **same-environment, fresh-workspace repeatability, not H2**. |
 | S2-POS-03 | `bun contracts/core000/run.ts --mode release --write false --run S2-POS-03` | exit 1; `blockedBy: "review"`; no release artifact. |
-| S2-POS-04 | `bun contracts/core000/run.ts --mode draft --write true --spec-dir <temp>` then `bun contracts/core000/run.ts --mode draft --check true --spec-dir <temp>` | no `ERR_OUTPUT_STALE`; artifact bytes match the temp copy. |
-| S2-POS-05 | `bun contracts/core000/run.ts --mode draft --write false --mutation claim --spec-dir <temp>` | `inputDigest` and artifact hash change versus S2-POS-01; no crash. |
+| S2-POS-04 | harness API: `prepareWorkspace()`, then `runHarness({ mode: "draft", write: true, specDir: ws.projectDir, workspaceRoot: ws.root, run: "S2-POS-04a" })` and `runHarness({ mode: "draft", check: true, specDir: ws.projectDir, workspaceRoot: ws.root, run: "S2-POS-04b" })` | no `ERR_OUTPUT_STALE`; artifact bytes match; `workspace.writeCheck: "only_declared_outputs"`; test calls `ws.cleanup()`. |
+| S2-POS-05 | harness API: `runHarness({ mode: "draft", mutation: "claim", run: "S2-POS-05" })` after a baseline `runHarness({ mode: "draft", run: "S2-POS-05-baseline" })` | `inputDigest` and artifact hash change versus the baseline; `workspace.writeCheck: "only_declared_outputs"`; `workspace.cleanup: "completed"`; no crash. |
+
+#### 6.2.1 Harness-API checks and workspace boundary
+
+S2-POS-04 and S2-POS-05 are **test-harness checks**, not bare `--spec-dir` CLI invocations.
+`prepareWorkspace()` creates the required temporary layout: `contracts/core000/` with the three
+project files, `profiles/core000/` with its profile files and engine imports rewritten to the
+repository engine, and `docs/architecture/engine-public-contract.md`. `runHarness()` then calls the
+public `runBuild` path.
+
+For S2-POS-04 the test passes `specDir: ws.projectDir` **and** `workspaceRoot: ws.root` to both the
+write and check invocations, so each call snapshots and compares the whole workspace; it asserts
+`workspace.writeCheck === "only_declared_outputs"` and calls `ws.cleanup()` at the end. A bare
+`--spec-dir` CLI call would not provide that `workspaceRoot` scan and is not the S2 check. For
+S2-POS-05, `runHarness()` creates and owns the fresh workspace, so its evidence carries both
+`workspace.writeCheck` and `workspace.cleanup`; the test asserts both.
 
 The full-model positive run may emit `core000.surface.claim-missing` or `core000.evidence.orphan`
 **warnings** if the encoded data leaves a public surface or evidence row unused. Tests assert the
@@ -369,6 +384,8 @@ gate. S2 does not silently absorb it.
   execution plan §6.2 base shape plus the S1/S2 additions.
 - If P-2/P-6 A: durable `evidence/core000/<run>/result.json` and
   `docs/architecture/core-000-execution-evidence.md`; no absolute paths, secrets or private material.
+  S2 creates **zero** independent-verification records; no engine-generated record counts as
+  independent, and `verification/core000/` is not populated in S2.
 - If P-3 A: commit `contracts/core000/output/CORE-000.draft.md` after a reviewed successful run;
   `bun run check` must pass.
 - If P-2/P-3/P-6 are deferred: no durable evidence or draft is committed; the transient record is

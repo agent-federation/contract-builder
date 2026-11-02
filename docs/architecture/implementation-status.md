@@ -265,9 +265,9 @@ positive and negative mutations exercise only the cases named in PR #77. The imp
 records a transient run-evidence object.
 
 **What S1 does not establish.** The complete 78-claim / 14-kind / 28-relation / 23-policy-check
-model is not implemented. Same-environment repeatability (two processes in one workspace) was
-tested, but H2 cross-environment reproducibility was explicitly recorded as
-`NOT_TESTED`. H3 independent verification was recorded as `NOT_PERFORMED`. No claim is
+model is not implemented. Same-environment, fresh-workspace repeatability (two processes, each
+creating its own fresh workspace) was tested, but H2 cross-environment reproducibility was
+explicitly recorded as `NOT_TESTED`. H3 independent verification was recorded as `NOT_PERFORMED`. No claim is
 `independently_verified`; the review status above applies to selected implementation behaviors,
 not the truth or completeness of CORE-000 claims. The temporary workspace is not a security
 sandbox. D14, P-2, P-3 and P-6 remain deferred for S1.

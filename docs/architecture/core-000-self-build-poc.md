@@ -328,7 +328,9 @@ and recorded install source, fresh `HOME`, fresh output directory, same Bun/OS/a
 environment. Neither environment inherits the other's workspace, `node_modules`, cache or output.
 
 A same-process repeat is not H2 evidence; it only checks accidental mutable state. A second
-process in the same workspace is S1-POS-02 evidence, not a fresh-environment repeat.
+process that creates its own fresh workspace is S1-POS-02 evidence: same checkout/environment
+configuration, fresh workspace per invocation. It is not a same-workspace repeat and does not
+establish H2 (a second environment).
 
 ### 5.2 Required comparisons
 
@@ -656,8 +658,9 @@ call a private pipeline. The accepted plan calls these positive checks P1–P5; 
 - **S1-POS-01:** exit 0, `blockedBy: null`, identity non-null, markdown non-null, written false; diagnostic
   code set equals `{core000.independent-verification.missing}`; the review count equals the number
   of active claims with `authority: external` or `human`.
-- **S1-POS-02:** two separate processes return the same `inputDigest`, artifact SHA-256 and diagnostic
-  code/order.
+- **S1-POS-02:** two separate processes, each with its own fresh workspace, return the same
+  `inputDigest`, artifact SHA-256 and diagnostic code/order; this is same-environment,
+  fresh-workspace repeatability, not H2.
 - **S1-POS-03:** release exits 1 with `blockedBy: "review"` and writes no release artifact.
 - **S1-POS-04:** a written draft in a temp copy passes `check` (no `ERR_OUTPUT_STALE`).
 - **S1-POS-05:** a one-claim mutation changes `inputDigest` and the artifact hash.
