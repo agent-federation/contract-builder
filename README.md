@@ -176,3 +176,5 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 План первого этапа реализации (M1): [docs/architecture/m1-implementation-plan.md](docs/architecture/m1-implementation-plan.md).
 
 Детерминированная идентичность сборки: [docs/architecture/build-identity.md](docs/architecture/build-identity.md).
+
+Статус реализации архитектуры и публичного контракта (снимок на `f1ddcf7`, 2026-11-02): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
