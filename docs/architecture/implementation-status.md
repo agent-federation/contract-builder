@@ -211,9 +211,36 @@ carries it.
 | X1 | Package split into core / CLI / renderer / adapter / profile packages | `proposed` | `—` | `—` | `—` | D14 `proposed` (future target, contract [§18](engine-public-contract.md)); [package.json](../../package.json) stays one private package with no `exports` |
 | X2 | Publication and distribution scope | `proposed` | `—` | `—` | `—` | D20 unresolved (blocked by #10, contract [§18](engine-public-contract.md)); D29 unresolved with a local-directory default; M5 |
 | X3 | Full self-hosting: the complete engine contract represented and maintained through the public model | `deferred` | `—` | `—` | `—` | D26 `deferred`, M5 (plan [§17](m1-implementation-plan.md); contract [§14](engine-public-contract.md)); bounded S1 is tracked separately in X3a and does not close this row |
-| X3a | Bounded CORE-000 S1 self-build: a five-claim project is loaded, validated, related, provenance-checked, policy-checked, rendered and identified through the existing generic pipeline; draft succeeds and release is blocked by the expected review findings | `accepted` | `implemented` | `tested` | `independently_verified` | Maintainer authorization: [#72 approval](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746), canonical decision [#75](https://github.com/agent-federation/contract-builder/pull/75), implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76); code [contracts/core000/run.ts](../../contracts/core000/run.ts), [profiles/core000/](../../profiles/core000/); tests [core000.test.ts](../../tests/core000.test.ts), `bun test`; merged [PR #77](https://github.com/agent-federation/contract-builder/pull/77), [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507). The maintainer's [review](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) explicitly inspected the copied workspace/no-symlink boundary, whole-workspace write detection, regression test and scope. This is independent review of those bounded implementation behaviors only—not independent verification H3, semantic correctness or claim truth. H2 is `NOT_TESTED`; H3 is `NOT_PERFORMED` (PR evidence record). |
+| X3a | Bounded CORE-000 S1 self-build: a five-claim project is loaded, validated, related, provenance-checked, policy-checked, rendered and identified through the existing generic pipeline; draft succeeds and release is blocked by the expected review findings | `accepted` | `implemented` | `tested` | `—` | Maintainer authorization: [#72 approval](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746), canonical decision [#75](https://github.com/agent-federation/contract-builder/pull/75), implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76); code [contracts/core000/run.ts](../../contracts/core000/run.ts), [profiles/core000/](../../profiles/core000/); tests [core000.test.ts](../../tests/core000.test.ts), `bun test`; merged [PR #77](https://github.com/agent-federation/contract-builder/pull/77), [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507). H2 is `NOT_TESTED`; H3 is `NOT_PERFORMED` (PR evidence record). |
+| X3b | S1 ephemeral workspace copy and undeclared-write detection: profile/source inputs are copied rather than symlinked into the checkout; workspace snapshot detects undeclared writes | `accepted` | `implemented` | `tested` | `independently_verified` | S1 boundary approved in [#72](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); implementation [contracts/core000/run.ts](../../contracts/core000/run.ts); regression assertions [tests/core000.test.ts](../../tests/core000.test.ts); [maintainer review #5739321136](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) explicitly inspected the real copies, no-symlink condition, whole-workspace write detection and regression test. This is review of those implementation behaviors only; it is not H3, sandboxing or a second verifier implementation. |
 | X4 | Declared runtime matrix (Node 20+ library, Bun development/CI) | `proposed` | `—` | `—` | `—` | D19 `proposed` (contract [§18](engine-public-contract.md)); CI runs Bun only ([ci.yml](../../.github/workflows/ci.yml)) |
 | X5 | Remaining M2–M5 milestones (public API, three-axis diagnostics, code namespacing, rule primitives, multi-source, review dimensions, provenance hardening, packaging, self-hosting) | `deferred` | `—` | `—` | `—` | Plan [§17](m1-implementation-plan.md) "Deferred capabilities"; each has its own row above where material |
+
+---
+
+## 4. M1 delivery reconciliation (PRs #17–#46, Issue #33)
+
+The M1 sequence below is the approved plan ([#16](https://github.com/agent-federation/contract-builder/pull/16)
+§13). Each row records the merged commit, what the code actually delivered, and the limit of what
+it proves. Merged is not the same as verified: see [§7](#7-verification-evidence-audit).
+
+| Item | Merged as | Delivered at this commit | What it proves | What it does not prove |
+|---|---|---|---|---|
+| #17 golden baseline | `7c0a4ba` | Three recorded snapshots under [tests/golden/](../../tests/golden) (artifact SHA-256, rendered diagnostics, emission order) and `Diagnostics.emissionOrder()`; [golden.test.ts](../../tests/golden.test.ts) | The artifact and the rendered diagnostic report are pinned by executable snapshots | That the pinned content is normatively correct, or that checks are independently verified |
+| #20 manifest / project boundary | `02f6e99` | `contract-builder.json`, declared inputs, profile pinning, root containment and `external: true`; [manifest.ts](../../spec/lib/manifest.ts) | CORE-001 is represented as a project with a manifest and a profile | That a non-CORE-001 project works (only CORE-001 does at this point) |
+| #24 generic IR, relations, provenance | `6c35e4d` | `Entity`/`ProjectModel`, pointer extraction, relation declarations/resolution/inverse, provenance bindings, data migration into `relations`; [ir.ts](../../spec/lib/ir.ts), [relations.ts](../../spec/lib/relations.ts), [provenance.ts](../../spec/lib/provenance.ts) | The core mechanism is profile-driven for CORE-001 and has no CORE-001 kind names; `vectors` reproduces the case order | That kinds/relations generalize beyond CORE-001's shape; that quote verification is core-owned |
+| #29 policy into the profile hook | `2186bcb` | `profiles/core001/validator.ts` + eight check modules, catalog resolution, `core.profile.unknown-code`; `spec/lib/semantic.ts` deleted | CORE-001 policy runs behind the profile hook, and the core keeps only generic invariants | That the hook is necessary or minimal; that primitives would not suffice (that is M3 evidence) |
+| #34 renderer boundary | `7463ed8` | Renderer registry, `TemplateSet` preload, artifact normalization, profile-owned renderer/labels/template, `core.registry.missing`; [render.ts](../../spec/lib/render.ts) | Markdown is not a core invariant; the profile supplies the renderer | That a second real output format works (only the synthetic example renderer does) |
+| #42 build identity | `e8c917f` | `inputDigest`, `profileDigest`, extension closures, lockfile authority, import scan, `core.extension.unpinned-dependency`; [identity.ts](../../spec/lib/identity.ts), [build-identity.md](build-identity.md) | The identity is deterministic over declared inputs and changes when a declared file or pin changes; it is not rendered | That the closure is provably complete (the scan is a guard), or that trusted extensions are deterministic |
+| #46 PR 7 / Issue #33 | `f1ddcf7`; issue closed 2026-11-02T00:38:44Z | `profiles/example` (kinds `requirement`/`example`, one relation and its inverse, own schemas/hook/renderer) and `tests/fixtures/example-project*`; [example-profile.test.ts](../../tests/example-profile.test.ts) | One deliberately non-CORE-001 synthetic profile builds through the same entry points, and the generic core needed no change (`spec/lib/` untouched by the PR) | That a real second profile works, that the primitive set is sufficient, or that the public contract is implemented. A synthetic profile is weak genericity evidence (plan [§2](m1-implementation-plan.md), [§16](m1-implementation-plan.md)) |
+| Issue #33 acceptance | closed by the maintainer at 2026-11-02T00:38:44Z | The acceptance criteria are marked complete in the issue; no further evidence artifact | That the maintainer accepted PR 7's evidence for the stated criteria | Separate independent verification of each criterion beyond that closure (see [§7](#7-verification-evidence-audit)) |
+
+**Baseline before M1.** The plan records 16 tests, a 298-line artifact with SHA-256
+`a29ce609269a8ad9185ed50576d4e6276b586f740d2ea8b4ef7f06f6c05988df`, and 15 diagnostics
+(0 error, 5 review-required, 10 warning) at `2ace388`
+(plan [§1](m1-implementation-plan.md)). At `f1ddcf7` the artifact is still 298 lines with the
+same SHA-256 (verified locally, [§10](#10-audit-method-and-recorded-evidence)), so the M1
+sequence did not change CORE-001 normative content or the generated bytes.
 
 ---
 
@@ -248,32 +275,6 @@ sandbox. D14, P-2, P-3 and P-6 remain deferred for S1.
 **Next milestone.** S2 — structure and full model — is the next proposed milestone: complete the
 full model before the later S3 negative/provenance matrix and S4 H2/H3 work. S2 is not authorized
 by this status update; it requires its own bounded implementation task and maintainer approval.
-
----
-
-## 4. M1 delivery reconciliation (PRs #17–#46, Issue #33)
-
-The M1 sequence below is the approved plan ([#16](https://github.com/agent-federation/contract-builder/pull/16)
-§13). Each row records the merged commit, what the code actually delivered, and the limit of what
-it proves. Merged is not the same as verified: see [§7](#7-verification-evidence-audit).
-
-| Item | Merged as | Delivered at this commit | What it proves | What it does not prove |
-|---|---|---|---|---|
-| #17 golden baseline | `7c0a4ba` | Three recorded snapshots under [tests/golden/](../../tests/golden) (artifact SHA-256, rendered diagnostics, emission order) and `Diagnostics.emissionOrder()`; [golden.test.ts](../../tests/golden.test.ts) | The artifact and the rendered diagnostic report are pinned by executable snapshots | That the pinned content is normatively correct, or that checks are independently verified |
-| #20 manifest / project boundary | `02f6e99` | `contract-builder.json`, declared inputs, profile pinning, root containment and `external: true`; [manifest.ts](../../spec/lib/manifest.ts) | CORE-001 is represented as a project with a manifest and a profile | That a non-CORE-001 project works (only CORE-001 does at this point) |
-| #24 generic IR, relations, provenance | `6c35e4d` | `Entity`/`ProjectModel`, pointer extraction, relation declarations/resolution/inverse, provenance bindings, data migration into `relations`; [ir.ts](../../spec/lib/ir.ts), [relations.ts](../../spec/lib/relations.ts), [provenance.ts](../../spec/lib/provenance.ts) | The core mechanism is profile-driven for CORE-001 and has no CORE-001 kind names; `vectors` reproduces the case order | That kinds/relations generalize beyond CORE-001's shape; that quote verification is core-owned |
-| #29 policy into the profile hook | `2186bcb` | `profiles/core001/validator.ts` + eight check modules, catalog resolution, `core.profile.unknown-code`; `spec/lib/semantic.ts` deleted | CORE-001 policy runs behind the profile hook, and the core keeps only generic invariants | That the hook is necessary or minimal; that primitives would not suffice (that is M3 evidence) |
-| #34 renderer boundary | `7463ed8` | Renderer registry, `TemplateSet` preload, artifact normalization, profile-owned renderer/labels/template, `core.registry.missing`; [render.ts](../../spec/lib/render.ts) | Markdown is not a core invariant; the profile supplies the renderer | That a second real output format works (only the synthetic example renderer does) |
-| #42 build identity | `e8c917f` | `inputDigest`, `profileDigest`, extension closures, lockfile authority, import scan, `core.extension.unpinned-dependency`; [identity.ts](../../spec/lib/identity.ts), [build-identity.md](build-identity.md) | The identity is deterministic over declared inputs and changes when a declared file or pin changes; it is not rendered | That the closure is provably complete (the scan is a guard), or that trusted extensions are deterministic |
-| #46 PR 7 / Issue #33 | `f1ddcf7`; issue closed 2026-11-02T00:38:44Z | `profiles/example` (kinds `requirement`/`example`, one relation and its inverse, own schemas/hook/renderer) and `tests/fixtures/example-project*`; [example-profile.test.ts](../../tests/example-profile.test.ts) | One deliberately non-CORE-001 synthetic profile builds through the same entry points, and the generic core needed no change (`spec/lib/` untouched by the PR) | That a real second profile works, that the primitive set is sufficient, or that the public contract is implemented. A synthetic profile is weak genericity evidence (plan [§2](m1-implementation-plan.md), [§16](m1-implementation-plan.md)) |
-| Issue #33 acceptance | closed by the maintainer at 2026-11-02T00:38:44Z | The acceptance criteria are marked complete in the issue; no further evidence artifact | That the maintainer accepted PR 7's evidence for the stated criteria | Separate independent verification of each criterion beyond that closure (see [§7](#7-verification-evidence-audit)) |
-
-**Baseline before M1.** The plan records 16 tests, a 298-line artifact with SHA-256
-`a29ce609269a8ad9185ed50576d4e6276b586f740d2ea8b4ef7f06f6c05988df`, and 15 diagnostics
-(0 error, 5 review-required, 10 warning) at `2ace388`
-(plan [§1](m1-implementation-plan.md)). At `f1ddcf7` the artifact is still 298 lines with the
-same SHA-256 (verified locally, [§10](#10-audit-method-and-recorded-evidence)), so the M1
-sequence did not change CORE-001 normative content or the generated bytes.
 
 ---
 
