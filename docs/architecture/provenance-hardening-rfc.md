@@ -596,6 +596,7 @@ and add:
 | `docs/architecture/engine-public-contract.md` §3.1 | `SourceDecl.identity` documents the optional `sha256` field and its raw-byte semantics. |
 | same §5.2 step 7 | add digest verification before provenance binding; add `unknown-block`; state that in M1 the profile hook maps adapter outcomes (`m1-plan §8.3`) and core-side mapping remains D25/M2. |
 | same §7 diagnostic contract | `core.provenance.*` are engine diagnostics emitted outside the profile catalog; reconcile the "every code is in the profile catalog" wording (Appendix C). |
+| same §7 / D9 blocking policy | the M1 release gate for `core.provenance.digest-missing` is an interim hardcoded rule; the M2 per-mode blocking policy (D9) must absorb it and remove the special case. |
 | same §11 | `LocatorResult` union gains `unknown-block`; add one sentence that the digest is core-owned because it is format-agnostic, and that the M1 hook — not the core — maps outcomes to codes. |
 | same §17/§18 | add decision register entries for the paragraph locator model, the source digest and the deferred line span. |
 | `docs/architecture/m1-implementation-plan.md` §8.3 | note that the M1 hook now also maps `unknown-block`; record the digest check as core, not hook. |
@@ -716,8 +717,9 @@ atomic only after the second PR.
   scan the whole section span, so a locator that addressed a table or list inside a nested
   subsection would now be `unknown-block`. No current project data does this; the stronger
   semantics are what make the parent section's paragraph numbering unambiguous.
-- The manifest survives without `identity.sha256`; only the verification guarantee changes and
-  is reported by a warning when provenance is mapped.
+- The manifest survives without `identity.sha256`: format compatibility is preserved. The
+  guarantee changes per mode — a visible warning in draft, a release blocker when provenance is
+  mapped (§4.5) — so release assurance never silently ships an unpinned source.
 - Existing refs keep working. The only semantic tightening is that a `table/<key>` quote must
   now be in a value cell, and out-of-range selectors return `unknown-block` instead of `outside`.
 - An external project that relied on `#<section>` to accept a subsection quote keeps that
