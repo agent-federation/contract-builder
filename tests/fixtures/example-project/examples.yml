@@ -1,0 +1,13 @@
+examples:
+  - id: EX-IDEMPOTENT-1
+    title: Duplicate submit creates one order
+    given: The same request key is submitted twice
+    expect: One order exists for that key
+    relations:
+      requirement: REQ-IDEMPOTENT
+  - id: EX-ORDER-ID-1
+    title: Accepted order exposes its identifier
+    given: An order is accepted
+    expect: The response includes the order identifier
+    relations:
+      requirement: REQ-ORDER-ID

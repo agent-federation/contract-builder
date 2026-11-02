@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/requirements.schema.json",
+  "title": "Example project requirements document",
+  "type": "object",
+  "required": [
+    "requirements"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://example.local/schemas/requirement.schema.json#/$defs/base"
+      }
+    }
+  }
+}

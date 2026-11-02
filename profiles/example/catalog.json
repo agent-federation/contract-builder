@@ -1,0 +1,9 @@
+{
+  "codes": [
+    {
+      "code": "example.coverage.missing-example",
+      "severity": "error",
+      "message": "Requirement \"{{id}}\" is not covered by any example."
+    }
+  ]
+}

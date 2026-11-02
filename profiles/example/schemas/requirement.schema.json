@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/requirement.schema.json",
+  "title": "Entity: requirement",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "level",
+        "statement"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REQ-[A-Z0-9-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "enum": [
+            "MUST",
+            "SHOULD",
+            "MAY"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/base"
+    }
+  ]
+}

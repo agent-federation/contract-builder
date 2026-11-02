@@ -1,0 +1,55 @@
+{
+  "id": "example",
+  "version": "0.1.0",
+  "entityKinds": {
+    "requirement": {
+      "schema": "example:requirement",
+      "identity": "id"
+    },
+    "example": {
+      "schema": "example:example",
+      "identity": "id"
+    }
+  },
+  "schemas": {
+    "example:requirements": "schemas/requirements.schema.json",
+    "example:examples": "schemas/examples.schema.json",
+    "example:requirement": "schemas/requirement.schema.json",
+    "example:example": "schemas/example.schema.json"
+  },
+  "documents": [
+    {
+      "key": "requirements",
+      "input": "requirements.yml"
+    },
+    {
+      "key": "examples",
+      "input": "examples.yml"
+    }
+  ],
+  "relations": [
+    {
+      "name": "requirement",
+      "from": "example",
+      "to": "requirement",
+      "cardinality": "one",
+      "inverse": "examples"
+    }
+  ],
+  "files": [
+    "profile.json",
+    "catalog.json",
+    "view.ts",
+    "validator.ts",
+    "renderer.ts",
+    "templates/example.md.j2",
+    "schemas/requirements.schema.json",
+    "schemas/examples.schema.json",
+    "schemas/requirement.schema.json",
+    "schemas/example.schema.json"
+  ],
+  "dependencies": {},
+  "view": "view.ts",
+  "validator": "validator.ts",
+  "diagnostics": "catalog.json"
+}
