@@ -4,7 +4,7 @@
 
 Демонстрационный срез — реальный фрагмент `CORE-001.legacy.md` §10.1–10.2 (Temporal Reference Model). Предметная логика CORE-001 не реализуется: прототип проверяет архитектуру и гарантии сборки на настоящем нормативном материале.
 
-Правила для контрибьюторов и агентов: [AGENTS.md](AGENTS.md). Краткий гайд для внешних контрибьюторов: [CONTRIBUTING.md](CONTRIBUTING.md). [Code of Conduct](CODE_OF_CONDUCT.md).
+Правила для контрибьюторов и агентов: [AGENTS.md](AGENTS.md). Краткий гайд для внешних контрибьюторов: [CONTRIBUTING.md](CONTRIBUTING.md). Кодекс поведения: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Быстрый старт
 
