@@ -34,9 +34,9 @@ D14, P-2, P-3, P-6 and S2-D1–S2-D4 were accepted on 2026-11-03 for planning sc
 | Part | Content |
 |---|---|
 | **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes, each creating its own fresh workspace (same-environment, fresh-workspace repeatability; not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 28 relations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
-| **Recommendations** | Approve the **planning package** for a staged S2: **S2.1 model surface**, **S2.2 full claim register**, **S2.3 focused check coverage and S2 evidence**. The full N1–N18 matrix stays in S3 unless the maintainer decides otherwise (S2-D4). Decide **D14 = A**, **P-2 = A**, **P-3 = A**, and **P-6 = A for run evidence only; zero independent records in S2**. Resolve the check-count discrepancy by treating the **24 enumerated codes as authoritative** (S2-D1 A) and correct the prose count. Encode all **78** accepted claims without inventing claims (S2-D2 A). Model `conformance_case` with an empty data list and leave the full N1–N18 matrix to the S3 harness (S2-D3 A/S2-D4 A). |
+| **Accepted planning decisions** | Stage S2 as **S2.1 model surface**, **S2.2 full claim register**, and **S2.3 focused check coverage/evidence**. The full N1–N18 matrix remains in S3 (S2-D4 A). D14/P-2/P-3 are A; P-6 is A for producer run evidence only, with zero independent records in S2. S2-D1 selects all **24 enumerated codes**; S2-D2 selects all **78 accepted claims** with original statuses; S2-D3 selects the `conformance_case` kind/schema with an empty data list. |
 | **Decision status** | D14, P-2, P-3, P-6 and S2-D1–S2-D4 are accepted for planning scope by the 2026-11-03 maintainer decision. No S2 implementation is authorized. H2 and H3 are not in S2 scope. |
-| **Requested approvals** | (1) Decide D14, P-2, P-3, P-6 and S2-D1–S2-D4. (2) Approve the planning package and staged scope/file boundaries. (3) Issue a separate explicit S2.1 authorization after review of the decisions and exact S2.1 scope; package approval/merge and creating or linking an implementation task are **not** authorization. (4) Treat S2.2 and S2.3 as separately gated, each requiring its own explicit authorization. (5) Confirm that S2 does not claim H2, H3, security isolation or semantic truth. |
+| **Remaining maintainer actions** | The planning package and eight decisions are accepted. Before S2.1, issue a separate explicit authorization after review of its exact scope. S2.2 and S2.3 each require their own separate explicit authorization; approval of S2.1 does not authorize them. Creating/linking an implementation task is not authorization. H2, H3, security isolation and semantic truth remain out of scope. |
 
 ---
 
@@ -74,9 +74,11 @@ The counts below come from the accepted design and the S1 profile, not from a ne
 | Renderer/template | Components, interfaces, trust boundary, claims, sources, evidence, decisions | Adds phases, transitions, extension points, diagnostics, dependencies, conformance cases and their counts | New sections and view fields |
 | Tests/negatives | S1-POS-01–05, N2/N3/N8/N11/N14 | Design N1–N18 plus full positive/reproducibility checks | Positive/release checks and focused tests for the 11 new checks; the full N1–N18 matrix remains S3 (S2-D4) |
 
-**Count discrepancy — S2-D1.** The accepted design's prose says `23 profile policy checks`, but its
-check table enumerates **24** codes. S1 implements 13 and the missing set is 11. The package treats
-this as an open decision, not a silent correction.
+**Count discrepancy — S2-D1.** The accepted design's prose says `23 profile policy checks`, but its check table enumerates
+**24** codes. S1 implements 13 and the missing set is 11. **S2-D1 A resolves this discrepancy**:
+the 24 enumerated codes are normative and the prose count is erroneous. The repository-wide
+inventory below remains useful to guide the forward-looking documentation corrections; historical
+S1 snapshots are retained rather than mechanically rewritten.
 
 #### 1.2.1 Complete count-correction scope
 
@@ -84,8 +86,8 @@ A repository-wide search at `9966488` for `23 policy`, `23-policy`, `23 profile`
 `9 of 23`, `23 CORE-000`, `policy check families` and `24-code` found the references below. The
 search scope included numbered sections, **preamble/header text**, tables and bullet lists.
 Unrelated uses of `23` (PR numbers, relation #23, table numbers) were excluded. The inventory
-classifies each occurrence rather than mechanically replacing every number; **no count is changed
-while S2-D1 is open**.
+classifies each occurrence rather than mechanically replacing every number. Under accepted S2-D1 A,
+forward-looking references are to be reconciled to 24; historical S1 snapshots remain unchanged.
 
 | File | Exact reference | Classification | Current | Action under S2-D1 |
 |---|---|---|---|---|
@@ -105,9 +107,8 @@ while S2-D1 is open**.
 | `docs/architecture/core-000-s2-package.md` | §4.6 diagnostics traceability (“all 24”) | forward-looking/conditional S2 mapping | 24 | If A: keep 24; if B: reconcile to 23 and name the excluded diagnostic |
 
 No other relevant reference was found at this commit. A later documentation change that adds a
-count reference must extend this inventory rather than patch one file in isolation. If S2-D1 B is
-chosen, all forward-looking 24 references in this package (including §4.3 and §4.6) must also be
-reconciled to 23 and the excluded code named. Historical S1 snapshots are not forward-looking
+count reference must extend this inventory rather than patch one file in isolation. S2-D1 A is now
+accepted, so forward-looking references use 24. Historical S1 snapshots are not forward-looking
 requirements and must not be mechanically rewritten.
 
 ---
@@ -201,7 +202,7 @@ S2 keeps the S1 declarations and adds the 17 listed in §1.2. The two `one` card
 are declared explicitly to pass the reciprocal-declaration contract. `subject` remains the only
 S2 wildcard.
 
-### 4.3 Policy checks (24, subject to S2-D1)
+### 4.3 Policy checks (24; S2-D1 A accepted)
 
 The 11 additions map to check families as follows:
 
@@ -365,8 +366,7 @@ review before it is treated as accepted.
    design-named entity; confirm it or omit it.
 3. Dependency IDs are deliberately unfixed; S2.1 must use manifest names and add the mapping rather
    than inventing a parallel vocabulary.
-4. Diagnostic IDs are all 24 codes from design §5.7; if S2-D1 B chooses 23, the 24th diagnostic row
-   is also removed from the structure data and tests.
+4. Diagnostic IDs are all 24 codes from design §5.7, as selected by S2-D1 A.
 
 ---
 
@@ -374,8 +374,8 @@ review before it is treated as accepted.
 
 ### 5.1 S2.1 — model surface and structure
 
-**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, from 13 to the check
-count chosen by S2-D1 (24 recommended; 23 only if the excluded code is named), and from the S1
+**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, and from 13 to all 24
+policy checks selected by S2-D1 A, and from the S1
 structure excerpt to the full structure, while the existing five claims still build.
 
 | Path | Change |
@@ -384,7 +384,7 @@ structure excerpt to the full structure, while the existing five claims still bu
 | `contracts/core000/structure.yml` | Add full components/interfaces/phases/transitions/extension points/trust boundaries/diagnostics/dependencies; keep the S1 rows. |
 | `contracts/core000/claims.yml` | Keep the S1 claims and add an empty `conformanceCases` list while the pointer is introduced; the full register replaces this in S2.2. |
 | `profiles/core000/profile.json` | Add the 6 kinds, 17 relations, new schema IDs, files and view/validator wiring. |
-| `profiles/core000/catalog.json` | Add the 11 missing codes (24 total if S2-D1 A). |
+| `profiles/core000/catalog.json` | Add the 11 missing codes, for 24 total under accepted S2-D1 A. |
 | `profiles/core000/view.ts` | Add phase, transition, extension-point, diagnostic, dependency and conformance-case views/counts. |
 | `profiles/core000/validator.ts` | Wire the new checks. |
 | `profiles/core000/checks/claim-evidence.ts` | Add invalid-status, unsupported-guarantee and status-class-conflict checks. |
@@ -570,7 +570,7 @@ gate. S2 does not silently absorb it.
 - No conformance execution; `conformance_case` is representation only.
 - No new claim, no new decision accepted, no deferred item resolved.
 - No evidence/draft commit unless P-2/P-3/P-6 say so.
-- No 23-vs-24 check-count correction without S2-D1.
+- Reconcile forward-looking 23-count references to 24 under accepted S2-D1 A; preserve historical S1 snapshots.
 
 ### 7.3 Stop conditions
 
@@ -602,9 +602,8 @@ S2 is ready for maintainer review only when:
    task is not authorization;
 2. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are decided or explicitly deferred with stated S2 behavior;
 3. S2.1, S2.2 and S2.3 are merged as separate focused PRs;
-4. the profile declares 14 kinds, 28 relation declarations and the check set **chosen by S2-D1**:
-   24 enumerated codes only if S2-D1 A is explicitly accepted; 23 only if S2-D1 B names the
-   excluded code. Until S2-D1 is resolved, 24 is a recommendation, not an accepted requirement;
+4. the profile declares 14 kinds, 28 relation declarations and all **24 enumerated policy-check
+   codes**, as required by accepted S2-D1 A;
 5. `claims.yml` has 78 accepted claim IDs, no invented IDs and no `independently_verified` claim;
 6. the full positive run and release block pass exactly; the S1 cases and the 11 focused new-check
    tests pass with no artifact on failures and no repository writes; the full N1–N18 matrix remains
@@ -626,8 +625,8 @@ Evidence for review: per-stage PR diffs, test output, evidence JSON (if publishe
 
 1. **Full model is large.** 78 claims and 24 checks are a substantial data/review surface; staging
    is required to avoid an unreviewable PR.
-2. **Check-count discrepancy.** The design prose says 23 but enumerates 24; S2-D1 must be resolved
-   before S2.1.
+2. **Check-count discrepancy.** S2-D1 A resolves the design's 23-prose/24-table discrepancy in
+   favor of the 24 enumerated codes; forward-looking references must use 24.
 3. **Status accuracy.** S2 makes previously unimplemented capabilities real; claim statuses must be
    re-audited with evidence, not copied as “implemented”/“tested” by assumption.
 4. **Evidence staleness.** Code/test files cited as evidence are outside `inputDigest` (G1); external
