@@ -709,9 +709,10 @@ record merges.
   Harness use is not independent verification.
 - No independent verification, certification, security, cross-platform determinism or production
   readiness is claimed; a temporary workspace is not a security sandbox.
-- The S1 package is approved, but S1 implementation is authorized only after this canonical record
-  is merged and a dedicated implementation task references it. No implementation is included. The
-  four deferred items remain open for later decisions.
+- **Historical S1 authorization:** the S1 implementation gate was satisfied before S1 was
+  implemented and merged; that historical authorization does not carry forward to S2.
+- No S2 implementation is included or authorized. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are accepted
+  for planning scope only; S2.1, S2.2 and S2.3 each require separate explicit authorization.
 - **S2 follow-up:** the accepted planning decisions are reflected in
   [`core-000-s2-package.md`](core-000-s2-package.md). The package remains a planning document;
   none of the decisions authorizes S2.1, S2.2 or S2.3 implementation.
