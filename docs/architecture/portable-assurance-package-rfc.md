@@ -61,7 +61,7 @@ implementations, and it deliberately does not implement either side.
 | CLI | `pap verify`, `pap inspect`, `pap explain`; explicit exit codes; machine-readable report | §9 |
 | Threats | directory-only parsing, no symlinks, ASCII paths, resource limits, no producer or profile execution | §10 |
 | Signatures | optional DSSE/Ed25519 adapter; in-toto mapping; Sigstore/SCITT/OCI deferred | §11 |
-| Conformance | 43 normative fixture cases with expected dimensions, verdict, exit code and diagnostics | §12 |
+| Conformance | 46 normative fixture cases with expected dimensions, verdict, exit code and diagnostics | §12 |
 | Independence | second implementation from this RFC, schemas and vectors only; first demo unsigned | §13 |
 
 The package is a **transport and evidence envelope**, not the engine's internal IR. It carries
@@ -969,6 +969,13 @@ as envelope metadata):
   and locations remain in the form only if they are deterministic; messages are excluded from
   the identity but retained in the report.
 
+Before canonicalization, the identity form's `identities.verificationRecordIdentity` field is
+replaced by the fixed 64-zero digest
+`sha256:0000000000000000000000000000000000000000000000000000000000000000`. The verifier then
+canonicalizes the form, hashes it with domain `pap.report.v1`, and writes the resulting value into
+the report. The placeholder is part of the identity form (it prevents a record from containing
+its own hash); it is not one of the excluded fields. Appendix E.4 uses this placeholder.
+
 Everything else is in the identity form, including `verdict`, dimensions, check outcomes,
 witnesses, package-derived identities, policy digest and limitations. Recomputing the same
 verification with the same checker, policy and `--now` value produces the same
@@ -1595,14 +1602,20 @@ A check specification is a named, versioned, bounded mechanical procedure. v0.1 
 | Check id | Required by default | Purpose |
 |---|---|---|
 | `pap.check.digest-integrity/1` | yes, when declared in `checkSpecs` or policy | Recompute every declared digest and compare. |
-| `pap.check.source-quote/1` | yes, when declared and `claims/provenance.json` is present | Verify source byte-range/quote claims against embedded source bytes; with no provenance claim the check is `NOT_EVALUATED`, not a vacuous pass. |
-| `pap.check.relation-consistency/1` | yes, when declared and `claims/relations.json` is present | Verify entity/relation/edge consistency; with no relation claim the check is `NOT_EVALUATED`. |
+| `pap.check.source-quote/1` | yes, when declared in `checkSpecs` or policy | Verify source byte-range/quote claims against embedded source bytes; when `claims/provenance.json` is absent the check is `NOT_EVALUATED` (§8.1, §8.5), not a vacuous pass. |
+| `pap.check.relation-consistency/1` | yes, when declared in `checkSpecs` or policy | Verify entity/relation/edge consistency; when `claims/relations.json` is absent the check is `NOT_EVALUATED` (§8.1, §8.6). |
 
 The package declares its required checks in `checkSpecs`; the trust policy may add more. The
 verifier has a registry mapping `(id, version)` to an implementation. An unknown required
 specification is `UNSUPPORTED` (§7.2), never silently skipped. A verifier MAY implement a check
 with the same id/version and report its own `checkerIdentity`; the identity is part of the
 check record, so a consumer can see which implementation produced it.
+
+A required check whose claim file is absent is **not a structural error**: the check is
+`NOT_EVALUATED` (`pap.check.not-evaluated`) and the verdict is `INCOMPLETE` (§7.4 rule 4), because
+the package is incomplete for that scope. The manifest need not declare a claim file merely
+because its check is required; if the claim file is declared, its digest must match the bytes
+(§8.4). This is distinct from a missing declared file, which is `FAIL`.
 
 ### 8.2 Check record
 
@@ -1653,7 +1666,7 @@ v0.1 defines three minimal witness types:
 | Type | Fields | Independently checkable because |
 |---|---|---|
 | `recomputed-digest` | `subject`, `algorithm`, `declared`, `computed` | Both values are hashes of bytes the verifier read; anyone can recompute from the package. |
-| `source-span` | `sourceId`, `sourceDigest`, `range {start,end}`, `quoteDigest`, `extractedDigest`, `quoteBytes?` | The range and extracted bytes are deterministic; `quoteBytes` is optional for auditability. |
+| `source-span` | `sourceId`, `sourceDigest`, `range {start,end}`, `quoteDigest`, `extractedDigest`, `quoteBase64?` | The range and extracted bytes are deterministic; `quoteBase64` is the standard base64 (RFC 4648 §4) encoding of the extracted span, optional and informational for auditability. |
 | `relation-violation-list` | `violations[]` with `code`, `subject`, `detail` | Each violation names ids/edges in the packaged claims; anyone can re-check them. |
 
 A witness MUST be expressible without executing producer code and without reading producer
@@ -1712,9 +1725,10 @@ Procedure for each binding:
 4. Emit a `source-span` witness with both digests and the range.
 
 Outcome: `PASS` if every binding verifies; `FAIL` if any binding's range is invalid or quote
-mismatches; `NOT_EVALUATED` if no binding could be evaluated because all sources are
-unavailable; a mix of verified and unavailable bindings yields `NOT_EVALUATED` unless the
-policy requires full coverage, in which case it is `FAIL` (partial coverage never passes).
+mismatches; `NOT_EVALUATED` if `claims/provenance.json` is absent while the check is required, or
+if no binding could be evaluated because all sources are unavailable; a mix of verified and
+unavailable bindings yields `NOT_EVALUATED` unless the policy requires full coverage, in which
+case it is `FAIL` (partial coverage never passes).
 
 `quote.normalization` is `"none"` in v0.1: the range's exact bytes are the quote. Producers that
 only have whitespace-collapsed matches must locate an exact byte range themselves; the package
@@ -1745,9 +1759,13 @@ Procedure:
 2. Every edge's `relation` is declared (`pap.claim.relation-unknown`).
 3. Every edge endpoint resolves to a declared entity (`pap.claim.edge-unknown-entity`).
 4. `from`/`to` entity kinds match the relation declaration (`pap.claim.relation-kind-mismatch`).
-5. If a relation declares `inverse`, every edge `(name, from, to)` has a reciprocal edge
-   `(inverse, to, from)` on the target, and the inverse declaration's kinds are the reverse
-   (`pap.claim.inverse-missing`, `pap.claim.inverse-kind-mismatch`).
+5. For every relation `R` that declares `inverse: S`: `S` is declared
+   (`pap.claim.inverse-missing`); `S.inverse` is exactly `R`
+   (`pap.claim.inverse-not-reciprocal`); and `S.from` equals `R.to` with `S.to` equal to
+   `R.from` (`pap.claim.inverse-kind-mismatch`). This is the package-level counterpart of
+   the engine's bidirectional inverse contract (#36).
+6. For every edge `(R, from, to)` where `R` declares inverse `S`, a reciprocal edge
+   `(S, to, from)` exists (`pap.claim.inverse-missing`).
 
 Outcome: `PASS` if no violation; `FAIL` if any violation; `NOT_EVALUATED` if the claim file is
 absent while the package declares the check required.
@@ -2573,7 +2591,7 @@ fixtures/pap-v0.1/
   base/                   canonical valid package; bytes equal to Appendix F
     assurance-package.json  artifacts/ACME-SUPPLIER.draft.md  inputs/project.yml
     sources/acme-policy.md  claims/{provenance,relations,producer-report}.json
-  F01-unchanged/ … F43-…/ one complete static package copy per case
+  F01-unchanged/ … F46-…/ one complete static package copy per case
   trust-policy/           unsigned-valid.json  signature-required.json  expired.json
                           invalid.json  untrusted-signer.json  profile-pinned.json
   signatures/             trusted.dsse.json  untrusted.dsse.json  invalid.dsse.json
@@ -2602,7 +2620,7 @@ Rules:
   no executable content); fixtures contain no secrets, credentials or personal data and are never
   fetched from the network. `trust-policy/` and `signatures/` are shared versioned inputs, and
   each case entry names the exact policy file (or says it runs without one).
-- Signed fixtures are second-stage (Phase 2d): F01–F10 and F20–F43 are executable against an
+- Signed fixtures are second-stage (Phase 2d): F01–F10 and F20–F46 are executable against an
   integrity-only verifier; F11–F19 become executable when the §11 adapter and Appendix B policy
   exist. Their expected results are normative now because they constrain the interface, not the
   schedule. Phase 3 may add cases; changing an existing case or expectation follows §12.5.
@@ -2745,7 +2763,24 @@ F36 also asserts the weaker guarantee without `--now`: two runs may differ only 
 (and `durationMs` if emitted), while `verificationRecordIdentity` is unchanged. F34 proves
 canonicalization is a property of the JSON value, not the file bytes.
 
-Every case above is normative; the set is F01–F43. Phase 3 may add cases but may not remove one
+#### 12.4.5 Additional claim and relation cases
+
+These cases separate "claim file absent" (a completeness limitation) from "missing declared
+file" (a package defect), and pin the reciprocal inverse-declaration rule of §8.6.
+
+| Case | Fixture / mutation | Expected statuses (relevant) | Verdict | Exit | Codes |
+|---|---|---|---|---|---|
+| F44 | `checkSpecs` requires `source-quote/1`; manifest declares no `claims.provenance`; source snapshot present | `integrity.package=PASS`, `DI=PASS`, `SQ=NOT_EVALUATED`, `coverage.full=false` | `INCOMPLETE` | 2 | `pap.check.not-evaluated` |
+| F45 | `checkSpecs` requires `relation-consistency/1`; manifest declares no `claims.relations`; provenance and source unchanged | `integrity.package=PASS`, `DI=PASS`, `SQ=PASS`, `RC=NOT_EVALUATED`, `coverage.full=false` | `INCOMPLETE` | 2 | `pap.check.not-evaluated` |
+| F46 | relations claim declares `A.inverse = B`, but `B.inverse` is absent or names a third relation | `integrity.package=PASS`, `DI=PASS`, `RC=FAIL`, `coverage.full=false` | `FAIL` | 1 | `pap.claim.inverse-not-reciprocal` |
+
+F44 and F45 differ from F26/F27 deliberately: an absent claim file is format-permitted and
+reported as an incomplete scope, while a missing declared file is a package defect. F46 is the
+package-level counterpart of the engine's bidirectional inverse contract (#36) and does not
+duplicate F06, which covers an edge to an unknown entity.
+
+
+Every case above is normative; the set is F01–F46. Phase 3 may add cases but may not remove one
 to let an implementation pass.
 
 ### 12.5 Acceptance rules
@@ -2782,6 +2817,8 @@ to let an implementation pass.
 | producer claims PASS while independent check fails | F20 |
 | malformed archive / path traversal / symlink / duplicate path | F21–F25 |
 | incomplete package and missing source snapshot | F26–F28 |
+| required check with absent claim file | F44, F45 |
+| inverse declaration not reciprocal | F46 |
 | duplicate JSON key | F29 |
 | unknown core field | F30 |
 | unknown non-critical extension | F32 |
@@ -2879,7 +2916,7 @@ Stage 1 — unsigned packages: parse/validate a `papVersion "0.1"` directory pac
 Appendix A; JCS-canonicalize and compute `packageIdentity`, `artifactDigest`, `rawSourceDigest`,
 `normalizedInputDigest` and declared claim digests per §5; run the three checks per §8.4–§8.6 with
 check records and witnesses; produce the Appendix C report and §9.7 exit code for the unsigned
-subset (F01–F10, F20–F43), including safety and limit cases; compare per §13.6.
+subset (F01–F10, F20–F46), including safety and limit cases; compare per §13.6.
 
 Deliberately outside stage 1: signatures and trust evaluation (stage 2), human-review evidence
 (`humanReview` stays `NOT_APPLICABLE`), `inspect`/`explain` document comparison (shape defined,
@@ -2965,7 +3002,7 @@ Implementation starts only after the RFC is accepted and Gate 0 of #43 is satisf
 
 - **Phase 2** (independent verifier CLI) consumes §4–§9 and §12. Its gate is a recipient verifying
   offline with no Contract Builder service or runtime dependency; §12 cases are the evidence, with
-  F01–F10 and F20–F43 executable before signatures.
+  F01–F10 and F20–F46 executable before signatures.
 - **Phase 3** (adversarial corpus and independent implementation) consumes §12 and §13. Its gate
   requires agreement on the declared subset and no package reported as fully verified when
   required checks are missing, unsupported or producer-asserted only. This section defines the
@@ -2987,7 +3024,7 @@ following sequence keeps the format independently reviewable and matches roadmap
 |---|---|---|
 | RFC + decision | this document; maintainer records decisions | accepted decision register |
 | 2a | verifier skeleton: directory walker, manifest schema, JCS, digests, report/exit codes | Appendix E vectors pass; parsing, digest and safety cases of §12 pass |
-| 2b | checks: digest-integrity, source-quote, relation-consistency | all unsigned check cases of §12 pass; no producer imports |
+| 2b | checks: digest-integrity, source-quote, relation-consistency | all unsigned check cases of §12 pass, including F44–F46; no producer imports |
 | 2c | CLI: `verify`, `inspect`, `explain`; text/JSON; trust policy parsing | unsigned CLI and safety cases of §12 pass; offline run in a clean environment |
 | 2d | trust policy, DSSE/Ed25519 adapter, profile recognition and `explain` | signed/trust cases F11–F19 and F43, and F42, pass |
 | 3a | fixture corpus committed as full static packages with expected assertions | §12 matrix executable |
@@ -3313,9 +3350,9 @@ These are recorded as blockers, not assumptions:
 
 The schema validates shape and path grammar. The verifier additionally enforces cross-field
 invariants that JSON Schema cannot express: unique artifact/source/input ids and paths, unique
-check ids, unique claim paths, at least one required check, and the presence of a claim file
-declared for each check that needs it (source-quote requires provenance, relation-consistency
-requires relations).
+check ids, unique claim paths and at least one required check. A required check does **not**
+require its claim file to be declared: an absent claim file makes that check `NOT_EVALUATED`
+(a completeness limitation, not a structural error, §8.1).
 
 ---
 
@@ -3965,7 +4002,8 @@ tuples; duplicates make the check `FAIL` (`pap.claim.binding-duplicate`). The ch
 
 The verifier enforces relation-name uniqueness within the file and the consistency rules of
 §8.6. `relations[].inverse` names another relation declared in the same file; an inverse that is
-not declared is `FAIL` (`pap.claim.inverse-missing`).
+not declared is `FAIL` (`pap.claim.inverse-missing`), and the two declarations must point back to
+each other (`pap.claim.inverse-not-reciprocal`).
 
 ### D.3 `claims/producer-report.json`
 
@@ -4253,7 +4291,10 @@ is missing.
         },
         "quoteDigest": { "$ref": "#/$defs/digest" },
         "extractedDigest": { "$ref": "#/$defs/digest" },
-        "quoteBase64": { "type": "string" }
+        "quoteBase64": {
+          "type": "string",
+          "description": "Standard base64 (RFC 4648 §4) of the extracted span; informational."
+        }
       }
     },
     "relationViolations": {
@@ -4359,10 +4400,10 @@ formatting:
 {"coverage":{"checksEvaluated":3,"checksFailed":0,"checksNotEvaluated":0,"checksPassed":3,"checksUnsupported":0,"dimensionsEvaluated":3,"full":true,"requiredChecks":["pap.check.digest-integrity/1","pap.check.source-quote/1","pap.check.relation-consistency/1"],"requiredDimensions":["integrity","sources","checks"]},"diagnostics":[],"dimensions":{"checks":{"results":[{"checkId":"pap.check.digest-integrity/1","outcome":"PASS","required":true},{"checkId":"pap.check.source-quote/1","outcome":"PASS","required":true},{"checkId":"pap.check.relation-consistency/1","outcome":"PASS","required":true}]},"humanReview":{"status":"NOT_APPLICABLE"},"integrity":{"artifacts":"PASS","package":"PASS"},"legalEnforceability":"NOT_EVALUATED","semanticTruth":"NOT_EVALUATED","signature":{"validity":"NOT_APPLICABLE"},"sources":{"availability":"PASS","integrity":"PASS"},"trust":{"checkerRecognition":"NOT_EVALUATED","policyDecision":"NOT_EVALUATED","profileRecognition":"NOT_EVALUATED","signerIdentity":"NOT_APPLICABLE"}},"identities":{"artifacts":[{"computed":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","declared":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","id":"artifact:acme-supplier"}],"checkerIdentity":"sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f","extensionClosureDigest":null,"normalizedInputDigest":"sha256:fccf755793cf1a1b7982631c201282669924cdcf9d6b171bdff26513fc64d80b","packageIdentity":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","sources":[{"computed":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","declared":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","id":"SRC-ACME-POLICY"}],"verificationRecordIdentity":"sha256:0000000000000000000000000000000000000000000000000000000000000000"},"limitations":[],"package":{"identity":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","papVersion":"0.1"},"policy":{"digest":null,"id":null,"state":"ABSENT"},"reportVersion":"0.1","verdict":"PASS","verifier":{"checkerIdentities":["sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f"],"id":"pap.verifier.reference","implementationDigest":"sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0","version":"0.1.0"}}
 ```
 
-The placeholder `verificationRecordIdentity` inside `identities` is the zero digest; it is part
-of the identity form by definition (a record cannot contain its own identity without a fixed
-point). Implementations MUST substitute the zero digest of the correct length while computing
-the identity, then fill the real value into the report.
+The placeholder `identities.verificationRecordIdentity` is the fixed 64-zero digest specified in
+§5.9; it is part of the identity form by definition (a record cannot contain its own hash without
+a fixed point). Implementations MUST substitute it while computing the identity, then fill the
+real value into the report.
 
 ### E.5 Input normalization vector (LF rules)
 
@@ -4925,6 +4966,7 @@ required consequence so an implementation cannot downgrade an error to a warning
 | `pap.claim.edge-unknown-entity` | error | Edge endpoint is not a declared entity; check `FAIL` |
 | `pap.claim.relation-kind-mismatch` | error | Edge entity kinds do not match the relation declaration; check `FAIL` |
 | `pap.claim.inverse-missing` | error | Declared inverse is not declared, or a reciprocal edge is missing; check `FAIL` |
+| `pap.claim.inverse-not-reciprocal` | error | Inverse relation exists but its own `inverse` field is not the forward relation (or is absent); check `FAIL` |
 | `pap.claim.inverse-kind-mismatch` | error | Inverse declaration's `from`/`to` are not the reverse of the forward declaration; check `FAIL` |
 | `pap.claim.unsupported-version` | warning | A claim file declares an unknown `papClaimsVersion`; claim is not interpreted; dependent check `UNSUPPORTED`/`NOT_EVALUATED` |
 | `pap.claims.producer-mismatch` | warning | A producer claim's `claimedOutcome` disagrees with the independent outcome; never changes the verdict by itself |
