@@ -4,7 +4,8 @@
 **Document version:** 0.4
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
-**Implementation status:** not started
+**Implementation status:** not started (pre-M1 record)
+**Current implementation status:** M1 implemented and tested as of `f1ddcf7`; see the [implementation-status matrix](implementation-status.md) for the as-of audit and per-row evidence.
 
 > **Reading statuses.** `accepted` in this document means *explicitly directed by the
 > maintainer* — in the iteration brief (§1.1–1.9) or in the final revision brief (§1–§4).
