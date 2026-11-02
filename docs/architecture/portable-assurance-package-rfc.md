@@ -54,11 +54,11 @@ integrity from producer claims or signer trust. A package assembled by one party
 different party, hostile input until proven otherwise.
 
 This RFC specifies **Portable Assurance Package v0.1** and the contract for an **independent
-open-source verifier CLI**. It is a design proposal: it defines formats, identities, status
-semantics, checks, threats and conformance cases precisely enough for two independent
+open-source verifier CLI**. It is the accepted v0.1 specification: it defines formats, identities,
+status semantics, checks, threats and conformance cases precisely enough for two independent
 implementations, and it deliberately does not implement either side.
 
-| Area | v0.1 proposal | Section |
+| Area | Accepted v0.1 specification | Section |
 |---|---|---|
 | Package | directory with fixed `assurance-package.json`, declared artifacts, optional input/source snapshots, untrusted claims, optional DSSE signatures | §4 |
 | Canonical form | RFC 8785 JCS over an I-JSON subset; SHA-256 with domain separation | §5 |
@@ -203,16 +203,21 @@ Beyond these, #4 (a source locator and document hash) is open with its decision 
 #45 and is described in §2.2; #41 is the architecture epic that consolidated the gaps; #43 is the
 roadmap that orders them. None of these is a PAP blocker for drafting or review, but #35 and #37
 bound what a PAP producer may claim honestly, and the remaining gaps are recorded as limitations in
-the package report model (§7). They also gate Phase 2 implementation (§2.4). PAP does not claim to
-close any of them.
+the package report model (§7). At the baseline they also gated Phase 2 implementation; §2.4 records
+the current status. PAP does not claim to close any of them.
 
 ### 2.4 Relationship to roadmap #43 Phases 0–3
 
+> **Baseline versus current status.** The `State at f1ddcf7` column is historical. The RFC has
+> since been accepted (2026-11-02), Gate 1 PASS is recorded, and the maintainer has authorized
+> Phase 2 verifier implementation; verifier implementation has not started. Gate 3 remains OPEN.
+> This note does not re-audit Gate 0.
+
 | Phase | Content | State at `f1ddcf7` | PAP implication |
 |---|---|---|---|
-| Phase 0 | Close engine and trust-boundary gaps: #35 (minimum security gate), #37, #32, #36, #38, #33; record remaining gaps as limitations. | #32 is closed and merged as #42; #33 is closed and merged as #46 (independent example profile). #35, #36, #37 and #38 are open. Gate 0 is **not** satisfied: the executable-profile boundary is still the open minimum gate, and binding vs verification is still not separated in engine outputs. Artifact and build-identity semantics are documented (`docs/architecture/build-identity.md`). | This RFC records the remaining gaps as limitations (§6, §7, §14) and defines PAP so that none of its claims depends on the missing engine behaviour. |
-| Phase 1 | Specify PAP v0.1 and its verifier CLI: layout, schemas, versioning, extension rules, separated digests, claims vs records, coverage vocabulary, trust policy, signatures as extension points, path safety and limits. Gate 1 requires a format implementable without importing the producer, with explicit compatibility, threat model and test vectors. | This document (proposed). Gate 1 is not yet met until the RFC is reviewed and accepted. | Appendix H is the completeness map; §12, §13 and Appendix E are the implementability evidence. |
-| Phase 2 | Implement the standalone verifier CLI and its `verify`, `inspect` and `explain` behaviour. | Not started. Sequencing in #43: Phase 2 must not begin before the RFC is reviewed and Gate 0's minimum trust boundary is satisfied. | This RFC is a design input to Phase 2 only; it promises no implementation. |
+| Phase 0 | Close engine and trust-boundary gaps: #35 (minimum security gate), #37, #32, #36, #38, #33; record remaining gaps as limitations. | At the baseline, #32 was closed and merged as #42; #33 was closed and merged as #46 (independent example profile). #35, #36, #37 and #38 were open. Gate 0 was **not** satisfied: the executable-profile boundary was still the open minimum gate, and binding vs verification was still not separated in engine outputs. Artifact and build-identity semantics were documented (`docs/architecture/build-identity.md`). | This RFC records the remaining gaps as limitations (§6, §7, §14) and defines PAP so that none of its claims depends on the missing engine behaviour. |
+| Phase 1 | Specify PAP v0.1 and its verifier CLI: layout, schemas, versioning, extension rules, separated digests, claims vs records, coverage vocabulary, trust policy, signatures as extension points, path safety and limits. Gate 1 requires a format implementable without importing the producer, with explicit compatibility, threat model and test vectors. | This document (then proposed; accepted 2026-11-02). Gate 1 was not yet met at the baseline. | Appendix H is the completeness map; §12, §13 and Appendix E are the implementability evidence. |
+| Phase 2 | Implement the standalone verifier CLI and its `verify`, `inspect` and `explain` behaviour. | Not started at the baseline. Sequencing in #43: Phase 2 was not to begin before the RFC was reviewed and Gate 0's minimum trust boundary was satisfied. | This RFC is a design input to Phase 2 only; it promises no implementation. |
 | Phase 3 | Adversarial corpus and an independent implementation that agrees on the declared subset. | Not started; it is part of proving Phase 2, not optional polish. | PAP defines the matrix (§12), vectors (Appendix E) and independence criteria (§13). |
 
 Gate 0, quoted from #43: *executable profiles are explicitly trusted/opted into rather than
@@ -232,8 +237,10 @@ coverage.* Measured against that text at `f1ddcf7`:
   report's `limitations[]` (§7).
 
 #44 says RFC drafting may proceed in parallel with Phase 0, but implementation must respect Gate 0
-and the RFC's acceptance. Therefore acceptance of this document does not authorize Phase 2, and
-Phase 2 MUST NOT begin while #35 remains open.
+and the RFC's acceptance. At the baseline, acceptance of this document did not authorize Phase 2,
+and Phase 2 could not begin while #35 remained open. The maintainer's 2026-11-02 decision
+separately authorized Phase 2 verifier implementation under the accepted contract (#57); verifier
+implementation has not started. This document does not re-audit Gate 0.
 
 ### 2.5 A new product track, not M1
 
@@ -287,11 +294,11 @@ claim comparison, never a check outcome (D6, §7, §8).
 This RFC specifies **Portable Assurance Package (PAP) v0.1**: a directory format for a package of
 artifacts, declared inputs, optional source snapshots, producer claims and verification-relevant
 metadata, together with the contract for an independent verifier CLI that consumes it offline.
-The document is normative for the format and for verifier behaviour; its status is `proposed`
-and it changes no code, data or generated artifact.
+The document is normative for the format and for verifier behaviour; it is the accepted v0.1
+specification and it changes no code, data or generated artifact.
 
-The design is bounded by the decisions recorded in §16 (D1–D12, `proposed` until maintainer
-acceptance): a directory-only package, JCS canonical JSON over an I-JSON subset, SHA-256 with
+The design is bounded by the decisions recorded in §16 (D1–D12, accepted by the maintainer on
+2026-11-02): a directory-only package, JCS canonical JSON over an I-JSON subset, SHA-256 with
 domain separation, optional source snapshots, a strict core schema with an extension namespace,
 separation of producer claims from verifier results, independent status dimensions, an explicit
 local trust policy, three v0.1 checks, a standalone `pap` CLI, and a versioned compatibility
@@ -299,9 +306,9 @@ policy.
 
 The producer and the verifier are separate products. A package is untrusted input to the verifier;
 the verifier MUST NOT import the producer runtime, execute producer or profile code, or use the
-network in v0.1. This RFC does not implement either product, and acceptance of the RFC does not
-schedule or authorize implementation: Phase 2 is gated by Gate 0 and by the RFC's own acceptance
-(§2.4; #43; #44).
+network in v0.1. This RFC does not implement either product. The maintainer accepted the v0.1
+specification on 2026-11-02 and authorized Phase 2; verifier implementation has not started. This
+status does not re-audit Gate 0 (§2.4; #43; #44).
 
 The document is organised as follows. §4 defines the package layout and the manifest; §5 the
 identities, hash domains and digest rules; §6 the trust model and the local policy input; §7 the
@@ -2090,7 +2097,8 @@ The verifier command is `pap`: a single-purpose consumer that parses a package d
 identities, evaluates the v0.1 checks, optionally applies an operator-supplied trust policy, and
 reports what it found. It never produces a package. This section defines the command surface,
 streams, exit codes, output contract, clock handling, determinism and offline behaviour. It does
-not authorize an implementation (§13, roadmap #43 Phases 2–3).
+not itself authorize an implementation; the Phase 2 authorization is recorded in §2.4 (§13,
+roadmap #43 Phases 2–3).
 
 Command names, flags, exit codes and required output lines are normative. Human wording, column
 widths, progress display and implementation language are not. Where this section and §4–§8
@@ -3483,7 +3491,8 @@ blocker and escalates it; it is never resolved by adopting the reference behavio
 ### 13.9 Relation to roadmap #43 Phases 2–3 and scope statement
 
 This RFC is **design only**: it adds no verifier, producer, CLI, fixture generator or test code.
-Implementation starts only after the RFC is accepted and Gate 0 of #43 is satisfied.
+The maintainer accepted the v0.1 specification on 2026-11-02 and authorized Phase 2; verifier
+implementation has not started. This document does not re-audit Gate 0.
 
 - **Phase 2** (independent verifier CLI) consumes §4–§9 and §12. Its gate is a recipient verifying
   offline with no Contract Builder service or runtime dependency; §12 cases are the evidence, with
@@ -3502,8 +3511,10 @@ is an RFC amendment, not a silent implementation choice.
 
 ## 14. Implementation sequencing after acceptance
 
-This RFC authorizes no implementation. If the decision register in §16 is accepted, the
-following sequence keeps the format independently reviewable and matches roadmap #43 Phases 2–3:
+This RFC authorizes no implementation by itself. With the decision register in §16 accepted and
+Phase 2 authorized by the maintainer on 2026-11-02, the following sequence keeps the format
+independently reviewable and matches roadmap #43 Phases 2–3. Verifier implementation has not
+started; the sequence is:
 
 | Step | Work | Exit condition |
 |---|---|---|
@@ -3536,7 +3547,7 @@ Explicitly deferred, with the condition for revisiting:
 | Unicode/case-insensitive package paths | v0.1 restricts to ASCII | portability requirements justify the complexity |
 | Floating-point numbers in manifests | JCS number edge cases | a concrete field needs them, with vectors |
 | Semantic truth, legal enforceability, human review correctness | out of scope for any mechanical verifier | never claimed by this format |
-| Producer implementation | this RFC is design only | after acceptance and Phase 2a |
+| Producer implementation | this RFC is design only | after Phase 2a |
 | Markdown rendering / template execution | not a core invariant | never in the verifier |
 
 ---
@@ -5335,8 +5346,8 @@ sections.
 ## Appendix H — Issue #44 acceptance mapping
 
 This appendix is the completeness checklist for issue #44. Section numbers are the assigned layout
-for this document (§4–§16), and `D1`–`D12` are the decisions recorded in §16 (`proposed` until
-maintainer acceptance). A row is satisfied by the specification, not by producer assertion;
+for this document (§4–§16), and `D1`–`D12` are the decisions recorded in §16 (accepted by the
+maintainer on 2026-11-02). A row is satisfied by the specification, not by producer assertion;
 where the state of an item is genuinely deferred, the row says so. If the section layout changes
 during integration, this appendix MUST be updated in the same change.
 
@@ -5369,7 +5380,7 @@ during integration, this appendix MUST be updated in the same change.
 | 8 | Positive and negative conformance fixtures have expected results. | §12, §12.2, §12.4 | Every runnable matrix row states expected dimensions, verdict, exit code and diagnostics; no-report CLI rows state exit code and stderr code. Expected results are normative in §12.2/§12.4; Appendix E fixes the digest/JCS values. |
 | 9 | A second implementation can implement the supported subset without private Contract Builder dependencies. | §13 | Algorithms and schemas are language-neutral and published; the independent subset and its equality requirements are defined; no producer import is permitted. |
 | 10 | Non-goals and deferred integrations (Sigstore/SCITT/OCI, production key management, temporal graph, mandates) are explicit. | §14, §11, §3.3 | Twelve non-goals and deferred integrations are listed with their reasons and consequences; none is silently included. |
-| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The document is `proposed`; Phase 2 is gated on review, acceptance and Gate 0, and acceptance does not itself authorize implementation. |
+| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02) and Phase 2 is authorized; verifier implementation has not started. This row does not re-audit Gate 0. |
 
 ### H.3 Required decisions / open questions (12 items)
 
@@ -5492,8 +5503,8 @@ report. Timestamps (`package.createdAt`, `sources[].acquiredAt`, `claims.checked
   the builder's privileges. They are trusted, not sandboxed, and
   determinism is an author obligation (contract §8.1:828–831; contract D28:1212;
   `docs/architecture/build-identity.md:145–147`). #35 asks for an explicit declarative-versus-
-  executable split and an opt-in trust decision; at baseline the import is unconditional and no
-  opt-in policy or rejection test was found, so #35 remains open (§2.3).
+  executable split and an opt-in trust decision; at the baseline the import is unconditional and no
+  opt-in policy or rejection test was found, so #35 remained open at the baseline (§2.3).
 - In PAP, the no-code rule is absolute: the package MUST NOT contain producer, profile or checker
   code that the verifier executes, and the verifier MUST NOT import the producer runtime.
   Profile and extension identities are values (id, version, `closureDigest`); the only code that
@@ -5501,11 +5512,11 @@ report. Timestamps (`package.createdAt`, `sources[].acquiredAt`, `claims.checked
   to `UNSUPPORTED`, `UNTRUSTED` or `NOT_EVALUATED` according to the local trust policy, never to
   execution (§6, §7, §11).
 - Consequence: PAP's verifier sits outside the engine's executable-extension trust boundary, but
-  PAP does not make the producer's profile trusted or safe, and it does not close #35. The minimum
-  Gate 0 security gate therefore remains open (§2.4). Recognition of a profile or checker identity
-  is a policy decision, not an assurance that its checks are correct: `profileRecognition` and
-  `checkerRecognition` are separate trust statuses, and no recognition result upgrades semantic
-  truth (§6, §7).
+  PAP does not make the producer's profile trusted or safe. At the baseline it did not close #35,
+  and the minimum Gate 0 security gate was therefore open (§2.4); this document does not re-audit
+  Gate 0. Recognition of a profile or checker identity is a policy decision, not an assurance that
+  its checks are correct: `profileRecognition` and `checkerRecognition` are separate trust statuses,
+  and no recognition result upgrades semantic truth (§6, §7).
 
 ### I.5 What PAP does not claim
 
