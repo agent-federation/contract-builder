@@ -1,7 +1,7 @@
 # CORE-000 S2 — bounded structure and full-model package
 
-**Status:** proposed for maintainer decision. Planning and decision-preparation only. This document
-does not implement S2, does not execute a profile, and does not create or change code, schemas,
+**Status:** planning package accepted by maintainer decision on 2026-11-03. Planning only; this
+document does not authorize or implement S2, execute a profile, or create or change code, schemas,
 project data, tests, evidence, fixtures or generated artifacts.
 **Revision 1.1 (documentation precision pass, 2026-11-02):** applies the C1–C5 corrections —
 conditional check-count criterion, complete correction scope, synthetic-fixture/independent-evidence
@@ -16,7 +16,7 @@ authorized only preparation of a bounded package; implementation needs explicit 
 The current-main baseline for this package is `a6dddef`; PR #79 is docs-only and changes no engine
 or profile behaviour.
 **Canonical decision record:** [`core-000-decision-record.md`](core-000-decision-record.md);
-D14, P-2, P-3 and P-6 remain open after the S1 deferrals.
+D14, P-2, P-3, P-6 and S2-D1–S2-D4 were accepted on 2026-11-03 for planning scope only.
 
 > **What this is.** A bounded decision and task package for the next milestone: turning the S1
 > five-claim slice into the accepted 14-kind / 28-relation / full-78-claim CORE-000 model, with
@@ -25,7 +25,7 @@ D14, P-2, P-3 and P-6 remain open after the S1 deferrals.
 >
 > **What this is not.** It is not an implementation, an authorization to begin coding, an H2
 > reproducibility result, an independent verification, or a claim that the full register is true.
-> It does not close D14, P-2, P-3 or P-6 and does not resolve any CORE-000 design decision.
+> The accepted planning decisions do not authorize S2.1, S2.2 or S2.3 implementation.
 
 ---
 
@@ -35,7 +35,7 @@ D14, P-2, P-3 and P-6 remain open after the S1 deferrals.
 |---|---|
 | **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes, each creating its own fresh workspace (same-environment, fresh-workspace repeatability; not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 28 relations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
 | **Recommendations** | Approve the **planning package** for a staged S2: **S2.1 model surface**, **S2.2 full claim register**, **S2.3 focused check coverage and S2 evidence**. The full N1–N18 matrix stays in S3 unless the maintainer decides otherwise (S2-D4). Decide **D14 = A**, **P-2 = A**, **P-3 = A**, and **P-6 = A for run evidence only; zero independent records in S2**. Resolve the check-count discrepancy by treating the **24 enumerated codes as authoritative** (S2-D1 A) and correct the prose count. Encode all **78** accepted claims without inventing claims (S2-D2 A). Model `conformance_case` with an empty data list and leave the full N1–N18 matrix to the S3 harness (S2-D3 A/S2-D4 A). |
-| **Open decisions** | D14, P-2, P-3, P-6 and S2-D1–S2-D4 are open. No S2 implementation is authorized. H2 and H3 are not in S2 scope. |
+| **Decision status** | D14, P-2, P-3, P-6 and S2-D1–S2-D4 are accepted for planning scope by the 2026-11-03 maintainer decision. No S2 implementation is authorized. H2 and H3 are not in S2 scope. |
 | **Requested approvals** | (1) Decide D14, P-2, P-3, P-6 and S2-D1–S2-D4. (2) Approve the planning package and staged scope/file boundaries. (3) Issue a separate explicit S2.1 authorization after review of the decisions and exact S2.1 scope; package approval/merge and creating or linking an implementation task are **not** authorization. (4) Treat S2.2 and S2.3 as separately gated, each requiring its own explicit authorization. (5) Confirm that S2 does not claim H2, H3, security isolation or semantic truth. |
 
 ---
@@ -132,7 +132,7 @@ Extend the S1 slice to the accepted full model without changing generic-core beh
 - No H3 independent verification, certification, semantic truth or security review.
 - No arbitrary/untrusted profile execution; a temporary workspace is not a sandbox.
 - No CORE-001, PAP, publication, packaging or standard-versioning change.
-- No new normative claim, no new maintainer decision recorded as accepted, no deferred item resolved.
+- No new normative claim; no decision beyond those explicitly accepted in the canonical decision record.
 - No full conformance execution; `conformance_case` is modelled, not executed.
 - No full N1–N18 matrix in S2; the existing S3 boundary owns it unless S2-D4 says otherwise.
 
@@ -153,26 +153,28 @@ No single `PASS` label is used.
 
 ---
 
-## 3. Decisions required before S2 implementation
+## 3. Decisions accepted for S2 planning
 
-The four S1 deferrals carry forward. S2 also needs four scope decisions. Every row is open; the
-maintainer decision is not recorded here.
+The four items deferred for S1 and the four S2 scope decisions were accepted by the maintainer on
+2026-11-03. The options and evidence requirements below are retained as the decision rationale;
+the canonical acceptance and implementation boundary are recorded in
+[`core-000-decision-record.md`](core-000-decision-record.md).
 
-| ID | Exact question | Viable options | Recommended default | Evidence needed to accept |
+| ID | Exact question | Viable options | Accepted decision | Evidence basis |
 |---|---|---|---|---|
-| D14 | How is the consent surface represented in the full model? | A: add interface entities for `allowExecutableProfile` and the CLI flag, a diagnostic entity for `core.profile.consent-required`, and keep `TB-PROFILE-EXEC` settled/`explicit_consent`; B: trust-boundary prose only; C: separate profile class; `defer` | **A**: the consent API/CLI/diagnostic are public surfaces already referenced by accepted claims | Review of the proposed interface/diagnostic rows; a check that no new consent policy is invented; confirmation that no sandbox/isolation is claimed |
-| P-2 | Where is evidence durably published and what summary format accompanies it? | A: durable `evidence/core000/<run>/result.json` plus a human summary; B: Markdown summary only; `defer` | **A** for the full model, while S2 still writes/asserts the transient record in every case | Sample durable record/summary; no absolute paths or secrets; reviewable by run |
-| P-3 | Is the generated full-model draft committed? | A: commit `contracts/core000/output/CORE-000.draft.md` after a reviewed run; B: keep it in temporary evidence; `defer` | **A**, following the repository artifact rule and making the full artifact reviewable | Successful full-model run; `bun run check`; exact normalized artifact |
-| P-6 | Are run evidence and future independent records committed? | A: commit run evidence under `evidence/core000/`; S2 creates **zero** independent-verification records, so none are committed under `verification/core000/`. Future externally produced independent records go there only when a distinct verifier produces them and a later maintainer decision accepts them; no engine-generated record counts as independent. B: external only; `defer` | **A for run evidence; zero independent records in S2** | No-secrets review; evidence paths; a statement that no engine-generated record is presented as independent |
-| S2-D1 | Is the full check set 23 or 24? | A: the 24 enumerated codes are authoritative, implement all 24 and correct the prose count; B: implement 23 and name the excluded code; C: defer the decision | **A**: the enumerated table is the operative list; the prose count is stale | The design check table (24 rows), the S1 catalog (13), the missing list (11), and a docs correction |
-| S2-D2 | Which claim register is encoded? | A: all 78 accepted claims from design §4.2, no new claims; B: a subset; C: regenerate the register | **A**; a subset would not be the full model | A scripted register audit: 78 IDs, no invented IDs, no status upgrades without evidence |
-| S2-D3 | Is `conformance_case` modelled with data in S2? | A: include the kind/schema and keep `conformanceCases: []`; N1–N18 stay in the S3 harness matrix; B: populate planned project cases; C: defer the kind | **A**: the accepted plan says project conformance execution is deferred; N1–N18 are run-matrix cases, not project cases | Schema review; empty list; S3 matrix mapping; no conformance execution claim |
-| S2-D4 | Does the full N1–N18 matrix belong in S2 or S3? | A: keep full N1–N18 in S3; S2 adds focused tests for the new checks; B: include the full matrix in S2.3; C: split differently | **A**; it matches the existing S3 boundary and keeps S2 reviewable | S3 description in the S1 package; S2 size; per-check focused coverage plan |
+| D14 | How is the consent surface represented in the full model? | A: add interface entities for `allowExecutableProfile` and the CLI flag, a diagnostic entity for `core.profile.consent-required`, and keep `TB-PROFILE-EXEC` settled/`explicit_consent`; B: trust-boundary prose only; C: separate profile class; `defer` | **Accepted — A — consent API/CLI/diagnostic surface; settled `explicit_consent` trust boundary.** | Review of the proposed interface/diagnostic rows; a check that no new consent policy is invented; confirmation that no sandbox/isolation is claimed |
+| P-2 | Where is evidence durably published and what summary format accompanies it? | A: durable `evidence/core000/<run>/result.json` plus a human summary; B: Markdown summary only; `defer` | **Accepted — A — durable producer JSON evidence plus human-readable summary.** | Sample durable record/summary; no absolute paths or secrets; reviewable by run |
+| P-3 | Is the generated full-model draft committed? | A: commit `contracts/core000/output/CORE-000.draft.md` after a reviewed run; B: keep it in temporary evidence; `defer` | **Accepted — A — commit the generated draft after a successful, reviewed run.** | Successful full-model run; `bun run check`; exact normalized artifact |
+| P-6 | Are run evidence and future independent records committed? | A: commit run evidence under `evidence/core000/`; S2 creates **zero** independent-verification records, so none are committed under `verification/core000/`. Future externally produced independent records go there only when a distinct verifier produces them and a later maintainer decision accepts them; no engine-generated record counts as independent. B: external only; `defer` | **Accepted — A — commit producer run evidence only; zero independent records in S2; future independent records require a distinct verifier and separate decision.** | No-secrets review; evidence paths; a statement that no engine-generated record is presented as independent |
+| S2-D1 | Is the full check set 23 or 24? | A: the 24 enumerated codes are authoritative, implement all 24 and correct the prose count; B: implement 23 and name the excluded code; C: defer the decision | **Accepted — A — 24 enumerated policy-check codes are normative; prose count 23 is erroneous.** | The design check table (24 rows), the S1 catalog (13), the missing list (11), and a docs correction |
+| S2-D2 | Which claim register is encoded? | A: all 78 accepted claims from design §4.2, no new claims; B: a subset; C: regenerate the register | **Accepted — A — encode all 78 accepted claims, preserving IDs and statuses; no promotion without evidence and separate authorization.** | A scripted register audit: 78 IDs, no invented IDs, no status upgrades without evidence |
+| S2-D3 | Is `conformance_case` modelled with data in S2? | A: include the kind/schema and keep `conformanceCases: []`; N1–N18 stay in the S3 harness matrix; B: populate planned project cases; C: defer the kind | **Accepted — A — include kind/schema; keep `conformanceCases: []`; synthetic fixture is test input only.** | Schema review; empty list; S3 matrix mapping; no conformance execution claim |
+| S2-D4 | Does the full N1–N18 matrix belong in S2 or S3? | A: keep full N1–N18 in S3; S2 adds focused tests for the new checks; B: include the full matrix in S2.3; C: split differently | **Accepted — A — full N1–N18 matrix stays in S3; S2.3 focused tests cover the 11 new checks.** | S3 description in the S1 package; S2 size; per-check focused coverage plan |
 
-**Decision-record interaction.** D14, P-2, P-3 and P-6 remain open in
-[`core-000-decision-record.md`](core-000-decision-record.md) until explicitly decided. S2-D1–S2-D4
-are new S2 package decisions, not retroactive changes to S1. Deferring any item must state exactly
-what S2 can do without it; none is silently resolved.
+**Decision-record interaction.** The 2026-11-03 maintainer decision accepts D14, P-2, P-3, P-6
+and S2-D1–S2-D4 for planning scope. The historical S1 deferrals remain visible as historical
+decisions, not current open items. The evidence-separation invariant is mandatory: producer records
+are not independent verification; S2 creates zero independent-verification records.
 
 ---
 
@@ -641,20 +643,18 @@ Evidence for review: per-stage PR diffs, test output, evidence JSON (if publishe
 
 ---
 
-## 10. Requested maintainer decision
+## 10. Maintainer decision recorded
 
-Approve this bounded S2 package and decide:
-
-- **D14, P-2, P-3, P-6** (recommended A/A/A/A);
-- **S2-D1** check count (recommended 24 enumerated);
-- **S2-D2** full 78-claim register (recommended A);
-- **S2-D3** conformance representation (recommended kind/schema with empty data);
-- **S2-D4** full-matrix placement (recommended S3; S2 adds focused new-check tests).
+The maintainer accepted **D14 = A, P-2 = A, P-3 = A, P-6 = A for producer run evidence only,
+S2-D1 = A, S2-D2 = A, S2-D3 = A and S2-D4 = A** on 2026-11-03. The exact effects and mandatory
+evidence-separation invariant are recorded in
+[`core-000-decision-record.md`](core-000-decision-record.md). This package remains planning-only.
 
 **Approval boundary.** Approval or merge of this package accepts the planning package only. It does
 **not** authorize S2.1. S2.1 starts only after a separate, explicit maintainer authorization issued
 after review of the relevant decisions and exact S2.1 scope. Creating or linking an implementation
 issue/task is not authorization. S2.2 and S2.3 each require their own separate explicit
 authorization; approval of S2.1 does not authorize them. Until those authorizations exist, no S2
-coding starts. The four deferred S1 items remain open, and S2 does not claim H2, H3, security
-isolation, independent verification or semantic truth.
+coding starts. The historical S1 deferrals are resolved for the full-model planning scope, but the decision does
+not authorize S2.1, S2.2 or S2.3. S2 does not claim H2, H3, security isolation, independent
+verification or semantic truth.
