@@ -338,18 +338,26 @@ export async function resolveProfileClosure(
 /**
  * Validates the profile closure before the core imports profile modules, so an undeclared
  * import is reported as `core.extension.unpinned-dependency` instead of failing later as a
- * profile load error. A lockfile read failure is left for `computeBuildIdentity`, which owns
- * that diagnostic.
+ * profile load error. A lockfile that cannot be read is a hard preflight failure: the closure
+ * cannot be verified, so the build stops before profile modules are imported.
+ * `computeBuildIdentity` keeps its own ERR_IO for direct identity computation.
  */
 export async function validateProfileClosure(
   project: ResolvedProject,
   diagnostics: Diagnostics,
+  lockfileReader: () => Promise<Lockfile> = readLockfile,
 ): Promise<boolean> {
   let lockfile: Lockfile;
   try {
-    lockfile = await readLockfile();
-  } catch {
-    return true;
+    lockfile = await lockfileReader();
+  } catch (error) {
+    diagnostics.error(
+      "ERR_IO",
+      "bun.lock",
+      "",
+      `Не удалось прочитать bun.lock: ${messageOf(error)}`,
+    );
+    return false;
   }
   return (await resolveProfileClosure(project, lockfile, diagnostics)) !== null;
 }

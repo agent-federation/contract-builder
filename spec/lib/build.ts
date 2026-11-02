@@ -40,6 +40,14 @@ export interface BuildOptions {
   adapters?: Record<string, SourceAdapter>;
   /** Renderer registry supplied by the consumer; the core never loads the profile. */
   renderers?: Record<string, Renderer>;
+  /**
+   * Explicit consent to load and evaluate the executable profile modules declared by
+   * `profile.json` (`view` and `validator`). Defaults to `false`: a build whose profile
+   * declares executable modules fails closed with `core.profile.consent-required` before
+   * any profile code is imported. Consent is permission to run trusted in-process code,
+   * not isolation.
+   */
+  allowExecutableProfile?: boolean;
 }
 
 export interface BuildResult {
@@ -59,6 +67,13 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
 
   const loaded = await loadProject(specDir, diags);
   if (loaded === null) {
+    return result(options, diags, null, "", false, "errors");
+  }
+
+  // Consent is checked before the closure scan and before any profile module is imported:
+  // reading a profile's declared files is not execution, but failing first keeps the
+  // boundary explicit and makes the diagnostic about consent rather than a downstream error.
+  if (!hasExecutableProfileConsent(loaded.project, options, diags)) {
     return result(options, diags, null, "", false, "errors");
   }
 
@@ -337,6 +352,32 @@ async function resolveOutputPath(
   }
 
   return target.abs;
+}
+
+/**
+ * Executable profile modules are trusted in-process code, so the engine refuses to import
+ * them without an explicit caller choice. A manifest or profile cannot grant consent to
+ * itself; only the caller of `runBuild` (or the CLI flag) can.
+ */
+function hasExecutableProfileConsent(
+  project: ResolvedProject,
+  options: BuildOptions,
+  diags: Diagnostics,
+): boolean {
+  if (options.allowExecutableProfile === true) return true;
+
+  const executable = [project.profile.view, project.profile.validator].filter(
+    (relative): relative is string => relative !== undefined,
+  );
+  if (executable.length === 0) return true;
+
+  diags.error(
+    "core.profile.consent-required",
+    "profile.json",
+    "",
+    `Профиль объявляет исполняемые модули (${executable.join(", ")}). Их загрузка требует явного согласия вызывающего: allowExecutableProfile: true в runBuild или --allow-executable-profile в CLI. Согласие разрешает выполнить доверенный код в процессе сборщика и не является изоляцией.`,
+  );
+  return false;
 }
 
 async function loadProfileModule<T>(

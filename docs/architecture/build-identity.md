@@ -8,6 +8,18 @@ The digest is a deterministic fingerprint, not a proof. It does not establish co
 security, hermeticity or trustworthiness, and it does not make a trusted extension
 deterministic.
 
+Build identity is also **not consent and not a sandbox**. A declared closure and a clean import
+scan do not authorize the engine to execute profile code: a build whose profile declares
+executable modules (`view`, `validator`) fails closed with `core.profile.consent-required`
+unless the caller passes `allowExecutableProfile: true` (CLI:
+`--allow-executable-profile`). The scan and the digest are integrity/accounting mechanisms;
+they neither grant consent nor isolate execution.
+
+An unreadable lockfile is a hard closure-preflight failure: `validateProfileClosure` reports
+`ERR_IO` and returns false, so the build and the CLI preflight stop before importing profile
+code. `computeBuildIdentity` keeps the same `ERR_IO` diagnostic for direct identity
+computation.
+
 ## Public result
 
 `BuildResult.identity` has the accepted shape:

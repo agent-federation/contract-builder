@@ -67,6 +67,7 @@ async function draftBuild(
     strict: false,
     diagnostics,
     renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
     ...overrides,
   });
   return { result, diagnostics };

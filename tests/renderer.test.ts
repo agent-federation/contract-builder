@@ -22,6 +22,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   check: false,
   strict: false,
   renderers: TEST_RENDERERS,
+  allowExecutableProfile: true,
   ...overrides,
 });
 
