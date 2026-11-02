@@ -338,7 +338,7 @@ function parseProducerReport(value: JsonObject): ClaimParseResult {
     const raw = value.claims[index];
     const scope = `producerReport.claims[${index}]`;
     if (!isObject(raw)) return fail(`${scope} must be an object`);
-    const bad = allowedOnly(raw, ["checkId", "checkVersion", "claimedOutcome", "checkedAt", "checker", "outcome", "witnesses"], scope);
+    const bad = allowedOnly(raw, ["checkId", "checkVersion", "claimedOutcome", "checkedAt", "checker"], scope);
     if (bad !== null) {
       if (raw.outcome !== undefined || raw.witnesses !== undefined) {
         return { ok: false, failure: "invalid", message: `${scope} mimics a verifier check record` };
