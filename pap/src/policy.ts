@@ -349,6 +349,10 @@ function validatePolicy(value: JsonObject, defaults: Limits): TrustPolicy {
   if (mode === "required" && signers.length === 0) {
     throw new PolicyInvalid("signature mode required needs at least one signer");
   }
+  // A signer entry is one identity even when it enrolls several keys. Rejecting
+  // a quorum above the number of entries makes "several keys from one signer
+  // satisfy a multi-signer quorum" unrepresentable, so aggregation never has to
+  // count keys for the quorum.
   if (mode === "required" && minimumValidSigners > signers.length) {
     throw new PolicyInvalid("minimumValidSigners exceeds the configured signer count");
   }

@@ -185,9 +185,14 @@ two P2 structural issues; all were fixed in the follow-up commits:
   exhaust the aggregate budget and make the source-quote check
   `NOT_EVALUATED`/`INCOMPLETE`, never `PASS`.
 - **Signature quorum.** The policy rejects a `keyId` enrolled in more than one
-  `signers[]` entry. `minimumValidSigners` counts distinct authorized signer
-  entries with at least one valid signature, not distinct key IDs, so one signer
-  with two keys cannot satisfy a two-signer quorum.
+  `signers[]` entry and rejects `minimumValidSigners` greater than the number of
+  `signers[]` entries. `minimumValidSigners` counts distinct authorized signer
+  entries with at least one valid signature, not distinct key IDs. The
+  problematic aggregation state is therefore unrepresentable under a valid
+  policy: one signer entry with two keys and a quorum of two is rejected during
+  policy validation, before signature aggregation. The positive regression uses
+  two distinct signer entries with two valid keys and reaches `ACCEPTED`; no
+  test-only policy state or weaker validation is used.
 - **F46/F59.** The maintainer chose option (a) on PR #64: keep RFC §7.5 and the
   F02 transcript, and update only the F46/F59 matrix rows to
   `coverage.full: true`. The RFC rows, corpus and this report now agree; the
