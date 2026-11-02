@@ -241,7 +241,7 @@ S2.2 encodes all 78 claims from the accepted design §4.2 with the same IDs and 
 
 - no new claim ID, no deleted claim ID and no invented decision;
 - status changes require code/test evidence, a recorded evidence revision and the separately
-authorized decision in C4; S2 does not promote a claim merely because the model now exists;
+authorized decision required by C4; S2 does not promote a claim merely because the model now exists;
 - a claim awaiting an unresolved decision keeps `decision`/`decidedBy` unresolved and produces the
   `core000.decision.unresolved` review, not an invented accepted decision;
 - no claim is marked `independently_verified`; `independentVerifications` stays empty;
