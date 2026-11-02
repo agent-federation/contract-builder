@@ -20,6 +20,11 @@ import {
   type Renderer,
 } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
+import {
+  computeBuildIdentity,
+  validateProfileClosure,
+  type BuildIdentity,
+} from "./identity.js";
 import type { SourceAdapter } from "./source.js";
 import { pathToFileURL } from "node:url";
 
@@ -44,6 +49,7 @@ export interface BuildResult {
   markdown: string | null;
   outputPath: string;
   written: boolean;
+  identity: BuildIdentity | null;
   blockedBy: "errors" | "review" | "warnings" | "stale-output" | null;
 }
 
@@ -53,6 +59,12 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
 
   const loaded = await loadProject(specDir, diags);
   if (loaded === null) {
+    return result(options, diags, null, "", false, "errors");
+  }
+
+  // Validate the profile closure before importing profile modules: an undeclared import is
+  // an identity problem, not a profile load error.
+  if (!(await validateProfileClosure(loaded.project, diags))) {
     return result(options, diags, null, "", false, "errors");
   }
 
@@ -180,8 +192,20 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  if (diags.errors > 0) {
+  const identity = await computeBuildIdentity({
+    project: loaded.project,
+    loaded,
+    sources: model.sources,
+    adapters,
+    renderer,
+    diagnostics: diags,
+  });
+  if (identity === null) {
     return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  if (diags.errors > 0) {
+    return result(options, diags, null, outputPath, false, "errors", identity);
   }
 
   let markdown: string;
@@ -199,7 +223,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
         "/render/0",
         `Рендерер должен вернуть ровно один артефакт в M1, получено ${artifacts.length}`,
       );
-      return result(options, diags, null, outputPath, false, "errors");
+      return result(options, diags, null, outputPath, false, "errors", identity);
     }
     const artifact = artifacts[0]!;
     const declared = renderDeclaration.outputs[options.mode] ?? "";
@@ -210,7 +234,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
         "/render/0",
         `Рендерер вернул путь "${artifact.path}", ожидается "${declared}"`,
       );
-      return result(options, diags, null, outputPath, false, "errors");
+      return result(options, diags, null, outputPath, false, "errors", identity);
     }
     markdown = new TextDecoder().decode(normalizeArtifact(artifact.bytes));
   } catch (error) {
@@ -220,7 +244,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
       "/render/0",
       `Рендерер завершился с ошибкой: ${messageOf(error)}`,
     );
-    return result(options, diags, null, outputPath, false, "errors");
+    return result(options, diags, null, outputPath, false, "errors", identity);
   }
 
   const blocking = diags.sorted().filter((d) => {
@@ -229,11 +253,11 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   });
 
   if (options.mode === "release" && blocking.length > 0) {
-    return result(options, diags, markdown, outputPath, false, "review");
+    return result(options, diags, markdown, outputPath, false, "review", identity);
   }
 
   if (options.strict && diags.warnings > 0) {
-    return result(options, diags, markdown, outputPath, false, "warnings");
+    return result(options, diags, markdown, outputPath, false, "warnings", identity);
   }
 
   if (options.check) {
@@ -245,18 +269,18 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
         "",
         "Сгенерированный документ отличается от сохранённого. Запустите сборку без --check.",
       );
-      return result(options, diags, markdown, outputPath, false, "stale-output");
+      return result(options, diags, markdown, outputPath, false, "stale-output", identity);
     }
-    return result(options, diags, markdown, outputPath, false, null);
+    return result(options, diags, markdown, outputPath, false, null, identity);
   }
 
   if (!options.write) {
-    return result(options, diags, markdown, outputPath, false, null);
+    return result(options, diags, markdown, outputPath, false, null, identity);
   }
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, markdown, "utf8");
-  return result(options, diags, markdown, outputPath, true, null);
+  return result(options, diags, markdown, outputPath, true, null, identity);
 }
 
 /**
@@ -448,6 +472,7 @@ function result(
   outputPath: string,
   written: boolean,
   blockedBy: BuildResult["blockedBy"],
+  identity: BuildIdentity | null = null,
 ): BuildResult {
   return {
     exitCode: blockedBy === null ? 0 : 1,
@@ -456,6 +481,7 @@ function result(
     markdown,
     outputPath,
     written,
+    identity,
     blockedBy,
   };
 }

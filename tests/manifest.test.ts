@@ -11,7 +11,7 @@ import { loadSchemas } from "../spec/lib/schema.js";
 import { buildProjectModel } from "../spec/lib/ir.js";
 import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { TEST_RENDERERS } from "./support.js";
+import { rewriteProfileCoreImports, TEST_RENDERERS } from "./support.js";
 
 /**
  * PR 2 acceptance: manifest, project boundary and declared-input loading.
@@ -148,6 +148,7 @@ test("manifest: a profile without a sources binding fails without crashing", asy
   await cp(path.join(root, "profiles", "core001"), path.join(dir, "profile"), {
     recursive: true,
   });
+  await rewriteProfileCoreImports(path.join(dir, "profile"));
   await editManifest(dir, (manifest) => {
     manifest.profile.source = "./profile";
     delete manifest.profile.external;
@@ -175,6 +176,7 @@ test("manifest: containment handles the filesystem root and shared prefixes", as
 test("manifest: a profile whose id or version differs from the pin is rejected", async () => {
   const dir = await copyProject("profile-mismatch");
   await cp(profileDir, path.join(dir, "profile"), { recursive: true });
+  await rewriteProfileCoreImports(path.join(dir, "profile"));
   await editManifest(dir, (manifest) => {
     manifest.profile.source = "./profile";
     delete manifest.profile.external;

@@ -148,11 +148,7 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
     recursive: true,
   });
   await cp(profileDir, path.join(dir, "profile"), { recursive: true });
-
-  for (const file of await walkTs(path.join(dir, "profile"))) {
-    const text = await readFile(file, "utf8");
-    await writeFile(file, text.replace(/(?:\.\.\/)+spec\/lib\//g, `${libDir}/`), "utf8");
-  }
+  await rewriteProfileCoreImports(path.join(dir, "profile"));
 
   const manifestPath = path.join(dir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
@@ -164,6 +160,18 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
   manifest.sources[0]!.path = legacyPath;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   return dir;
+}
+
+/**
+ * Rewrites a copied profile's `../../spec/lib/...` imports to the repository engine directory.
+ * A profile copied to an arbitrary temporary location no longer resolves those paths, and the
+ * engine treats an unresolved outside import as an unpinned dependency.
+ */
+export async function rewriteProfileCoreImports(profilePath: string): Promise<void> {
+  for (const file of await walkTs(profilePath)) {
+    const text = await readFile(file, "utf8");
+    await writeFile(file, text.replace(/(?:\.\.\/)+spec\/lib\//g, `${libDir}/`), "utf8");
+  }
 }
 
 /** Consumer-supplied renderer registry, as the CLI wires it. */

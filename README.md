@@ -174,3 +174,5 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 Архитектурный контракт движка: [docs/architecture/engine-public-contract.md](docs/architecture/engine-public-contract.md).
 
 План первого этапа реализации (M1): [docs/architecture/m1-implementation-plan.md](docs/architecture/m1-implementation-plan.md).
+
+Детерминированная идентичность сборки: [docs/architecture/build-identity.md](docs/architecture/build-identity.md).

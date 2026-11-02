@@ -50,6 +50,7 @@ test("renderer: an invocation failure is core.render.failed", async () => {
   const boom: Renderer = {
     id: "boom",
     version: "0.0.0",
+    closure: { files: [], dependencies: {} },
     async render() {
       throw new Error("renderer exploded");
     },
@@ -67,6 +68,7 @@ test("renderer: a minimal renderer runs through the same boundary", async () => 
   const minimal: Renderer = {
     id: "minimal",
     version: "1.0.0",
+    closure: { files: [], dependencies: {} },
     async render(model) {
       return [artifactFrom(model.manifest.render[0]!.outputs.draft!, "minimal output\n")];
     },
@@ -82,6 +84,7 @@ test("renderer: an injected renderer overrides the profile renderer by id", asyn
   const override: Renderer = {
     id: "core001-markdown",
     version: "0.0.0",
+    closure: { files: [], dependencies: {} },
     async render(model) {
       return [artifactFrom(model.manifest.render[0]!.outputs.draft!, "override\n")];
     },
