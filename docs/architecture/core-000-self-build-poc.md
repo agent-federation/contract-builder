@@ -25,7 +25,7 @@ and P-6 remain open after the S1 deferrals.
 | Part | Content |
 |---|---|
 | **Facts** | The planning baseline is `c6ee644` (PR #73); the decision was recorded after PR #74 merged as `1c405c2`. The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/` (PR #64); #73 is a docs-only PAP status update. Neither has a demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. The maintainer recorded the S1 decision on 2026-11-02. |
-| **Recommendations** | Recorded decision: **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A accepted**; **D14, P-2, P-3 and P-6 explicitly deferred for S1**, remaining open. The bounded consumer harness is confirmed for S1 only; G4 remains open. Merge this canonical documentation update; then S1 implementation may start when a dedicated task references it. Treat a fresh temporary directory as a workspace, not a security sandbox. |
+| **Recommendations** | Recorded decision: **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A accepted**; **D14, P-2, P-3 and P-6 explicitly deferred for S1**, remaining open. The bounded consumer harness is confirmed for S1 only; G4 and the generic CLI/API gap remain open, and harness use is not independent verification. Merge this canonical documentation update; then S1 implementation may start when a dedicated task references it. Treat a fresh temporary directory as a workspace, not a security sandbox. |
 | **Unresolved decisions** | **D14, P-2, P-3 and P-6 remain open** as S1 deferrals; deferral is not resolution. P-2's deferral covers only durable publication/location and the summary format; S1 still writes and asserts the transient evidence record. The six accepted decisions are recorded in the canonical decision record. |
 | **Requested approvals** | Merge this canonical decision-record update. No further decision is needed for S1; after merge, S1 implementation may start when a dedicated task references the merged record. The four deferred items (D14, P-2, P-3, P-6) remain open for later decisions. |
 
@@ -770,7 +770,7 @@ No later slice is authorized by this document.
   generate its artifact.
 - It does not change `spec/lib/`, `profiles/core001/`, `spec/output/`, CORE-001 content or `pap/`.
 - It records the 2026-11-02 decision but does not implement S1 or execute a profile; the four
-deferred items remain open.
+  deferred items remain open.
 - It does not claim that a fresh temporary directory is a sandbox, that consent is isolation, or
   that any existing control is a security boundary.
 - It does not claim reproducibility, independent verification, correctness, security, hermeticity

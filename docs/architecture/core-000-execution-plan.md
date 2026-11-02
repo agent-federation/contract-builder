@@ -13,7 +13,8 @@ and §12, and the companion documents are
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md).
 **Revision 3 (maintainer decision, 2026-11-02):** D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A are
 accepted; D14, P-2, P-3 and P-6 are explicitly deferred for S1; the bounded consumer harness is
-confirmed for S1 and G4 remains open. S1 implementation is authorized only after the canonical
+confirmed for S1; G4 and the generic CLI/API gap remain open, and harness use is not independent
+verification. S1 implementation is authorized only after the canonical
 decision-record update is merged and a dedicated implementation task references it. The decision
 was recorded after PR #74 merged as `1c405c2`; this follow-up is documentation-only and changes no
 engine or profile behaviour. No implementation is included here.
@@ -666,7 +667,8 @@ the same mutation table can generate materialized fixtures, but the plan recomme
 
 **Decision record:** the maintainer accepted D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A, and
 explicitly deferred D14, P-2, P-3 and P-6 for S1 on 2026-11-02. The full decision record remains
-open for the four deferred items. The consumer harness is confirmed for S1 only; G4 remains open.
+open for the four deferred items. The consumer harness is confirmed for S1 only; G4 and the
+generic CLI/API gap remain open, and harness use is not independent verification.
 S1 implementation may start only after the canonical decision-record update is merged and a
 dedicated implementation task references it.
 
@@ -723,8 +725,8 @@ This plan is ready for approval when a maintainer confirms that:
   observed results. Counts may change when the data is encoded.
 - The accepted design's claims are author-asserted; the register's independent-verification
   dimension remains `—`. A successful plan execution will not change that.
-- The consumer harness is confirmed for S1 only; G4 remains open and CLI-only positive execution
-  is still blocked.
+- The consumer harness is confirmed for S1 only; G4 and the generic CLI/API gap remain open and
+  CLI-only positive execution is still blocked.
 - The source-byte pin and paragraph locators are not implemented; provenance evidence remains
   coarse.
 - P-1 B is accepted and reconciled with design §7.8. D14, P-2, P-3 and P-6 are explicitly deferred
@@ -799,7 +801,8 @@ expected results, tests, negative cases (N2, N3, N8, N11, N14), exclusions, stop
 acceptance criteria. The maintainer accepted D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A for this
 bounded package on 2026-11-02 and explicitly deferred D14, P-2, P-3 and P-6 for S1; the full
 decision record remains open for those four items. The consumer harness is confirmed for S1 only;
-G4 remains open and is not closed by the harness. P-2's deferral covers only durable
+G4 and the generic CLI/API gap remain open and are not closed by the harness; harness use is not
+independent verification. P-2's deferral covers only durable
 publication/location and the summary format; S1 still writes and asserts the transient §6.2
 record. S1 implementation is authorized only after the canonical decision-record
 update is merged and a dedicated implementation task references it; this document does not
