@@ -1,11 +1,12 @@
 # RFC: Stronger provenance — paragraph locators and a source-document digest
 
-**Status:** proposed for maintainer decision. This is an RFC, not an accepted decision record:
-every choice below is `proposed` unless it restates a decision already directed elsewhere.
+**Status:** accepted by the maintainer on 2026-11-02 (Q1–Q11; Q5 modified in the direction of
+stricter release assurance). This document is the decision record for issue #4; implementation
+follows §8. Choices not covered by that decision remain `proposed`.
 **Issue:** [#4](https://github.com/agent-federation/contract-builder/issues/4) — «Усилить
 provenance: блочный локатор и хеш исходного документа».
 **Baseline:** `e8c917f` (main after #42; the RFC branch merged main in `a504fdd`).
-**Document version:** 1.0
+**Document version:** 1.1
 **Implementation status:** not started. This change is documentation only; no code, data or
 generated artifact is modified by the RFC pull request.
 
@@ -18,11 +19,11 @@ vs verification), [#32](https://github.com/agent-federation/contract-builder/iss
 `docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md` §7 item 7 and §8;
 `README.md` sections «Гарантии» and «Ограничения MVP».
 
-> **Reading statuses.** `proposed` — a decision this RFC asks the maintainer to approve.
-> `directed` — already accepted in the engine public contract or the M1 plan; the RFC only
-> restates it. `deferred` — deliberately not in this increment, with a condition to revisit.
-> `unresolved` — open question listed in §10. Nothing here is accepted on the author's own
-> judgment.
+> **Reading statuses.** `accepted` — directed by the maintainer's decision of 2026-11-02
+> (recorded in §10 and §11). `proposed` — still an open recommendation, not accepted. `directed`
+> — already accepted in the engine public contract or the M1 plan; the RFC only restates it.
+> `deferred` — deliberately not in this increment, with a condition to revisit. Nothing is
+> marked accepted on the author's own judgment.
 
 ---
 
@@ -47,7 +48,10 @@ Two adjacent precision corrections are proposed as part of the same design: a qu
 table key cell no longer satisfies a `table/<key>` locator (§4.1.3), and paragraph numbering
 explicitly skips list items, table rows, headings and code fences (§4.2).
 
-### 1.1 Recommended decisions
+### 1.1 Decisions (accepted 2026-11-02)
+
+All rows below are accepted. D3 carries the Q5 modification (warning in draft; release and
+`--strict` block).
 
 | ID | Decision | Recommendation | Main alternative |
 |---|---|---|---|
@@ -56,7 +60,7 @@ explicitly skips list items, table rows, headings and code fences (§4.2).
 | L3 | Absolute line-span locator `L<s>-L<e>` | `deferred` | include now |
 | D1 | Source digest in `sources[].identity.sha256`, raw bytes, core-owned check | adopt | `sources.yml` field; LF-normalised digest; adapter-owned check |
 | D2 | Digest mismatch severity | `error` in draft and release | `REVIEW_REQUIRED`; warning with opt-in |
-| D3 | Digest absence when the profile maps provenance | `core.provenance.digest-missing`, non-blocking | required field; silent absence |
+| D3 | Digest absence when the profile maps provenance | warning in draft; release and `--strict` block | required field; silent absence |
 | D4 | CORE-001 data migration | separate PR after L1+D1, paragraph range `#10.2/p4-p5` for the one cross-paragraph fragment | migrate inside the first PR; split the fragment into two atomic fragments |
 | D5 | Table locator narrowed from row to value cell | adopt | keep whole-row matching |
 
@@ -112,10 +116,12 @@ model already names paragraphs in its IDs: `FRAG-10.1-P2-TRUST-CONDITION`,
 `FRAG-10.1-P5-NO-GLOBAL-TIME`, `FRAG-10.2-P1-MOMENT-DEFINED`, `FRAG-10.2-P4-5-REVOCATION`,
 `FRAG-10-P-NOT-INTERCHANGEABLE`. The `P<n>` part is a paragraph ordinal relative to the
 section, but nothing checks it. Introducing it as a locator gives the reference a
-machine-verified paragraph anchor and the issue's "block id" without editing the read-only
-source. It does not yet check that the `P<n>` in a fragment ID equals the ordinal in its
-`source_ref`: that agreement is currently by convention, and a small profile check could enforce
-it later (not part of this increment).
+machine-verified paragraph anchor without editing the read-only source. This is an **ordinal
+locator, not a persistent block identity**: after an edit, the ordinal can name different text.
+The digest makes the edit visible and the quote check usually fails, but neither turns the
+ordinal into a stable ID across revisions (§4.2.3). The locator does not yet check that the
+`P<n>` in a fragment ID equals the ordinal in its `source_ref`: that agreement is currently by
+convention, and a small profile check could enforce it later (not part of this increment).
 
 ### 2.4 Measured surface (for sizing only)
 
@@ -161,6 +167,7 @@ increments differ in whether they touch the golden baseline (§5.3, §7.3).
 | R6 | The README states the guarantee precisely, including what is *not* guaranteed. |
 | R7 | New diagnostic codes are documented in the profile catalog (where profile-owned) and in the README/contract (where core-owned). |
 | R8 | The build stays byte-deterministic; existing golden tests stay meaningful. |
+| R9 | A release build must not publish a source whose bytes are not pinned when provenance is mapped (maintainer decision Q5). |
 
 ### 3.2 Non-goals
 
@@ -326,6 +333,11 @@ Paragraph ordinals are relative to the section's direct body, so:
 - this is why existing IDs already line up: `FRAG-10.1-P2` → `#10.1/p2`, `FRAG-10.1-P5` →
   `#10.1/p5`, `FRAG-10.2-P1` → `#10.2/p1` (Appendix A is the full measured map).
 
+An ordinal is **not** a persistent block identity. `#10.2/p4` names the fourth paragraph of one
+revision of the document; after an edit it can name different text. The digest forces the edit to
+be noticed and the quote check usually refuses the old quote, but neither makes the ordinal a
+stable cross-revision ID. The RFC keeps calling it a locator for exactly that reason.
+
 #### 4.2.4 Subset, stated honestly
 
 The adapter is not a CommonMark parser and this RFC does not make it one. It understands ATX
@@ -434,10 +446,14 @@ The core verifies the digest in `loadSources` (`spec/lib/ir.ts:188–220`) immed
    the source bytes, not about locator resolution; the adapter still owns the latter.
 2. If `identity.sha256` is absent and the profile declares provenance mappings
    (`profile.provenance` non-empty): one `core.provenance.digest-missing` warning per source.
-   Greenfield specs without provenance are not nagged. The trigger is deliberately the mapping
-   list, not a policy flag: M1 plan §8.2 names `requireProvenance: true`, but `Profile` and
-   `profile.json` do not implement it (`spec/lib/manifest.ts:72–86` has no such field), so the
-   mapping list is the accurate M1 proxy. Implementing the flag is a separate decision (Q5).
+   **Draft continues with a visible warning; release blocks publication, and `--strict` blocks
+   draft as well** (maintainer decision Q5, tightening the original recommendation). The reason
+   is that a release artifact whose provenance is formally present but whose source is not
+   pinned would overstate what the build checked. Greenfield specs without provenance are not
+   nagged. The trigger is deliberately the mapping list, not a policy flag: M1 plan §8.2 names
+   `requireProvenance: true`, but `Profile` and `profile.json` do not implement it
+   (`spec/lib/manifest.ts:72–86` has no such field), so the mapping list is the accurate M1
+   proxy. Implementing the flag remains open.
 3. If the digest is present and correct, behaviour is unchanged.
 
 Core ownership follows contract §5.2 step 7: provenance *binding shape* is core; locator
@@ -477,12 +493,23 @@ workflow**, not by a softer severity:
 | `inputDigest` (#32, implemented in #42) | what exact inputs and extension closures produced this build | engine |
 | signature / verification record (#37, #44) | who attested, and what was independently verified | not in this RFC |
 
+The three implemented checks — revision header, source digest and quote verification — are
+independent and none replaces another:
+
+- the **revision header** answers "does the document claim the expected identity and revision?";
+- the **source digest** answers "are the bytes still the pinned bytes?";
+- the **quote check** answers "is this quoted text inside the declared place?".
+
+A passing digest says nothing about a quote's location; a passing quote check says nothing about
+bytes outside the quote; a matching header says nothing about content. #37 and the assurance
+package must keep these dimensions distinct.
+
 ### 4.5 Diagnostics
 
 | Code | Severity | Owner | Draft | Release | Trigger |
 |---|---|---|---|---|---|
 | `core.provenance.digest` | error | core | blocks | blocks | declared digest ≠ actual bytes |
-| `core.provenance.digest-missing` | warning | core | passes, visible | passes (blocks under `--strict`) | provenance is mapped, source has no digest |
+| `core.provenance.digest-missing` | warning | core | passes, visible | **blocks** | provenance is mapped, source has no digest |
 | `ERR_SOURCE_BLOCK_UNKNOWN` | error | profile catalog | blocks | blocks | `p`/range/cell/item selector does not resolve |
 | `ERR_SOURCE_LOCATOR_MISMATCH` | error | profile catalog | blocks | blocks | quote exists in the document but not inside the declared block (includes a quote crossing an atomic paragraph boundary) |
 | `ERR_SOURCE_LOCATOR_UNKNOWN` | error | profile catalog | blocks | blocks | ref unparsable or section not found |
@@ -514,6 +541,12 @@ ERR_SOURCE_BLOCK_UNKNOWN (fragment)
 ERR_SOURCE_BLOCK_UNKNOWN (decision)
   Объявленный блок "{{ref}}" не найден в {{legacyName}}.
 ```
+
+Implementation of Q5: the code keeps `severity: warning` (so draft is not blocked), and M1 adds
+`core.provenance.digest-missing` to the release-blocking set in `spec/lib/build.ts`: release
+exits 1 and writes no artifact. `--strict` already promotes every warning in both modes. This is
+the one per-mode blocking rule in M1; it moves into the profile/project blocking policy when
+contract D9 lands (M2).
 
 The `ERR_SOURCE_LOCATOR_UNKNOWN` message string should be extended to mention the new forms;
 its current text still lists only `[/table/<column>|/<item>]`.
@@ -551,7 +584,9 @@ and add:
   (отложено, см. RFC).
 - Если `identity.sha256` не объявлен, цитаты проверяются по текущему файлу и выдаётся
   `core.provenance.digest-missing` (WARNING): совпадение с объявленной ревизией не
-  доказывается. Хеш — закрепление содержимого, не подпись и не доказательство авторства.
+  доказывается. В draft сборка идёт с предупреждением, release блокируется, `--strict`
+  блокирует и draft. Хеш — закрепление содержимого, не подпись и не доказательство
+  авторства.
 ```
 
 ### 4.7 Documentation and contract amendments
@@ -686,7 +721,7 @@ atomic only after the second PR.
 - Existing refs keep working. The only semantic tightening is that a `table/<key>` quote must
   now be in a value cell, and out-of-range selectors return `unknown-block` instead of `outside`.
 - An external project that relied on `#<section>` to accept a subsection quote keeps that
-  behaviour; atomicity is opt-in per fragment, which is exactly the issue's "optional block id".
+  behaviour; atomicity is opt-in per fragment, which matches the issue's request to make the locator finer than a section.
 
 ### 7.2 Failing loudly, never silently re-pointing
 
@@ -779,7 +814,8 @@ Acceptance:
 - [ ] Edit inside a quote with a recomputed digest: the quote/locator error appears (coverage of
       the existing drift test is preserved).
 - [ ] Malformed digest: `core.manifest.invalid` at the field; missing digest with mapped
-      provenance: `core.provenance.digest-missing`, build continues, `--strict` blocks.
+      provenance: draft emits `core.provenance.digest-missing` and exits 0, release exits 1 and
+      writes no artifact, `--strict` exits 1 in draft too.
 - [ ] `validateSources` carries `identity.sha256` into the model (extend
       `tests/manifest.test.ts:199`); otherwise the digest check silently never runs.
 - [ ] A CRLF-rewritten file fails the digest (raw-byte semantics are tested, not assumed).
@@ -829,7 +865,7 @@ Issue acceptance tests are in bold.
 | 13 | `#15/99` | `ERR_SOURCE_BLOCK_UNKNOWN` |
 | 14 | Unparsable selector / missing section | `ERR_SOURCE_LOCATOR_UNKNOWN` |
 | 15 | Two sources, one digest wrong | one `core.provenance.digest`, fail-fast after checking all sources |
-| 16 | Digest absent, profile maps provenance | `core.provenance.digest-missing` warning, draft exit 0, `--strict` exit 1 |
+| 16 | Digest absent, profile maps provenance | `core.provenance.digest-missing` warning; draft exit 0; release exit 1, no artifact; `--strict` exit 1 |
 | 17 | Digest absent, profile maps no provenance | no warning |
 | 18 | Malformed digest value | `core.manifest.invalid` at `/sources/<i>/identity/sha256` |
 | 19 | CRLF line endings on the source | `core.provenance.digest` (raw bytes) |
@@ -853,40 +889,51 @@ fixtures are intentionally broken *specs*, not copies of the legacy document.
 
 ---
 
-## 10. Open questions for maintainer approval
+## 10. Maintainer decision (2026-11-02)
 
-| ID | Question | Recommendation |
-|---|---|---|
-| Q1 | Approve the grammar `p<n>` / `p<s>-p<e>` (and keep section/table/item)? | yes; it matches the existing `P*` IDs and the issue's "block id" intent |
-| Q2 | Digest in `sources[].identity.sha256` (manifest) instead of `document_sha256` in `sources.yml`? | yes; M1 moved source declarations to the manifest. The issue wording is superseded |
-| Q3 | Absolute line spans `L<s>-L<e>` now or deferred? | deferred; paragraph ranges cover the slice; revisit for non-paragraph multi-block quotes |
-| Q4 | Digest mismatch severity: error in both modes, no warning mode? | yes; same class as the revision header, explicit re-pin workflow instead |
-| Q5 | Digest absence: non-blocking warning vs required field? | warning when provenance is mapped; CORE-001 declares the digest. The trigger is the mapping list because `requireProvenance` is named in the M1 plan but not implemented (Q5 note in §4.4.3) |
-| Q6 | Raw bytes + `.gitattributes` LF pin vs normalised digest? | raw bytes + LF pin |
-| Q7 | CORE-001 migration: `#10.2/p4-p5` range now, split the fragment later? | range now; splitting is a separate data-model decision |
-| Q8 | Narrow `table/<key>` to value cells? | yes; no current data breaks |
-| Q9 | Core code family: `core.provenance.digest*` vs `ERR_SOURCE_DIGEST_MISMATCH`? | `core.provenance.*` follows the contract's D17; one family is also acceptable if preferred |
-| Q10 | Contract amendments in the RFC PR or with implementation? | with implementation, so the contract never describes unshipped behaviour |
-| Q11 | Warn on bare-section locators after CORE-001 migrates, to nudge toward atomic locators? | no warning now: after the migration the project data is atomic, and a generic warning would penalise external projects. Revisit if coarse locators reappear |
+The maintainer accepted Q1–Q11 with one modification: **Q5** (digest absence now blocks
+release). The decision column is authoritative; the recommendation column is kept for the
+record.
 
-Approval of Q1–Q9 is enough to start PR 1 and PR 2; Q7 gates PR 3.
+| ID | Question | Recommendation | Decision |
+|---|---|---|---|
+| Q1 | Approve the grammar `p<n>` / `p<s>-p<e>` (and keep section/table/item)? | yes; it matches the existing `P*` IDs | **accepted**: paragraph ordinals; explicitly a locator, not a persistent block ID (§4.2.3) |
+| Q2 | Digest in `sources[].identity.sha256` (manifest) instead of `document_sha256` in `sources.yml`? | yes; M1 moved source declarations to the manifest | **accepted** |
+| Q3 | Absolute line spans `L<s>-L<e>` now or deferred? | deferred | **accepted: deferred** |
+| Q4 | Digest mismatch severity: error in both modes, no warning mode? | yes | **accepted** |
+| Q5 | Digest absence: non-blocking warning vs required field? | warning when provenance is mapped | **accepted with modification**: warning in draft; release and `--strict` block. The field stays optional in the manifest schema (format compatibility), but release assurance requires a pinned source (§4.4.3, §4.5) |
+| Q6 | Raw bytes + `.gitattributes` LF pin vs normalised digest? | raw bytes + LF pin | **accepted** |
+| Q7 | CORE-001 migration: `#10.2/p4-p5` range now, split the fragment later? | range now | **accepted** |
+| Q8 | Narrow `table/<key>` to value cells? | yes | **accepted** |
+| Q9 | Core code family `core.provenance.digest*` vs `ERR_SOURCE_DIGEST_MISMATCH`? | `core.provenance.*` | **accepted** |
+| Q10 | Contract amendments in the RFC PR or with implementation? | with implementation | **accepted** |
+| Q11 | Warn on bare-section locators after CORE-001 migrates? | no global warning | **accepted**: no core warning; external projects are not subject to a CORE-001 policy, and a profile may add its own locator policy later |
+
+Consequences recorded in this revision: Q5 updates §4.4.3, §4.5, §4.6, the PR 2 acceptance and
+the test matrix; Q1 keeps the "ordinal locator, not persistent block identity" wording (§2.3,
+§4.2.3); the three independent checks are stated in §4.4.5. Q1–Q11 are sufficient to start PR 1
+and PR 2; Q7 gates PR 3.
 
 ---
 
 ## 11. Decision register
 
-Legend: all entries are `proposed` unless marked otherwise.
+Legend: `accepted` — directed by the maintainer decision of 2026-11-02 (Q1–Q11, §10);
+`accepted (deferred)` — accepted deferral; `proposed` — not yet decided.
 
 | ID | Decision | Status | Selected | Alternatives | Rationale | Consequence |
 |---|---|---|---|---|---|---|
-| P-L1 | Locator grammar v2 | proposed | paragraph ordinals and ranges; section/table/item retained | block hash, sidecar map, legacy anchors | reviewable, source stays read-only, matches existing IDs | adapter + hook + catalog changes |
-| P-L2 | Paragraph model | proposed | direct body; blank-line paragraphs; exclude headings, table rows, list items, fences, thematic breaks | full CommonMark; blank-line-only | matches the slice and the existing P-numbering | documented subset; bullet lists not atomically addressable |
-| P-L3 | Absolute line spans | deferred | not in v1 | include now | no current need; revision-bound | one selector can be added later |
-| P-D1 | Source digest | proposed | `sources[].identity.sha256`, raw bytes, core check | `sources.yml`; normalized; adapter-owned | one declaration home; format-agnostic | manifest field, core diagnostic, `.gitattributes` |
-| P-D2 | Digest severity | proposed | error both modes | review; warning | invalidates the source identity for every quote | explicit re-pin workflow |
-| P-D3 | Digest absence | proposed | warning when provenance mapped | required field; silent | keeps greenfield specs usable, makes the weaker guarantee visible | CORE-001 must declare it |
-| P-D4 | Migration | proposed | separate PR; `p4-p5` for the cross-paragraph fragment | split the fragment; migrate with grammar | keeps golden-artifact change isolated and reviewable | source-ref lines and golden SHA change in PR 3 only |
-| P-D5 | Table narrowing | proposed | value-cell matching | keep row-wide | removes a same-class looseness as G1 | error-path behaviour change only |
+| P-L1 | Locator grammar v2 | accepted | paragraph ordinals and ranges; section/table/item retained | block hash, sidecar map, legacy anchors | reviewable, source stays read-only, matches existing IDs | adapter + hook + catalog changes |
+| P-L2 | Paragraph model | accepted | direct body; blank-line paragraphs; exclude headings, table rows, list items, fences, thematic breaks | full CommonMark; blank-line-only | matches the slice and the existing P-numbering | documented subset; bullet lists not atomically addressable |
+| P-L3 | Absolute line spans | accepted (deferred) | not in v1 | include now | no current need; revision-bound | one selector can be added later |
+| P-L4 | Ordinal locators are not persistent block IDs | accepted | keep `p<n>` as a locator; digest + quote check handle drift | content-addressed IDs; sidecar IDs | an ordinal names a position in one revision, not an identity | honest wording preserved; no stable-ID claim |
+| P-L5 | No core warning for bare-section locators | accepted | optional profile policy later | core warning | CORE-001 policy must not be imposed on external projects (Q11) | no new diagnostic in this increment |
+| P-D1 | Source digest | accepted | `sources[].identity.sha256`, raw bytes, core check | `sources.yml`; normalized; adapter-owned | one declaration home; format-agnostic | manifest field, core diagnostic, `.gitattributes` |
+| P-D2 | Digest severity | accepted | error both modes | review; warning | invalidates the source identity for every quote | explicit re-pin workflow |
+| P-D3 | Digest absence | accepted (modified) | warning in draft; release and `--strict` block | required field; silent | keeps format compatibility, enforces release assurance | release gate blocks `core.provenance.digest-missing` |
+| P-D4 | Migration | accepted | separate PR; `p4-p5` for the cross-paragraph fragment | split the fragment; migrate with grammar | keeps golden-artifact change isolated and reviewable | source-ref lines and golden SHA change in PR 3 only |
+| P-D5 | Table narrowing | accepted | value-cell matching | keep row-wide | removes a same-class looseness as G1 | error-path behaviour change only |
+| P-V1 | Digest, quote check and revision header stay independent | accepted | three separate checks, none replaces another | one merged "verified" flag | they answer different questions: bytes, location, claimed identity | boundary kept for #37 and the assurance package |
 
 ---
 
