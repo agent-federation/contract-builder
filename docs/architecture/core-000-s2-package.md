@@ -7,9 +7,11 @@ project data, tests, evidence, fixtures or generated artifacts.
 (zaebee, 2026-11-02): S2 — structure and full model — is the next milestone, but the maintainer
 authorized only preparation of a bounded package; implementation needs explicit approval.
 **S1 status:** [PR #77](https://github.com/agent-federation/contract-builder/pull/77) merged as
-`07cbf5bd6cbed740e55351612d0300196b8d1464`; its status-matrix follow-up is
-[PR #79](https://github.com/agent-federation/contract-builder/pull/79). S1 is the five-claim bounded
-slice, not the full model.
+`07cbf5bd6cbed740e55351612d0300196b8d1464`; its status-matrix follow-up
+[PR #79](https://github.com/agent-federation/contract-builder/pull/79) merged as
+`a6dddefad589c8ba9f0fbd859b060c5fcb729b61`. S1 is the five-claim bounded slice, not the full model.
+The current-main baseline for this package is `a6dddef`; PR #79 is docs-only and changes no engine
+or profile behaviour.
 **Canonical decision record:** [`core-000-decision-record.md`](core-000-decision-record.md);
 D14, P-2, P-3 and P-6 remain open after the S1 deferrals.
 
