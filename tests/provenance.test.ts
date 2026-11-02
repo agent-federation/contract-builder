@@ -13,7 +13,8 @@ import {
   sourceDigest,
   type ProvenanceVerificationClaim,
 } from "../spec/lib/provenance.js";
-import type { LocatorResult } from "../spec/lib/source.js";
+import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
+import type { LocatorResult, SourceAdapter } from "../spec/lib/source.js";
 import { verifyProvenance } from "../profiles/core001/checks/verification.js";
 import { renderer } from "../profiles/core001/renderer.js";
 import { fragment, modelWith, TEST_RENDERERS } from "./support.js";
@@ -307,6 +308,36 @@ test("provenance: failed and stale are rendered distinctly, never as verified", 
   const staleRow = provenanceRow(await render(stale.model), "F1");
   assert.match(staleRow, /\| stale \(found\) \|/);
   assert.equal(staleRow.includes("verified"), false);
+});
+
+test("provenance: a full build calls verifyQuote exactly once per direct binding", async () => {
+  const calls: Array<{ ref: string; quote: string }> = [];
+  const spy: SourceAdapter = {
+    ...markdownAdapter,
+    async verifyQuote(source, ref, quote) {
+      calls.push({ ref, quote });
+      return markdownAdapter.verifyQuote(source, ref, quote);
+    },
+  };
+
+  const result = await runBuild({
+    specDir,
+    mode: "draft",
+    write: false,
+    check: false,
+    strict: false,
+    renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
+    adapters: { markdown: spy },
+  });
+  assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
+
+  // CORE-001 has seven direct fragment bindings and one decision binding. If the source
+  // checks re-verified the same quotes, the adapter would be called more than eight times.
+  const decisionRef = "SRC-CORE001#15/5";
+  assert.equal(calls.length, 8, "one adapter call per direct binding");
+  assert.equal(calls.filter((call) => call.ref === decisionRef).length, 1, "one decision call");
+  assert.equal(calls.filter((call) => call.ref !== decisionRef).length, 7, "seven fragment calls");
 });
 
 test("provenance: the draft artifact labels every direct binding and its evidence", async () => {
