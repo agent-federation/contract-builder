@@ -490,8 +490,8 @@ into a pass.
   decided; the transient S1 record is still produced and asserted.
 - Any file that would make the engine's own output look like independent verification.
 
-Publication of evidence is subject to P-2 and P-6. The first slice writes evidence to a temporary
-path only.
+Durable publication of evidence is subject to P-2 and P-6. S1 writes the transient record to a
+temporary path; that requirement is not subject to P-2.
 
 ---
 
