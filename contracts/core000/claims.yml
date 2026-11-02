@@ -1,0 +1,190 @@
+sourceStatements:
+  - id: SRC-TR-001
+    source: SRC-ENGINE-CONTRACT
+    source_ref: "SRC-ENGINE-CONTRACT#3.3"
+    source_quote: "The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**"
+
+  - id: SRC-MANIFEST-001
+    source: SRC-ENGINE-CONTRACT
+    source_ref: "SRC-ENGINE-CONTRACT#3.1"
+    source_quote: "`render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred."
+
+  - id: SRC-PROVENANCE-001
+    source: SRC-ENGINE-CONTRACT
+    source_ref: "SRC-ENGINE-CONTRACT#4"
+    source_quote: "A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit."
+
+claims:
+  - id: C000-TR-001
+    author: "it-start"
+    statement: "After explicit consent, executable profile code runs in-process with the builder process's privileges; the engine does not sandbox it."
+    class: trust_boundary
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Code inspection of spec/lib/build.ts and the accepted contract; a security review is external."
+    scope: "Executable profile loading at main dffdaa2."
+    subject_kind: trust_boundary
+    relations:
+      subject: [TB-PROFILE-EXEC]
+      cites: [SRC-TR-001]
+      evidencedBy: [EV-TRUST-CODE, EV-TRUST-TEST]
+      decidedBy: [DEC-35]
+
+  - id: C000-TR-003
+    author: "it-start"
+    statement: "Executable profile loading requires explicit caller consent: allowExecutableProfile defaults false, the CLI flag is --allow-executable-profile, and absent consent fails closed with core.profile.consent-required before import."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "bun test tests/consent.test.ts"
+    scope: "Consent policy merged by PR #50, verified at main dffdaa2."
+    subject_kind: trust_boundary
+    relations:
+      subject: [TB-PROFILE-EXEC]
+      evidencedBy: [EV-CONSENT-CODE, EV-CONSENT-TEST]
+      decidedBy: [DEC-35]
+
+  - id: C000-CT-025
+    author: "it-start"
+    statement: "M1 supports exactly one manifest.render declaration; zero or multiple declarations are rejected with core.manifest.invalid before rendering or writing."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "bun test tests/manifest.test.ts"
+    scope: "Single render declaration at main dffdaa2."
+    subject_kind: interface
+    relations:
+      subject: [IF-MANIFEST]
+      cites: [SRC-MANIFEST-001]
+      evidencedBy: [EV-MANIFEST-CODE, EV-MANIFEST-TEST]
+      decidedBy: [DEC-PR-56]
+
+  - id: C000-CT-026
+    author: "it-start"
+    statement: "Provenance binding and verification are separate data: a not-checked record at binding, an optional profile verifyProvenance hook, core validation of status/method/outcome/source digest, and verified/failed/unavailable/stale statuses; verified is not independent verification."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "bun test tests/provenance.test.ts"
+    scope: "Provenance binding and verification at main dffdaa2."
+    subject_kind: component
+    relations:
+      subject: [COMP-CORE]
+      cites: [SRC-PROVENANCE-001]
+      evidencedBy: [EV-PROVENANCE-CODE, EV-PROVENANCE-TEST]
+      decidedBy: [DEC-PR-55]
+
+  - id: C000-IM-004
+    author: "it-start"
+    statement: "profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine's renderer is consumer-supplied, and the CLI imports the CORE-001 renderer conditionally."
+    class: implementation_fact
+    status: { decision: none, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "bun test tests/consent.test.ts tests/example-profile.test.ts"
+    scope: "Executable profile import behaviour at main dffdaa2."
+    subject_kind: interface
+    relations:
+      subject: [IF-PROFILE-VALIDATOR]
+      evidencedBy: [EV-CONSENT-CODE, EV-CONSENT-TEST]
+
+evidence:
+  - id: EV-TRUST-CODE
+    kind: code
+    locator: "spec/lib/build.ts"
+    revision: "dffdaa2"
+    description: "loadProfileModule imports view/validator after the consent gate."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TRUST-TEST
+    kind: test
+    locator: "tests/consent.test.ts"
+    revision: "dffdaa2"
+    description: "Consent tests cover API/CLI rejection and success and renderer isolation."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CONSENT-CODE
+    kind: code
+    locator: "spec/lib/build.ts; spec/build.ts; spec/cli-renderers.ts"
+    revision: "dffdaa2"
+    description: "allowExecutableProfile gate, CLI flag and conditional CORE-001 renderer preflight."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CONSENT-TEST
+    kind: test
+    locator: "tests/consent.test.ts"
+    revision: "dffdaa2"
+    description: "API/CLI rejection, success, renderer isolation, closure preflight and lockfile cases."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-MANIFEST-CODE
+    kind: code
+    locator: "spec/lib/manifest.ts"
+    revision: "dffdaa2"
+    description: "The manifest loader rejects zero or multiple render declarations with core.manifest.invalid."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-MANIFEST-TEST
+    kind: test
+    locator: "tests/manifest.test.ts"
+    revision: "dffdaa2"
+    description: "Manifest tests cover the single render declaration contract."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-PROVENANCE-CODE
+    kind: code
+    locator: "spec/lib/provenance.ts; spec/lib/hook.ts"
+    revision: "dffdaa2"
+    description: "Binding attaches a not-checked record; verifyProvenance claims are validated and stored separately."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-PROVENANCE-TEST
+    kind: test
+    locator: "tests/provenance.test.ts"
+    revision: "dffdaa2"
+    description: "Provenance tests cover binding/verification separation, status handling and digests."
+    producer: "repository"
+    independence: author
+    availability: available
+
+independentVerifications: []
+
+decisions:
+  - id: DEC-35
+    title: "Explicit consent for executable profiles"
+    status: accepted
+    owner: maintainer
+    source: "Issue #35; PR #50"
+    consequence: "Consent is per invocation, fail-closed, not isolation and not part of inputDigest."
+
+  - id: DEC-PR-55
+    title: "Separate provenance binding from verification"
+    status: accepted
+    owner: maintainer
+    source: "Issue #37; PR #55"
+    consequence: "Binding is structural; verification is a separate recorded result with verified/failed/unavailable/stale and a VerificationRecord."
+
+  - id: DEC-PR-56
+    title: "Exactly one render target in M1"
+    status: accepted
+    owner: maintainer
+    source: "Issue #38; PR #56"
+    consequence: "Zero or multiple manifest.render declarations are rejected before rendering or writing."
