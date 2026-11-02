@@ -5,8 +5,8 @@ Nothing in this document is accepted or decided; it does not implement CORE-000,
 tests, schemas, fixtures, evidence or generic-core behaviour.
 **Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47).
 **Baseline:** current `main` at
-[`7536fb6`](https://github.com/agent-federation/contract-builder/commit/7536fb6aff33c902779aeefabc4b04ed33e777b8)
-(merged execution plan PR #59). The accepted design is
+[`b8e67a8`](https://github.com/agent-federation/contract-builder/commit/b8e67a8bf74897b8c44399931d17477abccd78ec)
+(the PR base; includes merged execution plan PR #59 and the later #58 work). The accepted design is
 [`core-000-self-contract.md`](core-000-self-contract.md) (PR #51); the accepted execution plan is
 [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59).
 
@@ -198,6 +198,14 @@ say the quote was checked. The profile verifier can supply a `verified` record, 
 validates status/method/outcome/digest. A makes the distinction enforceable. B is a defensible
 softer policy but weakens the gate; if chosen, the design's `source.verification-*` checks and
 release behaviour must change.
+
+**Scope of `verified` (D15 vs D13).** The #37 `verified` status establishes only that the
+provenance binding's quoted material was checked against the identified source bytes and that the
+record is current for the recorded `sourceDigest`. It does **not** establish that the quote
+substantively supports the normative claim, that the claim is true, or that the claim has been
+independently verified. Only D13's separate `independent_verification` record (by a verifier
+distinct from the author, with its own scope/result/independence basis) can support
+`verification: independently_verified`; a provenance `verified` record is not that evidence.
 
 **Consequences and trade-offs.**
 
@@ -471,7 +479,7 @@ candidate, not a proposal; it may change after D1/D13/D14/D15/P-1–P-6 are answ
 
 ## 14. Evidence, constraints and limitations of this record
 
-- Baseline `7536fb6` (PR #59 merged); accepted design PR #51; 169 tests, typecheck and
+- Baseline `b8e67a8` (PR base, including #59 and #58); accepted design PR #51; 169 tests, typecheck and
   `bun run check` green at the time of writing; CORE-001 artifact unchanged. These are repository
   facts, not independent verification of CORE-000.
 - This record is documentation-only; it creates no CORE-000 project/profile, code, tests, schemas,
