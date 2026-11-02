@@ -265,7 +265,9 @@ positive and negative mutations exercise only the cases named in PR #77. The imp
 records a transient run-evidence object.
 
 **What S1 does not establish.** The complete 78-claim / 14-kind / 28-relation / 23-policy-check
-model is not implemented. Same-environment, fresh-workspace repeatability (two processes, each
+model named at the S1 milestone is not implemented. That count is the historical S1 snapshot: the
+accepted design prose says 23, its check table enumerates 24, and S2-D1 resolves the full-model
+count. Same-environment, fresh-workspace repeatability (two processes, each
 creating its own fresh workspace) was tested, but H2 cross-environment reproducibility was
 explicitly recorded as `NOT_TESTED`. H3 independent verification was recorded as `NOT_PERFORMED`. No claim is
 `independently_verified`; the review status above applies to selected implementation behaviors,

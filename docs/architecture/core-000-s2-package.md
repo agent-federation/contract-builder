@@ -34,9 +34,9 @@ D14, P-2, P-3 and P-6 remain open after the S1 deferrals.
 | Part | Content |
 |---|---|
 | **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes, each creating its own fresh workspace (same-environment, fresh-workspace repeatability; not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 28 relations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
-| **Recommendations** | Approve a staged S2: **S2.1 model surface**, **S2.2 full claim register**, **S2.3 focused check coverage and S2 evidence**. The full N1–N18 matrix stays in S3 unless the maintainer decides otherwise (S2-D4). Decide **D14 = A**, **P-2 = A**, **P-3 = A**, and **P-6 = A for run evidence only; zero independent records in S2**. Resolve the check-count discrepancy by treating the **24 enumerated codes as authoritative** (S2-D1 A) and correct the prose count. Encode all **78** accepted claims without inventing claims (S2-D2 A). Model `conformance_case` with an empty data list and leave the full N1–N18 matrix to the S3 harness (S2-D3 A/S2-D4 A). |
+| **Recommendations** | Approve the **planning package** for a staged S2: **S2.1 model surface**, **S2.2 full claim register**, **S2.3 focused check coverage and S2 evidence**. The full N1–N18 matrix stays in S3 unless the maintainer decides otherwise (S2-D4). Decide **D14 = A**, **P-2 = A**, **P-3 = A**, and **P-6 = A for run evidence only; zero independent records in S2**. Resolve the check-count discrepancy by treating the **24 enumerated codes as authoritative** (S2-D1 A) and correct the prose count. Encode all **78** accepted claims without inventing claims (S2-D2 A). Model `conformance_case` with an empty data list and leave the full N1–N18 matrix to the S3 harness (S2-D3 A/S2-D4 A). |
 | **Open decisions** | D14, P-2, P-3, P-6 and S2-D1–S2-D4 are open. No S2 implementation is authorized. H2 and H3 are not in S2 scope. |
-| **Requested approvals** | (1) Decide D14, P-2, P-3, P-6 and S2-D1–S2-D4. (2) Approve the staged S2 scope and file boundaries. (3) Authorize S2.1 only after this package is approved and merged, with a dedicated implementation task referencing it. (4) Confirm that S2 does not claim H2, H3, security isolation or semantic truth. |
+| **Requested approvals** | (1) Decide D14, P-2, P-3, P-6 and S2-D1–S2-D4. (2) Approve the planning package and staged scope/file boundaries. (3) Issue a separate explicit S2.1 authorization after review of the decisions and exact S2.1 scope; package approval/merge and creating or linking an implementation task are **not** authorization. (4) Treat S2.2 and S2.3 as separately gated, each requiring its own explicit authorization. (5) Confirm that S2 does not claim H2, H3, security isolation or semantic truth. |
 
 ---
 
@@ -80,23 +80,33 @@ this as an open decision, not a silent correction.
 
 #### 1.2.1 Complete count-correction scope
 
-A repository-wide search at `9966488` for `23 policy`, `23-policy`, `23 profile` and `24-code`
-found the following references. This list is the complete scope; if S2-D1 A is accepted, all rows
-are corrected together; if S2-D1 B is accepted, the package must instead name the excluded check.
+A repository-wide search at `9966488` for `23 policy`, `23-policy`, `23 profile`, `23-check`,
+`9 of 23`, `23 CORE-000`, `policy check families` and `24-code` found the references below.
+Unrelated uses of `23` (PR numbers, relation #23, table numbers) were excluded. The inventory
+classifies each occurrence rather than mechanically replacing every number; **no count is changed
+while S2-D1 is open**.
 
-| File | Exact reference | Current count | Required action |
-|---|---|---|---|
-| `docs/architecture/core-000-self-contract.md` | §5.7 prose above the check table | 23 | Count-only correction to 24 if S2-D1 A; no normative change |
-| `docs/architecture/core-000-execution-plan.md` | §1 design-register paragraph and baseline table | 23 | Count-only correction to 24 if S2-D1 A |
-| `docs/architecture/core-000-self-build-poc.md` | §10.7 “full 78-claim register” paragraph | 23 | Count-only correction to 24 if S2-D1 A |
-| `docs/architecture/implementation-status.md` | §4.1 “What S1 does not establish” (`23-policy-check`) | 23 | Count-only correction to 24 if S2-D1 A; this file was missing from the earlier correction list |
-| `docs/architecture/core-000-s2-package.md` | §1.2, §4.3 and §8 criterion 4 | 24 with the 23 prose recorded | §8 must be conditional (C1); §1.2/§4.3 already record both; no silent choice |
+| File | Exact reference | Classification | Current | Action under S2-D1 |
+|---|---|---|---|---|
+| `docs/architecture/core-000-self-contract.md` | §5.7 prose above the check table | design baseline / source of discrepancy | 23 | If A: correct to 24 (normative count only); if B: keep 23 and name the excluded code |
+| `docs/architecture/core-000-execution-plan.md` | §1 design-register paragraph | forward-looking plan baseline | 23 | If A: correct to 24; if B: keep 23 with the excluded code named |
+| `docs/architecture/core-000-execution-plan.md` | §1 baseline table row “Model” | forward-looking plan baseline | 23 | If A: correct to 24 |
+| `docs/architecture/core-000-execution-plan.md` | §2.2 catalog row “23 CORE-000 diagnostic codes” | forward-looking proposed profile | 23 | If A: correct to 24; if B: reconcile to 23 |
+| `docs/architecture/core-000-execution-plan.md` | §3.4 “23 CORE-000 diagnostic entries” | forward-looking structure data | 23 | If A: correct to 24; if B: reconcile to 23 |
+| `docs/architecture/core-000-self-build-poc.md` | §2.1 “full 78-claim / 14-kind / 28-relation / 23-check register” | forward-looking full-model description | 23 | If A: correct to 24; if B: keep 23 with the excluded code named |
+| `docs/architecture/core-000-self-build-poc.md` | §10.6 “Policy check families (9 of 23)” | historical S1 scope/planning snapshot | 23 | Retain as an S1 snapshot; if touched, add a note that the design table enumerates 24 and S2-D1 governs the full count. Not a blanket correction |
+| `docs/architecture/core-000-self-build-poc.md` | §10.7 “23 policy checks” in explicit exclusions | historical S1 scope snapshot | 23 | Retain as an S1 exclusion; if touched, label it as the S1 planning count, not the current full model |
+| `docs/architecture/core-000-self-build-poc.md` | §10.10 “nine policy-check families … 23-check model” | historical S1 scope/acceptance snapshot | 23 | Retain as S1 evidence; if touched, label historical and do not imply the full model is 23 |
+| `docs/architecture/core-000-self-build-poc.md` | §11.1 “24 enumerated … 23; S2-D1 resolves” | forward-looking, already conditional | 24/23 recorded | Keep conditional; no correction while S2-D1 is open |
+| `docs/architecture/implementation-status.md` | §4.1 “What S1 does not establish” (`23-policy-check`) | historical S1 status snapshot | 23 | Labeled as the S1 as-of-milestone count in this revision, with the 23/24 discrepancy noted; no count-only correction; reconcile only in a separate status-matrix update |
+| `docs/architecture/core-000-s2-package.md` | §1.2, §4.3 and §8 criterion 4 | S2 package, already conditional | 24 with 23 prose recorded | Keep §8 conditional; §1.2/§4.3 record both; no silent choice |
+| `docs/architecture/core-000-s2-package.md` | §4.6 diagnostics traceability (“all 24”) | forward-looking/conditional S2 mapping | 24 | If A: keep 24; if B: reconcile to 23 and name the excluded diagnostic |
 
-No other repository reference was found at this commit. No count is changed by this package
-revision because S2-D1 is open; the table defines the correction scope for the future decision, and
-a later documentation change that adds a count reference must extend it rather than patch one file
-in isolation. If S2-D1 B is chosen, the 24 references throughout this package (including §4.3 and
-the §4.6 traceability table) must also be reconciled to 23 and the excluded code named.
+No other relevant reference was found at this commit. A later documentation change that adds a
+count reference must extend this inventory rather than patch one file in isolation. If S2-D1 B is
+chosen, all forward-looking 24 references in this package (including §4.3 and §4.6) must also be
+reconciled to 23 and the excluded code named. Historical S1 snapshots are not forward-looking
+requirements and must not be mechanically rewritten.
 
 ---
 
@@ -389,10 +399,10 @@ structure excerpt to the full structure, while the existing five claims still bu
 | `profiles/core000/schemas/diagnostic.schema.json` | New entity schema. |
 | `profiles/core000/schemas/conformance-case.schema.json` | New entity schema. |
 | `tests/core000.test.ts` | Add S2.1 structure/profile/positive assertions; keep S1-POS tests. |
-| `docs/architecture/core-000-self-contract.md` | Count-only correction if S2-D1 A (23 → 24); no normative change. |
-| `docs/architecture/core-000-execution-plan.md` | Count-only correction if S2-D1 A (23 → 24); no normative change. |
-| `docs/architecture/core-000-self-build-poc.md` | Count-only correction if S2-D1 A (23 → 24); no normative change. |
-| `docs/architecture/implementation-status.md` | Count-only correction if S2-D1 A (23 → 24) in §4.1; no normative change. |
+| `docs/architecture/core-000-self-contract.md` | If S2-D1 A: count-only correction (23 → 24), no normative change; if B: keep 23 and name the excluded code. |
+| `docs/architecture/core-000-execution-plan.md` | If S2-D1 A: reconcile the forward-looking §1, §2.2 and §3.4 references to 24; if B: reconcile to 23 with the excluded code named. |
+| `docs/architecture/core-000-self-build-poc.md` | If S2-D1 A: reconcile forward-looking §2.1/§11.1; retain historical §10.6/§10.7/§10.10 as S1 snapshots (label them, do not blanket-replace). If B: reconcile the forward-looking references to 23 with the excluded code named. |
+| `docs/architecture/implementation-status.md` | No S2.1 count change: §4.1 is labeled historical in this revision; future reconciliation belongs to a separate status-matrix update. |
 
 S2.1 is reviewable without the full 78-claim register because it keeps the S1 claims and adds the
 model surface. It does not claim the full model is complete. The full public surface may produce
@@ -582,7 +592,10 @@ expansion.
 
 S2 is ready for maintainer review only when:
 
-1. this package is approved/merged and a dedicated implementation task references it;
+1. the planning package is approved/merged; this does **not** authorize implementation. Before any
+   stage starts, a separate explicit maintainer authorization for that stage is recorded after
+   review of the decisions and exact implementation scope; creating or linking an implementation
+   task is not authorization;
 2. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are decided or explicitly deferred with stated S2 behavior;
 3. S2.1, S2.2 and S2.3 are merged as separate focused PRs;
 4. the profile declares 14 kinds, 28 relation declarations and the check set **chosen by S2-D1**:
@@ -636,8 +649,10 @@ Approve this bounded S2 package and decide:
 - **S2-D3** conformance representation (recommended kind/schema with empty data);
 - **S2-D4** full-matrix placement (recommended S3; S2 adds focused new-check tests).
 
-S2 implementation is authorized only after this package is merged and a dedicated implementation
-task references this merged package. Approval of this package authorizes at most S2.1 after that
-task; S2.2 and S2.3 remain separately gated and require their own explicit authorization. Until
-then, no S2 coding starts. The four deferred S1 items remain open, and S2 does not claim H2, H3,
-security isolation, independent verification or semantic truth.
+**Approval boundary.** Approval or merge of this package accepts the planning package only. It does
+**not** authorize S2.1. S2.1 starts only after a separate, explicit maintainer authorization issued
+after review of the relevant decisions and exact S2.1 scope. Creating or linking an implementation
+issue/task is not authorization. S2.2 and S2.3 each require their own separate explicit
+authorization; approval of S2.1 does not authorize them. Until those authorizations exist, no S2
+coding starts. The four deferred S1 items remain open, and S2 does not claim H2, H3, security
+isolation, independent verification or semantic truth.
