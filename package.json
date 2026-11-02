@@ -2,6 +2,7 @@
   "name": "core001-spec-builder",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "packageManager": "bun@1.4.2",
   "engines": {
