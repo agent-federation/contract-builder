@@ -284,7 +284,7 @@ draft reviewable.
 | `profiles/core000/templates/core000.md.j2` | Any section needed for the larger register; no new semantics. |
 | `contracts/core000/output/CORE-000.draft.md` | Generated draft, committed only if P-3 A. |
 | `evidence/core000/<run>/result.json` | Durable evidence only if P-2/P-6 A; otherwise the transient record stays in the harness. |
-| `docs/architecture/core-000-s2-evidence.md` | Human summary only if P-2 A. |
+| `docs/architecture/core-000-execution-evidence.md` | Human summary only if P-2 A. |
 | `tests/core000.test.ts` | Full-register positive/release assertions; no claim-status guesses. |
 
 No claim is added, removed or promoted without evidence. The full register must not treat the
@@ -301,7 +301,7 @@ N1–N18 matrix remains S3 under S2-D4 A; S2.3 does not re-implement it.
 | `contracts/core000/run.ts` | Focused mutation list/expected-outcome wiring only; no bypass of `runBuild`. |
 | `tests/core000.test.ts` | Focused tests for each of the 11 new checks, plus S2 positive/release assertions; no claim that S3’s matrix is complete. |
 | `evidence/core000/<run>/result.json` | S2 run evidence if P-2/P-6 A. |
-| `docs/architecture/core-000-s2-evidence.md` | S2 human summary if P-2 A. |
+| `docs/architecture/core-000-execution-evidence.md` | S2 human summary if P-2 A. |
 
 S2 is accepted only after S2.3 passes. S2.1 or S2.2 alone is not the full model. The full N1–N18
 acceptance remains S3.
@@ -329,8 +329,8 @@ acceptance remains S3.
 | S2-POS-01 | `bun contracts/core000/run.ts --mode draft --write false --run S2-POS-01` | exit 0; `blockedBy: null`; identity non-null; markdown non-null; `written: false`; the expected review-code set from the full register (design predicts `core000.independent-verification.missing` and `core000.decision.unresolved`; actual count recorded); no unexpected error. |
 | S2-POS-02 | same command in a second process | same `inputDigest`, artifact SHA-256 and diagnostic code/order as S2-POS-01; **same-environment only, not H2**. |
 | S2-POS-03 | `bun contracts/core000/run.ts --mode release --write false --run S2-POS-03` | exit 1; `blockedBy: "review"`; no release artifact. |
-| S2-POS-04 | write the draft in a temp copy, then `--mode draft --check true` | no `ERR_OUTPUT_STALE`; artifact bytes match the temp copy. |
-| S2-POS-05 | one claim/evidence mutation in a temp copy | `inputDigest` and artifact hash change; no crash. |
+| S2-POS-04 | `bun contracts/core000/run.ts --mode draft --write true --spec-dir <temp>` then `bun contracts/core000/run.ts --mode draft --check true --spec-dir <temp>` | no `ERR_OUTPUT_STALE`; artifact bytes match the temp copy. |
+| S2-POS-05 | `bun contracts/core000/run.ts --mode draft --write false --mutation claim --spec-dir <temp>` | `inputDigest` and artifact hash change versus S2-POS-01; no crash. |
 
 The full-model positive run may emit `core000.surface.claim-missing` or `core000.evidence.orphan`
 **warnings** if the encoded data leaves a public surface or evidence row unused. Tests assert the
@@ -368,7 +368,7 @@ gate. S2 does not silently absorb it.
 - The transient JSON evidence record is required in every run regardless of P-2/P-6. It uses the
   execution plan §6.2 base shape plus the S1/S2 additions.
 - If P-2/P-6 A: durable `evidence/core000/<run>/result.json` and
-  `docs/architecture/core-000-s2-evidence.md`; no absolute paths, secrets or private material.
+  `docs/architecture/core-000-execution-evidence.md`; no absolute paths, secrets or private material.
 - If P-3 A: commit `contracts/core000/output/CORE-000.draft.md` after a reviewed successful run;
   `bun run check` must pass.
 - If P-2/P-3/P-6 are deferred: no durable evidence or draft is committed; the transient record is
