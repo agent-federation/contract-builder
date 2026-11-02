@@ -215,14 +215,20 @@ because the inverse's kind would be undetermined. A declared `inverse` that is n
 string is `core.profile.invalid` as well: it is never normalized away into "no inverse".
 
 Cardinality describes the values of one direction, not the declaration pair, so the two
-declarations do not have to agree; every combination is a legitimate relationship shape:
+declarations do not have to agree; every combination is a legitimate relationship shape. The
+relationship is named from the forward declaration's source side, so the forward column states
+how many targets one source relates to, and the inverse column how many sources one target
+relates to:
 
 | Forward | Inverse | Relationship |
 |---|---|---|
-| `one` | `one` | one-to-one |
-| `one` | `many` | one-to-many |
-| `many` | `one` | many-to-one |
+| `one` | `one` | one-to-one: one source relates to one target |
+| `one` | `many` | many-to-one: many sources share one target |
+| `many` | `one` | one-to-many: one source relates to many targets |
 | `many` | `many` | many-to-many |
+
+For example, CORE-001's `case.provision` (`cardinality: "one"`) with inverse `vectors`
+(`cardinality: "many"`) is many-to-one: many cases share one provision.
 
 The resolver enforces the inverse column on the values it synthesizes, so an inverse declared
 `cardinality: "one"` rejects the second source with `core.relation.cardinality`.
