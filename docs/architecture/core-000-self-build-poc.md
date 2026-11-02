@@ -8,7 +8,7 @@ artifacts, does not execute the experiment, and does not accept any open decisio
 **Accepted execution plan:** [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59),
 refreshed by [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
 **Open decisions:** [`core-000-decision-record.md`](core-000-decision-record.md).
-**Refreshed baseline:** `da9a5f06f546ef19ac5b4355d222394570080a99`; the original plan baseline is
+**Refreshed baseline:** `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608`; the original plan baseline is
 `cc645357646fe57e2bdedb1d215ae87b79e16501`.
 
 > This is a companion to the accepted execution plan, not a replacement. It adds the ephemeral
@@ -21,7 +21,7 @@ refreshed by [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
 
 | Part | Content |
 |---|---|
-| **Facts** | Current `main` is `da9a5f0` (PR #64). The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/`, which does not import `spec/` or `profiles/` and has no demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. No decision has been accepted. |
+| **Facts** | Current `main` is `c6ee644` (PR #73). The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/` (PR #64); #73 is a docs-only PAP status update. Neither has a demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. No decision has been accepted. |
 | **Recommendations** | Confirm **P-1 strategy B** (one base project plus one named mutation in a fresh copy). Accept the recommended defaults **D1 A, D13 A, D14 A, D15 A, P-2 A, P-3 A, P-4 A, P-5 A, P-6 A**, or record alternatives. Approve the bounded first slice **S1** in §10 as the next implementation step. Confirm that a consumer harness may be used while G4 remains open. Treat a fresh temporary directory as a workspace, not a security sandbox. |
 | **Unresolved decisions** | D1, D13, D14, D15 and P-1–P-6 remain open; G4/consumer-harness boundaries remain as recorded. S1 is shaped for the recommended defaults and is not valid if they are changed; it does not decide them. |
 | **Requested approvals** | (1) Answer the decision record entries. (2) Authorize S1 implementation after those answers. (3) Confirm the consumer-harness/G4 boundary. (4) Confirm that no CORE-000 implementation starts before this plan and S1 are approved. |
@@ -63,7 +63,7 @@ Every run pins the following. A run that cannot pin one of them is `INCONCLUSIVE
 
 | Input | Pin | Notes |
 |---|---|---|
-| Source revision | Full 40-hex repository commit; the run's `commit` field | `da9a5f0` is the planning baseline; the implementation PR pins the merge commit it actually runs. |
+| Source revision | Full 40-hex repository commit; the run's `commit` field | `c6ee644` is the planning baseline; the implementation PR pins the merge commit it actually runs. |
 | CORE-000 inputs | `contracts/core000/contract-builder.json`, `structure.yml`, `claims.yml` at the pinned commit | Subject to D1. S1 uses a subset of the accepted design's data; it must not invent claims or entities. |
 | Source document | `docs/architecture/engine-public-contract.md` at the pinned commit | Declared as `SRC-ENGINE-CONTRACT`, `external: true`. |
 | Profile closure | `profiles/core000/` at the pinned commit, including every file in `profile.files` | The closure digest is part of `inputDigest`; an undeclared file fails the build. |

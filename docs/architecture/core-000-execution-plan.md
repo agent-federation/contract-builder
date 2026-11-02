@@ -14,7 +14,7 @@ accepted or implemented.
 **Design baseline:** the merged design at
 [`cc645357646fe57e2bdedb1d215ae87b79e16501`](https://github.com/agent-federation/contract-builder/commit/cc645357646fe57e2bdedb1d215ae87b79e16501)
 (PR #51).
-**Refreshed baseline:** `da9a5f06f546ef19ac5b4355d222394570080a99` (PR #64), current `main` at
+**Refreshed baseline:** `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at
 2026-11-02; see §1 and the baseline refresh.
 **Accepted design:** [`core-000-self-contract.md`](core-000-self-contract.md). Its 78 claims,
 14 kinds, 28 relation declarations, 23 profile policy checks, zero independently verified claims
@@ -49,7 +49,7 @@ and explicitly accepted.
 | Fact | Value at this baseline |
 |---|---|
 | Design merge / original plan baseline | `cc645357646fe57e2bdedb1d215ae87b79e16501` (PR #51) |
-| Refreshed baseline (revision 2) | `da9a5f06f546ef19ac5b4355d222394570080a99` (PR #64), current `main` at 2026-11-02 |
+| Refreshed baseline (revision 2) | `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at 2026-11-02 |
 | Accepted design | `docs/architecture/core-000-self-contract.md` |
 | Design register | 78 claims: 37 accepted decisions, 27 implemented, 27 tested, 0 independently verified |
 | Model | 14 kinds; 28 relation declarations (12 reciprocal pairs + 4 without an inverse); 23 profile policy checks |
@@ -61,7 +61,7 @@ and explicitly accepted.
 | PAP | independent v0.1 verifier implemented under `pap/`; Tier B, Gate 3 open; separate product boundary; no demonstrated CORE-000 impact |
 
 **Revision 2 note (proposed).** The original plan baseline was `cc64535`; the refreshed baseline is
-`da9a5f0`. `spec/` and `profiles/` are unchanged between the two, `bun.lock` is unchanged and the
+`c6ee644`. `spec/` and `profiles/` are unchanged between the two, `bun.lock` is unchanged and the
 CORE-001 artifact is unchanged, so the plan's interfaces, dependencies and expected outputs stand.
 The test-count baseline moved because `bun test` now also discovers the PAP suite; the engine-only
 count remains 169/12. See [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
@@ -715,13 +715,13 @@ in [`core-000-decision-record.md`](core-000-decision-record.md).
 
 ### 12.1 Refreshed baseline result
 
-- Current `main`: `da9a5f06f546ef19ac5b4355d222394570080a99` (PR #64), 2026-11-02.
+- Current `main`: `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), 2026-11-02.
 - Repository checks: `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` (292 pass /
   0 fail / 21 files) and `bun run check` are green; `bun run build:release` exits 1 by design;
   CORE-001 artifact unchanged (`8213a263…`, 327 lines).
 - `spec/` and `profiles/` are unchanged since the original plan baseline; `bun.lock` is unchanged.
-- The PAP verifier is implemented as a separate product boundary under `pap/`; it has no
-  demonstrated CORE-000 impact and does not close G4.
+- The PAP verifier is implemented as a separate product boundary under `pap/`; #73 is a docs-only
+  PAP status update. Neither has a demonstrated CORE-000 impact, and neither closes G4.
 - No CORE-000 project, profile, artifact, evidence or independent verification exists.
 - Conclusion: no substantive CORE-000 assumption, interface, dependency, expected output or
   evidence class changes. Only baseline facts (commit, test counts, PAP context) are refreshed.

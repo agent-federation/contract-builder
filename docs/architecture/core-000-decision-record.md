@@ -6,8 +6,8 @@ tests, schemas, fixtures, evidence or generic-core behaviour.
 **Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47), refreshed by
 [#72](https://github.com/agent-federation/contract-builder/issues/72).
 **Baseline:** current `main` at
-[`da9a5f0`](https://github.com/agent-federation/contract-builder/commit/da9a5f06f546ef19ac5b4355d222394570080a99)
-(PR #64; includes #59, #60, #61, #66, #67 and the PAP verifier). The original record baseline was
+[`c6ee644`](https://github.com/agent-federation/contract-builder/commit/c6ee64416c91ab56f9d8270114c8f8a8b9d2f608)
+(PR #73; includes #59, #60, #61, #64, #66, #67 and the PAP verifier). The original record baseline was
 [`b8e67a8`](https://github.com/agent-federation/contract-builder/commit/b8e67a8bf74897b8c44399931d17477abccd78ec);
 the refresh found no code or profile change that affects these decisions (see
 [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md)). The accepted design is
@@ -552,7 +552,7 @@ still required before implementation, and no answer is assumed.
 
 ## 14. Evidence, constraints and limitations of this record
 
-- Baseline `da9a5f0` (PR #64), refreshed from the original `b8e67a8`; accepted design PR #51;
+- Baseline `c6ee644` (PR #73), refreshed from the original `b8e67a8`; accepted design PR #51;
   execution plan PR #59. The refresh run: `bun test` 292 pass / 0 fail (21 files; 169 engine + 123
   PAP), typecheck clean, `bun run check` clean, CORE-001 artifact unchanged. See
   [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md). These are repository facts, not

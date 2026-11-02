@@ -7,8 +7,9 @@ generated artifacts, and does not execute the experiment.
 **Parent:** [#47](https://github.com/agent-federation/contract-builder/issues/47).
 **Original plan baseline:** `cc645357646fe57e2bdedb1d215ae87b79e16501` (PR #51), the baseline named
 in [`core-000-execution-plan.md`](core-000-execution-plan.md) §1.
-**Refreshed baseline:** `da9a5f06f546ef19ac5b4355d222394570080a99` (PR #64), current `main` at
-2026-11-02.
+**Refreshed baseline:** `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at
+2026-11-02. The inspection started at `da9a5f0` (PR #64); main then advanced by one docs-only PAP
+status commit, `c6ee644` (PR #73), and the commands were rerun at `c6ee644`.
 **Companion documents:** [`core-000-execution-plan.md`](core-000-execution-plan.md) (revision 2),
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md) (ephemeral plan and first slice) and
 [`core-000-decision-record.md`](core-000-decision-record.md) (open decisions).
@@ -26,14 +27,14 @@ in [`core-000-execution-plan.md`](core-000-execution-plan.md) §1.
 
 ## 0. Result in one paragraph
 
-Current `main` at `da9a5f0` is green under the accepted baseline commands: install, typecheck,
+Current `main` at `c6ee644` is green under the accepted baseline commands: install, typecheck,
 tests and `check` pass, the release gate blocks by design, and the CORE-001 generated artifact is
 byte-identical to the original plan baseline. The `spec/` and `profiles/` trees are unchanged since
 the plan baseline, and `bun.lock` is unchanged. The only post-baseline code addition is the
-independent PAP v0.1 verifier under `pap/`; it does not import `spec/` or `profiles/`, does not
-produce or consume a CORE-000 package, and has no demonstrated effect on any CORE-000 assumption.
-The refresh therefore changes baseline facts (commit, test count, PAP status) but no substantive
-CORE-000 assumption or expected output.
+independent PAP v0.1 verifier under `pap/`; #73 is a docs-only PAP status update. The verifier does
+not import `spec/` or `profiles/`, does not produce or consume a CORE-000 package, and has no
+demonstrated effect on any CORE-000 assumption. The refresh therefore changes baseline facts
+(commit, test count, PAP status) but no substantive CORE-000 assumption or expected output.
 
 ---
 
@@ -43,10 +44,10 @@ CORE-000 assumption or expected output.
 |---|---|
 | Repository | `agent-federation/contract-builder` |
 | Branch | `main` |
-| Commit | `da9a5f06f546ef19ac5b4355d222394570080a99` |
-| Commit date | 2026-11-02T15:54:54+03:00 |
+| Commit | `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` |
+| Commit date | 2026-11-02T16:22:17+03:00 |
 | Working tree | clean before and after the runs |
-| CI at this commit | `check` succeeded, [run 41448552637](https://github.com/agent-federation/contract-builder/actions/runs/41448552637) |
+| CI for this commit | `check` succeeded on [PR #73](https://github.com/agent-federation/contract-builder/pull/73/checks), merged as `c6ee644` |
 | `packageManager` / CI Bun | `bun@1.4.2` (`package.json`, `.github/workflows/ci.yml`) |
 | Local Bun used for the commands below | `1.4.4` (deviation; see §5) |
 | Node used for type definitions | `v22.22.3` (types only; the engine runs under Bun) |
@@ -78,7 +79,7 @@ repository now contains a second product boundary.
 ### 1.2 Why the test counts differ
 
 The accepted plan recorded `169 pass / 0 fail (12 files)`. That command was `bun test` before the
-PAP verifier was added. At `da9a5f0`, `bun test` discovers both the engine tests and `pap/tests`,
+PAP verifier was added. At `c6ee644`, `bun test` discovers both the engine tests and `pap/tests`,
 so the same command now reports 292 tests across 21 files. The engine-only subset is still 169
 tests across 12 files, and the PAP suite is 123 tests across 9 files; the two subsets sum to the
 292 total. This is a counting change, not a new engine capability.
@@ -95,7 +96,7 @@ includes the reciprocal-inverse contract (#52/#36), the provenance binding/verif
 (#55/#37) and the single-target `manifest.render` contract (#56/#38). Those changes are therefore
 already part of the plan baseline's tree and are not newly discovered here.
 
-Commits reachable from `da9a5f0` but not from `cc64535`:
+Commits reachable from `c6ee644` but not from `cc64535`:
 
 | Commit | Change | Kind | Demonstrated CORE-000 impact |
 |---|---|---|---|
@@ -106,14 +107,15 @@ Commits reachable from `da9a5f0` but not from `cc64535`:
 | `b8105de` | PR #66 — align the PAP RFC status header | docs | PAP only; no CORE-000 impact. |
 | `05bea49` | PR #67 — add the Apache License 2.0 | docs / license | No behaviour impact. |
 | `da9a5f0` | PR #64 — add the independent PAP v0.1 verifier | code under `pap/` | No demonstrated CORE-000 impact; see §3. |
+| `c6ee644` | PR #73 — reconcile PAP v0.1 implementation status after #64 | docs (PAP RFC) | PAP only; no CORE-000 impact. |
 
 ### 2.1 Core and profile trees
 
-`git diff cc64535..da9a5f0 -- spec profiles` is empty: zero changed lines. This covers the build
+`git diff cc64535..c6ee644 -- spec profiles` is empty: zero changed lines. This covers the build
 orchestrator, manifest loader, identity, provenance, hook, renderer registry, CORE-001 profile and
 the example profile. The accepted plan's statements about `runBuild`, consent, closure validation,
 single-render behaviour, provenance records, renderer registry and `inputDigest` remain true at
-`da9a5f0`.
+`c6ee644`.
 
 `bun.lock` is byte-identical (same SHA-256 as the plan baseline), so the CORE-001 and CORE-000
 dependency pins are unchanged. `nunjucks` remains pinned at 3.2.4.
@@ -165,7 +167,7 @@ baseline and constraints stands.
 
 | Plan field | Original value | Refreshed value |
 |---|---|---|
-| Baseline commit | `cc64535` (PR #51) | `da9a5f0` (PR #64), with `cc64535` retained as the original baseline |
+| Baseline commit | `cc64535` (PR #51) | `c6ee644` (PR #73), with `cc64535` retained as the original baseline |
 | `bun test` | 169 pass / 0 fail / 12 files | 292 pass / 0 fail / 21 files total; 169/12 engine, 123/9 PAP |
 | Typecheck | clean | clean |
 | `bun run check` | clean | clean |
@@ -183,10 +185,10 @@ sandbox claim, no independent-verification claim, and no open decision is resolv
 ## 5. Deviations and limitations
 
 1. **Local Bun version.** The commands above ran under Bun 1.4.4, while the repository pins and CI
-   uses Bun 1.4.2. The CI run at `da9a5f0` passed `install`, `typecheck`, `test` and `check` under
-   the pinned version, so the green result is not local-only. The local run is still a deviation
-   and is recorded as such; the refreshed baseline does not claim that 1.4.4 and 1.4.2 are
-   behaviourally identical for every check.
+   uses Bun 1.4.2. The CI check on PR #73 (merged as `c6ee644`) passed `install`, `typecheck`,
+   `test` and `check` under the pinned version, so the green result is not local-only. The local
+   run is still a deviation and is recorded as such; the refreshed baseline does not claim that
+   1.4.4 and 1.4.2 are behaviourally identical for every check.
 2. **No CORE-000 execution.** There is no CORE-000 project, profile, artifact, diagnostic set or
    `inputDigest` to run. The baseline commands prove the repository is green, not that the CORE-000
    hypothesis is true.
@@ -195,8 +197,8 @@ sandbox claim, no independent-verification claim, and no open decision is resolv
 4. **No independent verification.** A green suite, a merge, an approval event or this report is not
    independent verification. The independent-verification dimension remains `—` for every CORE-000
    claim.
-5. **CI scope.** The cited CI run proves the repository's `check` workflow at `da9a5f0`; it does
-   not prove the CORE-000 PoC, cross-platform determinism or future commits.
+5. **CI scope.** The cited CI check proves the repository's `check` workflow for PR #73 (merged
+   as `c6ee644`); it does not prove the CORE-000 PoC, cross-platform determinism or future commits.
 6. **Documentation drift.** This report records only the facts needed by the CORE-000 refresh. It
    does not re-audit the implementation-status matrix or the CORE-001 documentation drift; those
    remain as recorded in their own snapshots.
@@ -205,7 +207,7 @@ sandbox claim, no independent-verification claim, and no open decision is resolv
 
 ## 6. Conclusion
 
-The refreshed baseline is `da9a5f0`. The repository is green under the accepted commands, the
+The refreshed baseline is `c6ee644`. The repository is green under the accepted commands, the
 engine and profile trees are unchanged since the plan baseline, the CORE-001 artifact and lockfile
 are unchanged, and the only post-baseline code addition (PAP) has no demonstrated CORE-000 impact.
 The refresh changes the plan's baseline facts and PAP context, not its CORE-000 assumptions,
