@@ -95,7 +95,8 @@ are corrected together; if S2-D1 B is accepted, the package must instead name th
 No other repository reference was found at this commit. No count is changed by this package
 revision because S2-D1 is open; the table defines the correction scope for the future decision, and
 a later documentation change that adds a count reference must extend it rather than patch one file
-in isolation.
+in isolation. If S2-D1 B is chosen, the 24 references throughout this package (including §4.3 and
+the §4.6 traceability table) must also be reconciled to 23 and the excluded code named.
 
 ---
 
