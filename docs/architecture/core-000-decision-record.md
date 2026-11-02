@@ -17,7 +17,8 @@ the refresh found no code or profile change that affects these decisions (see
 > **What this is.** A single reviewable record of the ten decisions that need a maintainer answer:
 > D1, D13, D14, D15 and P-1–P-6. Six block S1 (D1, D13, D15, P-1, P-4, P-5); four may be explicitly
 > deferred for S1 (D14, P-2, P-3, P-6), but the full record stays open until all ten are resolved;
-> a `defer` leaves that item open.
+> a `defer` leaves that item open. P-2 may be deferred only for durable publication/location and
+> the summary format; S1 still writes and asserts the transient evidence record.
 > For each item it states the exact question, viable options (including `defer` where it is
 > viable), a recommended default and why, consequences and trade-offs, dependencies, reversibility,
 > and the repository evidence that informs the recommendation.
@@ -26,8 +27,8 @@ the refresh found no code or profile change that affects these decisions (see
 > The recommendations below are proposals; only the maintainer can accept them. No code or
 > CORE-000 artifact is created by this record. The first-slice proposal now exists in
 > [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10, but it is conditional on the
-> six S1-blocking answers, the four explicit deferrals and the G4 confirmation, and is not
-> authorized by it.
+> six S1-blocking answers, explicit disposition of D14, P-2, P-3 and P-6, and the G4
+> confirmation, and is not authorized by it.
 
 ---
 
@@ -58,7 +59,7 @@ for these answers and an explicit authorization.
 | D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | Only if the slice models consent as interface/diagnostic entities; S1 defers it. |
 | D15 | Must every normative source statement have a checked verification record? | A: require a stored `verified` record; failed/stale/unavailable is an error | Yes — S1 includes the provenance policy. |
 | P-1 | Complete per-case fixture projects or base + mutations? | B: base project + one deterministic temp-copy mutation per case | Yes — S1 includes negative tests. |
-| P-2 | Evidence path/format? | A: `evidence/core000/<run>/result.json` + summary doc | Can follow the first slice; needed before evidence capture. |
+| P-2 | Durable evidence publication/location and summary format? | A: `evidence/core000/<run>/result.json` + human summary | May follow S1 for durable publication; S1 still writes/asserts the transient record. |
 | P-3 | Commit the generated CORE-000 draft? | A: commit after a successful reviewed run | Can follow the first slice; needed before accepting the generated artifact. |
 | P-4 | Renderer dependency? | A: `nunjucks` 3.2.4, declared and lockfile-pinned | Yes — S1 includes the renderer. |
 | P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | Yes — S1 includes the harness. |
@@ -69,7 +70,8 @@ answered or explicitly authorized under the recommended default):** D1, D13, D15
 **May be explicitly deferred for S1:** D14, P-2, P-3, P-6. The separate consumer-harness/G4
 confirmation is also required before S1, but it is not one of these ten decisions. A deferral does
 not resolve an item: the full record remains open until all ten are resolved; a `defer` leaves
-that item open.
+that item open. P-2's deferral covers only durable publication/location and the summary format; S1
+still writes and asserts the transient evidence record in every case.
 
 ---
 
@@ -308,36 +310,43 @@ negative runs that each mutation produces exactly the expected diagnostic and no
 
 ---
 
-## 7. P-2 — Evidence path and format
+## 7. P-2 — Durable evidence publication and summary format
 
-**Question.** Where and in what format is run evidence captured?
+**Question.** Where is run evidence durably published, and what human-readable summary format
+accompanies it? P-2 does **not** re-open the transient JSON record shape: the accepted execution
+plan §6.2 already defines the required base shape, and S1 must use and test it (plus its S1
+additions) regardless of P-2.
 
 | Option | What it means | Main consequence |
 |---|---|---|
-| **A (recommended)** | `evidence/core000/<run>/result.json` plus a human-readable `docs/architecture/core-000-execution-evidence.md` summary. | Machine-readable, diffable, reviewable without screenshots; evidence can be referenced per run. |
-| B | Only a Markdown evidence document. | Readable but not machine-checkable; easier to omit fields or transpose values. |
-| `defer` | Decide after the first run. | The first slice can run without publishing evidence, but the run’s result is not captured in a durable format. |
+| **A (recommended)** | Publish the run records durably under `evidence/core000/<run>/result.json` and add a human-readable `docs/architecture/core-000-execution-evidence.md` summary. | Machine-readable, diffable, reviewable without screenshots; evidence can be referenced per run. |
+| B | Publish only a Markdown summary; keep the raw JSON records external or transient. | Readable but not machine-checkable in-repository; easier to omit fields or transpose values. |
+| `defer` | Decide durable publication and the summary format after the first run. | S1 still writes and asserts the transient record; only durable publication and the human summary wait. |
 
-**Recommended default: A.** The execution plan already defines a canonical JSON shape (commit,
-command, exit/blockedBy, identity digest, artifact SHA-256, diagnostics, expected codes,
-classification, limitations). It makes the evidence auditable and comparable across runs.
+**Recommended default: A.** The execution plan already defines a canonical transient JSON record
+(commit, command, exit/blockedBy, identity digest, artifact SHA-256, diagnostics, expected codes,
+classification, limitations). P-2 decides only whether and where that record is durably published
+and what human-readable summary accompanies it.
 
-**Consequences and trade-offs.** A adds a new `evidence/` path and a summary document; P-6 decides
-whether they are committed. B is simpler but weaker. The JSON must not include absolute paths,
-hostnames, environment values or secrets.
+**Consequences and trade-offs.** A adds a durable `evidence/` path and a summary document; P-6
+decides whether they are committed. B is simpler but weaker. The record must not include absolute
+paths, hostnames, environment values or secrets. **Deferring P-2 does not defer the temporary S1
+evidence record or its schema assertion.**
 
-**Dependencies/reversibility.** P-6 controls git; D13/P-5 control records/harness. The format can
-be revised before records are accepted; after publication, changes require re-recording.
+**Dependencies/reversibility.** P-6 controls git; P-5 controls the harness; D13 defines independent
+verification records, which are not P-2 run evidence. Durable location/summary format can be
+revised before records are published; after publication, changes require re-recording.
 
-**Repository evidence/constraint.** The accepted execution plan §6 defines the record; `runBuild`
-returns the fields; the repository has no `evidence/` directory at the baseline. S1 writes its
-evidence to a temporary path only and does not publish it.
+**Repository evidence/constraint.** The accepted execution plan §6.2 defines the transient record;
+`runBuild` returns the fields; the repository has no `evidence/` directory at the baseline. S1
+writes the transient record to a temporary path and does not publish it.
 
-**Evidence needed to accept:** maintainer approval of the path and JSON shape; review of a sample
-record against the no-absolute-paths/no-secrets rule; and confirmation that the record is
-sufficient to reproduce under the pinned inputs without claiming authenticity.
+**Evidence needed to accept:** maintainer approval of the durable location and summary format;
+review of a sample record against the no-absolute-paths/no-secrets rule; and confirmation that the
+published record is sufficient to reproduce under the pinned inputs without claiming authenticity.
 
-**Answer needed:** accept A, choose B, or defer evidence capture.
+**Answer needed:** accept A, choose B, or defer **durable publication and the summary format**; the
+transient S1 evidence record and its schema assertion remain required in every case.
 
 ---
 
@@ -545,7 +554,8 @@ The first-slice proposal is now in
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. It is shaped for the recommended
 defaults **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A**. **D14, P-2, P-3 and P-6 may be explicitly
 deferred for S1**; they remain open, and the full decision record stays open until all ten are
-resolved; a `defer` leaves that item open. The separate consumer-harness/G4 confirmation is also
+resolved; a `defer` leaves that item open. P-2's deferral does not defer the transient S1 evidence
+record or its schema assertion. The separate consumer-harness/G4 confirmation is also
 required. S1 is proposed, not authorized, and is re-scoped if an answer differs.
 
 S1 is a bounded vertical slice with:
@@ -559,8 +569,8 @@ S1 is a bounded vertical slice with:
 
 The earlier record deliberately deferred the first-slice proposal until the decisions were
 answered; Issue #72 asks for it now, so it is provided as a conditional proposal. The six
-S1-blocking answers, the four explicit deferrals and the G4 confirmation are still required before
-implementation, and no answer is assumed.
+S1-blocking answers, explicit disposition of D14, P-2, P-3 and P-6, and the G4 confirmation are
+still required before implementation, and no answer is assumed.
 
 ---
 
@@ -586,8 +596,10 @@ implementation, and no answer is assumed.
   all ten decisions are resolved.
 
 **Requested maintainer action:** answer the six S1-blocking decisions D1, D13, D15, P-1, P-4 and
-P-5 using the format in §0; explicitly defer or answer D14, P-2, P-3 and P-6; confirm the separate
-consumer-harness/G4 boundary in §12; and approve or reject the conditional S1 proposal in
+P-5 using the format in §0; explicitly defer or answer D14, P-2, P-3 and P-6 (P-2's deferral covers
+only durable publication/location and the summary format; the transient S1 record remains
+required); confirm the separate consumer-harness/G4 boundary in §12; and approve or reject the
+conditional S1 proposal in
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. The full decision record remains
 open until all ten are resolved; implementation stays blocked until the mandatory answers, the
 explicit deferrals and an explicit authorization. Whether this

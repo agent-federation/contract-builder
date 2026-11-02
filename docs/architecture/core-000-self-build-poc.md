@@ -23,7 +23,7 @@ refreshed by [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
 |---|---|
 | **Facts** | Current `main` is `c6ee644` (PR #73). The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/` (PR #64); #73 is a docs-only PAP status update. Neither has a demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. No decision has been accepted. |
 | **Recommendations** | Resolve the S1-blocking decisions **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A** (or record alternatives). **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**, but the full decision record remains open until all ten are resolved; a `defer` leaves that item open. Approve the bounded first slice **S1** in §10 as the next implementation step. Confirm separately that a consumer harness may be used while G4 remains open. Treat a fresh temporary directory as a workspace, not a security sandbox. |
-| **Unresolved decisions** | D1, D13, D14, D15 and P-1–P-6 all remain open until the maintainer answers them; deferral is not resolution. S1 depends on D1, D13, D15, P-1, P-4, P-5 and the separate G4/consumer-harness confirmation; D14, P-2, P-3 and P-6 may be deferred for S1. S1 is shaped for the recommended defaults and is re-scoped if they change. |
+| **Unresolved decisions** | D1, D13, D14, D15 and P-1–P-6 all remain open until the maintainer answers them; deferral is not resolution. S1 depends on D1, D13, D15, P-1, P-4, P-5 and the separate G4/consumer-harness confirmation; D14, P-2, P-3 and P-6 may be deferred for S1. P-2's deferral covers only durable publication/location and the summary format; S1 still writes and asserts the transient evidence record. S1 is shaped for the recommended defaults and is re-scoped if they change. |
 | **Requested approvals** | (1) Answer the six S1-blocking decisions D1, D13, D15, P-1, P-4, P-5. (2) Explicitly defer or answer D14, P-2, P-3, P-6; the full record stays open until all ten are resolved. (3) Confirm the separate consumer-harness/G4 boundary. (4) Authorize S1 after (1) and (3). (5) Confirm that no CORE-000 implementation starts before this plan and S1 are approved. |
 
 No row above is an acceptance. The maintainer remains the only authority for the decisions and
@@ -197,7 +197,8 @@ A run produces, inside its ephemeral workspace:
 | Build identity | `inputDigest`, extension list, engine/manifest versions | Retained in evidence |
 | Artifact hash | SHA-256 of the exact normalized artifact bytes | Retained in evidence |
 | Run log | Command, exit code, `blockedBy`, `written`, `markdown !== null`, timings | Retained in evidence; no absolute host paths |
-| Repository check | `git status --porcelain` before and after | Retained in evidence as `repositoryClean: true` |
+| Source repository check | `git status --porcelain` before and after | Retained in evidence as `sourceRepositoryClean: true` |
+| Workspace write/cleanup check | Declared outputs only; cleanup completed | Retained separately as `workspace.writeCheck` / `workspace.cleanup` |
 | Comparison report | Per-field equality between E1 and E2 | Retained in the evidence summary |
 | Environment manifest | Bun version, OS/arch, lockfile hash, controlled env vars, install source | Retained in evidence |
 
@@ -206,8 +207,14 @@ run compares against the workspace artifact and reports `ERR_OUTPUT_STALE` if it
 
 ### 4.2 Proposed evidence record
 
-One JSON record per run. This is a documentation schema for review; it is not created or
-committed under this issue.
+One JSON record per run. The required base is the transient record already defined by the
+accepted execution plan §6.2 (`run`, `commit`, `project`, `mode`, consent, command, exit/`blockedBy`,
+`written`, `output`, `identity`, `artifactSha256`, `diagnostics`, `expected`, `classification`,
+`limitations`). S1 adds the hypothesis result labels, environment pins, `sourceRepositoryClean` and
+the separate workspace assertions; those are S1 evidence fields, not P-2 decisions. S1 must use and
+test this record; P-2 decides only durable publication/location and the human-readable summary
+format, not whether S1 captures or asserts the record. This is a documentation schema for review;
+it is not created or committed under this issue.
 
 ```jsonc
 {
@@ -264,7 +271,11 @@ committed under this issue.
     "blockedBy": null,
     "codes": ["core000.independent-verification.missing"]
   },
-  "repositoryClean": true,
+  "sourceRepositoryClean": true,
+  "workspace": {
+    "writeCheck": "only_declared_outputs",
+    "cleanup": "completed"
+  },
   "result": {
     "H1_self_build": "SELF_BUILD_COMPLETED",
     "H2_reproducibility": "NOT_TESTED",
@@ -282,6 +293,10 @@ Rules:
 - `diagnostics` is the deterministic `BuildResult` array, not a screenshot or a hand-edited copy.
 - `artifactSha256` is `null` when the run produced no artifact; `identity` is `null` when the
   build stopped before identity.
+- `sourceRepositoryClean` is the source checkout check from `git status --porcelain`; it does not
+  prove that writes in the temporary workspace stayed within the allowlist.
+- `workspace.writeCheck` and `workspace.cleanup` are separate assertions: declared outputs only,
+  and cleanup completed. Neither is inferred from `sourceRepositoryClean`.
 - `result` names the hypothesis; a run that did not execute is `*_NOT_RUN` / `NOT_TESTED`, never a
   success label.
 - The record is sufficient to reproduce only under the pinned inputs and controlled environment;
@@ -289,12 +304,14 @@ Rules:
 
 ### 4.3 Evidence location
 
-The accepted plan proposes `evidence/core000/<run>/result.json` plus a human summary
-`docs/architecture/core-000-execution-evidence.md`. That path is subject to P-2 and P-6.
+The accepted plan proposes durable `evidence/core000/<run>/result.json` records plus a human
+summary `docs/architecture/core-000-execution-evidence.md`. P-2 decides only that durable
+publication/location and summary format; P-6 decides whether they are committed.
 
-S1 writes its evidence to a temporary path and asserts the shape in a test; it commits no evidence
-record and no generated artifact. Publishing evidence or committing the draft waits for P-2, P-3
-and P-6.
+S1 must write the transient record to a temporary path and assert both the execution plan §6.2
+base shape and the §4.2 S1 additions in a test. That requirement is already part of S1 and is
+**not** deferred by P-2. S1 commits no evidence record and no generated artifact; durable
+publication and the generated-draft commit wait for P-2, P-3 and P-6.
 
 ---
 
@@ -320,7 +337,8 @@ For each pair of runs:
 | `artifactSha256` (raw) and normalized artifact text | both byte-identical for `REPRODUCIBLE_BYTE_IDENTICAL`; raw bytes may differ only in the §5.3 normalized case | `NOT_REPRODUCIBLE` / `REPRODUCIBLE_NORMALIZED` |
 | Diagnostics | same code, severity, file and pointer for every entry, in the engine's deterministic order | `NOT_REPRODUCIBLE` |
 | `exitCode`, `blockedBy`, `written`, `markdown !== null` | equal | `NOT_REPRODUCIBLE` |
-| `repositoryClean` | true in both | `INCONCLUSIVE` / abort |
+| `sourceRepositoryClean` | true in both | `INCONCLUSIVE` / abort |
+| `workspace.writeCheck` and `workspace.cleanup` | equal to the declared expected values | `INCONCLUSIVE` / abort |
 
 ### 5.3 Byte-identical versus normalized comparison
 
@@ -432,7 +450,9 @@ or unverified condition remains visible.
 | Crash or uncaught exception | `RUN_CRASHED`; H1 `SELF_BUILD_FAILED` | Retain the stack/exit status; no artifact claim. |
 | Evidence capture fails or is malformed | `EVIDENCE_INVALID` | Treat the run as invalid even if the build itself completed. |
 | Unexpected diagnostic or missing expected diagnostic | `OUTCOME_MISMATCH` | Record expected vs observed; do not adjust the expectation after the fact. |
-| Repository write detected | `REPOSITORY_WRITE` | Abort the experiment; clean up; investigate before any rerun. |
+| Source repository write detected | `REPOSITORY_WRITE` | Abort the experiment; clean up; investigate before any rerun. |
+| Workspace write outside the allowlist | `WORKSPACE_WRITE` | Abort; preserve the workspace state for inspection; no result. |
+| Workspace cleanup incomplete | `WORKSPACE_CLEANUP_INCOMPLETE` | Record it; do not turn a failed run into a pass. |
 | Secret or network access detected (if observable) | `CONTROL_VIOLATION` | Abort; no result; raise a separate security follow-up. |
 
 The harness must have an external wall-clock timeout even when the engine has none. A timed-out
@@ -466,7 +486,8 @@ into a pass.
 - Temporary directories, dependency caches and host-specific environment dumps.
 - Secrets, tokens, credentials, private Feishu content and personal data.
 - Screenshots or browser state (this is a non-UI experiment).
-- Any generated CORE-000 draft or evidence record before P-3/P-6 are decided.
+- Any generated CORE-000 draft or durably published evidence record before P-2/P-3/P-6 are
+  decided; the transient S1 record is still produced and asserted.
 - Any file that would make the engine's own output look like independent verification.
 
 Publication of evidence is subject to P-2 and P-6. The first slice writes evidence to a temporary
@@ -504,6 +525,9 @@ path only.
     clock, random source, filesystem or environment.
 13. **Consent is not in `inputDigest`.** Evidence must record the consent value; otherwise a
     consented and an unconsented run are not distinguishable from the digest alone.
+14. **`sourceRepositoryClean` is not workspace confinement.** The source checkout check does not
+    prove that temp-workspace writes stayed within the allowlist; the workspace write and cleanup
+    assertions are separate and must be reported separately.
 
 These risks are limitations of the proposed experiment, not reasons to weaken the result labels.
 
@@ -522,7 +546,9 @@ project with no `spec/lib/` change.
 S1 requires maintainer answers for **D1, D13, D15, P-1, P-4 and P-5**, plus the separate
 G4/consumer-harness confirmation. **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**;
 deferral does not resolve them, and the full decision record remains open until all ten are
-resolved; a `defer` leaves that item open. S1 is shaped for the recommended defaults D1 A, D13 A,
+resolved; a `defer` leaves that item open. **P-2's deferral covers only durable publication and
+the summary format; S1 still writes and asserts the transient record.** S1 is shaped for the
+recommended defaults D1 A, D13 A,
 D15 A, P-1 B, P-4 A and P-5 A. It does not implement D14 (consent-surface entities),
 P-2/P-3/P-6 (evidence and generated-artifact publication) or the full register. If a default
 changes, S1 is re-scoped; the change is not a reason to silently pick another option.
@@ -692,7 +718,8 @@ S1 is ready for maintainer review when:
 2. `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` and `bun run check` are green;
 3. S1-POS-01–S1-POS-05 and N2/N3/N8/N11/N14 produce exactly the expected results, with no artifact on failures
    and no repository writes;
-4. the evidence record matches §4.2 and contains no absolute paths, secrets or private material;
+4. the transient evidence record matches §4.2 and contains no absolute paths, secrets or private
+   material, even if P-2 is deferred;
 5. the CORE-001 artifact and lockfile are unchanged; `spec/lib/`, `profiles/core001/` and `pap/`
    are unchanged;
 6. no claim is marked `independently_verified`; the release remains blocked by the
@@ -722,7 +749,9 @@ slice and answers the decisions it depends on.
    register, D14 consent-surface entities, the 23 policy checks and the accepted design's
    structure data. This is the first slice that can claim the full model is expressible.
 2. **S3 — full negative and provenance matrix.** Add N1–N18, the full evidence capture and the
-   human summary. P-2/P-6 decide publication; P-3 decides whether the draft is committed.
+   human summary. P-2 decides durable publication/location and the summary format; P-6 decides
+   git publication; P-3 decides whether the draft is committed. The transient S1 evidence record is
+   already required.
 3. **S4 — ephemeral reproducibility and independent verification.** Run E1/E2 under the comparison
    policy, with an isolation profile only if separately approved. A distinct verifier follows
    design §8.2 and writes external records; only then may a claim become
