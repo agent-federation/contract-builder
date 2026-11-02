@@ -11,7 +11,13 @@ import {
   type ProfileValidator,
   type ProfileViewModule,
   type ValidatorContext,
+  type VerificationContext,
 } from "./hook.js";
+import {
+  applyVerificationClaims,
+  sourceDigest,
+  sourceVersionOf,
+} from "./provenance.js";
 import { messageOf } from "./guards.js";
 import {
   loadRenderInputs,
@@ -137,7 +143,6 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     );
     return result(options, diags, null, outputPath, false, "errors");
   }
-  const view = viewModule.buildView(model);
 
   const validator = await loadProfileModule<ProfileValidator>(
     loaded.project,
@@ -166,19 +171,45 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   const legacyText = new TextDecoder().decode(model.sources[0]?.bytes ?? new Uint8Array());
   const sourcesById = new Map(model.sources.map((source) => [source.id, source]));
   const adapters = options.adapters ?? DEFAULT_ADAPTERS;
+  const verifyQuote = async (sourceId: string, ref: string, quote: string) => {
+    const source = sourcesById.get(sourceId);
+    if (source === undefined) return "unknown-locator" as const;
+    const adapter = adapters[source.adapter];
+    if (adapter === undefined) return "unknown-locator" as const;
+    return adapter.verifyQuote(source, ref, quote);
+  };
+
+  if (typeof validator.verifyProvenance === "function") {
+    const declaration = new Map(
+      (model.manifest.sources ?? []).map((source) => [source.id, source]),
+    );
+    const verificationContext: VerificationContext = {
+      sources: model.sources,
+      legacyText,
+      legacyName,
+      verifyQuote,
+      sourceDigest: (sourceId) => {
+        const source = sourcesById.get(sourceId);
+        return source === undefined ? null : sourceDigest(source.bytes);
+      },
+      sourceVersion: (sourceId) => sourceVersionOf(declaration.get(sourceId)),
+    };
+
+    const claims = await validator.verifyProvenance(model, verificationContext);
+    if (!applyVerificationClaims(model, model.sources, claims, diags)) {
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+  }
+
+  // Build the view after verification so it carries the records the renderer must show.
+  const view = viewModule.buildView(model);
 
   const context: ValidatorContext = {
     view,
     sources: model.sources,
     legacyText,
     legacyName,
-    async verifyQuote(sourceId, ref, quote) {
-      const source = sourcesById.get(sourceId);
-      if (source === undefined) return "unknown-locator";
-      const adapter = adapters[source.adapter];
-      if (adapter === undefined) return "unknown-locator";
-      return adapter.verifyQuote(source, ref, quote);
-    },
+    verifyQuote,
   };
 
   const findings = await validator.validate(model, context);

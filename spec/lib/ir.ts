@@ -14,12 +14,48 @@ export interface ProvenanceBinding {
   quote: string;
 }
 
+/**
+ * Outcome of checking a binding against the source. `unavailable` covers "not checked"
+ * and "the verifier cannot check this"; `stale` covers a result recorded against a
+ * different source digest than the bytes now loaded.
+ */
+export type ProvenanceVerificationStatus = "verified" | "failed" | "unavailable" | "stale";
+
+/**
+ * Evidence for one verification outcome. A binding alone never produces this shape:
+ * the core writes a `not-checked` record when it binds, and only a profile verifier
+ * can replace it with a checked outcome.
+ */
+export interface VerificationRecord {
+  entity: string;
+  source: string;
+  ref: string;
+  /** Null when no verifier ran; never inferred by the core. */
+  verifier: string | null;
+  /** "none" for a not-checked record, otherwise the profile's method name. */
+  method: string;
+  /** Null because a deterministic build has no trusted clock (see DEC-TRUSTED-TIME). */
+  checkedAt: string | null;
+  /** Source version the outcome applies to, for example "DOC (Rev 1)". */
+  sourceVersion: string | null;
+  /** SHA-256 of the source bytes the outcome covers, as "sha256:<hex>". */
+  sourceDigest: string | null;
+  /** Method-specific result, for example found, outside or not-checked. */
+  outcome: string;
+}
+
+export interface ProvenanceVerification {
+  status: ProvenanceVerificationStatus;
+  record: VerificationRecord;
+}
+
 export interface Entity {
   id: string;
   kind: string;
   type?: string;
   fields: Record<string, unknown>;
   provenance?: ProvenanceBinding;
+  verification?: ProvenanceVerification;
   relations: Record<string, string[]>;
 }
 
@@ -43,7 +79,7 @@ export interface ProjectModel {
   relations: Readonly<RelationIndex>;
 }
 
-const RESERVED = new Set(["id", "kind", "type", "provenance", "relations"]);
+const RESERVED = new Set(["id", "kind", "type", "provenance", "verification", "relations"]);
 
 /**
  * Extracts every declared entity, enforces identity uniqueness, then resolves relations and

@@ -419,20 +419,40 @@ interface Entity {
   type?: string;                       // optional profile discriminator
   fields: Readonly<Record<string, unknown>>;  // validated by the kind schema
   provenance?: ProvenanceBinding;
+  verification?: ProvenanceVerification;  // result of checking the binding; never implied by it
   relations: Readonly<Record<string, string[]>>;  // declared relation -> target ids
   review?: ReviewState;
 }
 ```
 
 **Reserved field names** (core-owned, may not be redefined by a profile): `id`, `kind`,
-`type`, `fields`, `provenance`, `relations`, `review`. Everything else is profile data and
-opaque to the core.
+`type`, `fields`, `provenance`, `verification`, `relations`, `review`. Everything else is profile
+data and opaque to the core.
 
 ```ts
 interface ProvenanceBinding {
   source: string;                      // manifest source id
   ref: string;                         // adapter-specific locator, passed verbatim
   quote: string;                       // verbatim text
+}
+
+type ProvenanceVerificationStatus = "verified" | "failed" | "unavailable" | "stale";
+
+interface ProvenanceVerification {
+  status: ProvenanceVerificationStatus;
+  record: VerificationRecord;
+}
+
+interface VerificationRecord {
+  entity: string;
+  source: string;
+  ref: string;
+  verifier: string | null;             // null: no verifier ran
+  method: string;                      // "none" for a not-checked record
+  checkedAt: string | null;            // null: deterministic build has no trusted clock
+  sourceVersion: string | null;        // manifest-declared version, when available
+  sourceDigest: string | null;         // "sha256:<hex>" of the bytes the outcome covers
+  outcome: string;                     // method-specific result, e.g. found/outside/not-checked
 }
 
 interface ReviewState {
@@ -454,10 +474,25 @@ Generic guarantees:
 
 - every entity has a non-empty identity, unique across the project;
 - every declared relation target resolves to an existing entity;
-- every `ProvenanceBinding` has the mapped fields, and its quote resolves through the source
-  adapter;
+- every `ProvenanceBinding` has the mapped fields and names a declared source — this is the
+  binding guarantee, not proof of evidence;
 - every entity kind and relation name is declared by the profile;
 - output is deterministic.
+
+**Binding versus verification.** A `ProvenanceBinding` says where evidence is claimed to come
+from. It does not say that the claim was checked. The core attaches a `not-checked` verification
+record when it binds, so an unverified binding is explicit rather than implicit. A profile
+verifier may replace that record through the optional hook in §5.2 step 8. A status of
+`verified` means only that the declared method found the quote at the declared locator for the
+source bytes identified by `sourceDigest`. It is not independent cryptographic verification,
+not proof that the quote was well chosen and not a statement about normative meaning. The core
+downgrades a `verified` or `failed` record that has no source digest, or whose digest differs
+from the loaded source, to `unavailable` or `stale`.
+
+A checked status (`verified`, `failed` or `stale`) must name a verifier, a method other than
+`"none"` and an outcome other than `"not-checked"`; a contradictory claim is
+`core.provenance.verification`, because it would otherwise present "no verifier ran" as evidence.
+`checkedAt` may stay null: a deterministic build has no trusted clock.
 
 **Identity scope.** Global uniqueness across all kinds is a mandatory core invariant. A
 relation may target an id from any input, so one namespace keeps lookups unambiguous; a
@@ -531,7 +566,8 @@ is resolved; a relation may target an entity from another input.
 4. **Identity and fields.** The kind's `identity` selector (default `id`) must yield a
    non-empty string. Missing or empty is `core.identity.missing`; a duplicate across the whole
    project is `core.identity.duplicate`. The validated object becomes `Entity.fields` minus the
-   reserved names (`id`, `kind`, `type`, `provenance`, `relations`, `review`); **fields named
+   reserved names (`id`, `kind`, `type`, `provenance`, `verification`, `relations`, `review`);
+   **fields named
    by provenance mappings are retained** — mappings are projections, not moves. Ordinary fields
    are never inspected for relation intent.
 5. **Index (pass 1).** After all inputs are processed, every entity is indexed by id and kind.
@@ -544,13 +580,25 @@ is resolved; a relation may target an entity from another input.
    target in input order. The inverse obeys its own reciprocal declaration (section 3.2): a
    declaration that cannot reciprocate stops the build before resolution, and an inverse
    declared `cardinality: "one"` rejects a second source with `core.relation.cardinality`.
-7. **Provenance.** For every `ProvenanceMapping` of the kind, the three selectors are read
-   verbatim into `ProvenanceBinding`; the source fields stay in `Entity.fields`. Missing or
-   empty is `core.provenance.incomplete`. The `ref` is passed unchanged to the source adapter's
-   `verifyQuote`, which returns `found`, `outside`, `unsupported` or `unknown-locator`; the core
-   maps these to `core.provenance.outside`, `core.provenance.unsupported` and
-   `core.provenance.locator` (`unsupported` is an error when the profile requires provenance).
-8. **Unknown relations.** A key inside `relations` that no `RelationDecl` defines is
+7. **Provenance binding.** For every `ProvenanceMapping` of the kind, the three selectors are
+   read verbatim into `ProvenanceBinding`; the source fields stay in `Entity.fields`. Missing or
+   empty is `core.provenance.incomplete`; an undeclared source is `ERR_UNKNOWN_REF`. The binding
+   phase attaches an `unavailable`/`not-checked` verification record. It does not check the quote.
+8. **Provenance verification.** The profile validator module may export
+   `verifyProvenance(model, ctx)`. It returns claims with `status`, `verifier`, `method`,
+   `checkedAt`, `sourceVersion`, `sourceDigest` and `outcome`. The core checks each claim against
+   the entity's binding and the digest of the loaded source bytes, then stores the result in
+   `Entity.verification`; a claim for an entity without a binding, or a malformed claim, is
+   `core.provenance.verification`. A profile that omits the hook leaves every binding
+   `unavailable`/`not-checked`; the core never invents a verifier, method, time or outcome.
+   Locator grammar and quote resolution remain adapter/profile-owned in M1 (D25), so the
+   profile hook maps `found`, `outside`, `unsupported` and `unknown-locator` to verification
+   statuses; §8.3 of the M1 plan records that boundary. Profile checks that need the quote or
+   locator outcome read the stored record instead of calling the adapter again, so one evidence
+   claim has one verification result. CORE-001 maps that result to its existing `ERR_SOURCE_*`
+   diagnostics and reports a missing, unavailable or stale result as
+   `ERR_PROVENANCE_NOT_VERIFIED`.
+9. **Unknown relations.** A key inside `relations` that no `RelationDecl` defines is
    `core.relation.unknown`; it is never interpreted or dropped silently. Ordinary fields are
    exempt by construction, because relations cannot live there.
 
@@ -561,14 +609,19 @@ Generic vs profile:
 | Pointer extraction | executes pointers, validates shapes | which pointers, which kinds |
 | Identity | uniqueness, indexing | identity field per kind |
 | References | resolution, inverse population, integrity | relation names, endpoints, cardinality |
-| Provenance | binding shape, adapter call, diagnostics | field mapping, required flag |
+| Provenance binding | binding shape, declared source, not-checked record | field mapping, required flag |
+| Provenance verification | claim validation, digest consistency, record storage | verifier, method, outcome vocabulary |
 | Field semantics | none | schemas, vocabularies, rules |
 
 ### 5.3 Multiple sources
 
 `Manifest.sources` is an array. The core supports N sources; each provenance binding names
-exactly one source; provenance is verified through that source's adapter. The first milestone
-ships with one source; multi-source remains a core capability with no extra API surface.
+exactly one source; provenance is verified through that source's adapter. A `VerificationRecord`
+identifies the source digest and declared version its outcome covers. Recording that digest is
+not a check of a declared `identity.sha256` pin: the digest-pin check accepted in the
+provenance-hardening RFC (#4) remains unimplemented and is a separate input to a future record.
+The first milestone ships with one source; multi-source remains a core capability with no extra
+API surface.
 
 ### 5.4 Formats
 
@@ -674,6 +727,11 @@ Transformation to the IR (mapped fields stay in `fields`; `provenance` is a proj
 }
 ```
 
+The example shows the binding projection. Without a profile `verifyProvenance` hook the entity
+also carries a not-checked record: `verification: { status: "unavailable", record: { verifier:
+null, method: "none", checkedAt: null, sourceVersion, sourceDigest: null, outcome:
+"not-checked" } }`. A hook may replace it only with the evidence it actually produced.
+
 Validation trace:
 
 1. `requirement` and `example` are declared kinds — otherwise `core.profile.unknown-kind`.
@@ -681,8 +739,9 @@ Validation trace:
    `core.identity.duplicate`.
 3. `example.relations.requirement` resolves to an entity — otherwise `core.reference.unresolved`;
    the inverse `examples` is populated on the requirement.
-4. The OpenAPI adapter locates the quote at `#/paths/~1orders/post` — otherwise
-   `core.provenance.outside` or `core.provenance.locator`.
+4. If the profile provides a verifier, the OpenAPI adapter locates the quote at
+   `#/paths/~1orders/post`; a missing quote or locator is rendered as `failed`, an unsupported
+   adapter as `unavailable`. Without a verifier the binding stays `unavailable`/`not-checked`.
 5. `level=MUST` allows `effect=binding` — otherwise `http-api.consistency.level`.
 6. The requirement has at least one example — otherwise `http-api.conformance.coverage`.
 
@@ -729,7 +788,7 @@ Rules:
 
 ```ts
 type Phase =
-  | "load" | "structure" | "reference" | "provenance"
+  | "load" | "structure" | "reference" | "provenance" | "verification"
   | "consistency" | "review" | "conformance" | "artifact";
 
 type PhaseState = "passed" | "failed" | "skipped";
@@ -740,7 +799,8 @@ type PhaseState = "passed" | "failed" | "skipped";
 | `load` | bytes read, manifest parsed, profile resolved | content correctness |
 | `structure` | documents match input schemas; extracted entities match kind schemas | semantic meaning |
 | `reference` | IDs unique, relations resolvable | that references are *appropriate* |
-| `provenance` | quoted text located in the declared place via adapter | that the quote was well chosen |
+| `provenance` | binding shape and declared source; a `ProvenanceVerification` result is stored separately with its own status and record | that the quote is in the source; that a binding is verified evidence |
+| `verification` | profile verifier's recorded result is well formed and tied to the loaded source digest | that the verifier is honest, independent or correct; that the quote was well chosen |
 | `consistency` | declared fields do not contradict profile rules | normative truth |
 | `review` | unconfirmed content is marked and gated | that the reviewer is right |
 | `conformance` | vectors are structurally and referentially consistent | execution |
@@ -752,15 +812,18 @@ without depending on the pipeline.
 
 ### 6.2 Phase dependencies
 
-`structure` requires `load`; `reference`, `provenance`, `consistency`, `review`,
-`conformance` require `structure`; `artifact` requires a successful build. A failing phase
-marks dependent phases `skipped` in the result; skipped phases never emit diagnostics.
+`structure` requires `load`; `reference`, `provenance`, `verification`, `consistency`, `review`,
+`conformance` require `structure`; `verification` requires `provenance`; `artifact` requires a
+successful build. A failing phase marks dependent phases `skipped` in the result; skipped phases
+never emit diagnostics.
 
 ### 6.3 What the engine will never claim
 
 - that a provision is legally or normatively correct;
 - that a reviewed classification is correct;
 - that a declarative case passes;
+- that a structurally valid `ProvenanceBinding` is verified evidence, or that `verified` means
+  independent or cryptographic verification;
 - that a build is reproducible outside the stated determinism boundary (§8).
 
 ---
@@ -816,6 +879,11 @@ Core codes use the `core.` namespace; profile codes use the profile id. Codes ar
 across releases, messages may be reworded. Unknown codes are a profile validation error. In
 M1 the CORE-001 catalog reuses today's strings verbatim (`ERR_MODALITY_UPGRADE`, …);
 namespacing lands in M2 with an explicit mapping.
+
+`core.provenance.verification` is a core-owned check of the verifier's own claim: it fires for a
+claim about an entity without a direct binding, or for a malformed status, method, outcome or
+source digest. It validates the record's shape and digest consistency only; it never asserts
+that the verification result is true.
 
 ### 7.2 Exit codes
 
@@ -1291,6 +1359,11 @@ without the decision.
 | D30 | Policy override scope | P | profile defaults + project overlay, profile may forbid overrides | project free override | prevents accidental weakening | manifest `policy` | no |
 | D31 | Path and trust boundary | A (rev. §4) | root-contained by default; explicit `external: true`; outputs always contained | implicit relative paths | prevents silent traversal and symlink escape | manifest flags, `core.path.outside-root` | yes |
 | D32 | Isolated hook execution | D | not in 0.x; hooks run in-process | sandbox/worker isolation | no implementation in this PR | revisit if isolation is required | no |
+| D33 | Provenance binding versus verification | A (#37) | binding is structural; verification is a separate recorded result with `verified`/`failed`/`unavailable`/`stale` and a `VerificationRecord` | one boolean "verified" flag; treat a binding as evidence | consumers must be able to tell a well-formed binding from a checked result | `Entity.verification`, optional profile `verifyProvenance` hook, output provenance section; source digest records what was checked, not a declared pin | no |
+
+D33 is accepted by the maintainer's Issue [#37](https://github.com/agent-federation/contract-builder/issues/37)
+task comment (2026-11-02), which directs the binding/verification split; it is not part of the
+original iteration brief that sourced D1–D32.
 
 **Corrections to current behavior explicitly required by this contract** (to be approved
 before implementation, not silently applied):

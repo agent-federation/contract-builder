@@ -6,7 +6,7 @@ import { buildView } from "../profiles/core001/view.js";
 import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
 import type { Renderer } from "../spec/lib/render.js";
 import type { CheckContext } from "../profiles/core001/context.js";
-import type { Entity, ProjectModel } from "../spec/lib/ir.js";
+import type { Entity, ProjectModel, ProvenanceVerification } from "../spec/lib/ir.js";
 
 export const LEGACY_TEXT = "DOC (Rev 1)\nMUST do";
 
@@ -70,16 +70,61 @@ export function modelWith(entities: Entity[]): ProjectModel {
   };
 }
 
-export function context(
-  model: ProjectModel,
-  verifyQuote: CheckContext["verifyQuote"] = async () => "found",
-): CheckContext {
+export type TestOutcome =
+  | "found"
+  | "outside"
+  | "unknown-locator"
+  | "unsupported"
+  | "not-found"
+  | "not-checked";
+
+/** Attaches the binding and the single verification result a CORE-001 check consumes. */
+export function context(model: ProjectModel, outcome: TestOutcome = "found"): CheckContext {
+  for (const item of model.entities) attachVerification(item, outcome);
   return {
     model,
     view: buildView(model),
     legacyText: LEGACY_TEXT,
     legacyName: "legacy.md",
-    verifyQuote,
+  };
+}
+
+function attachVerification(entity: Entity, outcome: TestOutcome): void {
+  if (entity.provenance !== undefined) return;
+
+  const fields = entity.fields;
+  const source = entity.kind === "fragment" || entity.kind === "decision" ? fields.source : undefined;
+  const ref = entity.kind === "fragment" || entity.kind === "decision" ? fields.source_ref : undefined;
+  const quote =
+    entity.kind === "fragment"
+      ? fields.quote
+      : entity.kind === "decision"
+        ? fields.source_quote
+        : undefined;
+  if (typeof source !== "string" || typeof ref !== "string" || typeof quote !== "string") return;
+
+  const status: ProvenanceVerification["status"] =
+    outcome === "found"
+      ? "verified"
+      : outcome === "unsupported" || outcome === "not-checked"
+        ? "unavailable"
+        : "failed";
+  const checked = outcome !== "not-checked";
+
+  entity.provenance = { source, ref, quote };
+  entity.verification = {
+    status,
+    record: {
+      entity: entity.id,
+      source,
+      ref,
+      verifier: checked ? "test/verifier" : null,
+      method: checked ? "test:verifyQuote" : "none",
+      checkedAt: null,
+      sourceVersion: "DOC (Rev 1)",
+      sourceDigest: checked ? `sha256:${"0".repeat(64)}` : null,
+      outcome,
+    },
   };
 }
 

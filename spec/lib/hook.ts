@@ -1,5 +1,6 @@
 import type { Diagnostics } from "./diagnostics.js";
 import type { ProjectModel } from "./ir.js";
+import type { ProvenanceVerificationClaim } from "./provenance.js";
 import type { LocatorResult, SourceDocument } from "./source.js";
 
 export interface ValidatorFinding {
@@ -19,8 +20,33 @@ export interface ValidatorContext {
   verifyQuote(sourceId: string, ref: string, quote: string): Promise<LocatorResult>;
 }
 
+/**
+ * Inputs for the optional profile provenance verifier. The verifier resolves the quote
+ * through the source adapter and reports what it did; the core validates the claim and
+ * stores it as `Entity.verification`.
+ */
+export interface VerificationContext {
+  sources: readonly SourceDocument[];
+  legacyText: string;
+  legacyName: string;
+  verifyQuote(sourceId: string, ref: string, quote: string): Promise<LocatorResult>;
+  /** "sha256:<hex>" of the currently loaded source bytes, or null when absent. */
+  sourceDigest(sourceId: string): string | null;
+  /** Manifest-declared source version, or null when unavailable. */
+  sourceVersion(sourceId: string): string | null;
+}
+
 export interface ProfileValidator {
   validate(model: ProjectModel, ctx: ValidatorContext): Promise<ValidatorFinding[]>;
+  /**
+   * Optional profile-specific verification. It must not claim a status without an outcome,
+   * method and the source digest the outcome covers. A profile that omits it leaves every
+   * binding `unavailable`/`not-checked`.
+   */
+  verifyProvenance?(
+    model: ProjectModel,
+    ctx: VerificationContext,
+  ): Promise<ProvenanceVerificationClaim[]>;
 }
 
 export interface ProfileViewModule<T = unknown> {

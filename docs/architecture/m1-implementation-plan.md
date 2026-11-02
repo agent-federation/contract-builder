@@ -355,6 +355,20 @@ D25 (locator ownership) is `proposed`, so this does not decide it. Recorded cons
 the core guarantee "the quote resolves through the adapter" is enforced by the profile, not the
 core. Closing that gap is M2 work conditional on D25.
 
+### 8.4 Verification records (post-M1, Issue #37)
+
+M1 left "structurally bound" and "verified" indistinguishable in the model and the artifact.
+Issue #37 adds the distinction without moving locator ownership: the core still binds shape and
+declared source, while the profile validator module may export `verifyProvenance`. The core
+attaches an `unavailable`/`not-checked` record at binding, validates each profile claim against
+the entity's binding and the digest of the loaded source bytes, and stores it as
+`Entity.verification`. Statuses are `verified`, `failed`, `unavailable` and `stale`; the record
+carries verifier, method, checked-at (null in this deterministic build), source version, source
+digest and outcome. The CORE-001 source check consumes that stored record, maps it to the
+existing `ERR_SOURCE_*` diagnostics and reports a missing/unavailable/stale result as
+`ERR_PROVENANCE_NOT_VERIFIED`; it does not call the adapter a second time. D25 remains
+`proposed`, so this is a post-M1 additive contract change, not a re-decision of the M1 split.
+
 ---
 
 ## 9. Diagnostics

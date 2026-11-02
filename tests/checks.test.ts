@@ -40,13 +40,21 @@ test("checks/source: accepts a located quote and reports a missing one", async (
     source_ref: "SRC#1",
     quote: "absent",
   });
-  const findings = await source(context(modelWith([missing])));
+  const findings = await source(context(modelWith([missing]), "not-found"));
   assert.deepEqual(codes(findings), ["ERR_SOURCE_QUOTE_NOT_FOUND"]);
 });
 
 test("checks/source: reports an outside locator from the adapter", async () => {
-  const findings = await source(context(modelWith([fragment()]), async () => "outside"));
+  const findings = await source(context(modelWith([fragment()]), "outside"));
   assert.deepEqual(codes(findings), ["ERR_SOURCE_LOCATOR_MISMATCH"]);
+});
+
+test("checks/source: refuses to pass an unverified record", async () => {
+  const ctx = context(modelWith([fragment()]));
+  delete ctx.model.byId.get("F1")!.verification;
+
+  const findings = await source(ctx);
+  assert.deepEqual(codes(findings), ["ERR_PROVENANCE_NOT_VERIFIED"]);
 });
 
 test("checks/ontology: accepts a verbatim definition and rejects a paraphrase", async () => {
@@ -227,6 +235,6 @@ test("checks: tolerate missing optional fields", async () => {
 });
 
 test("checks/source: treats unsupported verification as a failure", async () => {
-  const findings = await source(context(modelWith([fragment()]), async () => "unsupported"));
+  const findings = await source(context(modelWith([fragment()]), "unsupported"));
   assert.deepEqual(codes(findings), ["ERR_SOURCE_LOCATOR_UNSUPPORTED"]);
 });

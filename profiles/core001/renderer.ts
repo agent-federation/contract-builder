@@ -90,6 +90,9 @@ function toTemplateView(spec: AnalyzedSpec, options: RenderOptions, legacyName: 
     reviews: countSeverity(options.diagnostics, "review"),
     warnings: countSeverity(options.diagnostics, "warning"),
   };
+  const verificationById = new Map(
+    spec.provenance.map((entry) => [entry.entity, entry.verification.status]),
+  );
 
   return {
     mode: options.mode,
@@ -117,8 +120,26 @@ function toTemplateView(spec: AnalyzedSpec, options: RenderOptions, legacyName: 
     })),
     provisions: spec.provisions.map((provision) => provisionView(provision, options)),
     decisions: spec.decisions.map((decision) => decisionView(decision, options)),
+    provenance: {
+      counts: spec.provenanceCounts,
+      entries: spec.provenance.map((entry) => ({
+        entity: entry.entity,
+        kind: entry.kind,
+        source: entry.binding.source,
+        ref: entry.binding.ref,
+        bindingLabel: label(options, "provenance.binding"),
+        status: entry.verification.status,
+        outcome: entry.verification.record.outcome,
+        method: entry.verification.record.method,
+        verifier: entry.verification.record.verifier,
+        sourceVersion: entry.verification.record.sourceVersion,
+        sourceDigest: entry.verification.record.sourceDigest,
+        checkedAt: entry.verification.record.checkedAt,
+      })),
+    },
     trace: spec.provisions.map((provision) => ({
       fragmentId: provision.fragment,
+      fragmentVerification: verificationById.get(provision.fragment) ?? "unavailable",
       sourceRef: provision.source_ref,
       provisionId: provision.id,
       decisions:

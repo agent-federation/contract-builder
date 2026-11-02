@@ -12,7 +12,10 @@ import { check as ontology } from "./checks/ontology.js";
 import { check as provision } from "./checks/provision.js";
 import { check as review } from "./checks/review.js";
 import { check as source } from "./checks/source.js";
+import { verifyProvenance } from "./checks/verification.js";
 import { check as terms } from "./checks/terms.js";
+
+export { verifyProvenance };
 
 /** Fixed module order. Within a module, findings follow input order. */
 export const ORDER = [
@@ -46,7 +49,6 @@ export const validate: ProfileValidator["validate"] = async (
     view: ctx.view as AnalyzedSpec,
     legacyText: ctx.legacyText,
     legacyName: ctx.legacyName,
-    verifyQuote: ctx.verifyQuote,
   };
 
   const findings: ValidatorFinding[] = [];

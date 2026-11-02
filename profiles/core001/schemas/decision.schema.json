@@ -69,6 +69,9 @@
         "provenance": {
           "type": "object"
         },
+        "verification": {
+          "type": "object"
+        },
         "relations": {
           "type": "object"
         },

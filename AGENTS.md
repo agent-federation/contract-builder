@@ -58,7 +58,7 @@ specification leaves the working tree clean.
   `broken-source-drift`, `open-decision`) used by tests and examples.
 - `tests/` — `build.test.ts`, `golden.test.ts`, `ir.test.ts`,
   `manifest.test.ts`, `checks.test.ts`, `hook.test.ts`, `renderer.test.ts`,
-  `genericity.test.ts`, with golden baselines under `tests/golden/`.
+  `genericity.test.ts`, `provenance.test.ts`, with golden baselines under `tests/golden/`.
 - `docs/` — architecture contract, M1 implementation plan and the design record.
 - `CORE-001.legacy.md` — the read-only source document.
 

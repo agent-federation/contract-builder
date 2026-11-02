@@ -18,6 +18,13 @@ change: reciprocal inverse declarations are validated at profile load, and an in
 at that change's code and tests, not at the audited commit; every other row still describes
 `f1ddcf7`.
 
+**Snapshot update for Issue #37.** Row V5 records the binding/verification split added after
+`f1ddcf7` by the focused [#37](https://github.com/agent-federation/contract-builder/issues/37)
+change: `ProvenanceVerification` and `VerificationRecord` are part of the IR, the optional profile
+verifier supplies claims, and outputs render binding and verification separately. Rows V1 and
+§5–§6 are revised only where that change alters their wording. Every other row still describes
+`f1ddcf7`; no independent verification is claimed for the new row.
+
 **What this is.** The audit deliverable requested by
 [#39](https://github.com/agent-federation/contract-builder/issues/39): a source-backed status
 matrix for the engine architecture and public contract. It separates design intent, accepted
@@ -124,10 +131,11 @@ carries it.
 
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
-| V1 | Direct provenance binding: profile mappings project `{source, ref, quote}` from entity fields, the source must be declared in the manifest, and incomplete bindings fail | `accepted` | `implemented` | `tested` | `—` | Plan [§8.2](m1-implementation-plan.md) (M1 choice, merged in #16); [provenance.ts:11](../../spec/lib/provenance.ts#L11); [ir.test.ts:262](../../tests/ir.test.ts#L262) (only `fragment` and `decision` bind directly) |
+| V1 | Direct provenance binding: profile mappings project `{source, ref, quote}` from entity fields, the source must be declared in the manifest, and incomplete bindings fail. Binding is structural and attaches a `not-checked` verification; it does not verify the quote | `accepted` | `implemented` | `tested` | `—` | Plan [§8.2](m1-implementation-plan.md) (M1 choice, merged in #16); [provenance.ts:88](../../spec/lib/provenance.ts#L88); [ir.test.ts:262](../../tests/ir.test.ts#L262) (only `fragment` and `decision` bind directly); [provenance.test.ts:92](../../tests/provenance.test.ts#L92) |
 | V2 | The markdown adapter resolves section / table-column / list-item locators and reports found, outside or unknown-locator for a quote | `accepted` | `implemented` | `tested` | `—` | Contract [§11](engine-public-contract.md) adapter interface (D25 ownership stays proposed); plan [§8.3](m1-implementation-plan.md); [markdown.ts:31](../../spec/lib/adapters/markdown.ts#L31), [markdown.ts:58](../../spec/lib/adapters/markdown.ts#L58); [build.test.ts:113](../../tests/build.test.ts#L113), [build.test.ts:151](../../tests/build.test.ts#L151), [checks.test.ts:34](../../tests/checks.test.ts#L34) |
 | V3 | Core-enforced quote resolution and the full `LocatorResult` (`unsupported`, `unknown-block`) | `proposed` | `—` | `—` | `—` | D25 `proposed`; plan [§8.3](m1-implementation-plan.md) records that the profile hook, not the core, maps quote outcomes in M1; [source.ts:11](../../spec/lib/source.ts#L11) keeps `unsupported` in the type only |
 | V4 | Provenance hardening: paragraph locators `#<section>/p<n>` and ranges, source-byte digest verified in the core, `unknown-block` locator outcome | `accepted` | `—` | `—` | `—` | Accepted 2026-11-02 (Q1–Q11) in [provenance-hardening-rfc.md](provenance-hardening-rfc.md), merged in [#45](https://github.com/agent-federation/contract-builder/pull/45); implementation not started per its header |
+| V5 | Binding and verification are separate data: `ProvenanceVerification` with `verified`/`failed`/`unavailable`/`stale` and a `VerificationRecord` (verifier, method, checked-at, source version/digest, outcome); the core attaches a not-checked record at binding, a profile verifier supplies claims, the core validates the record, status semantics and digest, and outputs render both; CORE-001 source checks consume the stored result (one adapter call per binding, `ERR_PROVENANCE_NOT_VERIFIED` when missing/stale); an unverified binding is never rendered as verified | `accepted` | `implemented` | `tested` | `—` | Issue [#37](https://github.com/agent-federation/contract-builder/issues/37) and its maintainer task comment (CB-A2A-013); contract [§4](engine-public-contract.md), [§5.2](engine-public-contract.md) steps 7–8, [§6.1](engine-public-contract.md); [ir.ts:22](../../spec/lib/ir.ts#L22), [provenance.ts:20](../../spec/lib/provenance.ts#L20), [provenance.ts:152](../../spec/lib/provenance.ts#L152), [hook.ts:28](../../spec/lib/hook.ts#L28), [build.ts:182](../../spec/lib/build.ts#L182), [checks/verification.ts](../../profiles/core001/checks/verification.ts); [provenance.test.ts](../../tests/provenance.test.ts) |
 
 ### 3.5 Profile validation policy, hook and review gating
 
@@ -247,7 +255,8 @@ of it. These are different kinds of claim and are not interchangeable:
   (D26; X3) and the M2–M5 milestone program (X5).
 - **M1 narrowings that are deliberate, not accidental:** one renderer and one artifact per build
   (O3), `review` opaque inside `fields` (R5), legacy diagnostic codes preserved verbatim (G1),
-  severity-based blocking (H2), source quote verification in the profile hook (V3).
+  severity-based blocking (H2), source quote verification in the profile hook (V3) recorded as a
+  verification status (V5).
 
 The contract's own limit applies: a successful build is evidence of internal consistency, not of
 normative correctness (contract [§1.1](engine-public-contract.md), [§6.3](engine-public-contract.md)).
@@ -265,12 +274,14 @@ Each item is a limitation of this commit, not a task list. Evidence is linked.
    small profile with different kinds and vocabulary runs through the same pipeline; it does not
    prove a real second profile or an HTTP API profile (A5, A4; plan [§2](m1-implementation-plan.md),
    [§16](m1-implementation-plan.md)).
-3. **Quote verification is not core-enforced.** The core binds provenance shape and the declared
-   source; the profile hook calls the adapter to check the quote (V3; plan
-   [§8.3](m1-implementation-plan.md)). D25 is `proposed`, so this is not a violated decision.
-4. **The locator is coarse.** It addresses a section, a table column or a list item, not a
-   paragraph or line range, and there is no source-document digest. The accepted RFC (V4) is not
-   implemented.
+3. **Quote verification is profile-owned, not core-enforced, and is now recorded.** The core
+   binds provenance shape and the declared source and stores a `ProvenanceVerification`; the
+   profile verifier calls the adapter and supplies the outcome (V3, V5; plan
+   [§8.3–8.4](m1-implementation-plan.md)). D25 is `proposed`, so this is not a violated decision.
+4. **The locator is coarse and the source is not pinned by a declared digest.** It addresses a
+   section, a table column or a list item, not a paragraph or line range. A
+   `VerificationRecord` now records the SHA-256 of the bytes actually checked, but the accepted
+   `identity.sha256` pin check of RFC #4 is not implemented and stays V4's scope.
 5. **The extension closure is a guard, not a sandbox.** The static import scan skips computed
    specifiers, `createRequire`, `process.binding` and runtime file access; determinism of trusted
    extensions remains an author obligation (B3, B4;
