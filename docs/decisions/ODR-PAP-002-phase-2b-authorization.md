@@ -184,6 +184,6 @@ Gate 3 remains OPEN and requires a separate independent field-by-field compariso
 
 **Owner decision:** APPROVED
 
-**Owner approval reference:** [ODR-PAP-002](/issues/62#issuecomment-6586872238)
+**Owner approval reference:** [ODR-PAP-002](https://github.com/agent-federation/contract-builder/issues/62#issuecomment-6586872238)
 
 **Approved record commit:** To be recorded after the ODR is committed.
