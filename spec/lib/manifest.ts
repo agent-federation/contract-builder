@@ -523,6 +523,12 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
       if (item.cardinality !== undefined && item.cardinality !== "one" && item.cardinality !== "many") {
         return fail(`/relations/${index}/cardinality`, "cardinality должен быть one или many");
       }
+      // A declared inverse is part of the contract, so a value that is not a name is an error
+      // rather than an implicit "no inverse": normalizing it away would let a malformed
+      // declaration pass as if it had never been declared.
+      if (item.inverse !== undefined && !isNonEmptyString(item.inverse)) {
+        return fail(`/relations/${index}/inverse`, "inverse должен быть непустой строкой");
+      }
       relations.push({
         name: item.name,
         from: item.from,
@@ -546,6 +552,47 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
         );
       }
       seen.add(key);
+    }
+
+    // An inverse declaration is the other half of the same edge set, so the pair must form a
+    // bidirectional contract: the inverse is declared from the forward target kind, points
+    // back at the forward relation and reverses its endpoints. Cardinality is a property of
+    // the values in one direction, not of the declaration pair; the resolver enforces it when
+    // it synthesizes the inverse values.
+    const declared = new Map(
+      relations.map((decl) => [`${decl.from}\u0000${decl.name}`, decl] as const),
+    );
+    for (const [index, decl] of relations.entries()) {
+      if (decl.inverse === undefined) continue;
+      if (decl.to === "*") {
+        return fail(
+          `/relations/${index}/inverse`,
+          `Связь "${decl.name}" с видом цели "*" не может объявлять обратную связь "${decl.inverse}": целевой вид не определён`,
+        );
+      }
+      const inverse = declared.get(`${decl.to}\u0000${decl.inverse}`);
+      if (inverse === undefined) {
+        return fail(
+          `/relations/${index}/inverse`,
+          `Обратная связь "${decl.inverse}" не объявлена для вида "${decl.to}"`,
+        );
+      }
+      if (inverse.inverse !== decl.name) {
+        const summary =
+          inverse.inverse === undefined
+            ? "не объявляет обратной связи"
+            : `объявляет обратной связью "${inverse.inverse}"`;
+        return fail(
+          `/relations/${index}/inverse`,
+          `Обратная связь "${decl.inverse}" ${summary}, ожидалось "${decl.name}"`,
+        );
+      }
+      if (inverse.to !== decl.from) {
+        return fail(
+          `/relations/${index}/inverse`,
+          `Обратная связь "${decl.inverse}" ведёт на вид "${inverse.to}", ожидался "${decl.from}"`,
+        );
+      }
     }
   }
 

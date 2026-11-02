@@ -34,6 +34,13 @@
       "to": "requirement",
       "cardinality": "one",
       "inverse": "examples"
+    },
+    {
+      "name": "examples",
+      "from": "requirement",
+      "to": "example",
+      "cardinality": "many",
+      "inverse": "requirement"
     }
   ],
   "files": [

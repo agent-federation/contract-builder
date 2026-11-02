@@ -90,6 +90,13 @@
       "inverse": "vectors"
     },
     {
+      "name": "vectors",
+      "from": "provision",
+      "to": "case",
+      "cardinality": "many",
+      "inverse": "provision"
+    },
+    {
       "name": "rationaleFragment",
       "from": "case",
       "to": "fragment",

@@ -130,7 +130,7 @@ async function buildModel(dir: string): Promise<ProjectModel> {
   return model;
 }
 
-test("ir: the profile declares the seven M1 relations", async () => {
+test("ir: the profile declares the seven M1 relation names, with reciprocal inverses", async () => {
   const profile = JSON.parse(
     await readFile(path.join(profileDir, "profile.json"), "utf8"),
   ) as MutableProfile;
@@ -149,6 +149,7 @@ test("ir: the profile declares the seven M1 relations", async () => {
       ["provision", "dependsOn", "decision", "many", null],
       ["provision", "mentions", "decision", "many", null],
       ["case", "provision", "provision", "one", "vectors"],
+      ["provision", "vectors", "case", "many", "provision"],
       ["case", "rationaleFragment", "fragment", "one", null],
       ["term", "fragment", "fragment", "one", null],
     ],
@@ -342,6 +343,88 @@ test("ir: duplicate relation targets do not duplicate the inverse", () => {
   assert.ok(index !== null, diagnostics.report());
   assert.deepEqual(source.relations.many, ["B"]);
   assert.deepEqual(target.relations.back, ["A"]);
+});
+
+test("ir: an inverse declared cardinality one accepts a single source", () => {
+  const diagnostics = new Diagnostics();
+  const profile = {
+    id: "p",
+    version: "1.0.0",
+    entityKinds: { a: { schema: "p:a" }, b: { schema: "p:b" } },
+    schemas: {},
+    documents: [],
+    relations: [
+      { name: "many", from: "a", to: "b", cardinality: "many", inverse: "back" },
+      { name: "back", from: "b", to: "a", cardinality: "one", inverse: "many" },
+    ],
+  } as unknown as Profile;
+
+  const source: Entity = { id: "A", kind: "a", fields: {}, relations: {} };
+  const target: Entity = { id: "B", kind: "b", fields: {}, relations: {} };
+  const byId = new Map([
+    ["A", source],
+    ["B", target],
+  ]);
+  // The repeated target resolves once, so the inverse still holds one source.
+  const raw = new Map([["A", { many: ["B", "B"] }]]);
+  const locations = new Map([
+    ["A", { file: "a.yml", pointer: "/a/0" }],
+    ["B", { file: "b.yml", pointer: "/b/0" }],
+  ]);
+
+  const index = resolveRelations([source, target], raw, locations, profile, byId, diagnostics);
+  assert.ok(index !== null, diagnostics.report());
+  assert.deepEqual(source.relations.many, ["B"]);
+  assert.deepEqual(target.relations.back, ["A"]);
+});
+
+test("ir: an inverse declared cardinality one rejects a second source", () => {
+  const diagnostics = new Diagnostics();
+  const profile = {
+    id: "p",
+    version: "1.0.0",
+    entityKinds: { a: { schema: "p:a" }, b: { schema: "p:b" } },
+    schemas: {},
+    documents: [],
+    relations: [
+      { name: "many", from: "a", to: "b", cardinality: "many", inverse: "back" },
+      { name: "back", from: "b", to: "a", cardinality: "one", inverse: "many" },
+    ],
+  } as unknown as Profile;
+
+  const first: Entity = { id: "A1", kind: "a", fields: {}, relations: {} };
+  const second: Entity = { id: "A2", kind: "a", fields: {}, relations: {} };
+  const target: Entity = { id: "B", kind: "b", fields: {}, relations: {} };
+  const byId = new Map([
+    ["A1", first],
+    ["A2", second],
+    ["B", target],
+  ]);
+  const raw = new Map([
+    ["A1", { many: ["B"] }],
+    ["A2", { many: ["B"] }],
+  ]);
+  const locations = new Map([
+    ["A1", { file: "a.yml", pointer: "/a/0" }],
+    ["A2", { file: "a.yml", pointer: "/a/1" }],
+    ["B", { file: "b.yml", pointer: "/b/0" }],
+  ]);
+
+  const index = resolveRelations(
+    [first, second, target],
+    raw,
+    locations,
+    profile,
+    byId,
+    diagnostics,
+  );
+  assert.equal(index, null);
+  const diagnostic = diagnostics
+    .emissionOrder()
+    .find((item) => item.code === "core.relation.cardinality");
+  assert.ok(diagnostic !== undefined, diagnostics.report());
+  assert.equal(diagnostic.pointer, "/a/1/relations/many");
+  assert.ok(diagnostic.message.includes('"B"'), diagnostic.message);
 });
 
 test("ir: duplicate relation declarations are rejected", async () => {
