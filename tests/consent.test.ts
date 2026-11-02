@@ -7,6 +7,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
+import type { Renderer } from "../spec/lib/render.js";
+import { loadProfileRenderers } from "../spec/cli-renderers.js";
 import { copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -158,4 +160,68 @@ test("consent: the CLI does not execute the CORE-001 renderer for another profil
   assert.equal(output.exitCode, 1);
   assert.ok(output.diagnostics.some((item) => item.code === "core.registry.missing"));
   assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
+});
+
+const FAKE_RENDERER: Renderer = {
+  id: "core001-markdown",
+  version: "0.1.0",
+  async render() {
+    return [];
+  },
+};
+
+test("consent: the CLI preflight validates the profile closure before importing the renderer", async () => {
+  // The new relative module exists (so importing it would succeed) but is not declared in
+  // profile.files. The injected importer counts calls, so a nonzero count proves the
+  // renderer was imported before the closure violation was rejected.
+  const dir = await copyProjectWithProfile("closure-preflight");
+  await writeFile(
+    path.join(dir, "profile", "undeclared.ts"),
+    "export const undeclared = true;\n",
+    "utf8",
+  );
+  const rendererPath = path.join(dir, "profile", "renderer.ts");
+  const renderer = await readFile(rendererPath, "utf8");
+  await writeFile(
+    rendererPath,
+    `import { undeclared } from "./undeclared.js";\n${renderer}\nvoid undeclared;\n`,
+    "utf8",
+  );
+
+  let imported = 0;
+  const renderers = await loadProfileRenderers(true, dir, async () => {
+    imported += 1;
+    return FAKE_RENDERER;
+  });
+
+  assert.equal(imported, 0, "renderer imported before the profile closure was validated");
+  assert.deepEqual(renderers, {});
+});
+
+test("consent: the CLI preflight imports the renderer only for a declared valid project", async () => {
+  const dir = await copyProjectWithProfile("preflight-valid");
+  let imported = 0;
+
+  const renderers = await loadProfileRenderers(true, dir, async () => {
+    imported += 1;
+    return FAKE_RENDERER;
+  });
+
+  assert.equal(imported, 1);
+  assert.deepEqual(renderers, { [FAKE_RENDERER.id]: FAKE_RENDERER });
+});
+
+test("consent: the CLI preflight skips the renderer for another profile", async () => {
+  // The synthetic profile declares the CORE-001 renderer id; profile gating must still skip
+  // the import even when the renderer id matches.
+  const dir = await copyExampleProjectWithRenderer("preflight-other", "core001-markdown");
+  let imported = 0;
+
+  const renderers = await loadProfileRenderers(true, dir, async () => {
+    imported += 1;
+    return FAKE_RENDERER;
+  });
+
+  assert.equal(imported, 0);
+  assert.deepEqual(renderers, {});
 });

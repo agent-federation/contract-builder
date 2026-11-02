@@ -1,7 +1,7 @@
 import path from "node:path";
+import { loadProfileRenderers } from "./cli-renderers.js";
 import { runBuild, type BuildResult } from "./lib/build.js";
-import { Diagnostics, SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
-import { loadManifest } from "./lib/manifest.js";
+import { SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
 import type { BuildMode, Renderer } from "./lib/render.js";
 
 interface CliOptions {
@@ -112,33 +112,6 @@ function printHuman(result: BuildResult, specDir: string): void {
   }
 
   console.log(lines.join("\n"));
-}
-
-const CORE001_PROFILE_ID = "core001";
-const CORE001_RENDERER_ID = "core001-markdown";
-
-/**
- * The built-in CORE-001 renderer is an executable profile-owned module. The CLI, as the
- * consumer that wires it, imports it only when (a) the caller passed the same explicit
- * consent flag that `runBuild` requires and (b) the selected project actually declares the
- * CORE-001 profile and this renderer. A flag alone is consent, not a request to execute an
- * unrelated profile's code.
- */
-async function loadProfileRenderers(
-  allow: boolean,
-  specDir: string,
-): Promise<Record<string, Renderer>> {
-  if (!allow) return {};
-
-  // Read and validate the manifest/profile declaration before importing profile code. This
-  // is declarative data only; no executable module is loaded by `loadManifest`.
-  const project = await loadManifest(specDir, new Diagnostics());
-  if (project === null) return {};
-  if (project.profile.id !== CORE001_PROFILE_ID) return {};
-  if (project.manifest.render[0]?.renderer !== CORE001_RENDERER_ID) return {};
-
-  const { renderer } = await import("../profiles/core001/renderer.js");
-  return { [renderer.id]: renderer };
 }
 
 async function main(): Promise<void> {
