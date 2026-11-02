@@ -265,7 +265,7 @@ status.
 
 | Dimension | Values | Meaning |
 |---|---|---|
-| Decision | `accepted`, `proposed`, `deferred`, `none` | The outcome asserted by a `decidedBy` decision entity. It is not the decision entity's own lifecycle. See the state table below. |
+| Decision | `accepted`, `proposed`, `deferred`, `none` | The outcome a claim asserts about a maintainer decision, or `none` when no outcome is asserted. It is not the decision entity's own lifecycle. For `accepted`/`proposed`/`deferred`, the `decidedBy` relation must agree; `none` may have no decision entity or an unresolved one. See the state table below. |
 | Implementation | `implemented`, `none` | Whether the behaviour exists in the current-main code. |
 | Tests | `tested`, `none` | Whether automated tests exercise it at the current main. |
 | Verification | `independently_verified`, `none` | Whether a verifier distinct from the author recorded an independent check. A provenance `verified` record is not this status. |
@@ -282,13 +282,15 @@ states, distinguished by whether a decision entity exists:
 |---|---|---|
 | `none` | absent | no decision entity exists yet |
 | `none` | a decision with `status: unresolved` | a decision is recorded; its outcome is unresolved |
-| `proposed` | absent, or a decision with `status: proposed` | proposed, not accepted |
+| `proposed` | absent, a decision with `status: proposed`, or a decision with `status: unresolved` (proposal awaiting a decision) | proposed, not accepted |
 | `deferred` | a decision with `status: deferred` | deliberately postponed |
 | `accepted` | exactly one decision with `status: accepted` | accepted |
 
 A decision with `status: unresolved` is never written as `decision: unresolved`: the decision
-entity carries `unresolved`, while the claim stays `none` until an outcome exists. A `deferred`
-claim links a `deferred` decision; an unresolved decision is not a deferral.
+entity carries `unresolved`. A `none` claim awaiting an outcome links the unresolved decision; a
+`proposal` may also link one when the proposal is explicitly awaiting a decision. A `deferred`
+claim links a `deferred` decision; an unresolved decision is not a deferral. A proposal linked to
+an `accepted` decision is a mismatch.
 
 A claim may also have an explicit `lifecycle` field — `active`, `superseded`, `retired` — which
 is about the register, not about evidence. Superseding claims keep the old ID and link to it;
@@ -785,9 +787,11 @@ A claim whose `authority` is `external` or `human` cannot become
 a record; a person checks its truth.
 
 An awaiting-decision claim has `status.decision: none` and `relations.decidedBy: [D-OPEN]`, where
-`D-OPEN.status` is `unresolved`; a deferred claim has `decision: deferred` and links a decision with
-`status: deferred`. The two states are not interchangeable. A claim with `decision: accepted`
-links exactly one `decidedBy` decision entity with `status: accepted`. Task-level constraints (C1–C15) are represented as decision entities with the
+`D-OPEN.status` is `unresolved`; a `proposal` may also link `D-OPEN` when the proposal is awaiting
+a decision outcome. A deferred claim has `decision: deferred` and links a decision with
+`status: deferred`. The states are not interchangeable. A claim with `decision: accepted` links
+exactly one `decidedBy` decision entity with `status: accepted`; a proposal linked to an accepted
+decision is a mismatch. Task-level constraints (C1–C15) are represented as decision entities with the
 task/issue as their source, so the policy check is satisfiable without treating this document as
 the decision. A `decision: none` claim may have no `decidedBy` relation, or one unresolved
 decision when it is awaiting an outcome.
@@ -988,7 +992,7 @@ adapter through `ctx.verifyQuote`, and the core stores and validates its result.
 | `core000.claim.implemented-without-evidence` | `error` | `implementation: implemented` requires at least one `code`, `test` or `ci` evidence. | "Implemented" is a claim about code, not a schema fact. |
 | `core000.claim.tested-without-test` | `error` | `tests: tested` requires `test`/`ci` evidence and a non-empty command in `verification_method`. | Test coverage is policy, not structure. |
 | `core000.claim.unsupported-guarantee` | `error` | A `guarantee` has `conditions`, `scope`, a verification method and at least one `cites` or `evidencedBy`. | A guarantee without conditions/evidence is an assertion, not a guarantee. |
-| `core000.claim.decision-required` | `error` | The claim `decision` and its `decidedBy` relation agree: `accepted` requires exactly one accepted decision; `deferred` requires exactly one deferred decision; `proposed` requires no decision or one proposed decision; `none` requires no decision or one unresolved decision. | The decision model is CORE-000 policy. |
+| `core000.claim.decision-required` | `error` | The claim `decision` and its `decidedBy` relation agree: `accepted` requires exactly one accepted decision; `deferred` requires exactly one deferred decision; `proposed` requires no decision, one proposed decision, or one unresolved decision (proposal awaiting decision); `none` requires no decision or one unresolved decision. | The decision model is CORE-000 policy. |
 | `core000.claim.policy-mismatch` | `error` | A claim whose subject includes `TB-PROFILE-EXEC` must match the settled consent policy: no claim may describe consent as pending, absent, fail-open or a sandbox. | The merged #35/PR #50 outcome is a completed fact, not a design choice. |
 | `core000.claim.status-class-conflict` | `error` | `non_goal`/`deferred` cannot be implemented or tested; `proposal` cannot be implemented; a `limitation` cannot carry `decision: accepted` unless it restates an accepted limitation. | Prevents class/status contradictions. |
 | `core000.claim.verification-not-independent` | `error` | `verification: independently_verified` requires an `independent_verification` entity with `independence: independent`, `performed: true`, `result: confirmed`, a `claim_results` entry confirming the claim, and a `record_locator` outside `contracts/core000/`. | Independence is not an engine status, and it is not the provenance verification record. |
@@ -1003,7 +1007,7 @@ adapter through `ctx.verifyQuote`, and the core stores and validates its result.
 | `core000.source.verification-missing` | `error` | Every `source_statement` has a stored `Entity.verification` record that is not `unavailable`/`not-checked`. | Binding alone is not evidence; the profile verifier must run. |
 | `core000.source.verification-failed` | `error` | A `source_statement` with `verification.status: failed` or `stale` is an error for a contract claim. | A failed or stale quote check must not be rendered as verified. |
 | `core000.source.verification-unavailable` | `error` | A `source_statement` with `verification.status: unavailable` is an error for a contract claim. | An unverified binding cannot support a normative claim. |
-| `core000.decision.unresolved` | `review` | An unresolved decision linked to an active claim is reported when the claim is `decision: none` (awaiting an outcome) or a `proposal`; an accepted or deferred claim that links an unresolved decision is a `core000.claim.decision-required` error, not a review. | Surfaces the open decision without resolving it. |
+| `core000.decision.unresolved` | `review` | An unresolved decision linked to an active claim is reported when the claim is `decision: none` (awaiting an outcome) or a `proposal` (proposal awaiting a decision); an accepted or deferred claim that links an unresolved decision is a `core000.claim.decision-required` error, not a review. | Surfaces the open decision without resolving it. |
 | `core000.trust.consent-facts` | `review` | `TB-PROFILE-EXEC` must be `policy_status: settled` with `enforcement: explicit_consent`; any pending or sandbox claim is reported. | Keeps the trust section aligned with the completed #35/PR #50 outcome. |
 | `core000.conformance.case-uncovered` | `warning` | A conformance case `covers` at least one claim. | A case without a claim is not conformance. |
 
@@ -1727,7 +1731,7 @@ asserts the codes and conditions, not a hard-coded number.
 
 | Code | Severity | Condition in a clean build | Draft | Release |
 |---|---|---|---|---|
-| `core000.decision.unresolved` | `review` | an active `decision: none` claim is awaiting an unresolved decision (or a proposal links one); accepted/deferred mismatches are `core000.claim.decision-required` errors | visible | blocks |
+| `core000.decision.unresolved` | `review` | an active `decision: none` claim, or a `proposal` explicitly awaiting a decision, links an unresolved decision; accepted/deferred mismatches are `core000.claim.decision-required` errors | visible | blocks |
 | `core000.independent-verification.missing` | `review` | an active claim with `authority: external/human` has no independent verification | visible | blocks |
 | `core000.trust.consent-facts` | `review` | a trust claim or trust-boundary statement does not match the settled consent facts | should be zero | allowed unless it fires |
 | `core000.source.verification-missing` | `error` | a `source_statement` has no stored verification record | should be zero | blocks |
@@ -1778,7 +1782,7 @@ single-target render contract.
 | N8 | Provenance quote outside | a `source_statement` quote exists in the source but outside its declared locator; the profile verifier returns `failed`/`outside` | `core000.source.verification-failed` (profile, verification) | — |
 | N9 | Self-asserted independence | independent verification says `independence: independent`, the verifier is the claim author, or the record is inside `contracts/core000/` | `core000.independent-verification.self` / `core000.claim.verification-not-independent` (profile, consistency) | — |
 | N10 | Consent policy contradicted | a claim says consent is pending/absent or that the profile is sandboxed while `TB-PROFILE-EXEC` is `settled`/`explicit_consent` | `core000.claim.policy-mismatch` (profile, consistency) | — |
-| N11 | Decision-dependent claim accepted | claim `decision: accepted` whose `decidedBy` decision is `unresolved`; or `decision: deferred` linked to an unresolved decision; or `decision: none` linked to an accepted decision | `core000.claim.decision-required` (error) plus `core000.decision.unresolved` (review) for the unresolved case | — |
+| N11 | Decision state mismatch | `decision: accepted` linked to `unresolved`; `deferred` linked to `unresolved`; `none` linked to `accepted`; or `proposal` linked to `accepted` | `core000.claim.decision-required` (error); `core000.decision.unresolved` (review) for the unresolved cases | — |
 | N12 | Status/class contradiction | `class: non_goal`, `implementation: implemented`; or `class: proposal`, `tests: tested` | `core000.claim.status-class-conflict` (profile, consistency) | — |
 | N13 | Missing claim subject | claim has no `subject` relation, or `subject_kind` disagrees with the target | `core000.claim.missing-subject` / `core000.claim.subject-kind-mismatch` (profile, consistency) | — |
 | N14 | Missing executable-profile consent | the harness omits `allowExecutableProfile: true` | `core.profile.consent-required` (core, load) and no profile module evaluated | — |
@@ -2488,9 +2492,10 @@ CORE-000 profile.
 4. **No CORE-001 vocabulary in the model.** The kinds/relations in §5 are generic; CORE-001
    appears only as context.
 5. **Claim register sanity.** Every accepted claim has an accepted decision; `deferred` links a
-   deferred decision; `none` is either no decision or an unresolved one; every implemented/tested
-   claim has evidence; every guarantee has conditions; every independent-verification row is `—`;
-   every `independent_verification` uses the canonical §8.3 field set.
+   deferred decision; `none` is either no decision or an unresolved one; a `proposal` may link no
+   decision, a proposed decision or an unresolved one; every implemented/tested claim has evidence;
+   every guarantee has conditions; every independent-verification row is `—`; every
+   `independent_verification` uses the canonical §8.3 field set.
 6. **Experiment executability.** The manifest/profile/input shapes match the implemented loader;
    the harness passes `allowExecutableProfile: true`; the renderer harness is a consumer, not a
    core change; the negative cases name the actual diagnostic layers/codes, including the #36
