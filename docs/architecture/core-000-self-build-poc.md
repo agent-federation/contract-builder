@@ -749,8 +749,10 @@ These are proposals, not a schedule. Each starts only after the maintainer appro
 slice and answers the decisions it depends on.
 
 1. **S2 — structure and full model.** Add the remaining kinds and relations, the full 78-claim
-   register, D14 consent-surface entities, the 23 policy checks and the accepted design's
-   structure data. This is the first slice that can claim the full model is expressible.
+   register, D14 consent-surface entities, the 24 enumerated policy checks (the design prose says
+   23; S2-D1 resolves that count) and the accepted design's structure data. This is the first slice
+   that can claim the full model is expressible. The bounded package is
+   [`core-000-s2-package.md`](core-000-s2-package.md); it is not yet authorized.
 2. **S3 — full negative and provenance matrix.** Add N1–N18, the full evidence capture and the
    human summary. P-2 decides durable publication/location and the summary format; P-6 decides
    git publication; P-3 decides whether the draft is committed. The transient S1 evidence record is

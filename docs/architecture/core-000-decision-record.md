@@ -663,6 +663,9 @@ record merges.
 - The S1 package is approved, but S1 implementation is authorized only after this canonical record
   is merged and a dedicated implementation task references it. No implementation is included. The
   four deferred items remain open for later decisions.
+- **S2 follow-up:** the four open items and the full-model scope are carried into
+  [`core-000-s2-package.md`](core-000-s2-package.md). That package is proposed, not authorized, and
+  does not resolve any of the four deferred items.
 
 **Requested maintainer action:** merge this documentation-only canonical decision record. No further
 decision is needed for S1; after merge, S1 implementation may start when a dedicated implementation

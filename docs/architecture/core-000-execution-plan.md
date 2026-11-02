@@ -806,7 +806,8 @@ independent verification. P-2's deferral covers only durable
 publication/location and the summary format; S1 still writes and asserts the transient §6.2
 record. S1 implementation is authorized only after the canonical decision-record
 update is merged and a dedicated implementation task references it; this document does not
-implement S1.
+implement S1. The proposed S2 follow-up package is
+[`core-000-s2-package.md`](core-000-s2-package.md); it is not authorized by this plan.
 
 ### 12.4 What revisions 2 and 3 do not change
 
