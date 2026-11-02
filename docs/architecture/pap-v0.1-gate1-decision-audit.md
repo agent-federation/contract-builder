@@ -18,27 +18,30 @@ A–E and J, and the §12 matrix.
 
 This audit answers one question: **can an independent implementer build a conforming v0.1
 recipient from the RFC, schemas, vectors and fixtures alone, without guessing a rule that changes
-a verdict?** The answer after the proposed patch is yes for every behaviour inside the declared
-v0.1 contract, with a short, explicit list of deferred items that cannot silently affect a v0.1
-verdict.
+a verdict?** The self-audit found no known blocking ambiguity inside the reviewed v0.1 contract
+after the proposed patch, with a short list of deferred items that cannot silently affect a v0.1
+verdict. That is a specification finding, not evidence that an independent implementation will
+agree; only Gate 3 can test that.
 
 | Result | Finding |
 |---|---|
 | D1–D12 | All twelve recommended **`accepted`**. Nine needed a clarifying amendment first; none is recommended `rejected` or wholly `deferred`. Two carry a deliberately deferred sub-part (signed approvals in D8, text layout in D10). |
-| §13.8 areas | All seven resolved normatively or explicitly excluded from mandatory conformance. No row is left as an undefined required behaviour. |
-| Vectors | Every Appendix E digest vector was recomputed independently from the document's own bytes and matches exactly: E.1 package identity, E.2 payload/quote/claim digests, E.3 checker identity, E.4 verification-record identity, E.5 normalization, E.6 domain/framing, E.7 PAE. No vector changed in the patch; E.9 adds two JCS edge vectors. |
-| RFC patch | Contradictions, missing diagnostic codes, schema/status mismatches, determinism gaps and fixture defects are fixed in place; 14 new cases (F47–F60) assert every newly pinned rule; the fixture policy set is split so each case has one deterministic policy. |
+| §13.8 areas | All seven resolved normatively or explicitly excluded from mandatory conformance. The audit found no known undefined required behaviour in these areas; some branches remain specified but unexercised (§5.1). |
+| Vectors | Every Appendix E digest vector was recomputed independently from the document's own bytes and matches exactly: E.1 package identity, E.2 payload/quote/claim digests, E.3 checker identity, E.4 verification-record identity, E.5 normalization, E.6 domain/framing, E.7 PAE. E.4 is revised at Gate 1 to include the check records (C17/OD-7); E.9 adds JCS edge vectors and E.10 adds identity mutation vectors. |
+| RFC patch | Contradictions, missing diagnostic codes, schema/status mismatches, determinism gaps and fixture defects are amended in place; 15 new cases (F47–F61) specify every newly pinned rule; the fixture policy set is split so each case has one deterministic policy. The cases are normative descriptions, not executable tests yet (§5.1). |
 | Owner input | Seven decisions embedded in the patch change conformance or compatibility semantics and are separated in §7 for explicit maintainer approval. |
-| Gate 1 | Specification readiness is reached **pending** the maintainer's approval of §7 and the recorded D1–D12 dispositions. This is not Gate 3: no second implementation exists, so cross-implementation agreement is untested. |
+| Gate 1 | Specification readiness is proposed **pending** the maintainer's approval of §7 and the recorded D1–D12 dispositions. This is not Gate 3: no second implementation exists, so cross-implementation agreement is untested. |
 
 The audit does **not** implement the verifier, change Gate 1 status, close #43/#44, or record any
 decision as accepted.
 
 ### 1.1 What "Gate 1" and "Gate 3" mean here
 
-- **Gate 1 (this audit)** — the specification is complete and consistent enough that an
-  independent implementer can derive every required result without guessing, and every newly
-  pinned behaviour has an assertion.
+- **Gate 1 (this audit)** — as far as this self-audit can determine, the specification is
+  complete and consistent enough that an independent implementer can derive every reviewed
+  required result without guessing, and every newly pinned behaviour has a documented assertion
+  (or is listed in §5.1 as specified but unexercised). A remaining ambiguity found by that
+  implementer is a specification defect; Gate 3 is the proof.
 - **Gate 3 (not claimed)** — two independent implementations, from separate teams and preferably
   different languages, agree field-by-field on the §12 corpus. Gate 1 removes known specification
   ambiguity; it cannot prove that no ambiguity remains, and it cannot substitute for the
@@ -81,13 +84,14 @@ a whole decision and are recorded as deferred sub-parts in §6.
 
 The table records, for each area, the exact ambiguity, whether it could produce divergent results
 between conforming implementations, and the resolution. All rows are now **resolved** or
-**deferred by design**; none is left as an untested required behaviour.
+**deferred by design**; the audit found no undefined required behaviour among them, while §5.1
+lists branches that are specified but not yet exercised by a case.
 
 | Area | Exact ambiguity (clauses) | Divergence risk | Resolution | Assertions |
 |---|---|---|---|---|
 | Clock and freshness boundaries | §6.4 defines `FRESH` as `evaluatedAt ∈ [issuedAt, expiresAt]`, while §9.8 and the pre-patch §13.8 called the `expiresAt` boundary open; review age/`+300 s` boundaries were also unstated. | High: an instant exactly at `expiresAt` could be `PASS` or `INCOMPLETE`, changing the verdict and exit code. | **Resolved.** §6.4 and §9.8 now state a closed window with no skew tolerance; §6.7 states the review age boundary is inclusive and the `+300 s` allowance is inclusive. Production `--now` remains a CLI-project choice (§16.1(6)) because it changes no format field; that is the only deferred sub-part. | F47 (`--now == expiresAt`), F48 (`--now == issuedAt`), F49 (`expiresAt + 1 s`); F15 for a stale signed policy. |
 | JSON parser strictness | §4.10/§5.3.1 fixed duplicate keys, BOM, surrogates, UTF-8 and depth, but not which token spellings count as integers, not which document type gets which diagnostic, and not what a claim/policy parse failure does to the verdict. | High: `1.0`/`1e3` acceptance, and `manifest-json` vs `claim-invalid` vs exit 64, could differ. | **Resolved.** §5.3.1 accepts only `-?(0\|[1-9][0-9]*)`; §13.8 carries a document-type → diagnostic → effect mapping; parse failure of the manifest is never `INCOMPLETE`; a claim file fails the package, a policy fails closed with exit 64, a limit stops only the affected scope. Exotic tolerance (comments, trailing commas beyond fixed rules) is rejected as invalid JSON and is not a permitted variation. | F21, F29, F35, F50, F51, F58; F41 for policy. |
-| Resource-limit defaults and enforcement points | §4.3.4 fixed numbers but not every enforcement point; `integrity.package`/`integrity.artifacts` had no `NOT_EVALUATED` status; §13.8 left non-default limits uncomparable; the "claims files" limit exceeded the four declarable claim kinds. | High: the same oversized artifact could be `FAIL` or `INCOMPLETE`; effective limits were unrepresentable in the report; payload-count limits could depend on order. | **Resolved.** Only a manifest-parsing limit yields `FAIL`; every other limit yields `NOT_EVALUATED`/`INCOMPLETE` with `coverage.full: false`; `integrity.package`/`integrity.artifacts` gain `NOT_EVALUATED`; count-limit violations read no payload from that class; lowered limits appear in the optional `effectiveLimits` report object and as `pap.limit.lowered`. Raising a limit remains a policy error. The unreachable claims-files limit is documented as a forward bound. | F35 (manifest limit → `FAIL`), F52 (lowered `fileBytes` → `integrity.artifacts: NOT_EVALUATED`, `effectiveLimits`). |
+| Resource-limit defaults and enforcement points | §4.3.4 fixed numbers but not every enforcement point; `integrity.package`/`integrity.artifacts` had no `NOT_EVALUATED` status; §13.8 left non-default limits uncomparable; the "claims files" limit exceeded the four declarable claim kinds; a limit on a non-required dimension could leave `PASS` reachable. | High: the same oversized artifact could be `FAIL` or `INCOMPLETE`; effective limits were unrepresentable; payload-count/read order could depend on the implementation; a non-required class could be skipped while the verdict stayed `PASS`. | **Resolved.** Only a manifest-parsing limit yields `FAIL`; every other limit yields `NOT_EVALUATED`/`INCOMPLETE`; reading order is fixed (artifacts, sources, inputs, claims), multiple limits union their affected scopes, `coverage.full` is false, and any limit that stops a declared payload or required check forces at most `INCOMPLETE` even when the affected dimension is not required. `integrity.package`/`integrity.artifacts` gain `NOT_EVALUATED`; lowered limits appear in `effectiveLimits` and as `pap.limit.lowered`. Raising a limit remains a policy error. The unreachable claims-files limit is documented as a forward bound. | F35, F52, F61; specified-but-unexercised limit branches are listed in §5.1. |
 | Human-review evidence semantics | §6.7 said a claim must bind "the package identity and/or the artifact set" without defining the acceptable combination, did not say whether one approval is sufficient or how a rejection interacts with an approval, and asserted that a policy could require signed approvals although no such policy field exists. | High: the same reviews file could be `PASS` or `INCOMPLETE`. | **Resolved for v0.1.** An approval binds by `scope.packageIdentity` equality, or by set-equal `scope.artifacts` when identity is absent; `packageId` alone does not bind. One valid approval is sufficient and any in-scope rejection makes the dimension `INCOMPLETE`. Reviewer recognition is exact identity match against a policy `signers[]` entry with role `reviewer`. Signed approvals stay deferred with no policy field to request them. | F28 (missing evidence), F55 (fresh in-scope recognized approval → `PASS`). |
 | Signature adapter details | §11.2 fixed DSSE/PAE/Ed25519 but not envelope discovery depth, evaluation order, over-limit behaviour, base64 canonicality, signature length, or the canonical-`S` check. | Medium: divergent `signatures[]` order breaks the JSON comparison; malformed encodings could be accepted differently; an over-limit envelope set could be partially trusted. | **Resolved.** Only regular files directly under `signatures/` matching `[A-Za-z0-9._-]+\.dsse\.json` are read, sorted by path; over-limit reads none and leaves signature/trust `NOT_EVALUATED`; base64 must be canonical with padding; `sig` decodes to exactly 64 bytes; verification follows RFC 8032 §5.1.7 including canonical `S`. The in-toto mapping is explicitly outside both conformance tiers. | Tier B: F11–F13, F15–F18, F56; E.7 for PAE. |
 | Multi-envelope aggregation | §6.5's aggregate was described as "over the policy-required set" while the rules evaluated every present envelope; disabled mode was said not to report envelopes while §9.3 said a present signature is never ignored; an orphan key (in `keys[]`, mapped by no signer) had no row. | Medium: optional-mode mixed envelopes and orphan keys could be `PASS`, `INCOMPLETE` or `UNTRUSTED`. | **Resolved.** The aggregate covers every present envelope; in `optional` and `required` modes an invalid, unknown or untrusted envelope blocks `PASS`; `disabled` is the one intentional opt-out and reads no envelope; an orphan key is `UNKNOWN`/`REJECTED`; duplicate signers count once. | F18 (trusted + unknown, required), F56 (trusted valid + invalid, optional), F11/F16/F17. |
@@ -126,7 +130,7 @@ the RFC; "noted" means the item is documented but needs no normative change.
 | C16 | §5.7 | Profile recognition was cited as §6.4; it is §6.6. | Fixed. |
 | C18 | §7.3, §7.4 | `integrity.package` said "declared digests match", which read as covering artifact and source digests that have their own dimensions, and it did not say what a claim-invalid or input-mismatch package does to that field. | Fixed: package covers existence/type/paths plus input and claim digests; artifact/source digests stay in their own dimensions. |
 | C19 | §7.3, §12.4 | `integrity.artifacts` had no rule distinguishing a manifest that fails schema validation (no usable declaration) from a payload-level defect (missing file, symlink, invalid path), so the same case could be `FAIL` or `NOT_EVALUATED`. | Fixed: manifest-invalid → `NOT_EVALUATED`; payload-level defect → `FAIL`; limit → `NOT_EVALUATED`; F21/F22–F26/F29/F30/F35/F50/F51/F53/F60 updated. |
-| C17 | §5.9, Appendix E.4 | The report schema and §7.7 require a top-level `checks[]` array, but the E.4 identity form omits it while §5.9 lists only five exclusions and says witnesses are included. The vector was therefore either not the identity form of a conforming report, or witnesses had to be byte-identical across implementations, which §8.3 does not require (`quoteBase64` is optional, failures may be aggregated). | Fixed: §5.9 excludes the whole `checks[]` array from the record identity; the semantic outcomes and counts remain through `dimensions.checks.results[]` and `coverage`, and E.4 stays reproducible. This is OD-7. |
+| C17 | §5.9, Appendix E.4 | The report schema and §7.7 require a top-level `checks[]` array, but the E.4 identity form omitted it while §5.9 listed only five exclusions and said witnesses are included. The vector was therefore either not the identity form of a conforming report, or witnesses had to be byte-identical across implementations, which the pre-patch §8.2–§8.3 did not require (`quoteBase64` was optional and witness selection was not pinned). | Fixed: §5.9 now includes every `checks[]` record (subjects, scope, checker, outcome, witnesses except `quoteBase64`) and excludes only presentation fields; E.4 is revised to a complete identity form with the three check records, and E.10 adds mutation vectors proving outcomes, scopes, witness ranges and diagnostic codes change the identity while messages and `quoteBase64` do not. This is OD-7. |
 
 ### 4.2 Under-specified required behaviour
 
@@ -185,13 +189,37 @@ the RFC; "noted" means the item is documented but needs no normative change.
 | Binding to an undeclared source → invalid claim/`FAIL` | F58 |
 | Duplicate relation name → `pap.claim.relation-duplicate` | F59 |
 | Missing manifest → `pap.package.io`, identity `null`, `FAIL` | F60 |
+| A limit that stops a non-required payload class still forces `INCOMPLETE` | F61 |
 | JCS UTF-16 key order and minimal escaping | E.9 |
 | Text required lines for `PASS` and non-`PASS` | F01/F02 re-run with `--format text` (§12.3) |
 
 The new cases add no feature: every one asserts a rule already implied by the accepted design or
-clarified by this patch. They are appended as F47–F60 so no existing case number moves.
+clarified by this patch. They are appended as F47–F61 so no existing case number moves.
 
 ---
+
+### 5.1 Documented cases versus executable tests, and specified-but-unexercised branches
+
+F47–F61 and E.9/E.10 are **normative descriptions**, not executable tests: the fixture corpus is
+Phase 3a work and no PAP harness exists in this repository. The green CI above runs the existing
+CORE-001 suite; it does not run a PAP case. The following branches are specified but not exercised
+by any documented case, so they remain review risks rather than tested behaviour:
+
+| Branch | Specified in | What would exercise it |
+|---|---|---|
+| total payload-byte limit and its fixed read order | §4.3.4 | a case lowering `totalPayloadBytes` below artifact + source size and asserting which identities are `null` |
+| payload-count limit (read no file of the class) | §4.3.4 | a case with 4 097 declared payload files, beyond fixture practicality |
+| JSON nesting or string-size limit on the manifest | §4.3.4, §9.11 | a case with a 65-deep manifest object |
+| JSON nesting or string-size limit on a claim file | §4.3.4, §13.8 | a case with an over-deep `claims/relations.json` |
+| envelope-count limit (read none, leave trust `NOT_EVALUATED`) | §4.3.4, §11.2 | a Tier B case with 33 envelopes |
+| several limits exceeded in one run | §4.3.4 | a case lowering two limits at once |
+| policy limit above the default → exit 64 | §6.3.2 | a policy fixture with `limits.fileBytes: 268435457` |
+| Ed25519 non-canonical `S` rejection | §11.2 | a Tier B envelope with a canonical-bytes but non-canonical-`S` signature |
+| identity mutation vectors | E.10 | a unit test of the identity function, not a CLI case |
+
+Every row has a fixed, non-silent expected outcome in the normative text; none can silently become
+a `PASS`. They are listed here so a reviewer can distinguish what the documented cases actually
+prove from what only the text specifies.
 
 ## 6. Minimal RFC patch summary
 
@@ -211,13 +239,13 @@ clarified by this patch. They are appended as F47–F60 so no existing case numb
 | §6.6/§7.4 rule 2: recognition gates only when required | S4 | F01, F13, F43 |
 | §7.5: coverage counter definitions | U6 | E.4, F27 |
 | §8.2/§8.4/Appendix D.5: check-record emission and witness subjects | C12/C13 | F42, E.4 |
-| §5.9/Appendix E.4: exclude `checks[]` from the verification-record identity | C17/OD-7 | E.4 |
+| §5.9/Appendix E.4: include `checks[]` in the verification-record identity and revise E.4; add E.10 mutations | C17/OD-7 | E.4, E.10 |
 | §8.6/Appendix D.2/Appendix J.3: duplicate relation name | U11/U13 | F59 |
 | §9.2/§9.4/§9.6: version spelling, inspect token, text required lines | U7/U8/§3 text row | F01/F02 text run |
 | §9.9: array ordering and `effectiveLimits` | S1/S2 | F36, F52 |
 | §11.2/§11.3: envelope discovery/order/limit/canonical encodings; in-toto exclusion | U10, D12 | Tier B cases |
 | §12.1: fixture policies split and `unsigned-valid` unpinned | S3/S5 | F01, F11, F16–F18 |
-| §12.4.3/§12.4.6/§12.6: F26 code, F47–F60, coverage mapping | S6/§5 | F26, F47–F60 |
+| §12.4.3/§12.4.6/§12.6: F26 code, F47–F61, coverage mapping | S6/§5 | F26, F47–F61 |
 | §13.1/§13.5/§13.9: Tier A/Tier B and stage boundaries | D12/OD-5 | Tier lists |
 | §13.8: resolution table and malformed-input mapping | §13.8 | all of the above |
 | §16: pointer to this audit | Traceability | — |
@@ -238,13 +266,13 @@ implicitly.
 
 | ID | Question | Options | Recommendation and consequence |
 |---|---|---|---|
-| OD-1 | Should a resource limit that prevents reading artifacts or inputs yield `INCOMPLETE` (schema gains `NOT_EVALUATED` for `integrity.package`/`integrity.artifacts`), or should it be a package `FAIL`? | (a) `INCOMPLETE`, limit is a verifier boundary; (b) `FAIL`, a package too large for the verifier is unusable. | Recommendation: (a). It keeps §4.3.4's "limit is not a producer defect" principle and never turns a safety stop into a verdict against the producer; the cost is one more status in Appendix C. |
-| OD-2 | What may produce `humanReview: PASS` in v0.1? | (a) Structural, in-scope, fresh evidence naming a policy-enrolled reviewer, unsigned; (b) require a signed approval, which v0.1 cannot express, so positive review stays `INCOMPLETE`/deferred. | Recommendation: (a). It makes the existing dimension meaningful and testable (F55); the limitation is explicit: the approval is a claim, not an attestation (`pap.review.unbound`). |
+| OD-1 | Should a resource limit that prevents reading artifacts or inputs yield `INCOMPLETE` (schema gains `NOT_EVALUATED` for `integrity.package`/`integrity.artifacts`), or should it be a package `FAIL`? | (a) `INCOMPLETE`, limit is a verifier boundary; (b) `FAIL`, a package too large for the verifier is unusable. | Recommendation: (a). It keeps §4.3.4's "limit is not a producer defect" principle and never turns a safety stop into a verdict against the producer. A limit on **any** declared payload class forces `coverage.full: false` and at most `INCOMPLETE`, even when that class's dimension is not required; the cost is one more status in Appendix C. |
+| OD-2 | What may produce `humanReview: PASS` in v0.1, and what does it mean? | (a) Structural, in-scope, fresh evidence naming a policy-enrolled reviewer, unsigned; `PASS` is explicitly an unbound producer claim, reported with `basis: "unbound-claim"`, `pap.review.unbound` as diagnostic **and** limitation, and a text label, and it can never be promoted to confirmed authorization or authenticated approval. (b) Require a signed approval, which v0.1 cannot express, so positive review stays `INCOMPLETE`/deferred. | Recommendation: (a). It makes the dimension meaningful and testable (F55) without overstating it. The limitation is explicit and machine-readable; signed approvals remain deferred. |
 | OD-3 | Is text output allowed to stay layout-free beyond the required lines? | (a) Yes, pin required lines and tokens only; (b) standardise the full layout. | Recommendation: (a). §13.1 already makes text non-normative for comparison; standardising layout adds work without adding assurance. The required lines are now concrete enough to test. |
 | OD-4 | How should an unsupported `major.minor` be treated? | (a) Widen the schema to canonical `major.minor`, report `UNSUPPORTED` with `minor-newer`/`version-unsupported`, keep 0.1-core `integrity.package: PASS`; (b) keep `0.x` only and let a different major fail schema. | Recommendation: (a). It matches §15.1 and prevents a future major from being misreported as malformed. |
-| OD-5 | What does "v0.1 conforming" mean for the first implementation? | (a) Two tiers: Tier A core (no DSSE adapter) and Tier B signature-capable; in-toto outside both; (b) one tier requiring all F01–F60. | Recommendation: (a). It lets the Phase 3 unsigned demonstration make a precise claim without pretending the signature adapter is core, and it keeps the first interop scope small. |
-| OD-6 | Should a partially evaluated required check be `INCOMPLETE` or `FAIL` when evidence is missing? | (a) Always `INCOMPLETE`, never `PASS`; (b) `FAIL` when the policy asks for full coverage. | Recommendation: (a). Option (b) needs a policy field that does not exist; treating missing evidence as a disproved assertion would misstate what the verifier knows. |
-| OD-7 | Should `verificationRecordIdentity` cover the top-level `checks[]` records and witnesses? | (a) Exclude `checks[]`; the identity covers the semantic result (`dimensions.checks.results[]`, coverage, identities) and witness presentation stays out. (b) Include records and pin a minimal witness form, then recompute the E.4 vector. | Recommendation: (a). It makes the stated guarantee — same inputs, same identity — true for implementations that make different legitimate witness choices, and it keeps the published E.4 vector valid. Option (b) narrows the evidence model and changes a normative vector. |
+| OD-5 | What does "v0.1 conforming" mean for the first implementation? | (a) Two tiers: Tier A core (no DSSE adapter; mandatory parsing, JCS, identities, three checks, policy/freshness/recognition/review, CLI, Tier A cases) and Tier B signature-capable (Tier A plus DSSE and all F01–F61); in-toto outside both; same-tier comparison only. (b) One tier requiring all F01–F61. | Recommendation: (a). It lets the Phase 3 unsigned demonstration make a precise claim without pretending the signature adapter is core. The cost is that Tier A must report envelopes and unsupported capabilities as `NOT_EVALUATED`/`UNSUPPORTED` with a limitation, and may not claim a signature or trust result; Tier A and Tier B compare only on Tier A cases. |
+| OD-6 | Should a partially evaluated required check be `INCOMPLETE` or `FAIL` when evidence is missing? | (a) Always `INCOMPLETE`, never `PASS`; a limit that skips required inputs also forces `INCOMPLETE`; (b) `FAIL` when the policy asks for full coverage. | Recommendation: (a). Option (b) needs a policy field that does not exist; treating missing evidence as a disproved assertion would misstate what the verifier knows. |
+| OD-7 | Should `verificationRecordIdentity` cover the top-level `checks[]` records and witnesses? | (a) Exclude `checks[]`; the identity covers only `dimensions.checks.results[]` and `coverage`, so different check subjects/scopes/witnesses can share an identity. (b) Include every record and witness field, exclude only presentation (`messages`, optional `quoteBase64`), pin deterministic witness emission, and revise E.4. | Recommendation: (b). Option (a) lets two reports with materially different verification evidence share an identity, which is exactly the auditability property the record is supposed to provide. The cost is a revised E.4 value and a small witness-emission rule; E.10 demonstrates the sensitivity. |
 
 **Action requested:** approve, amend or defer OD-1–OD-7, and record the D1–D12 dispositions in
 §16. Until that record exists, Gate 1 is not closed and Phase 2 remains gated.
@@ -258,12 +286,15 @@ implicitly.
 - D1–D12 each have an explicit recommended disposition and a rationale; all are recommended
   `accepted`, with two deferred sub-parts (signed approvals, text layout) that are outside the
   required v0.1 behaviour.
-- Every §13.8 area has a normative resolution or a justified exclusion, and each is tied to at
-  least one case or vector.
-- Every normative rule needed by the v0.1 verifier that the audit found untestable now has an
-  assertion in F47–F60, E.9 or the text-line assertions, or is explicitly deferred.
-- Schemas, RFC prose, vectors and F01–F60 are mutually consistent for the rules the patch touches;
-  Appendix E vectors reproduce exactly and no digest changed.
+- Every §13.8 area has a normative resolution or a justified exclusion, and each is tied to a rule
+  plus, where exercised, a case or vector; §5.1 lists the branches that remain specified but
+  unexercised.
+- Every normative rule the audit found untestable now has a documented assertion in F47–F61, E.9,
+  E.10 or the text-line assertions, or is listed in §5.1 as a review risk; none is silently
+  assumed.
+- The audit found no remaining inconsistency in the rules the patch touches; Appendix E vectors
+  reproduce exactly, with E.4 revised as C17/OD-7. This is a document self-audit, not independent
+  verification or cross-implementation evidence.
 - Deferred items are named in §8.2 and cannot silently affect a v0.1 verdict: they are either
   outside both conformance tiers (in-toto), require a policy field that does not exist (signed
   approvals, full-coverage switch), or are CLI-project policy that changes no identity or verdict
@@ -284,11 +315,13 @@ implicitly.
 
 ### 8.3 Does a normative ambiguity still block independent implementation?
 
-For the mandatory v0.1 contract as amended: **no**. There is no required verdict, dimension,
-diagnostic code or identity that the audit found undefined. The remaining unknowns are the
-deferred items above, and each has a fixed, non-silent outcome: usage error, `UNSUPPORTED`,
-`NOT_EVALUATED`/`INCOMPLETE`, or an explicit limitation. An independent implementer can now build
-Tier A without guessing and Tier B once the DSSE adapter is implemented.
+For the mandatory v0.1 contract as amended, the audit found **no known blocking ambiguity**. That
+is a self-audit result, not proof: it lists every required verdict, dimension, diagnostic code and
+identity it reviewed as defined. The remaining unknowns are the deferred items above, and each has
+a fixed, non-silent outcome: usage error, `UNSUPPORTED`, `NOT_EVALUATED`/`INCOMPLETE`, or an
+explicit limitation. An independent implementer should now be able to build Tier A and Tier B and
+report any clause that still reads ambiguously; such a report is a specification defect, not an
+implementation bug (§13.8).
 
 Two residual risks remain, and they are not defects this audit can close:
 
@@ -303,15 +336,19 @@ Two residual risks remain, and they are not defects this audit can close:
 
 - Recomputed from the document's own bytes, with a standalone script independent of any producer
   or verifier code: E.1 `packageIdentity`; E.2 artifact, raw source, quote, per-input, input-set
-  and claim digests; E.3 checker closure and identity; E.4 verification-record identity (including
-  the zero placeholder); E.5 normalization; E.6 domain separation and framing; E.7 PAE and its
-  SHA-256; E.9 canonical JCS bytes and hashes. All match.
+  and claim digests; E.3 checker closure and identity; the revised E.4 identity form (including
+  the three check records and the zero placeholder); E.5 normalization; E.6 domain separation and
+  framing; E.7 PAE and its SHA-256; E.9 canonical JCS bytes and hashes; E.10 mutation hashes. All
+  match.
 - Re-read Appendices A–D and J against the prose for status vocabularies, required/optional
-  fields, patterns, ordering and diagnostic codes; every mismatch found is listed in §4.
+  fields, patterns, ordering and diagnostic codes; every mismatch found is listed in §4. This is
+  a document self-audit, not independent verification.
 - Checked that every `pap.*` code used in normative prose or the matrix exists in Appendix J, and
   that every code added by the patch has a case or a rule that produces it.
 - Confirmed the patch is documentation-only: no `spec/`, `profiles/`, `tests/` or generated
-  artifact changes, so the repository's `bun run check` result is unaffected.
+  artifact changes, so the repository's `bun run check` result is unaffected. The green CI runs
+  the existing repository suite; it does not execute F01–F61, E.9 or E.10, which have no PAP
+  harness or fixture corpus yet (Phase 3a).
 
 ### 8.5 What the maintainer needs to do
 

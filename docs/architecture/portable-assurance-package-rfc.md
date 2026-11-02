@@ -64,7 +64,7 @@ implementations, and it deliberately does not implement either side.
 | CLI | `pap verify`, `pap inspect`, `pap explain`; explicit exit codes; machine-readable report | §9 |
 | Threats | directory-only parsing, no symlinks, ASCII paths, resource limits, no producer or profile execution | §10 |
 | Signatures | optional DSSE/Ed25519 adapter; in-toto mapping; Sigstore/SCITT/OCI deferred | §11 |
-| Conformance | 60 normative fixture cases with expected dimensions, verdict, exit code and diagnostics | §12 |
+| Conformance | 61 normative fixture cases with expected dimensions, verdict, exit code and diagnostics | §12 |
 | Independence | second implementation from this RFC, schemas and vectors only; first demo unsigned | §13 |
 
 The package is a **transport and evidence envelope**, not the engine's internal IR. It carries
@@ -532,6 +532,30 @@ Enforcement points and reporting are normative:
   none of that class rather than an arbitrary prefix: every declaration in the class reports
   `computed: null`, and the affected dimension is `NOT_EVALUATED` as above. This keeps the limit
   independent of manifest order.
+- Payloads are read in a fixed order: artifacts in manifest order, then embedded sources in
+  manifest order, then inputs in manifest order, then claims in manifest order. The total-byte
+  limit therefore stops at a deterministic point, and two implementations report the same
+  `computed` values for the files read before the stop. Multiple limits may be exceeded in one
+  run; each emits `pap.package.limit-exceeded`, the affected scopes are their union, and the first
+  stop in this order decides which identities are computed.
+- A `pap.package.limit-exceeded` that leaves any declared payload, required check or signature
+  envelope unevaluated sets `coverage.full: false` and makes the verdict at most `INCOMPLETE` —
+  never `PASS` — even when the affected dimension is not listed in the policy's
+  `requiredDimensions` (§7.4 rule 4).
+
+Limit interaction summary (normative):
+
+| Limit hit | Affected result | `coverage.full` | Verdict ceiling |
+|---|---|---|---|
+| manifest bytes, or manifest JSON nesting/string | no package identity, `integrity.package: FAIL`, no check set | `false` | `FAIL` |
+| payload byte or count (artifacts/sources/inputs) | affected dimension `NOT_EVALUATED`, unread `computed: null`, dependent checks `NOT_EVALUATED` | `false` | `INCOMPLETE` |
+| claim-file JSON nesting/string | dependent check `NOT_EVALUATED`; `integrity.package` not failed by the limit | `false` | `INCOMPLETE` |
+| signature envelopes (only when mode is `optional`/`required`) | signature and trust `NOT_EVALUATED` | `false` | `INCOMPLETE` |
+| trust policy `limits` parsing | no report, exit 64 (`pap.trust.policy-invalid`) | — | — |
+
+Several limits may combine; the table's most severe outcome applies, and every affected scope is
+reported. `effectiveLimits` lists every lowered limit that produced the run; it does not change
+these rules. No limit row can produce `PASS`.
 - A limit hit while parsing a claim file makes that claim unusable: `pap.package.limit-exceeded`,
   the dependent check is `NOT_EVALUATED`, and `integrity.package` is not failed by the verifier's
   limit. A limit hit while parsing the trust policy is a policy error (exit 64, §6.3.2).
@@ -1025,34 +1049,52 @@ semantic result fields (Appendix I, §13).
 verificationRecordIdentity = H("pap.report.v1", JCS(identity form of the report))
 ```
 
-The identity form is the report with these fields removed (at any depth where they appear only
-as envelope metadata):
+The identity form is built deterministically from the complete Appendix C report:
 
-- `evaluatedAt` and `durationMs` — wall-clock and timing values;
-- `package.path` and `policy.path` — absolute or host-specific locations;
-- the whole `producerClaims` block — informational, producer-supplied and optional; it is
-  compared semantically (§7.6) but is not part of the verifier's record identity;
-- the whole `checks[]` array — check records and their witnesses are report evidence, but their
-  witness selection is implementation-defined (§8.2–§8.3, for example optional `quoteBase64` and
-  aggregated failures), so including them would make the identity depend on presentation rather
-  than on the result. The semantic check outcomes remain in the form through
-  `dimensions.checks.results[]` and `coverage`;
-- `diagnostics[].message` — human wording may legitimately differ between implementations. Codes
-  and locations remain in the form only if they are deterministic; messages are excluded from
-  the identity but retained in the report.
+1. start from the report object exactly as it validates against Appendix C;
+2. remove exactly the fields listed below — no other field is removed, renamed or added;
+3. replace `identities.verificationRecordIdentity` with the fixed 64-zero digest
+   `sha256:0000000000000000000000000000000000000000000000000000000000000000` (a record cannot
+   contain its own hash; the placeholder is part of the form, not an excluded field);
+4. canonicalize with JCS over the I-JSON subset (§5.3.1) and hash with `pap.report.v1`.
 
-Before canonicalization, the identity form's `identities.verificationRecordIdentity` field is
-replaced by the fixed 64-zero digest
-`sha256:0000000000000000000000000000000000000000000000000000000000000000`. The verifier then
-canonicalizes the form, hashes it with domain `pap.report.v1`, and writes the resulting value into
-the report. The placeholder is part of the identity form (it prevents a record from containing
-its own hash); it is not one of the excluded fields. Appendix E.4 uses this placeholder.
+Excluded fields:
 
-Everything else is in the identity form, including `verdict`, dimensions, check outcomes,
-package-derived identities, policy digest and limitations. Recomputing the same verification with
-the same checker, policy and `--now` value produces the same `verificationRecordIdentity`; the
-excluded `checks[]` evidence is reported but does not make two otherwise identical runs differ. The identity is not a signature and not an attestation by the
-verifier; it names one record.
+| Field | Why it is excluded |
+|---|---|
+| `evaluatedAt`, `durationMs` | wall-clock and timing values; `evaluatedAt` is fixed only when `--now` is fixed |
+| `package.path`, `policy.path` | absolute or host-specific locations |
+| the whole `producerClaims` block | informational, producer-supplied and optional; it is compared semantically (§7.6) and never part of the verifier's record |
+| `diagnostics[].message` | human wording may legitimately differ; codes, severities and scopes stay in the form |
+| `checks[].diagnostics[].message` | the same rule for per-check diagnostics; the check record itself stays in the form |
+| `checks[].witnesses[].quoteBase64` | optional informational convenience field (RFC 4648 base64 of the extracted span); `quoteDigest` and `extractedDigest` already pin the same bytes, so the convenience encoding must not create identity differences |
+
+Everything else is in the identity form, including `verdict`, every dimension status,
+`coverage`, `limitations[]`, `diagnostics[].code`/`severity`/`scope`, package-derived identities,
+the policy digest/state, and every top-level `checks[]` record with its `subjectDigests`,
+`scope`, `checker`, `outcome`, `witnesses` (except the excluded `quoteBase64`) and diagnostics.
+Appendix E.4 is a complete identity form, including the three check records.
+
+This is deliberate evidence coverage, not only result coverage:
+
+- changing a check outcome, a `subjectDigests` value, a `scope` count/list, the `checker`
+  identity, a witness's `subject`, `range`, `declared`/`computed`/`sourceDigest`/`quoteDigest`/
+  `extractedDigest`, or a violation entry changes `verificationRecordIdentity`;
+- changing only a human message or the optional `quoteBase64` convenience field does not, because
+  both are presentation of a result that the remaining fields already pin;
+- therefore two records can share an identity only when their semantic results and their
+  recomputable check evidence (other than excluded presentation) are identical. The exclusion
+  cannot hide a different verdict, dimension, check outcome, subject, scope, checker or witness
+  range/digest.
+
+Recomputing the same verification with the same checker, policy and `--now` value produces the
+same `verificationRecordIdentity`; witness formatting that v0.1 requires is deterministic
+(§8.2–§8.6). The identity is not a signature and not an attestation by the verifier; it names one
+record.
+
+`verificationRecordIdentity` is compared only within one verifier build, because it includes
+`checkerIdentity` (§5.8, §13.6). A consumer auditing evidence outside the identity must still read
+`checks[]` directly; the identity proves that two reports match, not that a report is true.
 
 ### 5.10 Self-reference avoidance
 
@@ -1156,7 +1198,7 @@ verifier MUST NOT derive one dimension's status from another dimension or from p
 | Signature | `dimensions.signature.validity` | cryptographic verification succeeded for the policy-required envelope set over the canonical manifest (§11) | signer authority, intent, correctness, that the signer is trusted, or that anything outside the manifest was signed |
 | Trust | `dimensions.trust.{signerIdentity,policyDecision,checkerRecognition,profileRecognition}` | the signing key maps to a policy identity/role allowed for this package; the policy snapshot is fresh and accepts the signer set; checker and profile identities match operator pins | that the policy is correct, the operator is authorized, keys are uncompromised or unrevoked, or that the policy file was not substituted |
 | Checks | `dimensions.checks.results[]` | every required check ran to completion on its declared scope and each required assertion held | semantic truth, completeness of evidence, or that a check's choice of scope was fair |
-| Human review | `dimensions.humanReview.status` | required approval evidence is present, structurally valid, in scope, fresh, and the reviewer identity is recognized by the policy | that the reviewer was right, competent, independent, or that the whole package was reviewed |
+| Human review | `dimensions.humanReview.status` | required approval evidence is present, structurally valid, in scope, fresh, names a policy-recognized reviewer, and is reported as an unverified claim (`basis: unbound-claim`) | that the reviewer was right, competent, independent, that the approval is authenticated, or that the whole package was reviewed |
 | Semantic truth | `dimensions.semanticTruth` | nothing: always `NOT_EVALUATED` in v0.1 | any statement about meaning, correctness or conformity of the content |
 | Legal enforceability | `dimensions.legalEnforceability` | nothing: always `NOT_EVALUATED` in v0.1 | any statement about validity, binding effect or liability |
 
@@ -1179,6 +1221,7 @@ tooling MUST NOT make them.
 | `trust.signerIdentity: TRUSTED` | "the content is true" or "the producer is authorized to bind the recipient" | the policy says which identity may sign; it says nothing about the truth of the signed claims |
 | `checks.results[]: PASS` | "the evidence is complete or representative" | a producer can omit evidence; checks cover declared scope only |
 | `humanReview: PASS` | "a human approved this content correctly" | the verifier checks evidence structure, scope, freshness and recognized reviewer identity, not judgement |
+| `humanReview: PASS` | "the approval is cryptographically authenticated or authorizes action" | the approval is a producer claim; v0.1 has no signed-review binding, and `humanReview.basis: unbound-claim` plus `pap.review.unbound` record that |
 | `packageIdentity` matches a pinned value | "the payload bytes are the same" | `packageIdentity` covers the manifest, not the payloads; artifact digests are separate (§5.13) |
 | `sources.integrity: PASS` | "the source is authentic or authoritative" | a digest is an integrity pin, not authorship; anyone who can rewrite the package can rewrite the digest |
 | producer claim says `PASS` | "the independent check passed" | producer claims are untrusted data; only verifier-generated check records carry outcomes (§4.7.3, §8) |
@@ -1400,6 +1443,15 @@ field, so one valid approval is sufficient. A reviews claim with an unsupported
 `papClaimsVersion` makes the evidence unusable (`INCOMPLETE` with `pap.review.missing`), never a
 silent pass.
 
+**`PASS` is an unverified claim, never authenticated approval.** The approval is producer-supplied
+data (§4.7.4); v0.1 has no signed-review binding and no authority model beyond policy recognition
+of the reviewer identity. Whenever `humanReview.status` is `PASS`, the report MUST set
+`dimensions.humanReview.basis: "unbound-claim"`, MUST emit `pap.review.unbound` as an `info`
+diagnostic and as a limitation, and text output MUST label the status as an unverified producer
+claim. A consumer MUST NOT read `PASS` as confirmed authorization, cryptographically
+authenticated approval, or evidence that the reviewer was competent, independent or correct; a
+future signed-approval policy is required before any of those can be reported.
+
 | Situation | `humanReview` status | Diagnostic |
 |---|---|---|
 | policy does not require review | `NOT_APPLICABLE` | none |
@@ -1518,7 +1570,7 @@ dimension's allowed set is a verifier defect.
 | `signature` | `validity`: `VALID\|INVALID\|NOT_EVALUATED\|NOT_APPLICABLE`; optional `signatures[]` entries are `{path, keyId?, algorithm?, validity, signerIdentity, policyDecision}` |
 | `trust` | `signerIdentity`: `TRUSTED\|UNTRUSTED\|UNKNOWN\|NOT_EVALUATED\|NOT_APPLICABLE`; `policyDecision`: `ACCEPTED\|REJECTED\|STALE\|NOT_EVALUATED`; `checkerRecognition`: `PASS\|UNSUPPORTED\|UNTRUSTED\|NOT_EVALUATED\|NOT_APPLICABLE`; `profileRecognition`: `PASS\|UNSUPPORTED\|UNTRUSTED\|NOT_EVALUATED\|NOT_APPLICABLE` |
 | `checks` | one entry per declared or policy-required check specification: outcome from §7.2, in `checkSpecs` order followed by policy-only required checks by `checkId` |
-| `humanReview` | `PASS\|INCOMPLETE\|UNKNOWN\|NOT_APPLICABLE` |
+| `humanReview` | `status`: `PASS\|INCOMPLETE\|UNKNOWN\|NOT_APPLICABLE`; `basis`: `unbound-claim` required when `status` is `PASS` |
 | `semanticTruth` | `NOT_EVALUATED` (always in v0.1) |
 | `legalEnforceability` | `NOT_EVALUATED` (always in v0.1) |
 
@@ -1563,11 +1615,13 @@ Meaning of the less obvious statuses:
   allowed by the policy; `UNSUPPORTED` means the verifier does not know the identity; `UNTRUSTED`
   means the policy knows it and rejects it; `NOT_EVALUATED` means no policy; `NOT_APPLICABLE`
   means the package declares no such identity.
-- `humanReview`: `PASS` means required approval evidence is present, in scope and fresh;
-  `INCOMPLETE` means approval was required but evidence is missing/invalid/stale; `UNKNOWN` means
-  a policy-relevant review decision could not be made; `NOT_APPLICABLE` means the policy does not
-  require human approval and no approval is claimed (or approval evidence is present but
-  optional — it is reported as an informational claim).
+- `humanReview`: `PASS` means required approval evidence is present, in scope, fresh and names a
+  policy-recognized reviewer; it is an **unverified producer claim**, and `basis: "unbound-claim"`
+  plus `pap.review.unbound` must accompany it. `INCOMPLETE` means approval was required but
+  evidence is missing/invalid/stale; `UNKNOWN` means a policy-relevant review decision could not be
+  made; `NOT_APPLICABLE` means the policy does not require human approval and no approval is
+  claimed (or approval evidence is present but optional — it is reported as an informational
+  claim).
 
 ### 7.4 Verdict precedence and aggregation
 
@@ -1606,17 +1660,19 @@ Rules are applied in order; the first matching rule determines the verdict:
 4. **`INCOMPLETE`** — no higher rule matched, and any required dimension is
    `NOT_EVALUATED`/`UNKNOWN`/`UNAVAILABLE`/`STALE`/`INCOMPLETE`, or a required check is
    `NOT_EVALUATED`, or signature mode is `required` and validity is `NOT_EVALUATED`, or human
-   review is required and is not `PASS`, or `coverage.full` is false, or `policy.state` is
-   `STALE` (a supplied policy outside its window never supports `PASS`, whether or not the policy
-   requires `trust`), or the required set is empty (every declared check is optional and the
-   policy adds no required check or dimension), which is reported with
-   `pap.package.empty-check-specs` (§4.4.3, §8.8).
+   review is required and is not `PASS`, or `coverage.full` is false, or a
+   `pap.package.limit-exceeded` stopped evaluation of any declared payload, required check or
+   signature envelope (§4.3.4), or `policy.state` is `STALE` (a supplied policy outside its window never supports
+   `PASS`, whether or not the policy requires `trust`), or the required set is empty (every
+   declared check is optional and the policy adds no required check or dimension), which is
+   reported with `pap.package.empty-check-specs` (§4.4.3, §8.8).
 5. **`NOT_EVALUATED`** — no rule above matched, but no required check could be evaluated at all
    (degenerate report; the package still parsed). This is a report-shape error in practice and is
    listed for completeness.
 6. **`PASS`** — all required checks are `PASS`, all required dimensions are in their positive
-   states (`PASS`, `VALID`, `TRUSTED`, `ACCEPTED`, `NOT_APPLICABLE` where allowed), and
-   `coverage.full` is `true`.
+   states (`PASS`, `VALID`, `TRUSTED`, `ACCEPTED`, `NOT_APPLICABLE` where allowed),
+   `coverage.full` is `true`, and no `pap.package.limit-exceeded` stopped evaluation of a declared
+   payload, required check or signature envelope.
 
 Additional invariants:
 
@@ -1675,7 +1731,9 @@ verification:
   four fields are decided. `full` is then `checksNotEvaluated == 0`, `checksUnsupported == 0` and
   `dimensionsEvaluated == len(requiredDimensions)`, and it is `false` when the required set is
   empty (no required check and no required dimension): the empty-required-set case is `INCOMPLETE`
-  by §7.4 rule 4, never a vacuously full coverage.
+  by §7.4 rule 4, never a vacuously full coverage. `full` is also `false` whenever a
+  `pap.package.limit-exceeded` stopped evaluation of any declared payload, required check or
+  signature envelope, even if the affected dimension is not in `requiredDimensions`.
 - `requiredChecks` follows `checkSpecs` order for declared checks and appends policy-only required
   checks in ascending `checkId` order. `requiredDimensions` follows the Appendix B enumerable order
   (`integrity`, `integrity.package`, `integrity.artifacts`, `sources`, `sources.integrity`,
@@ -1814,9 +1872,24 @@ Rules:
   are structurally impossible to place in a witness (the schema rejects `claimedOutcome`).
 - A check record contains no timestamps. Time belongs to the report envelope, so a check record
   is deterministic given its inputs.
-- The check-record identity is `H("pap.check.record.v1", JCS(record))`; it is not a report field
-  (the report's `verificationRecordIdentity` covers the semantic outcomes, not the record
-  identities), but `pap explain` MAY surface it (§9.5).
+- The check-record identity is `H("pap.check.record.v1", JCS(record))`; it is not a report field,
+  but the record itself is part of the report's `checks[]` and therefore part of
+  `verificationRecordIdentity` (§5.9). `pap explain` MAY surface the record identity (§9.5).
+- Witness emission is deterministic: one `recomputed-digest` per compared subject in the order
+  artifacts, embedded sources, inputs, declared claims (each in manifest order); one `source-span`
+  per evaluated binding in provenance-claim order; one `relation-violation-list` per record with
+  violations sorted by `(code, subject, detail)`. Implementations MUST NOT aggregate, deduplicate
+  or reorder witnesses, because the check record is inside the verification-record identity
+  (§5.9). The only witness field outside that identity is the optional `quoteBase64` (§8.3).
+v0.1 pins each record's evidence content so E.4 is reproducible. A record MUST NOT add a subject
+array or scope count that its check did not consume:
+
+| Check | `subjectDigests` | `scope` | Witnesses |
+|---|---|---|---|
+| `digest-integrity/1` | `package`; every declared `artifacts`, `sources`, `inputs`, `claims` entry | `artifacts`, `sources` | one `recomputed-digest` per compared subject |
+| `source-quote/1` | `package`; `sources` used; `claims` limited to `provenance` | `sources`, `bindings`, `evaluated`, `unavailable` | one `source-span` per evaluated binding |
+| `relation-consistency/1` | `package`; `claims` limited to `relations` | `entities`, `edges` | one `relation-violation-list` |
+
 - The report's top-level `checks[]` contains one record per check the verifier evaluated or
   attempted against a computable package identity, including `NOT_EVALUATED`; a check the verifier
   does not implement (`UNSUPPORTED`) has no checker implementation to name, so it appears in
@@ -1834,7 +1907,7 @@ v0.1 defines three minimal witness types:
 | Type | Fields | Independently checkable because |
 |---|---|---|
 | `recomputed-digest` | `subject`, `algorithm`, `declared`, `computed` | Both values are hashes of bytes the verifier read; anyone can recompute from the package. |
-| `source-span` | `sourceId`, `sourceDigest`, `range {start,end}`, `quoteDigest`, `extractedDigest`, `quoteBase64?` | The range and extracted bytes are deterministic; `quoteBase64` is the standard base64 (RFC 4648 §4) encoding of the extracted span, optional and informational for auditability. |
+| `source-span` | `sourceId`, `sourceDigest`, `range {start,end}`, `quoteDigest`, `extractedDigest`, `quoteBase64?` | The range and extracted bytes are deterministic; `quoteBase64` is the standard base64 (RFC 4648 §4) encoding of the extracted span, optional and informational for auditability, and is excluded from `verificationRecordIdentity` because the two digests already pin the bytes. |
 | `relation-violation-list` | `violations[]` with `code`, `subject`, `detail` | Each violation names ids/edges in the packaged claims; anyone can re-check them. |
 
 A witness MUST be expressible without executing producer code and without reading producer
@@ -1858,11 +1931,13 @@ Procedure:
 Outcome: `FAIL` if any comparison mismatches; `NOT_EVALUATED` if a required subject is missing
 (for example, a declared file cannot be read); otherwise `PASS`.
 
-Witness: one `recomputed-digest` per compared subject — artifact, embedded source, input and
-declared claim (implementation MAY aggregate identical failures but must keep the subject list).
-The package identity is not a compared subject: it has no declared self-digest and is reported in
-`identities.packageIdentity`, so the `recomputed-digest` subject kind does not include `package`
-(Appendix D.5). Diagnostic codes: `pap.integrity.artifact-mismatch`,
+Witness: one `recomputed-digest` per compared subject, in this order — artifacts in manifest
+order, embedded sources in manifest order, inputs in manifest order, declared claims in manifest
+order. The `subject.kind` is `artifact`, `source`, `input` or `claim`; for a claim, `id` is the
+manifest claim key (`provenance`, `relations`, `producerReport`, `reviews`). Do not aggregate or
+deduplicate witnesses, even when several failures are identical. The package identity is not a
+compared subject: it has no declared self-digest and is reported in `identities.packageIdentity`,
+so the `recomputed-digest` subject kind does not include `package` (Appendix D.5). Diagnostic codes: `pap.integrity.artifact-mismatch`,
 `pap.integrity.source-mismatch`, `pap.integrity.input-mismatch`, `pap.integrity.claim-mismatch`,
 `pap.package.declared-file-missing`.
 
@@ -1895,7 +1970,10 @@ Procedure for each binding:
    `pap.check.span-out-of-range`.
 3. Extract exactly `sourceBytes[start..end)`. Hash it with `H("pap.quote.v1", bytes)` and compare
    with `quote.digest`. Mismatch is `FAIL` with `pap.check.quote-mismatch`.
-4. Emit a `source-span` witness with both digests and the range.
+4. Emit one `source-span` witness with both digests and the range, in provenance-claim order. A
+   binding whose range fails step 2 emits no span (its diagnostic records the failure). The
+   optional `quoteBase64` may accompany the witness but is excluded from the record identity
+   (§5.9).
 
 Outcome: `PASS` if every binding verifies; `FAIL` if any binding's range is invalid or quote
 mismatches; `NOT_EVALUATED` if `claims/provenance.json` is absent while the check is required, or
@@ -1946,8 +2024,9 @@ Procedure:
 Outcome: `PASS` if no violation; `FAIL` if any violation; `NOT_EVALUATED` if the claim file is
 absent while the package declares the check required.
 
-Witness: `relation-violation-list` with the exact violating ids/edges, sorted deterministically
-by `(code, subject, detail)`.
+Witness: exactly one `relation-violation-list` per record, with the exact violating ids/edges
+sorted deterministically by `(code, subject, detail)`; for `PASS` the list is present and empty.
+Do not split, merge or reorder records.
 
 What it proves: the declared relation claims are internally consistent. What it does not prove:
 that the relations are semantically correct or complete.
@@ -2187,8 +2266,10 @@ verification result.
   exact heading `PRODUCER CLAIMS (UNTRUSTED — NOT VERIFICATION RESULTS)`, showing `claimed`,
   `independentOutcome` and `relation`, never in the dimension table; (7) package identity,
   `papVersion`, verifier version, policy id/digest/state, `evaluatedAt`, and `effectiveLimits`
-  when present; (8) no absolute host paths, duration, colour, check-mark glyphs or the word
-  `verified` as a result. Text is fixed-layout and TTY-independent: the same
+  when present; (8) when `humanReview.status` is `PASS`, the line
+  `humanReview.basis: unbound-claim — unverified producer claim, not authenticated approval`;
+  (9) no absolute host paths, duration, colour, check-mark glyphs or the word `verified` as a
+  result. Text is fixed-layout and TTY-independent: the same
   semantic report renders identical bytes regardless of `TERM`, `COLUMNS` or redirection. Wording
   beyond these lines, column widths and abbreviations are non-normative; machine consumers use
   `--format json`, and `inspect`/`explain` text requirements are in §9.4–§9.5.
@@ -2259,11 +2340,12 @@ verifier build; the following rules make that reproducible.
 - Check records contain no timestamps (§8.2). No field carries a random value, host name, user
   name, process id, temporary path, locale-formatted number, or a duration in text.
 - The fields excluded from `verificationRecordIdentity` (§5.9) are `evaluatedAt`, `durationMs`,
-  host-specific `package.path`/`policy.path`, human `diagnostics[].message` wording, the
-  informational `producerClaims` block and the top-level `checks[]` records. `checks[]` is excluded
-  because witness presentation is implementation-defined (§8.3), not because it is
-  non-deterministic: a fixed implementation renders it identically for the same inputs. v0.1 text
-  omits durations and paths, so fixing the clock fixes the text.
+  host-specific `package.path`/`policy.path`, human `diagnostics[].message` and
+  `checks[].diagnostics[].message` wording, the informational `producerClaims` block and the
+  optional `checks[].witnesses[].quoteBase64`. Every check record, outcome, subject, scope,
+  checker and required witness field stays in the identity, so a fixed implementation renders the
+  same record identically for the same inputs. v0.1 text omits durations and paths, so fixing the
+  clock fixes the text.
 - Same package bytes, policy bytes, verifier build and `--now` → byte-identical JSON after removing
   identity-excluded fields, identical text, identical `verificationRecordIdentity`. Without
   `--now`, only `evaluatedAt` (and `durationMs` if emitted) may differ; record identity still
@@ -2653,10 +2735,11 @@ number of envelopes is bounded by `signatureEnvelopes` (§4.3.4, §10.5). Only r
 under `signatures/` whose name matches `[A-Za-z0-9._-]+\.dsse\.json` are envelopes; a subdirectory,
 symlink or other file there is undeclared (`pap.package.undeclared-file`) and is not read.
 Envelopes are evaluated in ascending UTF-8 byte order of their path, which fixes the order of
-`dimensions.signature.signatures[]` (§9.9). If more envelope files are present than the limit, the
-verifier reads none of them rather than an arbitrary prefix: it reports
-`pap.package.limit-exceeded`, leaves signature and trust `NOT_EVALUATED`, and the verdict is
-`INCOMPLETE`. The envelope file is a JSON object with exactly the DSSE fields:
+`dimensions.signature.signatures[]` (§9.9). When the policy mode is `optional` or `required` and
+more envelope files are present than the limit, the verifier reads none of them rather than an
+arbitrary prefix: it reports `pap.package.limit-exceeded`, leaves signature and trust
+`NOT_EVALUATED`, and the verdict is `INCOMPLETE`. Mode `disabled` reads no envelope at all, so the
+envelope limit does not apply there (§6.5). The envelope file is a JSON object with exactly the DSSE fields:
 
 ```json
 {
@@ -2854,7 +2937,7 @@ fixtures/pap-v0.1/
   base/                   canonical valid package; bytes equal to Appendix F
     assurance-package.json  artifacts/ACME-SUPPLIER.draft.md  inputs/project.yml
     sources/acme-policy.md  claims/{provenance,relations,producer-report}.json
-  F01-unchanged/ … F60-…/ one complete static package copy per case
+  F01-unchanged/ … F61-…/ one complete static package copy per case
   trust-policy/           unsigned-valid.json  signature-required.json
                           signature-optional.json  expired.json  invalid.json
                           not-authorized-role.json  package-not-allowed.json
@@ -2894,7 +2977,7 @@ Rules:
   fetched from the network. `trust-policy/` and `signatures/` are shared versioned inputs, and
   each case entry names the exact policy file (or says it runs without one).
 - Tier A cases (every package without a `signatures/` envelope: F01–F10, F14, F19, F20–F55,
-  F57–F60) are executable against a core verifier with the Appendix B policy; the envelope cases
+  F57–F61) are executable against a core verifier with the Appendix B policy; the envelope cases
   F11–F13, F15–F18 and F56 become executable when the §11 adapter exists (Tier B). Their expected
   results are normative now because they constrain the interface, not the schedule. Phase 3 may
   add cases; changing an existing case or expectation follows §12.5.
@@ -3080,12 +3163,13 @@ each one removes an implementation choice that could otherwise produce divergent
 | F52 | `base/` with `lowered-limits.json` (`fileBytes: 64`); every payload exceeds it | `integrity.package=PASS`, `integrity.artifacts=NOT_EVALUATED`, all checks `NOT_EVALUATED`, `coverage.full=false`, `effectiveLimits.fileBytes=64` | `INCOMPLETE` | 2 | `pap.package.limit-exceeded`, `pap.limit.lowered` |
 | F53 | `checkSpecs[0]` has `id: "pap.check.digest-integrity/1"` but `version: "2"` | `integrity.package=FAIL`, `integrity.artifacts=NOT_EVALUATED`, identity differs from base | `FAIL` | 1 | `pap.package.schema` |
 | F54 | every `checkSpecs` entry has `required:false`; no policy | checks run and are `PASS`, required set empty, `coverage.full=false` | `INCOMPLETE` | 2 | `pap.package.empty-check-specs` |
-| F55 | `base/` plus `claims/reviews.json` with one fresh in-scope approval by a reviewer enrolled in `review-required.json` | `humanReview=PASS`, `coverage.full=true` | `PASS` | 0 | `pap.review.unbound` |
+| F55 | `base/` plus `claims/reviews.json` with one fresh in-scope approval by a reviewer enrolled in `review-required.json` | `humanReview.status=PASS`, `humanReview.basis=unbound-claim`, `coverage.full=true`; `pap.review.unbound` is both a diagnostic and a required limitation | `PASS` | 0 | `pap.review.unbound` |
 | F56 | `base/` plus a trusted valid envelope and an invalid envelope; policy `signature-optional.json` (`mode: "optional"`) | `signature.validity=VALID` (one verifies), invalid entry `INVALID`, `trust.policyDecision=REJECTED`, `trust.signerIdentity=TRUSTED` | `UNTRUSTED` | 3 | `pap.signature.invalid` |
 | F57 | `papVersion: "1.0"`, otherwise 0.1-shaped manifest | `integrity.package=PASS`, required checks `NOT_EVALUATED`, `coverage.full=false` | `UNSUPPORTED` | 4 | `pap.compat.version-unsupported` |
 | F58 | provenance binding names a `sourceId` the manifest does not declare | `integrity.package=FAIL` | `FAIL` | 1 | `pap.package.claim-invalid` |
 | F59 | two relations in `claims/relations.json` share a `name` | `integrity.package=PASS`, `RC=FAIL`, `coverage.full=false` | `FAIL` | 1 | `pap.claim.relation-duplicate` |
 | F60 | `assurance-package.json` absent from an otherwise valid directory | `package.identity=null`, `integrity.package=FAIL`, `integrity.artifacts=NOT_EVALUATED`; no check set | `FAIL` | 1 | `pap.package.io` |
+| F61 | `base/` with only `relation-consistency/1` required (DI/SQ optional), policy requiring only that check, and `lowered-limits.json` (`fileBytes: 64`) | `integrity.artifacts=NOT_EVALUATED` although `integrity` is not required, `RC=PASS`, `coverage.full=false`; the limit forces `INCOMPLETE` rather than a vacuous `PASS` | `INCOMPLETE` | 2 | `pap.package.limit-exceeded`, `pap.limit.lowered` |
 
 F47–F49 pin the closed policy window and the absence of clock-skew tolerance (§6.4, §9.8). F50–F51
 pin the strict JSON/I-JSON subset of §4.10 and §5.3.1. F52 pins the limit branch of §4.3.4 and the
@@ -3095,9 +3179,11 @@ previously deferred; §6.7 now defines the binding, freshness and reviewer rules
 pins the optional-mode aggregation rule of §6.5: a present bad envelope blocks `PASS` even when
 one good envelope verifies. F57 pins unsupported-major handling (§4.9, §15.1). F58 pins the
 undeclared-source rule of §4.7.1/§8.5. F59 pins the relation-name uniqueness rule of §8.6. F60
-pins the missing-manifest branch of §9.7/Appendix J.1.
+pins the missing-manifest branch of §9.7/Appendix J.1. F61 pins the rule that any limit that stops
+payload evaluation forces `INCOMPLETE`, even when the affected dimension is not required (§4.3.4,
+§7.4 rule 4).
 
-Every case above is normative; the set is F01–F60. Phase 3 may add cases but may not remove one
+Every case above is normative; the set is F01–F61. Phase 3 may add cases but may not remove one
 to let an implementation pass.
 
 ### 12.5 Acceptance rules
@@ -3146,7 +3232,7 @@ to let an implementation pass.
 | deterministic output with fixed `--now` | F36 |
 | `inspect` / `explain` usage errors | F37, F38, F39 |
 | `explain` positive check record | F42 |
-| Gate 1 clarification cases | F47–F60 |
+| Gate 1 clarification cases | F47–F61 |
 | producer-runtime absence check | F40 |
 
 ---
@@ -3169,16 +3255,54 @@ verdict), §8 (check contracts, records, witnesses), §9 (CLI), §11 (signature 
 (trust-policy schema), C (report schema), D (claim and check-record schemas), E (canonical
 vectors), J (diagnostic registry); and the §12 fixture corpus with `cases.json`.
 
-The v0.1 conformance contract has two tiers, so "conforming" is never ambiguous:
+The v0.1 conformance contract has two tiers, so a conformance claim can state exactly what it
+covers. A tier is a capability boundary, not a promise that the tier's guarantees are stronger
+than its cases:
 
-- **Tier A — core verifier.** Passes every §12 case whose package contains no `signatures/`
-  envelope: F01–F10, F14, F19, F20–F55, F57–F60. A Tier A verifier does not implement the §11 DSSE
-  adapter; it still parses `signature.mode` and produces the §6.5 absence statuses.
-- **Tier B — signature-capable verifier.** Passes all F01–F60, adding the envelope cases F11–F13,
-  F15–F18 and F56. A verifier claim of "PAP v0.1 conformance" without a tier qualifier means
-  Tier B.
+- **Tier A — core verifier.** Mandatory capabilities: directory parsing and path/limit safety;
+  Appendix A validation; JCS and every §5 identity; the three §8 checks with records and witnesses;
+  Appendix B policy parsing, freshness, checker/profile recognition and human-review evidence;
+  `verify`, `inspect` and `explain` with their §9 streams, exit codes and determinism; and every
+  Tier A case: F01–F10, F14, F19, F20–F55, F57–F61. Tier A does not implement the §11 DSSE
+  adapter.
+- **Tier B — signature-capable verifier.** Mandatory capabilities: everything in Tier A plus the
+  §11.2 DSSE adapter and the signature/trust dimensions, and all F01–F61, adding the envelope
+  cases F11–F13, F15–F18 and F56. A verifier claim of "PAP v0.1 conformance" without a tier
+  qualifier means Tier B.
 - The in-toto mapping (§11.3) is outside both tiers: it is optional and may not be required by a
   conformance case.
+
+The boundary rules are normative:
+
+1. A Tier A verifier that encounters `signatures/*.dsse.json` MUST NOT report a positive signature
+   or signer result. It reports `signature.validity: NOT_EVALUATED` (with one
+   `signatures[]` entry per envelope, `validity: NOT_EVALUATED`), `trust.signerIdentity:
+   NOT_EVALUATED`, `pap.signature.unsupported-format` and a limitation. If the policy requires a
+   signature or the `signature`/`trust` dimension, the verdict is `INCOMPLETE`, never `PASS`; if
+   not required, an unsigned-package result may still be `PASS`, but the report carries the
+   limitation and the unevaluated signature dimension. Tier A conformance cases do not include an
+   envelope-bearing package precisely because its signature outcome is not part of that tier.
+2. A capability outside a tier — an unimplemented check, a required feature, a critical extension
+   or an optional adapter — is never a positive result. It is `UNSUPPORTED` (for a required
+   check/feature/extension) or `NOT_EVALUATED`/`NOT_APPLICABLE` (for an optional or absent
+   capability), the dimension is not positive, `coverage.full` is `false` where that capability is
+   required, and the verdict cannot be `PASS`. `NOT_EVALUATED` is never reported as `PASS`.
+3. Cross-implementation agreement (§13.6) is claimed only between implementations of the **same
+   tier**. Tier A and Tier B must agree on every Tier A case; Tier B-only cases have no Tier A
+   counterpart and are not compared against one. A Tier A result MUST NOT be presented as
+   satisfying a Tier B case, and a Tier B result on an envelope case does not enlarge what a Tier A
+   verifier claimed.
+
+| Situation | Tier A report | Tier B report |
+|---|---|---|
+| envelope present, signature/trust not required | `signature.validity: NOT_EVALUATED`, `trust.signerIdentity: NOT_EVALUATED`, `pap.signature.unsupported-format`, limitation; no positive signature status | evaluate per §6.5 and §11.2 |
+| envelope present, signature or trust required | as above, and `INCOMPLETE` (never `PASS`) | evaluate; `PASS` only if the required set is satisfied |
+| required check, required feature or critical extension unsupported | `UNSUPPORTED`, `coverage.full: false`, never `PASS` | same |
+| required source/input/claim unavailable or skipped by a limit | `NOT_EVALUATED`/`UNAVAILABLE`, `INCOMPLETE`, never `PASS` | same |
+| optional capability absent | `NOT_EVALUATED`/`NOT_APPLICABLE` with a limitation; optional results never gate | same |
+
+`NOT_EVALUATED` is never converted into a positive status in either tier: it keeps `coverage.full`
+false where the capability is required and cannot support `PASS`.
 
 Reference-only: any reference implementation's source, module layout, internal APIs, error types
 and performance; its text layout beyond §9.6 required lines; diagnostic message wording (codes are
@@ -3246,7 +3370,7 @@ JCS-canonicalize and compute `packageIdentity`, `artifactDigest`, `rawSourceDige
 `normalizedInputDigest` and declared claim digests per §5; run the three checks per §8.4–§8.6 with
 check records and witnesses; parse Appendix B policies and evaluate freshness, checker/profile
 recognition and human-review evidence per §6.4–§6.7; produce the Appendix C report and §9.7 exit
-code for the Tier A cases (F01–F10, F14, F19, F20–F55, F57–F60), including safety and limit cases;
+code for the Tier A cases (F01–F10, F14, F19, F20–F55, F57–F61), including safety and limit cases;
 compare per §13.6.
 
 Deliberately outside stage 1: the §11 signature adapter and signer trust (stage 2),
@@ -3262,6 +3386,7 @@ document, never the text:
 
 | Compared | Rule |
 |---|---|
+| tier | equal: only results from implementations claiming the same tier are compared; Tier A and Tier B must agree on every Tier A case |
 | exit code | exact |
 | `verdict` | exact |
 | every Appendix C dimension status | exact on every field |
@@ -3306,10 +3431,12 @@ not conformance input and copying it is not independence (§13.4).
 ### 13.8 Underspecified areas: Gate 1 resolution
 
 The Gate 1 audit (`docs/architecture/pap-v0.1-gate1-decision-audit.md`) reviewed every row below
-against the normative text, schemas, vectors and matrix. No row remains an undefined required
-behaviour: each is now either resolved normatively or explicitly deferred, and a disagreement on a
-deferred row is a known open question, not an implementation bug. Implementations MUST NOT
-silently assume behaviour that this table leaves deferred.
+against the normative text, schemas, vectors and matrix. The audit found no known undefined
+required behaviour in these areas: each is resolved normatively or explicitly deferred. That is a
+self-audit result, not proof; an independent implementer that still cannot implement a clause
+reports it as a specification defect, and a disagreement on a deferred row is a known open
+question, not an implementation bug. Implementations MUST NOT silently assume behaviour that this
+table leaves deferred.
 
 | Area | Resolution | Tests |
 |---|---|---|
@@ -4162,7 +4289,11 @@ A policy with `signature.mode: "required"` must supply at least one key and one 
           "additionalProperties": false,
           "required": ["status"],
           "properties": {
-            "status": { "enum": ["PASS", "INCOMPLETE", "UNKNOWN", "NOT_APPLICABLE"] }
+            "status": { "enum": ["PASS", "INCOMPLETE", "UNKNOWN", "NOT_APPLICABLE"] },
+            "basis": {
+              "const": "unbound-claim",
+              "description": "Required when status is PASS: the approval is a producer claim, not an authenticated approval."
+            }
           }
         },
         "semanticTruth": { "const": "NOT_EVALUATED" },
@@ -4775,20 +4906,28 @@ it is present to fix the dependency-record framing.
 
 `verificationRecordIdentity` for the Appendix F package verified by the reference checker with no
 trust policy, fixed `--now`, and the identity form below (a `PASS`) is
-`sha256:59d2e100d0e1fcd85310bcee702fd0ca05ace82c1f2a88be04cd2fe3be91f79a`.
+`sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea`.
 
-The identity form is the report from Appendix C with the excluded fields of §5.9 removed — which
-includes the whole top-level `checks[]` array — and with the fixed placeholder below. It is shown
-here so an implementation can reproduce the value without relying on its own report formatting:
+The identity form is the report from Appendix C with the excluded fields of §5.9 removed and the
+fixed placeholder below. It includes the three top-level `checks[]` records, with their subjects,
+scopes, checker, outcomes and witnesses, so the vector distinguishes different check evidence;
+only the presentation fields of §5.9 (`diagnostics[].message`, `checks[].diagnostics[].message`
+and the optional `quoteBase64`) are absent. It is shown here so an implementation can reproduce
+the value without relying on its own report formatting:
 
 ```json
-{"coverage":{"checksEvaluated":3,"checksFailed":0,"checksNotEvaluated":0,"checksPassed":3,"checksUnsupported":0,"dimensionsEvaluated":3,"full":true,"requiredChecks":["pap.check.digest-integrity/1","pap.check.source-quote/1","pap.check.relation-consistency/1"],"requiredDimensions":["integrity","sources","checks"]},"diagnostics":[],"dimensions":{"checks":{"results":[{"checkId":"pap.check.digest-integrity/1","outcome":"PASS","required":true},{"checkId":"pap.check.source-quote/1","outcome":"PASS","required":true},{"checkId":"pap.check.relation-consistency/1","outcome":"PASS","required":true}]},"humanReview":{"status":"NOT_APPLICABLE"},"integrity":{"artifacts":"PASS","package":"PASS"},"legalEnforceability":"NOT_EVALUATED","semanticTruth":"NOT_EVALUATED","signature":{"validity":"NOT_APPLICABLE"},"sources":{"availability":"PASS","integrity":"PASS"},"trust":{"checkerRecognition":"NOT_EVALUATED","policyDecision":"NOT_EVALUATED","profileRecognition":"NOT_EVALUATED","signerIdentity":"NOT_APPLICABLE"}},"identities":{"artifacts":[{"computed":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","declared":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","id":"artifact:acme-supplier"}],"checkerIdentity":"sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f","extensionClosureDigest":null,"normalizedInputDigest":"sha256:fccf755793cf1a1b7982631c201282669924cdcf9d6b171bdff26513fc64d80b","packageIdentity":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","sources":[{"computed":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","declared":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","id":"SRC-ACME-POLICY"}],"verificationRecordIdentity":"sha256:0000000000000000000000000000000000000000000000000000000000000000"},"limitations":[],"package":{"identity":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","papVersion":"0.1"},"policy":{"digest":null,"id":null,"state":"ABSENT"},"reportVersion":"0.1","verdict":"PASS","verifier":{"checkerIdentities":["sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f"],"id":"pap.verifier.reference","implementationDigest":"sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0","version":"0.1.0"}}
+{"checks":[{"checkId":"pap.check.digest-integrity/1","checkVersion":"1","checker":{"id":"pap.verifier.reference","implementationDigest":"sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0","version":"0.1.0"},"diagnostics":[],"outcome":"PASS","scope":{"artifacts":["artifact:acme-supplier"],"sources":["SRC-ACME-POLICY"]},"subjectDigests":{"artifacts":[{"digest":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","id":"artifact:acme-supplier"}],"claims":[{"digest":"sha256:8044adf1df927b30e67e743d6ca348a8f197f8af4e9e7cc668ebf525e6e7b95b","kind":"provenance"},{"digest":"sha256:992cd64e230f2480a88ab7128d802796abfbd44605809ba52cb16828559f83ab","kind":"relations"},{"digest":"sha256:f45a69883bed0d0e62c69c7ff0105e902f86006e89c56d77cef1cc9630846e95","kind":"producerReport"}],"inputs":[{"digest":"sha256:2da40818408dec8fe7d63c86cb8e67fbc624c743a7d81b02535f318b80cb08ff","id":"input:project"}],"package":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","sources":[{"digest":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","id":"SRC-ACME-POLICY"}]},"witnesses":[{"algorithm":"sha256","computed":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","declared":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","subject":{"id":"artifact:acme-supplier","kind":"artifact"},"type":"recomputed-digest"},{"algorithm":"sha256","computed":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","declared":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","subject":{"id":"SRC-ACME-POLICY","kind":"source"},"type":"recomputed-digest"},{"algorithm":"sha256","computed":"sha256:2da40818408dec8fe7d63c86cb8e67fbc624c743a7d81b02535f318b80cb08ff","declared":"sha256:2da40818408dec8fe7d63c86cb8e67fbc624c743a7d81b02535f318b80cb08ff","subject":{"id":"input:project","kind":"input"},"type":"recomputed-digest"},{"algorithm":"sha256","computed":"sha256:8044adf1df927b30e67e743d6ca348a8f197f8af4e9e7cc668ebf525e6e7b95b","declared":"sha256:8044adf1df927b30e67e743d6ca348a8f197f8af4e9e7cc668ebf525e6e7b95b","subject":{"id":"provenance","kind":"claim"},"type":"recomputed-digest"},{"algorithm":"sha256","computed":"sha256:992cd64e230f2480a88ab7128d802796abfbd44605809ba52cb16828559f83ab","declared":"sha256:992cd64e230f2480a88ab7128d802796abfbd44605809ba52cb16828559f83ab","subject":{"id":"relations","kind":"claim"},"type":"recomputed-digest"},{"algorithm":"sha256","computed":"sha256:f45a69883bed0d0e62c69c7ff0105e902f86006e89c56d77cef1cc9630846e95","declared":"sha256:f45a69883bed0d0e62c69c7ff0105e902f86006e89c56d77cef1cc9630846e95","subject":{"id":"producerReport","kind":"claim"},"type":"recomputed-digest"}]},{"checkId":"pap.check.source-quote/1","checkVersion":"1","checker":{"id":"pap.verifier.reference","implementationDigest":"sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0","version":"0.1.0"},"diagnostics":[],"outcome":"PASS","scope":{"bindings":1,"evaluated":1,"sources":["SRC-ACME-POLICY"],"unavailable":0},"subjectDigests":{"claims":[{"digest":"sha256:8044adf1df927b30e67e743d6ca348a8f197f8af4e9e7cc668ebf525e6e7b95b","kind":"provenance"}],"package":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","sources":[{"digest":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","id":"SRC-ACME-POLICY"}]},"witnesses":[{"extractedDigest":"sha256:619cb81063fff535c31b93b66e274e6df0a1cef4582d17c7a6362c98fac48909","quoteDigest":"sha256:619cb81063fff535c31b93b66e274e6df0a1cef4582d17c7a6362c98fac48909","range":{"end":76,"start":24},"sourceDigest":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","sourceId":"SRC-ACME-POLICY","type":"source-span"}]},{"checkId":"pap.check.relation-consistency/1","checkVersion":"1","checker":{"id":"pap.verifier.reference","implementationDigest":"sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0","version":"0.1.0"},"diagnostics":[],"outcome":"PASS","scope":{"edges":2,"entities":2},"subjectDigests":{"claims":[{"digest":"sha256:992cd64e230f2480a88ab7128d802796abfbd44605809ba52cb16828559f83ab","kind":"relations"}],"package":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020"},"witnesses":[{"type":"relation-violation-list","violations":[]}]}],"coverage":{"checksEvaluated":3,"checksFailed":0,"checksNotEvaluated":0,"checksPassed":3,"checksUnsupported":0,"dimensionsEvaluated":3,"full":true,"requiredChecks":["pap.check.digest-integrity/1","pap.check.source-quote/1","pap.check.relation-consistency/1"],"requiredDimensions":["integrity","sources","checks"]},"diagnostics":[],"dimensions":{"checks":{"results":[{"checkId":"pap.check.digest-integrity/1","outcome":"PASS","required":true},{"checkId":"pap.check.source-quote/1","outcome":"PASS","required":true},{"checkId":"pap.check.relation-consistency/1","outcome":"PASS","required":true}]},"humanReview":{"status":"NOT_APPLICABLE"},"integrity":{"artifacts":"PASS","package":"PASS"},"legalEnforceability":"NOT_EVALUATED","semanticTruth":"NOT_EVALUATED","signature":{"validity":"NOT_APPLICABLE"},"sources":{"availability":"PASS","integrity":"PASS"},"trust":{"checkerRecognition":"NOT_EVALUATED","policyDecision":"NOT_EVALUATED","profileRecognition":"NOT_EVALUATED","signerIdentity":"NOT_APPLICABLE"}},"identities":{"artifacts":[{"computed":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","declared":"sha256:5f521a6b5bedacdf8d3536f8fb509bef6e829bfb537b1ec818cb38a8e1a2dd51","id":"artifact:acme-supplier"}],"checkerIdentity":"sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f","extensionClosureDigest":null,"normalizedInputDigest":"sha256:fccf755793cf1a1b7982631c201282669924cdcf9d6b171bdff26513fc64d80b","packageIdentity":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","sources":[{"computed":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","declared":"sha256:d7a4ee24615f562232172021f3c992fa1a5aed7a2ae9c128446101ed8f46eecd","id":"SRC-ACME-POLICY"}],"verificationRecordIdentity":"sha256:0000000000000000000000000000000000000000000000000000000000000000"},"limitations":[],"package":{"identity":"sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020","papVersion":"0.1"},"policy":{"digest":null,"id":null,"state":"ABSENT"},"reportVersion":"0.1","verdict":"PASS","verifier":{"checkerIdentities":["sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f"],"id":"pap.verifier.reference","implementationDigest":"sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0","version":"0.1.0"}}
 ```
 
 The placeholder `identities.verificationRecordIdentity` is the fixed 64-zero digest specified in
 §5.9; it is part of the identity form by definition (a record cannot contain its own hash without
 a fixed point). Implementations MUST substitute it while computing the identity, then fill the
 real value into the report.
+
+This vector revises the Gate 1 draft, which excluded `checks[]` from the identity. That exclusion
+would have let two reports with different check subjects, scopes or witnesses share an identity;
+§5.9 now includes the records and excludes only presentation fields, and E.10 shows the resulting
+sensitivity.
 
 ### E.5 Input normalization vector (LF rules)
 
@@ -4880,6 +5019,29 @@ emitted as literal UTF-8 and never `\u`-escaped. Plain SHA-256 of the 28 bytes i
 Numbers. `9007199254740991` and `-9007199254740991` are valid integer tokens; `9007199254740992`,
 `1.0`, `1e3` and `-0` are invalid (§5.3.1). Invalid values have no canonical bytes: the
 canonicalizer MUST reject them.
+
+### E.10 Identity mutation vectors
+
+These vectors demonstrate the evidence coverage of `verificationRecordIdentity` (§5.9). Each
+mutation starts from the complete E.4 identity form, applies exactly the stated change, removes the
+§5.9 presentation fields (`diagnostics[].message`, `checks[].diagnostics[].message` and
+`checks[].witnesses[].quoteBase64`), and hashes the JCS bytes with `pap.report.v1`. They are
+directly checkable by any implementation's identity function.
+
+| Mutation of the E.4 identity form | `verificationRecordIdentity` |
+|---|---|
+| none (E.4 baseline) | `sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea` |
+| `dimensions.checks.results[0].outcome` changed from `PASS` to `FAIL` | `sha256:f9f2c22f90baa970ebed16d3cceae08a2aac6544f617320dd06c95745d1b7e30` |
+| `checks[1].witnesses[0].range.end` changed from `76` to `75` | `sha256:83d9147e35f2dc528f481f0f39335497b3c32ea7f45ed083cf8a448679f24c4c` |
+| `checks[0].scope.artifacts` emptied | `sha256:652798f36a18daec12268ebe05eeb6022d5d1be704897d51a98a2d30adc044f8` |
+| `checks[1].diagnostics[0]` added with `code: "pap.check.partial"`, `severity: "warning"` | `sha256:635dcc4a65d44e5e011f8193705e9eb6c62eae8e553fd8068b60bc2ca59fc9e3` |
+| `checks[1].witnesses[0].quoteBase64` added (base64 of the same extracted span) | `sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea` (unchanged) |
+| the same diagnostic added with message `"alpha"` instead of `"beta"` | `sha256:635dcc4a65d44e5e011f8193705e9eb6c62eae8e553fd8068b60bc2ca59fc9e3` (unchanged) |
+
+The first four rows change a semantic result or recomputable evidence and must change the identity;
+the last two change only presentation and must not. This is the property that lets §5.9 exclude
+messages and `quoteBase64` without letting two records with materially different verification
+evidence or outcomes share an identity.
 
 ---
 
@@ -5217,7 +5379,7 @@ appendix expands §2.6 and states what PAP does not claim.
 | `artifactDigest` | H(`pap.artifact.v1`, raw packaged artifact bytes) per artifact. | Verifier. | `Artifact.sha256`, a plain SHA-256 of renderer-returned bytes (`spec/lib/render.ts:52–58`). | Recomputed over the packaged file; never equal to the engine value for the same bytes, and not comparable. |
 | `extensionClosureDigest` | H(`pap.extension.closure.v1`, framed records: kind/id/version, sorted file records `(path, LF-normalized bytes)`, sorted dependency records `(name, version, integrity)`), for the `profile`, `extension` and `checker` jobs. | The party holding the declared files and dependencies; a verifier is not required to recompute a producer-side closure. | Profile/extension `closureDigest` (`spec/lib/identity.ts:166–189`; `profiles/core001/profile.json:119–151`). | Different domain and possibly different declared set; equality is a producer claim, not a verifiable PAP property. |
 | `checkerIdentity` | H(`pap.checker.identity.v1`, JCS(`{id, version, implementationDigest}`)). | Verifier. | None; the engine has no checker identity. | Verifier-local; participates in `verificationRecordIdentity`, so cross-implementation equality is not required (D12). |
-| `verificationRecordIdentity` | H(`pap.report.v1`, JCS(report identity form)), excluding `evaluatedAt`, `durationMs`, absolute package/policy paths, the `producerClaims` block, the top-level `checks[]` records and human diagnostic messages (§5.9). | Verifier. | None. | Cross-implementation equality is not required because it includes the verifier's own checker identity. |
+| `verificationRecordIdentity` | H(`pap.report.v1`, JCS(report identity form)), excluding `evaluatedAt`, `durationMs`, absolute package/policy paths, the `producerClaims` block, human diagnostic messages (report and per-check) and the optional `checks[].witnesses[].quoteBase64` (§5.9). | Verifier. | None. | Cross-implementation equality is not required because it includes the verifier's own checker identity. |
 
 No self-referencing digest field exists in the manifest, and no manifest field is computed over the
 report. Timestamps (`package.createdAt`, `sources[].acquiredAt`, `claims.checkedAt`,
@@ -5420,7 +5582,7 @@ required consequence so an implementation cannot downgrade an error to a warning
 | `pap.trust.review-required` | warning | Policy requires human approval and evidence is not sufficient; human review `INCOMPLETE`, verdict `INCOMPLETE` |
 | `pap.review.missing` | warning | Required approval evidence absent; human review `INCOMPLETE` |
 | `pap.review.stale` | warning | Approval is older than the policy `maxAgeSeconds`; human review `INCOMPLETE` |
-| `pap.review.unbound` | info | The approval is a claim without cryptographic binding (always in v0.1); records that the evidence is not a verified attestation, no verdict effect |
+| `pap.review.unbound` | info | The approval is a producer claim without cryptographic binding (always in v0.1). MUST be emitted as a diagnostic **and** as a limitation whenever `humanReview.status` is `PASS`; records that the status is not an authenticated approval. No verdict effect |
 | `pap.review.unknown-reviewer` | warning | Reviewer identity is not recognized by the policy; human review `UNKNOWN` |
 | `pap.review.binding-invalid` | warning | Approval does not bind this package/artifact set (wrong or absent `packageIdentity`/scope); human review `INCOMPLETE` |
 
