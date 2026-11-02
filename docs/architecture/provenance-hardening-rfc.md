@@ -4,7 +4,7 @@
 every choice below is `proposed` unless it restates a decision already directed elsewhere.
 **Issue:** [#4](https://github.com/agent-federation/contract-builder/issues/4) — «Усилить
 provenance: блочный локатор и хеш исходного документа».
-**Baseline:** `7463ed8` (main after #34).
+**Baseline:** `e8c917f` (main after #42; the RFC branch merged main in `a504fdd`).
 **Document version:** 1.0
 **Implementation status:** not started. This change is documentation only; no code, data or
 generated artifact is modified by the RFC pull request.
@@ -13,7 +13,8 @@ generated artifact is modified by the RFC pull request.
 vs verification), [#32](https://github.com/agent-federation/contract-builder/issues/32)
 (`inputDigest`), [#5](https://github.com/agent-federation/contract-builder/issues/5)
 (multi-source); `docs/architecture/engine-public-contract.md` §3.1, §5.2 step 7, §8.1, §11,
-§16 (M4); `docs/architecture/m1-implementation-plan.md` §8; the design record
+§16 (M4); `docs/architecture/m1-implementation-plan.md` §8;
+`docs/architecture/build-identity.md` (implemented in #42); the design record
 `docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md` §7 item 7 and §8;
 `README.md` sections «Гарантии» and «Ограничения MVP».
 
@@ -30,7 +31,7 @@ vs verification), [#32](https://github.com/agent-federation/contract-builder/iss
 Issue #4 asks for three things: a finer source locator than a section, an integrity pin on the
 source document itself, and tests that prove both. The current implementation verifies a quote
 against a *section* span, a *table row* or an *ordered list item*
-(`spec/lib/adapters/markdown.ts:57–121`) and compares only the header line
+(`spec/lib/adapters/markdown.ts:58–122`) and compares only the header line
 `UIA-CORE-001 (Rev 0.3.3)` (`profiles/core001/checks/source.ts:11–18`).
 
 This RFC proposes:
@@ -67,13 +68,13 @@ explicitly skips list items, table rows, headings and code fences (§4.2).
 
 | Layer | Code | What it does today |
 |---|---|---|
-| Adapter | `spec/lib/adapters/markdown.ts:30–55` | `parseLocator` accepts `<SOURCE>#<section>`, `#<section>/table/<column>`, `#<section>/<item>`. Returns `null` for anything else. |
-| Adapter | `spec/lib/adapters/markdown.ts:57–71` | `locateQuote` resolves the section span, selects a block, and checks a whitespace-collapsed substring. Outcomes: `found`, `outside`, `unknown-locator`. |
-| Adapter | `spec/lib/adapters/markdown.ts:90–104` | `sectionSpan` matches headings by their numeric label and ends at the next heading of the same or higher level. |
-| Adapter | `spec/lib/adapters/markdown.ts:106–121` | `selectBlock`: `section` → the whole span; `table` → every line whose **first** cell equals the column, i.e. the whole row; `item` → the n-th `^\s*\d+\.\s` line, i.e. ordered items only. |
-| Interface | `spec/lib/source.ts:9` | `LocatorResult = "found" \| "outside" \| "unsupported" \| "unknown-locator"`. |
+| Adapter | `spec/lib/adapters/markdown.ts:31–56` | `parseLocator` accepts `<SOURCE>#<section>`, `#<section>/table/<column>`, `#<section>/<item>`. Returns `null` for anything else. |
+| Adapter | `spec/lib/adapters/markdown.ts:58–72` | `locateQuote` resolves the section span, selects a block, and checks a whitespace-collapsed substring. Outcomes: `found`, `outside`, `unknown-locator`. |
+| Adapter | `spec/lib/adapters/markdown.ts:91–105` | `sectionSpan` matches headings by their numeric label and ends at the next heading of the same or higher level. |
+| Adapter | `spec/lib/adapters/markdown.ts:107–122` | `selectBlock`: `section` → the whole span; `table` → every line whose **first** cell equals the column, i.e. the whole row; `item` → the n-th `^\s*\d+\.\s` line, i.e. ordered items only. |
+| Interface | `spec/lib/source.ts:11` | `LocatorResult` is one of `found`, `outside`, `unsupported`, `unknown-locator`. |
 | Profile hook | `profiles/core001/checks/source.ts:20–73`, `:75–118` | First checks the quote exists anywhere in the document (`ERR_SOURCE_QUOTE_NOT_FOUND`), then calls `ctx.verifyQuote` and maps outcomes onto `ERR_SOURCE_LOCATOR_UNKNOWN`, `ERR_SOURCE_LOCATOR_MISMATCH`, `ERR_SOURCE_LOCATOR_UNSUPPORTED`. |
-| Core | `spec/lib/build.ts:143–156` | Exposes `verifyQuote(sourceId, ref, quote)` over loaded sources; the core itself does not resolve quotes. |
+| Core | `spec/lib/build.ts:155–167` | Exposes `verifyQuote(sourceId, ref, quote)` over loaded sources; the core itself does not resolve quotes. |
 | Core | `spec/lib/ir.ts:188–220` | `loadSources` reads bytes through the adapter and passes `identity` through verbatim. `identity` is validated as `{document, revision}` in `spec/lib/manifest.ts:22–28`, `:383–399`. |
 | Core | `spec/lib/provenance.ts` | Binds the three mapped selectors into `ProvenanceBinding`; it does not verify them. |
 
@@ -118,8 +119,8 @@ it later (not part of this increment).
 
 ### 2.4 Measured surface (for sizing only)
 
-At the baseline `bun run typecheck`, `bun test` (85 tests) and `bun run check` are green; the
-draft artifact is 298 lines with SHA-256
+On the refreshed baseline (after #42) `bun run typecheck`, `bun test` (117 tests across 9
+files) and `bun run check` are green; the draft artifact is unchanged at 298 lines with SHA-256
 `a29ce609269a8ad9185ed50576d4e6276b586f740d2ea8b4ef7f06f6c05988df` and 15 diagnostics
 (0 error, 5 `REVIEW_REQUIRED`, 10 `WARNING`). These numbers matter because two proposed
 increments differ in whether they touch the golden baseline (§5.3, §7.3).
@@ -131,12 +132,14 @@ increments differ in whether they touch the golden baseline (§5.3, §7.3).
   verification status dimension or a way for outputs to distinguish bound-but-unverified
   provenance. That remains #37's scope. The digest introduced here is an input to such a
   record, not a replacement for one.
-- **#32 (`inputDigest`).** `inputDigest` is a derived identity of *all* build inputs and
-  extension closures, computed to make reproducibility checkable. `identity.sha256` is a
-  declared *expectation* owned by the project. They answer different questions ("what went into
-  this build?" vs "is this still the source we pinned?") and must not be conflated. Adding the
-  digest to the manifest does indirectly change the future `inputDigest`, as any manifest change
-  would, but this RFC does not depend on #32.
+- **#32 (`inputDigest`, implemented in #42).** `inputDigest` is a derived identity of *all*
+  build inputs and extension closures, computed to make reproducibility checkable; it is
+  documented in `docs/architecture/build-identity.md`. `identity.sha256` is a declared
+  *expectation* owned by the project. They answer different questions ("what went into this
+  build?" vs "is this still the source we pinned?") and must not be conflated. `inputDigest`
+  normalises text input and source bytes to LF (contract §8.1); `identity.sha256` deliberately
+  does not. Adding the digest to the manifest changes the canonical manifest record and
+  therefore `inputDigest` — expected, and covered in §7.3.
 - **#5 (multi-source).** The digest is declared per source and checked per source, so it scales
   with the manifest array, but this RFC does not change the current single-source limitation.
 - **Signing / authenticity (#44).** A digest is not a signature. Anyone who edits the document
@@ -237,7 +240,7 @@ outside the range is still caught by the digest (§4.4).
 #### 4.1.3 Resolution of `table/<key>` (narrowed)
 
 Today `selectBlock` returns the whole row whose first cell equals `<key>`, so a quote taken from
-the key cell itself, or from another column, would pass (`markdown.ts:110–114`). The proposal:
+the key cell itself, or from another column, would pass (`markdown.ts:111–115`). The proposal:
 
 1. Find the row (line starting with `|`) in the section's direct body whose **first cell**
    (trimmed) equals `<key>`. Not found → `unknown-block`.
@@ -288,14 +291,21 @@ line not consumed by a previous block and is one of:
 |---|---|---|
 | fenced code | line begins (after optional spaces) with an opening fence: three or more backticks, or three or more tildes | the matching closing fence line, inclusive; an unterminated fence ends at the direct-body end |
 | heading | `#{1,6}\s+` | same line |
-| table row | first non-space character is `\|` | same line |
+| table row | the line is a pipe-table row (its first non-space character is the table delimiter) | same line |
 | thematic break | line is only `-`, `*` or `_` repeated at least three times, optionally spaced; checked **before** list items | same line |
-| list item | `^\s*(\d+\.\|[-*+])\s+` | before the next blank line, heading, table row, list-item marker or fence |
+| list item | line begins with an ordered (`1.`) or unordered (`-`, `*`, `+`) marker followed by whitespace | before the next blank line, heading, table row, list-item marker or fence |
 | paragraph | anything else | before the next blank line, heading, table row, list-item marker, fence or thematic break |
 
 Precedence is the order above: fence → heading → table row → thematic break → list item →
 paragraph. A line such as `- - -` is a thematic break, never a list item, although the list-item
 regex alone would accept it.
+
+Exact patterns used by the adapter, kept outside the table so the raw markdown is unambiguous
+(a literal pipe inside a table cell has to be written `\|`, which reads like a regex escape):
+
+```text
+list item: ^\s*(\d+\.|[-*+])\s+
+```
 
 Only **paragraph** blocks are numbered for `p<n>`. Headings, table rows, list items, fenced
 code and thematic breaks are not paragraphs; they are addressed by their own selectors or by
@@ -329,7 +339,7 @@ because atomic locators depend on them. Stating the subset keeps the guarantee f
 ### 4.3 Outcomes and their mapping
 
 `LocatorResult` gains one value; the adapter-local `LocatorOutcome`
-(`markdown.ts:28`) mirrors it:
+(`markdown.ts:29`) mirrors it:
 
 ```ts
 type LocatorResult = "found" | "outside" | "unsupported" | "unknown-locator" | "unknown-block";
@@ -344,7 +354,7 @@ type LocatorResult = "found" | "outside" | "unsupported" | "unknown-locator" | "
 | `unsupported` | the adapter cannot verify this locator | `ERR_SOURCE_LOCATOR_UNSUPPORTED` (existing) |
 
 Today a missing table key or an out-of-range item returns `outside` because the selected block
-is empty (`markdown.ts:66–68`). The proposal makes "the declared place does not exist" distinct
+is empty (`markdown.ts:67–68`). The proposal makes "the declared place does not exist" distinct
 from "the quote is not in the declared place", which is what the new code documents. No current
 data or golden diagnostic uses an error path, so this changes no existing message.
 
@@ -383,7 +393,7 @@ critically, `validateSources`, which currently rebuilds `identity` as `{document
 (`spec/lib/manifest.ts:399`) and would silently drop `sha256`. If that line is missed, the
 digest is never checked and the build stays green with only the missing-digest warning. A
 manifest test must assert that the field survives validation (extend
-`tests/manifest.test.ts:197`).
+`tests/manifest.test.ts:199`).
 
 The issue says `document_sha256` in `sources.yml`. That wording predates M1: the source
 declaration moved to the manifest in #19 (merged as #20) and to the generic IR in #21 (merged as
@@ -405,8 +415,9 @@ digest generically. This is an open question for approval (§10, Q2).
   not "the text content modulo line endings is unchanged". The cost is that a checkout that
   rewrites line endings would fail. The repository therefore pins the file to LF with a
   `.gitattributes` rule (`CORE-001.legacy.md text eol=lf`). The alternative (normalised digest)
-  is discussed in §6, option D1b; the contract's LF normalisation for `inputDigest` (§8.1) is a
-  different purpose and does not apply here.
+  is discussed in §6, option D1b. The contract's LF normalisation for `inputDigest` (§8.1) is a
+  different purpose and does not apply here; `inputDigest` now normalises source bytes to LF,
+  while this digest hashes the bytes as stored.
 
 #### 4.4.3 Verification point
 
@@ -463,7 +474,7 @@ workflow**, not by a softer severity:
 |---|---|---|
 | `identity.document` + `identity.revision` | which document revision the source claims to be | project (manifest) |
 | `identity.sha256` (this RFC) | are the bytes still the pinned source | project (manifest), verified by core |
-| `inputDigest` (#32) | what exact inputs and extension closures produced this build | engine |
+| `inputDigest` (#32, implemented in #42) | what exact inputs and extension closures produced this build | engine |
 | signature / verification record (#37, #44) | who attested, and what was independently verified | not in this RFC |
 
 ### 4.5 Diagnostics
@@ -665,7 +676,7 @@ atomic only after the second PR.
 
 - `fragment.schema.json` needs no change (`source_ref` is a free string);
   `parseLocator`'s internal `BlockLocator` union gains `paragraph` and `paragraph-range` variants
-  (`markdown.ts:18–21`).
+  (`markdown.ts:19–22`).
 - Atomic selectors (`p`, `table`, `item`) now resolve in the section's direct body. Today they
   scan the whole section span, so a locator that addressed a table or list inside a nested
   subsection would now be `unknown-block`. No current project data does this; the stronger
@@ -699,6 +710,7 @@ mechanical one; #37's verification records are where this class of risk belongs.
 | `.gitattributes` | new one-line rule pinning `CORE-001.legacy.md` to LF |
 | `tests/build.test.ts` `legacy-drift` case | currently mutates the copied legacy and expects `ERR_SOURCE_QUOTE_NOT_FOUND`. With a pinned digest the mismatch is detected first, so the case becomes the digest test; a second case must re-compute the digest after mutation to keep coverage of quote drift against a pinned source |
 | `tests/golden/*` | unchanged for L1+D1; artifact SHA only for the migration PR |
+| `tests/identity.test.ts` (#42) | adding `identity.sha256` changes the canonical manifest and therefore `inputDigest`; PR 1 changes `markdown.ts` inside the adapter's declared closure and PR 3 changes declared inputs, so their `closureDigest`/`inputDigest` move too. The suite asserts relationships, not a fixed digest, so no golden value needs editing — confirm in each PR |
 | `spec/output/CORE-001.draft.md` | unchanged for L1+D1; the ten `source_ref` lines change for the migration |
 
 A test helper that recomputes the manifest digest after mutating a copied legacy file belongs in
@@ -769,7 +781,7 @@ Acceptance:
 - [ ] Malformed digest: `core.manifest.invalid` at the field; missing digest with mapped
       provenance: `core.provenance.digest-missing`, build continues, `--strict` blocks.
 - [ ] `validateSources` carries `identity.sha256` into the model (extend
-      `tests/manifest.test.ts:197`); otherwise the digest check silently never runs.
+      `tests/manifest.test.ts:199`); otherwise the digest check silently never runs.
 - [ ] A CRLF-rewritten file fails the digest (raw-byte semantics are tested, not assumed).
 
 ### PR 3 — CORE-001 migration and docs (D4)
@@ -962,7 +974,7 @@ and the same code with `"variant": "decision"` and the shorter message. Extend t
 sha256sum CORE-001.legacy.md
 # f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1
 
-bun run typecheck && bun test && bun run check   # baseline: green, 85 tests
+bun run typecheck && bun test && bun run check   # baseline: green, 117 tests
 ```
 
 ---
