@@ -345,21 +345,31 @@ deferred (matrix G2); this plan does not change it.
 
 The positive harness imports the CORE-000 renderer at module load because it always passes
 consent. That import is **not** evidence for the consent boundary and must not be used for N14.
+
+**Revision 2 correction (Issue #72, proposed):** the earlier N14 wording used a renderer marker as
+proof. That was wrong. The CORE-000 renderer is consumer-supplied: `runBuild` never imports it, and
+the CLI leaves the registry empty for a CORE-000 project, so a renderer marker could be absent even
+if the consent gate failed. N14 therefore proves the boundary for the modules the engine imports,
+`view` and `validator`. Consumer-supplied renderer loading is a separate trust boundary owned by
+the consumer and is **not** gated by `allowExecutableProfile`.
+
 N14 runs through the CLI without `--allow-executable-profile`:
 
 - `spec/cli-renderers.ts` imports the built-in renderer only when the selected project declares
-  profile `core001` and renderer `core001-markdown`; a CORE-000 project leaves the registry empty.
+  profile `core001` and renderer `core001-markdown`; a CORE-000 project leaves the registry empty,
+  and no CORE-000 renderer is loaded by the CLI.
 - `runBuild` checks consent after loading the manifest/profile and before the closure scan and any
-  profile `import()`, so `view` and `validator` are not evaluated either.
+  profile `import()`, so `view` and `validator` are not evaluated.
 - The N14 test copies the positive project/profile to a temporary directory, adds a
-  module-evaluation marker (a marker-file write) to `renderer.ts`, `view.ts` and `validator.ts`,
-  runs the CLI in a subprocess, and asserts `core.profile.consent-required`, exit 1,
-  `identity: null`, `markdown: null`, and **all three markers absent**. Checking only `view` and
-  `validator` is insufficient; the renderer marker is the required proof.
+  module-evaluation marker (a marker-file write) to `view.ts` and `validator.ts` only, runs the CLI
+  in a subprocess, and asserts `core.profile.consent-required`, exit 1, `identity: null`,
+  `markdown: null`, and **both markers absent**. A renderer marker is not used and would not
+  demonstrate the gate.
 - The marker edit is test-only in the temporary copy and is not committed to the profile.
 
 The positive harness may statically import the renderer because every positive run is an explicit
-consent run; its import order is not a claim about the no-consent path.
+consent run; its import order is not a claim about the no-consent path. The harness's renderer
+import is the consumer's own trust decision, not the engine's consent gate.
 
 ---
 
@@ -391,11 +401,15 @@ The positive draft is expected to contain review diagnostics, not zero diagnosti
 count depends on the 78-claim register and its open decisions; tests assert the expected **code
 set**, not a hard-coded count.
 
+**Identifier note (revision 2, proposed).** P1–P5 here are positive-check IDs and are unrelated to
+maintainer decisions P-1–P-6. The first-slice proposal renames them S1-POS-01–S1-POS-05 to make
+that separation explicit.
+
 ### 5.2 Negative runs — core and project boundary
 
 | ID | Fixture/mutation | Entry point/options | Expected diagnostic(s) | Layer/class |
 |---|---|---|---|---|
-| N14 | positive project copy with renderer/view/validator evaluation markers, no consent | CLI `bun spec/build.ts --spec <copy> --no-write --json` (no flag) | `core.profile.consent-required`; `identity: null`, `markdown: null`; renderer, view and validator markers absent | core, load/consent; implementation behavior |
+| N14 | positive project copy with view/validator evaluation markers, no consent | CLI `bun spec/build.ts --spec <copy> --no-write --json` (no flag) | `core.profile.consent-required`; `identity: null`, `markdown: null`; view and validator markers absent; no CORE-000 renderer is in the CLI path | core, load/consent; implementation behavior |
 | N16 | profile with a non-reciprocal inverse | `run.ts --mutation non-reciprocal-inverse` | `core.profile.invalid` | core, load/profile; structural |
 | N17 | manifest with zero or two `render` declarations | `run.ts --mutation render-cardinality` | `core.manifest.invalid` | core, load; structural |
 | N2 | claim `dependsOn` a missing claim/relation | `run.ts --mutation unresolved-relation` | `ERR_UNKNOWN_REF` | core, reference; structural |
@@ -538,7 +552,7 @@ bun contracts/core000/run.ts --mode draft --write false --evidence evidence/core
 # Release gate
 bun contracts/core000/run.ts --mode release --write false --evidence evidence/core000/P3/result.json
 
-# Check mode after writing the draft to a temporary output root
+# Check option (not a BuildMode) after writing the draft to a temporary output root
 bun contracts/core000/run.ts --mode draft --write true --output-root /tmp/core000-check --evidence evidence/core000/P4a/result.json
 # both P4 commands use the same temp project directory: the first writes, the second checks
 bun contracts/core000/run.ts --mode draft --check true --output-root /tmp/core000-check --evidence evidence/core000/P4b/result.json
@@ -550,7 +564,7 @@ bun contracts/core000/run.ts --mode draft --mutation claim --write false --evide
 bun contracts/core000/run.ts --mutation non-reciprocal-inverse --evidence evidence/core000/N16/result.json
 # ... one command per N case; the harness records the expected/observed codes
 
-# N14: CLI without consent; the CORE-000 renderer is never imported
+# N14: CLI without consent; profile view/validator are never imported; no CORE-000 renderer is in the CLI path
 bun spec/build.ts --spec /tmp/core000-n14-copy --no-write --json              # core.profile.consent-required
 # CLI probe C1: consent given, but the CLI only wires the CORE-001 renderer
 bun spec/build.ts --spec contracts/core000 --no-write --json --allow-executable-profile  # core.registry.missing (G4)
@@ -654,8 +668,9 @@ Each step is a separate focused PR; none changes the generic core.
    `files`/`dependencies` and a smoke test that the profile loads and fails consent correctly.
 2. **Project inputs.** `contracts/core000/contract-builder.json`, `structure.yml`, `claims.yml`
    encoding the accepted design; no new claims; source quotes at current locators.
-3. **Harness and positive run.** `contracts/core000/run.ts`, `tests/core000.test.ts`; P1–P5 with
-   evidence records; the N14 CLI renderer-marker test.
+3. **Harness and positive run.** `contracts/core000/run.ts`, `tests/core000.test.ts`; P1–P5 in
+   §5.1 (S1-POS-01–S1-POS-05 in the first-slice proposal) with evidence records; the N14 CLI
+   view/validator-marker test.
 4. **Negative mutations.** `contracts/core000/mutations.ts` implements N1–N18; each run uses a
    fresh temporary copy of the base project and exactly one mutation, with exact expected codes
    and no-artifact assertions. No per-case complete-project copies.
@@ -683,8 +698,9 @@ This plan is ready for approval when a maintainer confirms that:
 7. the recommended P-1 strategy B is used consistently in §2, §3, §5, §7 and §10 and is
    reconciled with design §7.8 as required; the recommendation is not treated as confirmed until
    the maintainer answers P-1;
-8. the N14 CLI/renderer-marker path demonstrates that the renderer, view and validator modules are
-   not loaded without consent;
+8. the N14 CLI view/validator-marker path demonstrates that the profile `view` and `validator`
+   modules are not loaded without consent; it does not claim that the consumer-supplied renderer is
+   gated;
 9. the gaps in §8 are recorded as separate proposals, not implemented;
 10. the open decisions and requested input in §9 are explicit;
 11. no implementation, CORE-001 change, core change or merge is included.
@@ -740,8 +756,9 @@ The companion document defines the ephemeral mode requested by Issue #72:
   engine has explicit consent, fail-closed import, path containment, closure digests and artifact
   normalization; it has no sandbox, privilege drop, read-only mount, network isolation or
   CPU/memory/time limits. The first slice executes only repository-owned reviewed profile code and
-  claims no isolation. Enforced isolation for untrusted profiles is a separate security proposal
-  referencing #35.
+  claims no isolation. The consent gate covers the profile `view`/`validator`; a consumer-supplied
+  renderer is a separate trust boundary imported by the consumer. Enforced isolation for untrusted
+  profiles is a separate security proposal referencing #35.
 - **Outputs and evidence.** Draft artifact, diagnostics, build identity, artifact SHA-256, run log,
   repository-clean check and a JSON evidence record. No absolute paths or secrets; evidence
   publication is subject to P-2/P-6.
@@ -766,8 +783,11 @@ A conditional first-slice proposal is in
 11-relation / 9-policy-check vertical slice over five accepted claims, with exact files, commands,
 expected results, tests, negative cases (N2, N3, N8, N11, N14), exclusions, stop conditions and
 acceptance criteria. It is shaped for the recommended defaults D1 A, D13 A, D15 A, P-1 B, P-4 A and
-P-5 A (P-1 still requires confirmation); it does not implement D14, P-2, P-3 or P-6, and it is not
-authorized.
+P-5 A (P-1 still requires confirmation). S1 is blocked until **D1, D13, D15, P-1, P-4 and P-5** are
+answered or authorized under their recommended defaults and the separate G4/consumer-harness
+boundary is confirmed. **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**, but a deferral
+does not resolve them and the full decision record stays open until all ten are resolved; a
+`defer` leaves that item open. S1 does not implement D14, P-2, P-3 or P-6 and is not authorized.
 
 ### 12.4 What revision 2 does not change
 
@@ -781,5 +801,7 @@ authorized.
 
 ### 12.5 Requested maintainer action
 
-Answer the decision record entries, confirm the consumer-harness/G4 boundary, and approve or
-reject the conditional S1 proposal. Implementation starts only after explicit approval.
+Answer the six S1-blocking decisions D1, D13, D15, P-1, P-4 and P-5; explicitly defer or answer
+D14, P-2, P-3 and P-6; confirm the separate consumer-harness/G4 boundary; and approve or reject the
+conditional S1 proposal. The full decision record remains open until all ten are resolved, and
+implementation starts only after the mandatory answers and explicit approval.

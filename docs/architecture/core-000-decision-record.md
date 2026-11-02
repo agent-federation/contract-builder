@@ -14,17 +14,20 @@ the refresh found no code or profile change that affects these decisions (see
 [`core-000-self-contract.md`](core-000-self-contract.md) (PR #51); the accepted execution plan is
 [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59).
 
-> **What this is.** A single reviewable record of the ten decisions that still need a maintainer
-> answer before the first CORE-000 implementation slice: D1, D13, D14, D15 and P-1–P-6. For each
-> item it states the exact question, viable options (including `defer` where it is viable), a
-> recommended default and why, consequences and trade-offs, dependencies, reversibility, and the
-> repository evidence that informs the recommendation.
+> **What this is.** A single reviewable record of the ten decisions that need a maintainer answer:
+> D1, D13, D14, D15 and P-1–P-6. Six block S1 (D1, D13, D15, P-1, P-4, P-5); four may be explicitly
+> deferred for S1 (D14, P-2, P-3, P-6), but the full record stays open until all ten are resolved;
+> a `defer` leaves that item open.
+> For each item it states the exact question, viable options (including `defer` where it is
+> viable), a recommended default and why, consequences and trade-offs, dependencies, reversibility,
+> and the repository evidence that informs the recommendation.
 >
 > **What this is not.** It is not a decision, a generic-core change, or an independent verification.
 > The recommendations below are proposals; only the maintainer can accept them. No code or
 > CORE-000 artifact is created by this record. The first-slice proposal now exists in
-> [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10, but it is conditional on these
-> answers and is not authorized by it.
+> [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10, but it is conditional on the
+> six S1-blocking answers, the four explicit deferrals and the G4 confirmation, and is not
+> authorized by it.
 
 ---
 
@@ -61,8 +64,12 @@ for these answers and an explicit authorization.
 | P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | Yes — S1 includes the harness. |
 | P-6 | Evidence and independent records in git? | A: commit run evidence and external verification records | Can follow the first slice; needed before evidence publication. |
 
-“Needed before the first slice” is a dependency note, not a decision: the first slice can be
-narrowed after the answers if a decision is deferred.
+“Needed before the first slice” is a dependency note, not a decision. **S1-blocking (must be
+answered or explicitly authorized under the recommended default):** D1, D13, D15, P-1, P-4, P-5.
+**May be explicitly deferred for S1:** D14, P-2, P-3, P-6. The separate consumer-harness/G4
+confirmation is also required before S1, but it is not one of these ten decisions. A deferral does
+not resolve an item: the full record remains open until all ten are resolved; a `defer` leaves
+that item open.
 
 ---
 
@@ -419,7 +426,8 @@ path. Both are consumers; neither is a generic-core implementation.
 **Consequences/trade-offs.** A adds a project-level script (not in the profile closure and not in
 `inputDigest`) and a test file; B is smaller but weaker. N14 must not use the positive harness
 because its static renderer import is not consent-boundary evidence; it uses the CLI without
-consent (see §12).
+consent and `view`/`validator` evaluation markers (see §12). The consumer-supplied renderer import
+is a separate consumer trust boundary; `allowExecutableProfile` does not gate it.
 
 **Dependencies/reversibility.** D1/P-1/P-2/D13; G4. The harness can be added before or after the
 profile; once evidence is published, changing its command/record shape requires re-recording.
@@ -509,7 +517,9 @@ not publish evidence and therefore does not depend on this answer.
 The harness is a **test consumer**, not a generic-core implementation and not independent
 verification. Its results are scoped to `runBuild` plus the supplied renderer/profile; they do not
 close G4. The positive harness’s static renderer import is also not consent-boundary evidence; N14
-uses the CLI without consent and a renderer/view/validator evaluation marker (execution plan §4.1).
+uses the CLI without consent and `view`/`validator` evaluation markers (execution plan §4.1). The
+renderer is consumer-supplied and is not gated by `allowExecutableProfile`; a renderer marker would
+not demonstrate the consent boundary.
 
 **Refresh (Issue #72).** The PAP v0.1 verifier under `pap/` is a separate product boundary; it
 does not import `spec/` or `profiles/`, does not select a CORE-000 profile, does not supply the
@@ -520,7 +530,8 @@ engine entry point. S1 uses the consumer harness in `core-000-self-build-poc.md`
 **Evidence needed to accept the harness boundary:** maintainer confirmation that a test consumer
 may call `runBuild` with a caller-supplied renderer while G4 is open; review of the harness's
 import of the internal module and its static renderer import; and a negative N14 test that proves
-the consent boundary through the CLI, not through the positive harness.
+the `view`/`validator` consent boundary through the CLI, not through the positive harness, without
+claiming that the consumer-supplied renderer is gated.
 
 **Evidence/constraint.** `spec/lib/build.ts` `runBuild` and `BuildOptions.renderers`;
 `spec/cli-renderers.ts` CORE-001 constants; `spec/build.ts` CLI; `package.json` private; execution
@@ -532,8 +543,10 @@ plan §7/§8 and G4; `pap/README.md` (separate boundary).
 
 The first-slice proposal is now in
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. It is shaped for the recommended
-defaults **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A** and does not implement D14, P-2, P-3 or P-6.
-It is proposed, not authorized, and it is re-scoped if an answer differs.
+defaults **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A**. **D14, P-2, P-3 and P-6 may be explicitly
+deferred for S1**; they remain open, and the full decision record stays open until all ten are
+resolved; a `defer` leaves that item open. The separate consumer-harness/G4 confirmation is also
+required. S1 is proposed, not authorized, and is re-scoped if an answer differs.
 
 S1 is a bounded vertical slice with:
 
@@ -545,8 +558,9 @@ S1 is a bounded vertical slice with:
 - a review request and an explicit authorization gate before implementation.
 
 The earlier record deliberately deferred the first-slice proposal until the decisions were
-answered; Issue #72 asks for it now, so it is provided as a conditional proposal. The answers are
-still required before implementation, and no answer is assumed.
+answered; Issue #72 asks for it now, so it is provided as a conditional proposal. The six
+S1-blocking answers, the four explicit deferrals and the G4 confirmation are still required before
+implementation, and no answer is assumed.
 
 ---
 
@@ -567,10 +581,14 @@ still required before implementation, and no answer is assumed.
 - The consumer harness is a test consumer; G4 remains open and is recorded as a separate proposal.
 - No independent verification, certification, security, cross-platform determinism or production
   readiness is claimed.
-- The first-slice proposal is conditional on the answers and is not authorized by this record.
+- The first-slice proposal is conditional on the six S1-blocking answers, the four explicit
+  deferrals and the G4 confirmation; it is not authorized by this record, which remains open until
+  all ten decisions are resolved.
 
-**Requested maintainer action:** answer D1, D13, D14, D15 and P-1–P-6 using the format in §0,
-confirm the consumer-harness/G4 boundary in §12, and approve or reject the conditional S1 proposal
-in [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. The decisions remain open;
-implementation stays blocked until those answers and an explicit authorization. Whether this
+**Requested maintainer action:** answer the six S1-blocking decisions D1, D13, D15, P-1, P-4 and
+P-5 using the format in §0; explicitly defer or answer D14, P-2, P-3 and P-6; confirm the separate
+consumer-harness/G4 boundary in §12; and approve or reject the conditional S1 proposal in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. The full decision record remains
+open until all ten are resolved; implementation stays blocked until the mandatory answers, the
+explicit deferrals and an explicit authorization. Whether this
 documentation-only record is merged is the maintainer's review decision.

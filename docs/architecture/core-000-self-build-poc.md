@@ -22,9 +22,9 @@ refreshed by [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
 | Part | Content |
 |---|---|
 | **Facts** | Current `main` is `c6ee644` (PR #73). The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/` (PR #64); #73 is a docs-only PAP status update. Neither has a demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. No decision has been accepted. |
-| **Recommendations** | Confirm **P-1 strategy B** (one base project plus one named mutation in a fresh copy). Accept the recommended defaults **D1 A, D13 A, D14 A, D15 A, P-2 A, P-3 A, P-4 A, P-5 A, P-6 A**, or record alternatives. Approve the bounded first slice **S1** in §10 as the next implementation step. Confirm that a consumer harness may be used while G4 remains open. Treat a fresh temporary directory as a workspace, not a security sandbox. |
-| **Unresolved decisions** | D1, D13, D14, D15 and P-1–P-6 remain open; G4/consumer-harness boundaries remain as recorded. S1 is shaped for the recommended defaults and is not valid if they are changed; it does not decide them. |
-| **Requested approvals** | (1) Answer the decision record entries. (2) Authorize S1 implementation after those answers. (3) Confirm the consumer-harness/G4 boundary. (4) Confirm that no CORE-000 implementation starts before this plan and S1 are approved. |
+| **Recommendations** | Resolve the S1-blocking decisions **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A** (or record alternatives). **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**, but the full decision record remains open until all ten are resolved; a `defer` leaves that item open. Approve the bounded first slice **S1** in §10 as the next implementation step. Confirm separately that a consumer harness may be used while G4 remains open. Treat a fresh temporary directory as a workspace, not a security sandbox. |
+| **Unresolved decisions** | D1, D13, D14, D15 and P-1–P-6 all remain open until the maintainer answers them; deferral is not resolution. S1 depends on D1, D13, D15, P-1, P-4, P-5 and the separate G4/consumer-harness confirmation; D14, P-2, P-3 and P-6 may be deferred for S1. S1 is shaped for the recommended defaults and is re-scoped if they change. |
+| **Requested approvals** | (1) Answer the six S1-blocking decisions D1, D13, D15, P-1, P-4, P-5. (2) Explicitly defer or answer D14, P-2, P-3, P-6; the full record stays open until all ten are resolved. (3) Confirm the separate consumer-harness/G4 boundary. (4) Authorize S1 after (1) and (3). (5) Confirm that no CORE-000 implementation starts before this plan and S1 are approved. |
 
 No row above is an acceptance. The maintainer remains the only authority for the decisions and
 for authorizing implementation.
@@ -136,9 +136,17 @@ sandboxed, hermetic, secure or safe for untrusted profiles.
 | CPU, memory and wall-clock limits | **Proposed, not implemented** | External timeout/kill is the only current mitigation; it is not a resource budget |
 | No secrets in the environment | **Proposed, operator control** | Not enforced by the engine |
 | Per-module consent | **Proposed, not implemented** | Consent applies to the declared executable profile modules as a set |
+| Consumer-supplied renderer/adapters | **Consumer-owned trust decision** | The caller imports and supplies them; `runBuild` uses the supplied registry. `allowExecutableProfile` does not gate consumer imports. |
 
 This table is the distinction the issue requires: the existing controls are integrity and consent
 controls, not isolation controls. No sandbox capability is assumed.
+
+**Separate renderer trust boundary.** `allowExecutableProfile` gates the profile's `view` and
+`validator` modules, which the engine imports. A consumer-supplied renderer is imported by the
+caller and passed to `runBuild` in the `renderers` registry; the engine never imports it, and the
+consent gate does not apply to it. The CLI's only renderer import is the conditional CORE-001
+renderer, so a CORE-000 project gets an empty CLI registry. A CORE-000 renderer load is therefore
+the consumer's own trust decision, not evidence for or against the profile consent gate.
 
 ### 3.3 First-slice trust decision
 
@@ -204,7 +212,7 @@ committed under this issue.
 ```jsonc
 {
   "schema": "core000-run-evidence/0.1",
-  "run": "E1-P1",
+  "run": "E1-S1-POS-01",
   "hypothesis": "H1",
   "commit": "<40-hex>",
   "project": "contracts/core000",
@@ -300,7 +308,7 @@ and recorded install source, fresh `HOME`, fresh output directory, same Bun/OS/a
 environment. Neither environment inherits the other's workspace, `node_modules`, cache or output.
 
 A same-process repeat is not H2 evidence; it only checks accidental mutable state. A second
-process in the same workspace is P2 evidence, not a fresh-environment repeat.
+process in the same workspace is S1-POS-02 evidence, not a fresh-environment repeat.
 
 ### 5.2 Required comparisons
 
@@ -386,11 +394,15 @@ observe an expected failure is a finding, not a pass.
 | **N3** | Remove the code/test `evidencedBy` links from an `implemented` claim | `core000.claim.implemented-without-evidence` | Profile policy failure. |
 | **N8** | Change a source statement's quote to text outside its declared locator | `core000.source.verification-failed` | The profile verifier must return `failed`/outside; the core stores the record. |
 | **N11** | Remove `decidedBy` from an `accepted` claim | `core000.claim.decision-required` | Profile policy failure. |
-| **N14** | Run the CLI without `--allow-executable-profile` on a temp copy carrying evaluation markers in `renderer.ts`, `view.ts` and `validator.ts` | `core.profile.consent-required` | Consent gate; exit 1; `identity: null`, `markdown: null`; all three markers absent. |
+| **N14** | Run the CLI without `--allow-executable-profile` on a temp copy carrying evaluation markers in `view.ts` and `validator.ts` | `core.profile.consent-required` | Consent gate; exit 1; `identity: null`, `markdown: null`; both markers absent. The renderer is not in the CLI path. |
 
 N14 does not use the positive harness: the harness statically imports the renderer and therefore
 cannot demonstrate the no-consent boundary. N14 uses the CLI, which leaves the registry empty for a
-CORE-000 project, and the marker files prove that no profile module was evaluated.
+CORE-000 project, and the `view`/`validator` marker files prove that no profile module the engine
+loads was evaluated. A renderer marker would not prove anything here: the CORE-000 renderer is
+consumer-supplied, `runBuild` never imports it, and a consented CORE-000 CLI run would fail at
+`core.registry.missing` (G4) rather than load it. Consumer-supplied renderer loading is the
+consumer's separate trust boundary and is not gated by `allowExecutableProfile`.
 
 ### 6.3 Later cases
 
@@ -400,7 +412,8 @@ They are not waived; they move to the slice that adds the corresponding model su
 
 Negative cases exercise different layers: core, profile policy, provenance verification and
 consent. A test that checks only the code string is insufficient; it must also check the exit
-status, `blockedBy`, absence of an artifact and, for N14, absence of the evaluation markers.
+status, `blockedBy`, absence of an artifact and, for N14, absence of the view/validator evaluation
+markers.
 
 ---
 
@@ -506,10 +519,13 @@ PR after approval; this planning PR does not contain it. It tests whether the en
 load, validate, relate, provenance-check, policy-check, render and identify a small CORE-000
 project with no `spec/lib/` change.
 
-S1 is shaped for the recommended defaults **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A**. It does not
-implement D14 (consent-surface entities), P-2/P-3/P-6 (evidence and generated-artifact
-publication) or the full register. If a default changes, S1 is re-scoped; the change is not a
-reason to silently pick another option.
+S1 requires maintainer answers for **D1, D13, D15, P-1, P-4 and P-5**, plus the separate
+G4/consumer-harness confirmation. **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**;
+deferral does not resolve them, and the full decision record remains open until all ten are
+resolved; a `defer` leaves that item open. S1 is shaped for the recommended defaults D1 A, D13 A,
+D15 A, P-1 B, P-4 A and P-5 A. It does not implement D14 (consent-surface entities),
+P-2/P-3/P-6 (evidence and generated-artifact publication) or the full register. If a default
+changes, S1 is re-scoped; the change is not a reason to silently pick another option.
 
 ### 10.2 Exact files and paths
 
@@ -521,7 +537,7 @@ re-scoped.
 | `contracts/core000/contract-builder.json` | project input | Manifest: two documents, one source, one render declaration. |
 | `contracts/core000/structure.yml` | project input | Minimal public structure: `COMP-CORE`; `IF-MANIFEST`, `IF-BUILD-IDENTITY`, `IF-PROFILE-VALIDATOR`; `TB-PROFILE-EXEC`; `provides` relations. |
 | `contracts/core000/claims.yml` | project input | Five accepted claims (`C000-TR-001`, `C000-TR-003`, `C000-CT-025`, `C000-CT-026`, `C000-IM-004`), three source statements (`SRC-TR-001`, `SRC-MANIFEST-001`, `SRC-PROVENANCE-001`), eight evidence rows, three accepted engine decisions with the proposed IDs `DEC-35`, `DEC-PR-55` and `DEC-PR-56` (for the merged #35/#50, #37/#55 and #38/#56 decisions respectively), empty `independentVerifications`. |
-| `contracts/core000/run.ts` | consumer harness | Calls `runBuild` with consent and the CORE-000 renderer; modes draft/release/check; temporary-copy helper; evidence JSON writer. Not a profile input and not part of `inputDigest`. |
+| `contracts/core000/run.ts` | consumer harness | Calls `runBuild` with consent and the CORE-000 renderer; `BuildMode` draft/release plus the boolean `check` option; temporary-copy helper; evidence JSON writer. Not a profile input and not part of `inputDigest`. |
 | `contracts/core000/mutations.ts` | test support | Deterministic, named one-field mutations used only on temporary copies; not a project input and not profile code. |
 | `profiles/core000/profile.json` | profile | Eight kinds, eleven relation declarations, two document bindings, provenance mapping, file closure, `nunjucks` 3.2.4 dependency, view/validator/diagnostics. |
 | `profiles/core000/catalog.json` | profile | The S1 diagnostic codes in the M1 catalog shape. |
@@ -542,7 +558,7 @@ re-scoped.
 | `profiles/core000/schemas/independent-verification.schema.json` | profile schema | Entity schema; the S1 data list is empty. |
 | `profiles/core000/schemas/decision.schema.json` | profile schema | Entity schema. |
 | `profiles/core000/schemas/trust-boundary.schema.json` | profile schema | Entity schema. |
-| `tests/core000.test.ts` | test/harness | CI assertions for P1–P5 and N2/N3/N8/N11/N14; temp-only writes. |
+| `tests/core000.test.ts` | test/harness | CI assertions for S1-POS-01–S1-POS-05 and N2/N3/N8/N11/N14; temp-only writes. |
 
 No file under `spec/`, `profiles/core001/`, `spec/output/`, `CORE-001.legacy.md` or `pap/` is
 changed. No generated artifact or evidence record is committed by S1.
@@ -591,29 +607,33 @@ check is an error only on a contradiction.
 | `bun contracts/core000/run.ts --mode draft --write false --mutation implemented-without-evidence` | exit 1; `core000.claim.implemented-without-evidence`; no artifact. |
 | `bun contracts/core000/run.ts --mode draft --write false --mutation quote-outside` | exit 1; `core000.source.verification-failed`; no artifact. |
 | `bun contracts/core000/run.ts --mode draft --write false --mutation decision-missing` | exit 1; `core000.claim.decision-required`; no artifact. |
-| `bun spec/build.ts --spec <temp N14 copy> --no-write --json` (no consent flag) | exit 1; `core.profile.consent-required`; `identity: null`; `markdown: null`; renderer/view/validator markers absent. |
+| `bun spec/build.ts --spec <temp N14 copy> --no-write --json` (no consent flag) | exit 1; `core.profile.consent-required`; `identity: null`; `markdown: null`; view/validator markers absent; no CORE-000 renderer is in the CLI path. |
 
-The exact `run.ts` flag names are a harness detail; the invariant is that it calls `runBuild` with
-`allowExecutableProfile: true` (except N14), supplies the CORE-000 renderer registry, never bypasses the public pipeline, and writes evidence only to the requested path. The harness copies
+`BuildMode` is `draft` or `release`; `--check true` is a boolean option that compares the
+generated artifact with the existing file, not a third mode. The exact `run.ts` flag names are a
+harness detail; the invariant is that it calls `runBuild` with `allowExecutableProfile: true`
+(except N14), supplies the CORE-000 renderer registry, never bypasses the public pipeline, and
+writes evidence only to the requested path. The harness copies
 the project/profile into a temp workspace and rewrites only temp paths; `--mutation` applies one
 named mutation to that temp copy.
 
 ### 10.5 Tests and expected assertions
 
 `tests/core000.test.ts` uses the same `runBuild` path or a helper exported by `run.ts`; it does not
-call a private pipeline.
+call a private pipeline. The accepted plan calls these positive checks P1–P5; S1 uses
+**S1-POS-01–S1-POS-05** so they cannot be confused with decisions P-1–P-6.
 
-- **P1:** exit 0, `blockedBy: null`, identity non-null, markdown non-null, written false; diagnostic
+- **S1-POS-01:** exit 0, `blockedBy: null`, identity non-null, markdown non-null, written false; diagnostic
   code set equals `{core000.independent-verification.missing}`; the review count equals the number
   of active claims with `authority: external` or `human`.
-- **P2:** two separate processes return the same `inputDigest`, artifact SHA-256 and diagnostic
+- **S1-POS-02:** two separate processes return the same `inputDigest`, artifact SHA-256 and diagnostic
   code/order.
-- **P3:** release exits 1 with `blockedBy: "review"` and writes no release artifact.
-- **P4:** a written draft in a temp copy passes `check` (no `ERR_OUTPUT_STALE`).
-- **P5:** a one-claim mutation changes `inputDigest` and the artifact hash.
+- **S1-POS-03:** release exits 1 with `blockedBy: "review"` and writes no release artifact.
+- **S1-POS-04:** a written draft in a temp copy passes `check` (no `ERR_OUTPUT_STALE`).
+- **S1-POS-05:** a one-claim mutation changes `inputDigest` and the artifact hash.
 - **N2/N3/N8/N11:** exit 1, expected code, `blockedBy: "errors"`, no artifact.
-- **N14:** exit 1, `core.profile.consent-required`, `identity: null`, `markdown: null`, all three
-  marker files absent.
+- **N14:** exit 1, `core.profile.consent-required`, `identity: null`, `markdown: null`, both
+  view/validator marker files absent; no renderer marker is used.
 - **Evidence shape:** the `--evidence` JSON matches the §4.2 shape, contains no absolute host path
   or secret, and uses `SELF_BUILD_COMPLETED` only for a completed run.
 
@@ -655,7 +675,7 @@ Stop and report the concrete gap, without expanding the slice, if:
 - the renderer needs a template feature the `TemplateSet` does not provide;
 - a kind, relation or field cannot be expressed without inventing data the accepted design does
   not contain, or without a new maintainer decision;
-- the N14 marker test cannot reliably prove that no profile module was evaluated;
+- the N14 view/validator marker test cannot reliably prove that no profile module was evaluated;
 - the second process differs for a reason not explained by the controlled inputs;
 - any run writes to the repository, reads a secret, or cannot be cleaned up.
 
@@ -665,11 +685,12 @@ A stop condition is a finding for the maintainer, not permission to patch the co
 
 S1 is ready for maintainer review when:
 
-1. the maintainer has answered the decisions S1 depends on (at minimum D1, D13, D15, P-1, P-4,
-   P-5), or explicitly authorized S1 under the recommended defaults with the remaining items
-   deferred;
+1. the maintainer has resolved the mandatory S1 decisions **D1, D13, D15, P-1, P-4 and P-5**
+   (or explicitly authorized S1 under their recommended defaults), has explicitly deferred or
+   answered **D14, P-2, P-3 and P-6**, and has confirmed the separate consumer-harness/G4 boundary;
+   the full decision record remains open until every decision is resolved;
 2. `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` and `bun run check` are green;
-3. P1–P5 and N2/N3/N8/N11/N14 produce exactly the expected results, with no artifact on failures
+3. S1-POS-01–S1-POS-05 and N2/N3/N8/N11/N14 produce exactly the expected results, with no artifact on failures
    and no repository writes;
 4. the evidence record matches §4.2 and contains no absolute paths, secrets or private material;
 5. the CORE-001 artifact and lockfile are unchanged; `spec/lib/`, `profiles/core001/` and `pap/`
