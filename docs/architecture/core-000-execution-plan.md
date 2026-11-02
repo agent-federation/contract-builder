@@ -343,8 +343,9 @@ deferred (matrix G2); this plan does not change it.
 
 ### 4.1 Consent-boundary run (N14)
 
-The positive harness imports the CORE-000 renderer at module load because it always passes
-consent. That import is **not** evidence for the consent boundary and must not be used for N14.
+The positive harness statically imports the CORE-000 renderer at module load; every positive run
+passes consent, but the import is the consumer's own trust decision. It is **not** evidence for the
+consent boundary and must not be used for N14.
 
 **Revision 2 correction (Issue #72, proposed):** the earlier N14 wording used a renderer marker as
 proof. That was wrong. The CORE-000 renderer is consumer-supplied: `runBuild` never imports it, and
