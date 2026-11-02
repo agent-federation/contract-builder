@@ -51,14 +51,14 @@ for these answers and an explicit authorization.
 | ID | Question | Recommendation | Needed before the first slice? |
 |---|---|---|---|
 | D1 | Where do the CORE-000 project and profile live? | A: `contracts/core000/` + `profiles/core000/` | Yes — all paths depend on it. |
-| D13 | How is an independent verification represented? | A: separate `independent_verification` kind | Yes if the first slice includes the model schema. |
-| D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | Yes if the first slice includes the profile/model skeleton. |
-| D15 | Must every normative source statement have a checked verification record? | A: require a stored `verified` record; failed/stale/unavailable is an error | Yes if the first slice includes provenance policy. |
-| P-1 | Complete per-case fixture projects or base + mutations? | B: base project + one deterministic temp-copy mutation per case | Before negative tests. |
+| D13 | How is an independent verification represented? | A: separate `independent_verification` kind | Yes — S1 includes the kind schema. |
+| D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | Only if the slice models consent as interface/diagnostic entities; S1 defers it. |
+| D15 | Must every normative source statement have a checked verification record? | A: require a stored `verified` record; failed/stale/unavailable is an error | Yes — S1 includes the provenance policy. |
+| P-1 | Complete per-case fixture projects or base + mutations? | B: base project + one deterministic temp-copy mutation per case | Yes — S1 includes negative tests. |
 | P-2 | Evidence path/format? | A: `evidence/core000/<run>/result.json` + summary doc | Can follow the first slice; needed before evidence capture. |
 | P-3 | Commit the generated CORE-000 draft? | A: commit after a successful reviewed run | Can follow the first slice; needed before accepting the generated artifact. |
-| P-4 | Renderer dependency? | A: `nunjucks` 3.2.4, declared and lockfile-pinned | Yes if the first slice includes the renderer. |
-| P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | Before the first run/evidence capture. |
+| P-4 | Renderer dependency? | A: `nunjucks` 3.2.4, declared and lockfile-pinned | Yes — S1 includes the renderer. |
+| P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | Yes — S1 includes the harness. |
 | P-6 | Evidence and independent records in git? | A: commit run evidence and external verification records | Can follow the first slice; needed before evidence publication. |
 
 “Needed before the first slice” is a dependency note, not a decision: the first slice can be

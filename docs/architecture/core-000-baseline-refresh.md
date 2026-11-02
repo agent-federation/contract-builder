@@ -118,7 +118,7 @@ single-render behaviour, provenance records, renderer registry and `inputDigest`
 `bun.lock` is byte-identical (same SHA-256 as the plan baseline), so the CORE-001 and CORE-000
 dependency pins are unchanged. `nunjucks` remains pinned at 3.2.4.
 
-`package.json` changed only in the PAP-related surface: the `license`, `description`, `bin.pap`,
+`package.json` changed only in metadata and scripts: the `license`, `description`, `bin.pap`,
 `scripts.pap` and `scripts.pap:test` fields. `tsconfig.json` adds `pap/**/*.ts` to `include`. These
 do not alter the engine's build path, the profile closure, the CORE-000 command surface or the
 `inputDigest` inputs.
