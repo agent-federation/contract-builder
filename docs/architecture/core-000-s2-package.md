@@ -3,6 +3,9 @@
 **Status:** proposed for maintainer decision. Planning and decision-preparation only. This document
 does not implement S2, does not execute a profile, and does not create or change code, schemas,
 project data, tests, evidence, fixtures or generated artifacts.
+**Revision 1.1 (documentation precision pass, 2026-11-02):** applies the C1–C5 corrections —
+conditional check-count criterion, complete correction scope, synthetic-fixture/independent-evidence
+boundary, claim-status semantics and source traceability. No decision status changed.
 **Source of authority:** [Issue #72 maintainer comment 6586047089](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6586047089)
 (zaebee, 2026-11-02): S2 — structure and full model — is the next milestone, but the maintainer
 authorized only preparation of a bounded package; implementation needs explicit approval.
@@ -74,6 +77,25 @@ The counts below come from the accepted design and the S1 profile, not from a ne
 **Count discrepancy — S2-D1.** The accepted design's prose says `23 profile policy checks`, but its
 check table enumerates **24** codes. S1 implements 13 and the missing set is 11. The package treats
 this as an open decision, not a silent correction.
+
+#### 1.2.1 Complete count-correction scope
+
+A repository-wide search at `9966488` for `23 policy`, `23-policy`, `23 profile` and `24-code`
+found the following references. This list is the complete scope; if S2-D1 A is accepted, all rows
+are corrected together; if S2-D1 B is accepted, the package must instead name the excluded check.
+
+| File | Exact reference | Current count | Required action |
+|---|---|---|---|
+| `docs/architecture/core-000-self-contract.md` | §5.7 prose above the check table | 23 | Count-only correction to 24 if S2-D1 A; no normative change |
+| `docs/architecture/core-000-execution-plan.md` | §1 design-register paragraph and baseline table | 23 | Count-only correction to 24 if S2-D1 A |
+| `docs/architecture/core-000-self-build-poc.md` | §10.7 “full 78-claim register” paragraph | 23 | Count-only correction to 24 if S2-D1 A |
+| `docs/architecture/implementation-status.md` | §4.1 “What S1 does not establish” (`23-policy-check`) | 23 | Count-only correction to 24 if S2-D1 A; this file was missing from the earlier correction list |
+| `docs/architecture/core-000-s2-package.md` | §1.2, §4.3 and §8 criterion 4 | 24 with the 23 prose recorded | §8 must be conditional (C1); §1.2/§4.3 already record both; no silent choice |
+
+No other repository reference was found at this commit. No count is changed by this package
+revision because S2-D1 is open; the table defines the correction scope for the future decision, and
+a later documentation change that adds a count reference must extend it rather than patch one file
+in isolation.
 
 ---
 
@@ -217,8 +239,8 @@ normative statement.
 S2.2 encodes all 78 claims from the accepted design §4.2 with the same IDs and classes. Rules:
 
 - no new claim ID, no deleted claim ID and no invented decision;
-- status changes require code/test evidence and a recorded evidence revision; S2 does not promote a
-  claim merely because the model now exists;
+- status changes require code/test evidence, a recorded evidence revision and the separately
+authorized decision in C4; S2 does not promote a claim merely because the model now exists;
 - a claim awaiting an unresolved decision keeps `decision`/`decidedBy` unresolved and produces the
   `core000.decision.unresolved` review, not an invented accepted decision;
 - no claim is marked `independently_verified`; `independentVerifications` stays empty;
@@ -228,14 +250,118 @@ S2.2 encodes all 78 claims from the accepted design §4.2 with the same IDs and 
   implementation commit; evidence files remain outside `inputDigest` (G1), so external review must
   re-check them.
 
+**Claim-status semantics (C4).** S2.2 may:
+
+- copy the accepted source status dimensions exactly (`decision`, `implementation`, `tests`,
+  `verification`);
+- add or refine evidence locators for the same status when the accepted source supports them;
+- leave a missing, partial or unresolved status as it is and surface the existing review diagnostic.
+
+S2.2 may **not**:
+
+- promote a claim because the model is now complete, structurally valid or successfully built;
+- convert missing, partial or unresolved evidence into a positive implementation/test claim;
+- change an accepted decision entity to resolve an open decision;
+- mark any claim `independently_verified` or create an engine-generated independent record.
+
+A proposed status change requires explicit source evidence **and** a separately authorized
+decision; it is not an S2.2 side effect. The S2.2 PR must state every status it changed and the
+source/evidence for that change, or state that it copied statuses unchanged.
+
+### 4.6 Source traceability for S2 additions (C5)
+
+Every element S2 introduces is listed below with its accepted source, whether it is structural or
+normative, the claim/check area it serves, and whether it is directly represented from an accepted
+source or is a **new structural identifier** that S2.1 must review. A new identifier is not new
+normative content and is not accepted merely because it appears in this package. No new claim is
+introduced.
+
+#### 4.6.1 New entity kinds
+
+| Kind | Accepted source | Type | Related claims / checks | Origin |
+|---|---|---|---|---|
+| `phase` | design §5.2, §5.3 | structural | C000-IM-001/002; C000-SV-002; lifecycle checks | directly represented |
+| `transition` | design §5.2, §5.3, §5.4 | structural | C000-IM-001; C000-SV-002; core relation checks | directly represented |
+| `dependency` | design §5.2, §5.3 | structural | C000-CT-022; C000-GAP-006; core relation checks | directly represented |
+| `extension_point` | design §5.2, §5.3, §5.4 | structural | C000-TR-001/003/004/006; C000-IM-006; trust checks | directly represented |
+| `diagnostic` | design §5.2, §5.3, §5.7 | structural catalog | C000-IM-002/003; catalog/unknown-code checks | directly represented |
+| `conformance_case` | design §5.2, §5.3, §7.8 | structural | C000-SV-004; `conformance.case-uncovered` | directly represented |
+
+#### 4.6.2 New relation declarations
+
+| Relation(s) | Accepted source | Type | Related claims / checks | Origin |
+|---|---|---|---|---|
+| `requires` / `requiredBy` | design §5.4 #3–4 | structural | C000-CT-022; C000-GAP-006; relation/cardinality checks | directly represented |
+| `startsAt`, `endsAt` | design §5.4 #5–6 | structural | C000-IM-001; C000-SV-002; relation/cardinality checks | directly represented |
+| `dependsOn` / `dependedOnBy` | design §5.4 #14–15 | structural | C000-SV-001/002; C000-IM-001; relation checks | directly represented |
+| `covers` / `coveredBy` | design §5.4 #18–19 | structural | C000-SV-004; conformance check | directly represented |
+| `concerns` / `guardedBy` | design §5.4 #20–21 | structural | C000-TR-001/003; trust checks | directly represented |
+| `exposes` / `exposedBy` | design §5.4 #22–23 | structural | C000-TR-006; C000-IM-006; extension/trust checks | directly represented |
+| `loadedBy` / `loads` | design §5.4 #24–25 | structural | C000-TR-006; C000-IM-006; consent/trust checks | directly represented |
+| `supersedes` / `supersededBy` | design §5.4 #26–27 | structural | C000-ST-001..004; claim lifecycle checks | directly represented |
+| `raisedIn` | design §5.4 #28 | structural | C000-IM-002/003; diagnostic catalog/phase checks | directly represented |
+
+#### 4.6.3 New policy checks
+
+| Check | Accepted source | Type | Related claims | Origin |
+|---|---|---|---|---|
+| `core000.claim.invalid-status` | design §5.7 | normative profile policy | C000-ST-003; C000-IM-002 | directly represented |
+| `core000.claim.unsupported-guarantee` | design §5.7 | normative profile policy | C000-CT-011/012 | directly represented |
+| `core000.claim.status-class-conflict` | design §5.7 | normative profile policy | claim class/status rows in C000-ST/CT | directly represented |
+| `core000.independent-verification.incomplete` | design §5.7, §8.3 | normative profile policy | C000-VF-004; C000-EV-002 | directly represented |
+| `core000.independent-verification.self` | design §5.7, §8.3 | normative profile policy | C000-VF-001..004 | directly represented |
+| `core000.independent-verification.record-missing` | design §5.7, §8.3 | normative profile policy | C000-VF-004 | directly represented |
+| `core000.model.interface-owner-mismatch` | design §5.7 | normative profile policy | C000-CT-001..003; C000-SC-002 | directly represented |
+| `core000.evidence.locator` | design §5.7, §2.4 | normative profile policy | C000-EV-001..003 | directly represented |
+| `core000.evidence.orphan` | design §5.7 | normative profile policy | C000-EV-001..003 (warning) | directly represented |
+| `core000.surface.claim-missing` | design §5.7 | normative profile policy | C000-SC-002; C000-CT surface rows (warning) | directly represented |
+| `core000.conformance.case-uncovered` | design §5.7 | normative profile policy | C000-SV-004 (warning) | directly represented |
+
+#### 4.6.4 Structure identifiers
+
+The IDs are listed in full. `direct` means the accepted design/contract names the ID; `new
+structural` means the ID is a proposed encoding of an accepted public concept and needs S2.1
+review before it is treated as accepted.
+
+| Identifier group | IDs | Accepted source | Type | Related claims / checks | Origin |
+|---|---|---|---|---|---|
+| Components | `COMP-CORE` | design §5.9 | structural | C000-SC-002; C000-CT/IM; `surface.claim-missing` | direct |
+| Components | `COMP-PROFILE`, `COMP-PROJECT`, `COMP-ADAPTER`, `COMP-RENDERER`, `COMP-CLI`, `COMP-REVIEWER` | design §5.2/§3.1; engine contract §2/§3 | structural | C000-CT/IM/TR; `surface.claim-missing` | new structural |
+| Interfaces | `IF-MANIFEST`, `IF-BUILD-IDENTITY`, `IF-PROFILE-VALIDATOR` | design §5.9/§5.2 | structural | C000-CT/IM; `model.interface-owner-mismatch` | direct |
+| Interfaces | `IF-PROJECT-MODEL`, `IF-DIAGNOSTIC`, `IF-BUILD-RESULT`, `IF-ADAPTER`, `IF-RENDERER`, `IF-CONFORMANCE`, `IF-CLI` | design §5.2; engine contract §3/§4/§7/§10/§11 | structural | C000-CT/IM; `surface.claim-missing` | new structural |
+| Phases | `PH-STRUCTURE`, `PH-REFERENCE` | design §5.9/§5.4 | structural | C000-IM-001/002; C000-SV-002 | direct |
+| Phases | `PH-LOAD`, `PH-PROVENANCE`, `PH-VERIFICATION`, `PH-CONSISTENCY`, `PH-REVIEW`, `PH-ARTIFACT` | design §5.2; execution plan §4 | structural | C000-IM-001/002; C000-SV-002 | new structural |
+| Transitions | `TR-STRUCTURE-REFERENCE` | design §5.9 | structural | C000-IM-001; C000-SV-002 | direct |
+| Transitions | `TR-LOAD-STRUCTURE`, `TR-REFERENCE-PROVENANCE`, `TR-PROVENANCE-VERIFICATION`, `TR-VERIFICATION-CONSISTENCY`, `TR-CONSISTENCY-REVIEW`, `TR-REVIEW-ARTIFACT` | execution plan §4 | structural | C000-IM-001; C000-SV-002 | new structural |
+| Extension points | `EXT-PROFILE-VALIDATOR` | design §5.9 | structural | C000-TR-001/003/006 | direct |
+| Extension points | `EXT-PROFILE-VIEW`, `EXT-RENDERER`, `EXT-ADAPTER` | design §5.2/§3.3; engine contract §3.3/§11 | structural | C000-TR-006; C000-IM-006 | new structural |
+| Trust boundaries | `TB-PROFILE-EXEC` | design §5.9; accepted #35/PR #50 facts | structural | C000-TR-001..006; C000-IM-007 | direct |
+| Trust boundaries | `TB-CONSUMER-EXTENSION` | S1 package §3.2/§6.2 and #72 review: consumer-supplied renderer is a separate trust boundary | structural | C000-IM-004/006; C000-TR-006 | new structural |
+| Diagnostics | all 24 `core000.*` codes in design §5.7 | design §5.7 | structural catalog; codes are normative where the table says so | C000-IM-002/003; catalog/unknown-code checks | direct |
+| Dependencies | not fixed in this package | `package.json`, `bun.lock`, contract §3/§13 | structural | C000-CT-022; C000-GAP-006 | new/derived; S2.1 must choose manifest-name IDs |
+| Conformance cases | none (empty list) | design §5.2; execution plan §3.4; S2-D3 | structural | C000-SV-004; `conformance.case-uncovered` | empty; no ID |
+
+**Traceability gaps to resolve in S2.1 review.**
+
+1. The `new structural` component/interface/phase/transition/extension IDs have no individual
+   accepted decision; they encode accepted public concepts but need S2.1 review before being
+   called the accepted structure.
+2. `TB-CONSUMER-EXTENSION` is grounded in the S1 consumer-renderer trust boundary, not in a
+   design-named entity; confirm it or omit it.
+3. Dependency IDs are deliberately unfixed; S2.1 must use manifest names and add the mapping rather
+   than inventing a parallel vocabulary.
+4. Diagnostic IDs are all 24 codes from design §5.7; if S2-D1 B chooses 23, the 24th diagnostic row
+   is also removed from the structure data and tests.
+
 ---
 
 ## 5. Staged work package and exact files
 
 ### 5.1 S2.1 — model surface and structure
 
-**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, from 13 to 24 checks and
-from the S1 structure excerpt to the full structure, while the existing five claims still build.
+**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, from 13 to the check
+count chosen by S2-D1 (24 recommended; 23 only if the excluded code is named), and from the S1
+structure excerpt to the full structure, while the existing five claims still build.
 
 | Path | Change |
 |---|---|
@@ -265,6 +391,7 @@ from the S1 structure excerpt to the full structure, while the existing five cla
 | `docs/architecture/core-000-self-contract.md` | Count-only correction if S2-D1 A (23 → 24); no normative change. |
 | `docs/architecture/core-000-execution-plan.md` | Count-only correction if S2-D1 A (23 → 24); no normative change. |
 | `docs/architecture/core-000-self-build-poc.md` | Count-only correction if S2-D1 A (23 → 24); no normative change. |
+| `docs/architecture/implementation-status.md` | Count-only correction if S2-D1 A (23 → 24) in §4.1; no normative change. |
 
 S2.1 is reviewable without the full 78-claim register because it keeps the S1 claims and adds the
 model surface. It does not claim the full model is complete. The full public surface may produce
@@ -299,7 +426,7 @@ N1–N18 matrix remains S3 under S2-D4 A; S2.3 does not re-implement it.
 |---|---|
 | `contracts/core000/mutations.ts` | Named one-field mutations only for the focused S2 cases that need a harness run; no full N1–N18 table. |
 | `contracts/core000/run.ts` | Focused mutation list/expected-outcome wiring only; no bypass of `runBuild`. |
-| `tests/core000.test.ts` | Focused tests for each of the 11 new checks, plus S2 positive/release assertions; no claim that S3’s matrix is complete. |
+| `tests/core000.test.ts` | Focused tests for each of the 11 new checks, plus S2 positive/release assertions. The three independent-verification checks use synthetic in-memory/temp fixtures, not project records; no claim that S3’s matrix is complete. |
 | `evidence/core000/<run>/result.json` | S2 run evidence if P-2/P-6 A. |
 | `docs/architecture/core-000-execution-evidence.md` | S2 human summary if P-2 A. |
 
@@ -375,6 +502,20 @@ Each test asserts the exact code, severity, entity/location and expected exit be
 assertion is insufficient. For harness cases, one mutation in a fresh copy is still required; N14
 uses `view`/`validator` markers only, never a consumer-supplied renderer marker.
 
+#### 6.3.1 Synthetic fixtures are not independent evidence (C3)
+
+S2 creates **zero** independent-verification records. The independent-verification checks
+(`incomplete`, `self`, `record-missing`) are still testable: S2.3 may use synthetic in-memory
+models or temporary test fixtures to exercise them. The boundary is explicit:
+
+- a synthetic fixture is a **test input**, not a real verification record and not project data;
+- producer-generated or test-generated evidence is **not independent evidence**;
+- passing a synthetic check does **not** establish independent verification or H3;
+- no `independent_verification` entity is added to `claims.yml`, and no
+  `verification/core000/` record is created or committed in S2;
+- the S2 evidence record may report producer evidence shape and check outcomes, but must label
+  H3 `NOT_PERFORMED`.
+
 The full N1–N18 matrix is specified in the accepted execution plan and remains the S3 acceptance
 gate. S2 does not silently absorb it.
 
@@ -443,7 +584,9 @@ S2 is ready for maintainer review only when:
 1. this package is approved/merged and a dedicated implementation task references it;
 2. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are decided or explicitly deferred with stated S2 behavior;
 3. S2.1, S2.2 and S2.3 are merged as separate focused PRs;
-4. the profile declares 14 kinds, 28 relation declarations and the chosen 24-code check set;
+4. the profile declares 14 kinds, 28 relation declarations and the check set **chosen by S2-D1**:
+   24 enumerated codes only if S2-D1 A is explicitly accepted; 23 only if S2-D1 B names the
+   excluded code. Until S2-D1 is resolved, 24 is a recommendation, not an accepted requirement;
 5. `claims.yml` has 78 accepted claim IDs, no invented IDs and no `independently_verified` claim;
 6. the full positive run and release block pass exactly; the S1 cases and the 11 focused new-check
    tests pass with no artifact on failures and no repository writes; the full N1–N18 matrix remains
