@@ -1,19 +1,22 @@
-# CORE-000 ephemeral self-build PoC — proposed plan and bounded first slice
+# CORE-000 ephemeral self-build PoC — approved S1 plan and bounded first slice
 
-**Status:** proposed for maintainer review. Planning only. This document does not create the
-CORE-000 project or profile, does not change code, tests, schemas, fixtures, evidence or generated
-artifacts, does not execute the experiment, and does not accept any open decision.
+**Status:** the maintainer approved the bounded S1 package on 2026-11-02. This document records
+the approved S1 boundary; S1 implementation is authorized only after the canonical decision-record
+update merges and a dedicated implementation task references it. Planning/decision record only:
+this document does not create the CORE-000 project or profile, does not change code, tests,
+schemas, fixtures, evidence or generated artifacts, and does not execute the experiment.
 **Issue:** [#72](https://github.com/agent-federation/contract-builder/issues/72).
 **Parent design:** [`core-000-self-contract.md`](core-000-self-contract.md) (PR #51).
 **Accepted execution plan:** [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59),
 refreshed by [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
-**Open decisions:** [`core-000-decision-record.md`](core-000-decision-record.md).
+**Decision record:** [`core-000-decision-record.md`](core-000-decision-record.md); D14, P-2, P-3
+and P-6 remain open after the S1 deferrals.
 **Refreshed baseline:** `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608`; the original plan baseline is
 `cc645357646fe57e2bdedb1d215ae87b79e16501`.
 
-> This is a companion to the accepted execution plan, not a replacement. It adds the ephemeral
-> PoC mode and a bounded first-slice proposal requested by Issue #72. Every addition is marked
-> **proposed**; none of it is accepted, implemented or verified.
+> This is a companion to the accepted execution plan, not a replacement. It records the approved
+> S1 boundary for Issue #72. The decision was recorded after PR #74 merged as `1c405c2`; no S1
+> implementation is included. H1/H2/H3 results remain unproduced and unverified.
 
 ---
 
@@ -21,13 +24,13 @@ refreshed by [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
 
 | Part | Content |
 |---|---|
-| **Facts** | Current `main` is `c6ee644` (PR #73). The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/` (PR #64); #73 is a docs-only PAP status update. Neither has a demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. No decision has been accepted. |
-| **Recommendations** | Resolve the S1-blocking decisions **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A** (or record alternatives). **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**, but the full decision record remains open until all ten are resolved; a `defer` leaves that item open. Approve the bounded first slice **S1** in §10 as the next implementation step. Confirm separately that a consumer harness may be used while G4 remains open. Treat a fresh temporary directory as a workspace, not a security sandbox. |
-| **Unresolved decisions** | D1, D13, D14, D15 and P-1–P-6 all remain open until the maintainer answers them; deferral is not resolution. S1 depends on D1, D13, D15, P-1, P-4, P-5 and the separate G4/consumer-harness confirmation; D14, P-2, P-3 and P-6 may be deferred for S1. P-2's deferral covers only durable publication/location and the summary format; S1 still writes and asserts the transient evidence record. S1 is shaped for the recommended defaults and is re-scoped if they change. |
-| **Requested approvals** | (1) Answer the six S1-blocking decisions D1, D13, D15, P-1, P-4, P-5. (2) Explicitly defer or answer D14, P-2, P-3, P-6; the full record stays open until all ten are resolved. (3) Confirm the separate consumer-harness/G4 boundary. (4) Authorize S1 after (1) and (3). (5) Confirm that no CORE-000 implementation starts before this plan and S1 are approved. |
+| **Facts** | The planning baseline is `c6ee644` (PR #73); the decision was recorded after PR #74 merged as `1c405c2`. The repository is green under the accepted baseline commands; `spec/` and `profiles/` are unchanged since the plan baseline; `bun.lock` is unchanged; the CORE-001 artifact hash and 327-line count are unchanged. The only post-baseline code addition is the independent PAP v0.1 verifier under `pap/` (PR #64); #73 is a docs-only PAP status update. Neither has a demonstrated CORE-000 impact. No CORE-000 project, profile, artifact or evidence exists. The maintainer recorded the S1 decision on 2026-11-02. |
+| **Recommendations** | Recorded decision: **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A accepted**; **D14, P-2, P-3 and P-6 explicitly deferred for S1**, remaining open. The bounded consumer harness is confirmed for S1 only; G4 and the generic CLI/API gap remain open, and harness use is not independent verification. Merge this canonical documentation update; then S1 implementation may start when a dedicated task references it. Treat a fresh temporary directory as a workspace, not a security sandbox. |
+| **Unresolved decisions** | **D14, P-2, P-3 and P-6 remain open** as S1 deferrals; deferral is not resolution. P-2's deferral covers only durable publication/location and the summary format; S1 still writes and asserts the transient evidence record. The six accepted decisions are recorded in the canonical decision record. |
+| **Requested approvals** | Merge this canonical decision-record update. No further decision is needed for S1; after merge, S1 implementation may start when a dedicated task references the merged record. The four deferred items (D14, P-2, P-3, P-6) remain open for later decisions. |
 
-No row above is an acceptance. The maintainer remains the only authority for the decisions and
-for authorizing implementation.
+The six accepted decisions are recorded above; the four deferrals remain open. The maintainer
+remains the only authority for the open items and for any scope expansion.
 
 ---
 
@@ -533,7 +536,7 @@ These risks are limitations of the proposed experiment, not reasons to weaken th
 
 ---
 
-## 10. First implementation slice S1 — proposed, not authorized
+## 10. First implementation slice S1 — approved for S1; implementation after canonical merge
 
 ### 10.1 Purpose
 
@@ -543,15 +546,16 @@ PR after approval; this planning PR does not contain it. It tests whether the en
 load, validate, relate, provenance-check, policy-check, render and identify a small CORE-000
 project with no `spec/lib/` change.
 
-S1 requires maintainer answers for **D1, D13, D15, P-1, P-4 and P-5**, plus the separate
-G4/consumer-harness confirmation. **D14, P-2, P-3 and P-6 may be explicitly deferred for S1**;
-deferral does not resolve them, and the full decision record remains open until all ten are
-resolved; a `defer` leaves that item open. **P-2's deferral covers only durable publication and
-the summary format; S1 still writes and asserts the transient record.** S1 is shaped for the
-recommended defaults D1 A, D13 A,
-D15 A, P-1 B, P-4 A and P-5 A. It does not implement D14 (consent-surface entities),
-P-2/P-3/P-6 (evidence and generated-artifact publication) or the full register. If a default
-changes, S1 is re-scoped; the change is not a reason to silently pick another option.
+The maintainer approved **D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A** for S1 on 2026-11-02 and
+explicitly deferred **D14, P-2, P-3 and P-6**; those four remain open. The consumer harness is
+confirmed for S1 only; G4 remains open and is not closed. **P-2's deferral covers only durable
+publication and the summary format; S1 still writes and asserts the transient record.**
+
+S1 implementation is authorized only after this canonical documentation update is merged and a
+dedicated implementation task references the merged decision record. S1 does not implement D14
+(consent-surface entities), P-2/P-3/P-6 (durable evidence publication, generated-artifact commit or
+evidence commit) or the full register. Any scope expansion or material deviation requires a new
+maintainer decision.
 
 ### 10.2 Exact files and paths
 
@@ -711,10 +715,9 @@ A stop condition is a finding for the maintainer, not permission to patch the co
 
 S1 is ready for maintainer review when:
 
-1. the maintainer has resolved the mandatory S1 decisions **D1, D13, D15, P-1, P-4 and P-5**
-   (or explicitly authorized S1 under their recommended defaults), has explicitly deferred or
-   answered **D14, P-2, P-3 and P-6**, and has confirmed the separate consumer-harness/G4 boundary;
-   the full decision record remains open until every decision is resolved;
+1. the canonical decision record is merged with **D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A
+   accepted**, **D14, P-2, P-3 and P-6 deferred for S1**, and the consumer-harness/G4 boundary
+   confirmed for S1; the four deferred items remain open;
 2. `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` and `bun run check` are green;
 3. S1-POS-01–S1-POS-05 and N2/N3/N8/N11/N14 produce exactly the expected results, with no artifact on failures
    and no repository writes;
@@ -766,10 +769,11 @@ No later slice is authorized by this document.
 - It does not implement CORE-000, create its project/profile/schemas/fixtures/tests/evidence or
   generate its artifact.
 - It does not change `spec/lib/`, `profiles/core001/`, `spec/output/`, CORE-001 content or `pap/`.
-- It does not accept any maintainer decision or represent a recommendation as accepted.
+- It records the 2026-11-02 decision but does not implement S1 or execute a profile; the four
+  deferred items remain open.
 - It does not claim that a fresh temporary directory is a sandbox, that consent is isolation, or
   that any existing control is a security boundary.
 - It does not claim reproducibility, independent verification, correctness, security, hermeticity
   or conformance.
-- It does not authorize the first slice or any later slice. Implementation starts only after
-  explicit maintainer approval.
+- It authorizes S1 implementation only after this canonical update merges and a dedicated task
+  references the merged record; later slices remain unauthorized.
