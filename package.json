@@ -8,11 +8,16 @@
   "engines": {
     "bun": ">=1.4.0"
   },
-  "description": "Prototype builder for a machine-readable normative specification (CORE-001 slice §10.1-10.2)",
+  "description": "Prototype builder for a machine-readable normative specification (CORE-001 slice §10.1-10.2) plus the independent PAP v0.1 verifier",
+  "bin": {
+    "pap": "pap/bin/pap"
+  },
   "scripts": {
     "build": "bun spec/build.ts --mode draft --allow-executable-profile",
     "build:release": "bun spec/build.ts --mode release --allow-executable-profile",
     "check": "bun spec/build.ts --mode draft --check --allow-executable-profile",
+    "pap": "bun pap/src/cli.ts",
+    "pap:test": "bun test pap/tests",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
