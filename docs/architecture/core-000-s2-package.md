@@ -3,12 +3,15 @@
 **Status:** planning package accepted by maintainer decision on 2026-11-03. Planning only; this
 document does not authorize or implement S2, execute a profile, or create or change code, schemas,
 project data, tests, evidence, fixtures or generated artifacts.
-**Revision 1.1 (documentation precision pass, 2026-11-02):** applies the C1–C5 corrections —
-conditional check-count criterion, complete correction scope, synthetic-fixture/independent-evidence
-boundary, claim-status semantics and source traceability. No decision status changed.
+**Revision 1.2 (maintainer decisions recorded, 2026-11-03):** records the accepted D14/P-2/P-3/P-6
+and S2-D1–S2-D4 planning decisions; applies the 24-code decision and clarifies historical S1 gates.
+The underlying S1 snapshots remain unchanged.
 **Source of authority:** [Issue #72 maintainer comment 6586047089](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6586047089)
-(zaebee, 2026-11-02): S2 — structure and full model — is the next milestone, but the maintainer
-authorized only preparation of a bounded package; implementation needs explicit approval.
+(zaebee, 2026-11-02) authorized preparation of a bounded S2 package only. The subsequent
+2026-11-03 decisions accepting D14/P-2/P-3/P-6 and S2-D1–S2-D4 are recorded in the canonical
+[`core-000-decision-record.md`](core-000-decision-record.md); the maintainer approval was given in
+the project-owner conversation and is not a separately linked public GitHub comment. Implementation
+still requires separate explicit approval for each S2 stage.
 **S1 status:** [PR #77](https://github.com/agent-federation/contract-builder/pull/77) merged as
 `07cbf5bd6cbed740e55351612d0300196b8d1464`; its status-matrix follow-up
 [PR #79](https://github.com/agent-federation/contract-builder/pull/79) merged as
@@ -91,20 +94,20 @@ forward-looking references are to be reconciled to 24; historical S1 snapshots r
 
 | File | Exact reference | Classification | Current | Action under S2-D1 |
 |---|---|---|---|---|
-| `docs/architecture/core-000-self-contract.md` | §5.7 prose above the check table | design baseline / source of discrepancy | 23 | If A: correct to 24 (normative count only); if B: keep 23 and name the excluded code |
-| `docs/architecture/core-000-execution-plan.md` | preamble immediately before §0 — “Accepted design: … 23 profile policy checks” | forward-looking accepted-design baseline | 23 | If A: reconcile to 24; if B: retain 23 and name the excluded code |
-| `docs/architecture/core-000-execution-plan.md` | §1 design-register paragraph | forward-looking plan baseline | 23 | If A: correct to 24; if B: keep 23 with the excluded code named |
-| `docs/architecture/core-000-execution-plan.md` | §1 baseline table row “Model” | forward-looking plan baseline | 23 | If A: correct to 24 |
-| `docs/architecture/core-000-execution-plan.md` | §2.2 catalog row “23 CORE-000 diagnostic codes” | forward-looking proposed profile | 23 | If A: correct to 24; if B: reconcile to 23 |
-| `docs/architecture/core-000-execution-plan.md` | §3.4 “23 CORE-000 diagnostic entries” | forward-looking structure data | 23 | If A: correct to 24; if B: reconcile to 23 |
-| `docs/architecture/core-000-self-build-poc.md` | §2.1 “full 78-claim / 14-kind / 28-relation / 23-check register” | forward-looking full-model description | 23 | If A: correct to 24; if B: keep 23 with the excluded code named |
+| `docs/architecture/core-000-self-contract.md` | §5.7 prose above the check table | design baseline / source of discrepancy | 23 | Correct the prose count to 24; the enumerated table remains normative. |
+| `docs/architecture/core-000-execution-plan.md` | preamble immediately before §0 — “Accepted design: … 23 profile policy checks” | forward-looking accepted-design baseline | 23 | Reconcile the accepted-design baseline to 24. |
+| `docs/architecture/core-000-execution-plan.md` | §1 design-register paragraph | forward-looking plan baseline | 23 | Correct the forward-looking count to 24. |
+| `docs/architecture/core-000-execution-plan.md` | §1 baseline table row “Model” | forward-looking plan baseline | 23 | Correct the forward-looking count to 24. |
+| `docs/architecture/core-000-execution-plan.md` | §2.2 catalog row “23 CORE-000 diagnostic codes” | forward-looking proposed profile | 23 | Correct the forward-looking count to 24. |
+| `docs/architecture/core-000-execution-plan.md` | §3.4 “23 CORE-000 diagnostic entries” | forward-looking structure data | 23 | Correct the forward-looking count to 24. |
+| `docs/architecture/core-000-self-build-poc.md` | §2.1 “full 78-claim / 14-kind / 28-relation / 23-check register” | forward-looking full-model description | 23 | Correct the forward-looking full-model count to 24. |
 | `docs/architecture/core-000-self-build-poc.md` | §10.6 “Policy check families (9 of 23)” | historical S1 scope/planning snapshot | 23 | Retain as an S1 snapshot; if touched, add a note that the design table enumerates 24 and S2-D1 governs the full count. Not a blanket correction |
 | `docs/architecture/core-000-self-build-poc.md` | §10.7 “23 policy checks” in explicit exclusions | historical S1 scope snapshot | 23 | Retain as an S1 exclusion; if touched, label it as the S1 planning count, not the current full model |
 | `docs/architecture/core-000-self-build-poc.md` | §10.10 “nine policy-check families … 23-check model” | historical S1 scope/acceptance snapshot | 23 | Retain as S1 evidence; if touched, label historical and do not imply the full model is 23 |
-| `docs/architecture/core-000-self-build-poc.md` | §11.1 “24 enumerated … 23; S2-D1 resolves” | forward-looking, formerly conditional | 24/23 recorded | S2-D1 A is now accepted; reconcile the forward-looking count to 24 while retaining the historical explanation of the original discrepancy |
+| `docs/architecture/core-000-self-build-poc.md` | §11.1 “24 enumerated … 23; S2-D1 resolves” | forward-looking, formerly conditional | 24/23 recorded | State that the accepted full-model count is 24; retain the historical explanation of the original discrepancy. |
 | `docs/architecture/implementation-status.md` | §4.1 “What S1 does not establish” (`23-policy-check`) | historical S1 status snapshot | 23 | Labeled as the S1 as-of-milestone count in this revision, with the 23/24 discrepancy noted; no count-only correction; reconcile only in a separate status-matrix update |
-| `docs/architecture/core-000-s2-package.md` | §1.2, §4.3 and §8 criterion 4 | S2 package, already conditional | 24 with 23 prose recorded | Keep §8 conditional; §1.2/§4.3 record both; no silent choice |
-| `docs/architecture/core-000-s2-package.md` | §4.6 diagnostics traceability (“all 24”) | forward-looking/conditional S2 mapping | 24 | If A: keep 24; if B: reconcile to 23 and name the excluded diagnostic |
+| `docs/architecture/core-000-s2-package.md` | §1.2, §4.3 and §8 criterion 4 | S2 package, updated under accepted S2-D1 A | 24 | Use 24 consistently; the 23 prose count is identified as the error. |
+| `docs/architecture/core-000-s2-package.md` | §4.6 diagnostics traceability (“all 24”) | forward-looking S2 mapping | 24 | Keep all 24 codes; this is the accepted S2-D1 A set. |
 
 No other relevant reference was found at this commit. A later documentation change that adds a
 count reference must extend this inventory rather than patch one file in isolation. S2-D1 A is now
@@ -374,9 +377,9 @@ review before it is treated as accepted.
 
 ### 5.1 S2.1 — model surface and structure
 
-**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, and from 13 to all 24
-policy checks selected by S2-D1 A, and from the S1
-structure excerpt to the full structure, while the existing five claims still build.
+**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, from 13 to all 24
+policy checks selected by S2-D1 A, and from the S1 structure excerpt to the full structure, while
+the existing five claims still build.
 
 | Path | Change |
 |---|---|
@@ -568,7 +571,9 @@ gate. S2 does not silently absorb it.
 - No generic-core, CLI/API, G4, CORE-001, PAP, packaging or publication change.
 - No arbitrary/untrusted profile execution; temporary workspace is not a sandbox.
 - No conformance execution; `conformance_case` is representation only.
-- No new claim, no new decision accepted, no deferred item resolved.
+- No new claims are introduced by this planning package. The accepted decisions are recorded in
+  the canonical decision record; they do not authorize implementation or resolve unrelated open
+  design questions.
 - No evidence/draft commit unless P-2/P-3/P-6 say so.
 - Reconcile forward-looking 23-count references to 24 under accepted S2-D1 A; preserve historical S1 snapshots.
 
@@ -577,12 +582,13 @@ gate. S2 does not silently absorb it.
 Stop and report the concrete issue if:
 
 - a full-model requirement needs a `spec/lib/` change or a new core capability;
-- the 23-vs-24 check decision is unresolved when S2.1 starts;
+- the implemented policy-check set does not contain all 24 codes required by accepted S2-D1 A;
 - a needed structure entity, claim, decision or quote is not present in the accepted sources;
 - encoding the 78 claims would require a new claim, a new decision or a status promotion without
   evidence;
 - a source quote cannot be verified at the current locator grammar (V4 remains open);
-- P-2/P-3/P-6 are needed for the chosen evidence/artifact behavior but remain unresolved;
+- the planned evidence/artifact behavior deviates from accepted P-2/P-3/P-6, or would create an
+  independent-verification record without a distinct verifier and separate maintainer decision;
 - a check needs I/O, a clock, network or environment access;
 - a negative case cannot be isolated to exactly one mutation or produces an unexpected code;
 - any run writes to the repository, reads a secret or cannot be cleaned up.
@@ -600,7 +606,8 @@ S2 is ready for maintainer review only when:
    stage starts, a separate explicit maintainer authorization for that stage is recorded after
    review of the decisions and exact implementation scope; creating or linking an implementation
    task is not authorization;
-2. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are decided or explicitly deferred with stated S2 behavior;
+2. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are implemented in accordance with their accepted planning
+   decisions recorded in the canonical decision record;
 3. S2.1, S2.2 and S2.3 are merged as separate focused PRs;
 4. the profile declares 14 kinds, 28 relation declarations and all **24 enumerated policy-check
    codes**, as required by accepted S2-D1 A;
