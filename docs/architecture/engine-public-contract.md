@@ -321,7 +321,8 @@ isolation remains deferred (`D32`). Build identity and the static import scan ar
 integrity/accounting mechanisms, not security boundaries, and they neither grant consent nor
 isolate execution. Consumer-supplied adapters and renderers are imported by the consumer and
 are trusted by construction; the M1 CLI gates its own profile renderer import on the same
-consent flag.
+consent flag and on the selected project's declared profile id and `render[].renderer`, so it
+does not execute a built-in renderer that the project did not request.
 
 #### Why both
 
@@ -967,8 +968,10 @@ contract-builder check    [root] [--json]
 
 The M1 CLI exposes `--allow-executable-profile`; without it a build whose profile declares
 executable modules fails closed with `core.profile.consent-required` and imports no profile
-code. The contract CLI must carry an equivalent explicit consent flag when it is implemented;
-consent must never be supplied by a manifest, profile or environment variable alone.
+code. The CLI loads its built-in profile renderer only when the selected project declares both
+that profile and that renderer id; consent alone never selects executable code. The contract
+CLI must carry an equivalent explicit consent flag when it is implemented; consent must never
+be supplied by a manifest, profile or environment variable alone.
 
 - `validate` runs the pipeline without rendering; exits by the same status rules.
 - `build` writes artifacts only when the mode allows it; `--check` never writes.
@@ -1037,7 +1040,8 @@ supplied by the consumer; the CLI wires the built-in packages (`adapter-yaml-jso
 extension's `{ id, version, closureDigest }` participates in `inputDigest` (§8.1). The engine's
 consent option governs profile modules it loads from the manifest; a consumer that imports an
 adapter or renderer before calling the engine has made its own trust decision. The M1 CLI must
-not import the profile-owned renderer unless the caller passed the consent flag.
+not import the profile-owned renderer unless the caller passed the consent flag and the
+selected project declares that profile and renderer id.
 
 Provenance verification belongs to the adapter because locator grammar is format-specific
 (`#10.2`, `#/paths/~1orders/get`). The core only knows that a quote must resolve to

@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
@@ -53,6 +54,29 @@ async function projectWithEvalMarker(name: string): Promise<{ dir: string; marke
   }
 
   return { dir, marker };
+}
+
+interface MutableManifest {
+  profile: { source: string; external?: boolean };
+  render: Array<{ renderer?: string }>;
+}
+
+/** A copy of the synthetic example project with its declared renderer id replaced. */
+async function copyExampleProjectWithRenderer(
+  name: string,
+  rendererId: string,
+): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), `consent-${name}-`));
+  await cp(path.join(root, "tests", "fixtures", "example-project"), dir, { recursive: true });
+
+  const manifestPath = path.join(dir, "contract-builder.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as MutableManifest;
+  manifest.profile.source = path.join(root, "profiles", "example");
+  manifest.profile.external = true;
+  manifest.render[0]!.renderer = rendererId;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  return dir;
 }
 
 test("consent: the public API rejects an executable profile without explicit consent", async () => {
@@ -114,4 +138,24 @@ test("consent: the CLI fails closed without the flag and builds with it", async 
   assert.ok(allowedOutput.identity !== null);
   assert.match(allowedOutput.identity.inputDigest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(existsSync(marker), true, "CLI did not evaluate profile code with consent");
+});
+
+test("consent: the CLI does not execute the CORE-001 renderer for another profile", async () => {
+  // The synthetic profile declares the CORE-001 renderer id. If the CLI imported the
+  // built-in renderer on the consent flag alone, runBuild would run it and fail with
+  // core.render.failed; gating on the selected project's profile must leave it unregistered.
+  const dir = await copyExampleProjectWithRenderer("other-profile", "core001-markdown");
+
+  const result = spawnSync(
+    process.execPath,
+    [cliPath, "--spec", dir, "--no-write", "--json", "--allow-executable-profile"],
+    { cwd: root, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 1, result.stderr);
+  assert.ok(result.stdout.trim().length > 0, result.stderr);
+  const output = JSON.parse(result.stdout) as CliJson;
+  assert.equal(output.exitCode, 1);
+  assert.ok(output.diagnostics.some((item) => item.code === "core.registry.missing"));
+  assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
 });
