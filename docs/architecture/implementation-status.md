@@ -287,19 +287,20 @@ Each item is a limitation of this commit, not a task list. Evidence is linked.
 ## 7. Verification evidence audit
 
 **What was audited.** All review records, review comments and conversation comments on the M1
-PRs (#17, #20, #24, #29, #34, #42, #46), the delivery PRs (#14, #16, #45, #28), the closure of
-Issue #33 and the CI result for the baseline commit, read with `gh` on 2026-11-02.
+PRs (#17, #20, #24, #29, #34, #42, #46), the documentation and decision PRs (#14, #16, #23, #28,
+#45), the closure of Issue #33 and the CI result for the baseline commit, read with `gh` on
+2026-11-02.
 
-Only two accounts act in this repository: `zaebee` (human maintainer, who performed every merge
-on `main`) and `it-start` (the automated agent). `gemini-code-assist[bot]` is the only other
-reviewer. Eleven of the fourteen PRs were authored by `zaebee`, so his reviews there are
-self-reviews.
+Only two non-bot contributor accounts act in this repository: `zaebee` (human maintainer, who
+performed every merge on `main`) and `it-start` (the automated agent).
+`gemini-code-assist[bot]` is the only other reviewer. Eleven of the fourteen PRs in the repository were authored by
+`zaebee`, so his reviews there are self-reviews.
 
 | PR / issue | Human review evidence | Bot evidence | Counted as `independently_verified`? |
 |---|---|---|---|
 | #14 contract | Author/maintainer `zaebee`; no second human reviewer | `gemini-code-assist[bot]` review passes | No — decision evidence, not implementation verification |
 | #16 M1 plan | Maintainer-authored and merged; approvals recorded in the plan text for §3, 7, 8, 13 | none | No — decision evidence |
-| #17, #20, #24, #29, #34 | Commits and PRs authored by `zaebee`. The review comments address the implementation as if reviewing another author ("Thanks for the implementation", "I independently inspected the changed implementation"), but they are the author's own reviews of commits he authored; #23 and #24 even label a self-review "independent" | `gemini-code-assist[bot]` | No — self-review; the reviewer is the commit author |
+| #17, #20, #23, #24, #29, #34 | Commits and PRs authored by `zaebee`. The review comments address the implementation as if reviewing another author ("Thanks for the implementation", "I independently inspected the changed implementation"), but they are the author's own reviews of commits he authored; #23 and #24 even label a self-review "independent" | `gemini-code-assist[bot]` | No — self-review; the reviewer is the commit author |
 | #42 build identity | `zaebee` (non-author) reviewed the implementation against #32 and found two gaps (relative imports escaping the closure, literal dynamic imports in template interpolations) and asked for regression tests and a green suite. `it-start` pushed a fix; **no human comment or review confirms the remediation**, and the PR was merged 12 minutes later | `gemini-code-assist[bot]` | No — substantive review, but a change request whose remediation was never confirmed; merge is not verification |
 | #46 PR 7 | `zaebee` (non-author) submitted an `APPROVED` review with an empty body at 2026-11-02T00:34:21Z on head `a4efd8336`, then closed #33 as completed at 2026-11-02T00:38:44Z. The head was rewritten after the earlier reviewed commit `8d464fb` (same tree `6672cd9`, different first parent and a `Co-authored-by: zaebee` trailer); the only claim that the reviewer inspected that commit is the agent's own #33 report | `gemini-code-assist[bot]`; the author resolved its comments | No — an empty-body approval and an issue closure do not state that any behavior was verified; authorship is also ambiguous |
 | #28 AGENTS.md (docs only) | `zaebee` (non-author) submitted an `APPROVED` review with an empty body for `it-start`'s documentation PR | `gemini-code-assist[bot]` | No — documentation, an approval event with no written verification |
