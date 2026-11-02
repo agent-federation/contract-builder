@@ -13,10 +13,11 @@ Portable Assurance Package v0.1 and independent verifier CLI».
 D1–D12 and every §13.8 area. Its recommendations were accepted by the maintainer on 2026-11-02;
 §16 and the decision record on #57 are authoritative. A Gate 1 PASS records specification
 readiness for independent implementation only; it is not Gate 3.
-**Implementation status:** Phase 2 verifier implementation is available in PR #64 under `pap/`;
-merge and independent interoperability validation remain pending. Gate 0 is recorded COMPLETE on
-#43.
-**Conformance status:** Gate 3 is **OPEN**; no cross-implementation agreement is claimed.
+**Implementation status:** Phase 2 verifier implementation is merged into `main` via PR #64 and
+available under `pap/`; independent interoperability validation remains pending. Gate 0 is recorded
+COMPLETE on #43.
+**Conformance status:** Gate 3 is **OPEN**; no cross-implementation agreement or independent
+verification is claimed.
 
 **Related:** [`docs/architecture/build-identity.md`](build-identity.md) (implemented
 `inputDigest`), [`docs/architecture/provenance-hardening-rfc.md`](provenance-hardening-rfc.md)
@@ -213,9 +214,9 @@ the current status. PAP does not claim to close any of them.
 > since been accepted (2026-11-02), Gate 1 PASS is recorded, and Gate 0 is recorded COMPLETE on
 > #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
 > #32/#33/#35. The maintainer then authorized Phase 2 verifier implementation. A Phase 2
-> implementation is available in PR #64; merge and independent interoperability validation remain
-> pending. Gate 3 remains OPEN. This note cites those records and does not independently re-audit
-> Gate 0.
+> implementation is merged into `main` via PR #64 and available under `pap/`; independent
+> interoperability validation remains pending. Gate 3 remains OPEN. This note cites those records
+> and does not independently re-audit Gate 0.
 
 | Phase | Content | State at `f1ddcf7` | PAP implication |
 |---|---|---|---|
@@ -245,9 +246,9 @@ and the RFC's acceptance. At the baseline, acceptance of this document did not a
 and Phase 2 could not begin while #35 remained open. Subsequently, Gate 0 was recorded COMPLETE on
 #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
 #32/#33/#35. The maintainer's 2026-11-02 decision then authorized Phase 2 verifier implementation
-under the accepted contract (#57). A Phase 2 implementation is available in PR #64; merge and
-independent interoperability validation remain pending. This document cites those records and does
-not independently re-audit Gate 0.
+under the accepted contract (#57). The Phase 2 implementation is merged into `main` via PR #64 and
+available under `pap/`; independent interoperability validation remains pending. This document cites
+those records and does not independently re-audit Gate 0.
 
 ### 2.5 A new product track, not M1
 
@@ -315,9 +316,9 @@ The producer and the verifier are separate products. A package is untrusted inpu
 the verifier MUST NOT import the producer runtime, execute producer or profile code, or use the
 network in v0.1. This RFC does not implement either product. The maintainer accepted the v0.1
 specification on 2026-11-02; Gate 0 is recorded COMPLETE on #43 (comment 6570952005); and Phase 2
-was then authorized. A Phase 2 implementation is available in PR #64; merge and independent
-interoperability validation remain pending. This status cites those records and does not
-independently re-audit Gate 0 (§2.4; #43; #44).
+was then authorized. The Phase 2 implementation is merged into `main` via PR #64 and available
+under `pap/`; independent interoperability validation remains pending. This status cites those
+records and does not independently re-audit Gate 0 (§2.4; #43; #44).
 
 The document is organised as follows. §4 defines the package layout and the manifest; §5 the
 identities, hash domains and digest rules; §6 the trust model and the local policy input; §7 the
@@ -3506,9 +3507,9 @@ blocker and escalates it; it is never resolved by adopting the reference behavio
 
 This RFC itself is **design only**: it adds no verifier, producer, CLI, fixture generator or test
 code. The maintainer accepted the v0.1 specification on 2026-11-02 and authorized Phase 2 after
-Gate 0 was recorded COMPLETE on #43 (comment 6570952005). A Phase 2 implementation is available in
-PR #64; merge and independent interoperability validation remain pending. This document cites those
-records and does not independently re-audit Gate 0.
+Gate 0 was recorded COMPLETE on #43 (comment 6570952005). The Phase 2 implementation is merged into
+`main` via PR #64 and available under `pap/`; independent interoperability validation remains
+pending. This document cites those records and does not independently re-audit Gate 0.
 
 - **Phase 2** (independent verifier CLI) consumes §4–§9 and §12. Its gate is a recipient verifying
   offline with no Contract Builder service or runtime dependency; §12 cases are the evidence, with
@@ -3530,8 +3531,8 @@ is an RFC amendment, not a silent implementation choice.
 This RFC authorizes no implementation by itself. With the decision register in §16 accepted,
 Gate 0 recorded COMPLETE on #43, and Phase 2 authorized by the maintainer on 2026-11-02, the
 following sequence keeps the format independently reviewable and matches roadmap #43 Phases 2–3.
-A Phase 2 implementation is available in PR #64; merge and independent interoperability validation
-remain pending. The sequence is:
+The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; independent
+interoperability validation remains pending. The sequence is:
 
 | Step | Work | Exit condition |
 |---|---|---|
@@ -5397,7 +5398,7 @@ during integration, this appendix MUST be updated in the same change.
 | 8 | Positive and negative conformance fixtures have expected results. | §12, §12.2, §12.4 | Every runnable matrix row states expected dimensions, verdict, exit code and diagnostics; no-report CLI rows state exit code and stderr code. Expected results are normative in §12.2/§12.4; Appendix E fixes the digest/JCS values. |
 | 9 | A second implementation can implement the supported subset without private Contract Builder dependencies. | §13 | Algorithms and schemas are language-neutral and published; the independent subset and its equality requirements are defined; no producer import is permitted. |
 | 10 | Non-goals and deferred integrations (Sigstore/SCITT/OCI, production key management, temporal graph, mandates) are explicit. | §14, §11, §3.3 | Twelve non-goals and deferred integrations are listed with their reasons and consequences; none is silently included. |
-| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2. A Phase 2 implementation is available in PR #64; merge and Gate 3 validation remain pending. This row cites those records and does not independently re-audit Gate 0. |
+| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2. The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; independent interoperability validation remains pending and Gate 3 remains OPEN. This row cites those records and does not independently re-audit Gate 0. |
 
 ### H.3 Required decisions / open questions (12 items)
 
