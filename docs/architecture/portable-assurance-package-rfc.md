@@ -5039,9 +5039,11 @@ directly checkable by any implementation's identity function.
 | the same diagnostic added with message `"alpha"` instead of `"beta"` | `sha256:635dcc4a65d44e5e011f8193705e9eb6c62eae8e553fd8068b60bc2ca59fc9e3` (unchanged) |
 
 The first four rows change a semantic result or recomputable evidence and must change the identity;
-the last two change only presentation and must not. This is the property that lets §5.9 exclude
-messages and `quoteBase64` without letting two records with materially different verification
-evidence or outcomes share an identity.
+the last two change only presentation and must not. The mutations are identity-function vectors,
+not necessarily conforming reports (for example the `FAIL` mutation keeps the original dimension
+statuses); they test only the canonical-object construction of §5.9. This is the property that
+lets §5.9 exclude messages and `quoteBase64` without letting two records with materially different
+verification evidence or outcomes share an identity.
 
 ---
 
