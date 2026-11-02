@@ -32,7 +32,7 @@ the refresh found no code or profile change that affects these decisions (see
 > trade-offs, dependencies, reversibility, and the repository evidence that informs it.
 >
 > **What this is not.** It is not an implementation, a generic-core change, or an independent
-> verification. No code or CORE-000 artifact is created by this record. The first-slice proposal in
+> verification. No code or CORE-000 artifact is created by this record.
 > **Historical S1 gate (already satisfied):** the first-slice proposal in
 > [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10 was approved for implementation
 > after the canonical S1 decision record merged. S1 was subsequently implemented and merged; this
