@@ -39,8 +39,7 @@ the limited class may still run. No limit can produce `PASS`: both cases are
 
 ## Matrix note
 
-The RFC matrix lists `coverage.full: false` for `F46` and `F59`, although both
-cases complete a failing relation check and RFC §7.5 counts a `FAIL` as
-evaluated. The executable corpus asserts `true` for those two cases and the
-discrepancy is recorded in
-[`docs/architecture/pap-v0.1-implementation-report.md`](../../../docs/architecture/pap-v0.1-implementation-report.md).
+`F46` and `F59` complete a failing relation check and therefore report
+`coverage.full: true`: RFC §7.5 counts an evaluated `FAIL` as evaluated. This was
+confirmed by the maintainer on PR #64 and the RFC matrix rows were updated to
+match; the verdict remains `FAIL`.

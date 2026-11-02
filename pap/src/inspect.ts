@@ -204,7 +204,7 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
   }
 
   const payloads = await loadPayloads(root, limits, manifest, false, false, diagnostics, diag);
-  await reportUndeclared(root, manifest, diag);
+  const scan = await reportUndeclared(root, manifest, limits, diag);
   const declared: InspectionDocument["declared"] = [];
   for (const state of payloads.artifacts) {
     declared.push({
@@ -243,8 +243,7 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
       computed: state.computedDigest,
     });
   }
-  const files = await walkPackageFiles(root);
-  for (const file of files) {
+  for (const file of scan.files) {
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) {
       declared.push({ kind: "signature", path: file, declared: null, computed: null });
     }
@@ -256,11 +255,13 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
 
   const unreadable =
     payloads.limitHit ||
+    scan.limitHit ||
+    scan.error !== null ||
     payloads.artifacts.some((state) => state.status === "unread" || state.status === "missing") ||
     payloads.sources.some((state) => state.status === "unread" || state.status === "missing") ||
     payloads.inputs.some((state) => state.status === "unread" || state.status === "missing") ||
     payloads.claims.some((state) => state.status === "unread" || state.status === "missing");
-  const inspection = unreadable ? "PARTIAL" : "COMPLETE";
+  const inspection = scan.nestedManifest ? "INVALID" : unreadable ? "PARTIAL" : "COMPLETE";
   return {
     document: document({
       inspection,
@@ -283,7 +284,7 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
         checkerIdentity: checkerIdentity(),
       },
     }),
-    exitCode: inspection === "COMPLETE" ? 0 : 2,
+    exitCode: inspection === "COMPLETE" ? 0 : inspection === "INVALID" ? 1 : 2,
   };
 }
 
@@ -334,11 +335,19 @@ function declaredFromManifest(manifest: Manifest): InspectionDocument["declared"
   return declared;
 }
 
+interface InspectScan {
+  files: string[];
+  limitHit: boolean;
+  error: string | null;
+  nestedManifest: boolean;
+}
+
 async function reportUndeclared(
   root: Parameters<typeof walkPackageFiles>[0],
   manifest: Manifest,
+  limits: Parameters<typeof walkPackageFiles>[1],
   diag: (code: string, severity: Diagnostic["severity"], scope: string, message: string) => void,
-): Promise<void> {
+): Promise<InspectScan> {
   const declared = new Set<string>();
   for (const artifact of manifest.artifacts) declared.add(artifact.path.toLowerCase());
   for (const input of manifest.inputs) declared.add(input.path.toLowerCase());
@@ -348,12 +357,26 @@ async function reportUndeclared(
   for (const ref of Object.values(manifest.claims)) {
     if (ref !== undefined) declared.add(ref.path.toLowerCase());
   }
-  for (const file of await walkPackageFiles(root)) {
+  const walk = await walkPackageFiles(root, limits);
+  if (walk.limitHit) {
+    diag("pap.package.limit-exceeded", "error", "package", "directory enumeration exceeded the verifier budget");
+  }
+  if (walk.error !== null) {
+    diag("pap.package.io", "error", "package", walk.error);
+  }
+  let nestedManifest = false;
+  for (const file of walk.files) {
     if (file.toLowerCase() === "assurance-package.json") continue;
+    if (file.split("/").at(-1)?.toLowerCase() === "assurance-package.json") {
+      nestedManifest = true;
+      diag("pap.package.manifest-self-reference", "error", file, "a nested package manifest is prohibited");
+      continue;
+    }
     if (declared.has(file.toLowerCase())) continue;
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) continue;
     diag("pap.package.undeclared-file", "warning", file, "undeclared file is present and was not read");
   }
+  return { files: walk.files, limitHit: walk.limitHit, error: walk.error, nestedManifest };
 }
 
 function buildLimitations(diagnostics: Diagnostic[]): Limitation[] {

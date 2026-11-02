@@ -145,10 +145,44 @@ name as cases: human-review stale/binding/unknown/rejection outcomes, checker an
 profile recognition outcomes, the payload-count limit, duplicate signer counting
 and a missing signature `keyId`. The hostile suite covers the manifest and claim
 JSON nesting limits, total payload bytes, multiple limits, envelope-count limits,
-raised policy limits (exit 64), non-canonical Ed25519 `S`, `inspect`, `explain`
-with an unsupported check, and producer-free execution.
+raised policy limits (exit 64), non-canonical Ed25519 `S`, parent-directory
+symlinks, nested manifests, directory-enumeration budgets, signature-directory
+read failure, `inspect`, `explain` with an unsupported check, and producer-free
+execution. `pap/tests/streaming.test.ts` pins CRLF normalization and source-range
+hashing across the 64 KiB chunk boundary, and `pap/tests/checks-unit.test.ts`
+pins that a witness-budget stop is `NOT_EVALUATED`, never `PASS`.
 
 ---
+
+## 4.1 Post-audit hardening (PR #64 review)
+
+The maintainer audit at head `e55c354` found three P1 resource-safety issues and
+two P2 structural issues; all were fixed in the follow-up commits:
+
+- **Streamed payload hashing.** `pap/src/paths.ts` now exposes a bounded
+  `streamPackageFile`; artifact and source digests are computed chunk-by-chunk,
+  and inputs use `pap/src/input.ts` to detect the LF/binary fallback and stream
+  both per-file and set digests. Source bytes are not retained: `hashPackageRange()`
+  reads only the quoted byte ranges and the check receives their digests, not the
+  bytes. `quoteBase64` is omitted from source-span witnesses.
+- **Bounded witness output.** Each check has a 16 MiB aggregate serialized-witness
+  budget (`WITNESS_BUDGET_BYTES`). Exceeding it yields a `NOT_EVALUATED` check with
+  `pap.package.limit-exceeded`, never a partial `PASS`; the budget is a verifier
+  safety boundary, not a producer defect.
+- **O(1) relation reciprocity.** The relation check pre-indexes canonical edge
+  triples into a `Set` once, replacing the previous O(E²) reciprocal search.
+- **Bounded directory traversal.** `walkPackageFiles()` and signature discovery
+  use bounded `opendir` iteration, entry/depth budgets and explicit read errors;
+  exceeding a budget or failing to enumerate a directory is reported, not
+  silently ignored.
+- **Nested manifests and parent symlinks.** Every path component is checked for a
+  symlink before opening, and any `assurance-package.json` below the package root
+  is rejected as a nested manifest. Both have hostile-input regressions.
+- **F46/F59.** The maintainer chose option (a) on PR #64: keep RFC §7.5 and the
+  F02 transcript, and update only the F46/F59 matrix rows to
+  `coverage.full: true`. The RFC rows, corpus and this report now agree; the
+  failing outcomes and verdicts are unchanged, and a focused assertion pins that
+  an evaluated required-check `FAIL` does not make coverage partial.
 
 ## 5. Deliberate interpretations and known discrepancies
 
@@ -156,13 +190,15 @@ These are the places where the implementation had to choose between clauses or
 between a clause and a matrix row. None of them can turn an unsupported or
 unevaluated required scope into `PASS`.
 
-1. **F46/F59 `coverage.full`.** The matrix lists `coverage.full: false` for F46
-   and F59, but both cases complete a failing relation check. RFC §7.5 defines
-   `full` as every required check and dimension being *evaluated*; a `FAIL` is
-   evaluated. The implementation reports `true` for these two cases and records
-   the matrix discrepancy here instead of changing the verdict semantics. F02
-   (a failed integrity check) likewise reports `full: true`, consistent with the
-   §9.12 worked transcript.
+1. **F46/F59 `coverage.full` (resolved).** The cross-implementation audit at
+   head `e55c354` flagged that the F46/F59 matrix rows said `false` while
+   RFC §7.5 counts a completed `FAIL` as evaluated. The maintainer chose option
+   (a) on [PR #64](https://github.com/agent-federation/contract-builder/pull/64#issuecomment-6576266020):
+   keep §7.5 and the F02 transcript unchanged and update only the
+   F46/F59 rows to `coverage.full: true`. The RFC rows and this report now carry
+   that decision; the failing check outcome and verdict are unchanged. A focused
+   assertion in `pap/tests/conformance.test.ts` pins that an evaluated required
+   check `FAIL` does not make coverage partial.
 2. **F52/F61 limit interaction.** Artifact, source and input files are bounded by
    `fileBytes`/`totalPayloadBytes`/`payloadFiles`; claim files are bounded by the
    JSON document limits. A limit that makes a **required** check unevaluable

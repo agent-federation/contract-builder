@@ -14,12 +14,29 @@ export function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-export function domainHash(domain: string, bytes: Uint8Array): string {
+export interface DomainHasher {
+  update(bytes: Uint8Array): void;
+  digest(): string;
+}
+
+export function createDomainHasher(domain: string): DomainHasher {
   const hash = createHash("sha256");
   hash.update(encoder.encode(domain));
   hash.update(new Uint8Array([0]));
-  hash.update(bytes);
-  return `sha256:${hash.digest("hex")}`;
+  return {
+    update(bytes: Uint8Array): void {
+      hash.update(bytes);
+    },
+    digest(): string {
+      return `sha256:${hash.digest("hex")}`;
+    },
+  };
+}
+
+export function domainHash(domain: string, bytes: Uint8Array): string {
+  const hasher = createDomainHasher(domain);
+  hasher.update(bytes);
+  return hasher.digest();
 }
 
 export function isDigest(value: unknown): value is string {
@@ -50,6 +67,26 @@ export function frameRecord(tag: string, parts: FramingPart[]): Uint8Array {
     const bytes = partBytes(part);
     chunks.push(u32be(bytes.length), bytes);
   }
+  return concatBytes(chunks);
+}
+
+/**
+ * Prefix of one framed record whose final part is streamed after the prefix.
+ * `parts` are the parts before the streamed part; the streamed part's length is
+ * supplied up front.
+ */
+export function framePrefix(tag: string, parts: string[], finalPartLength: number): Uint8Array {
+  const tagBytes = encoder.encode(tag);
+  const chunks: Uint8Array[] = [
+    u32be(tagBytes.length),
+    tagBytes,
+    u32be(parts.length + 1),
+  ];
+  for (const part of parts) {
+    const bytes = encoder.encode(part);
+    chunks.push(u32be(bytes.length), bytes);
+  }
+  chunks.push(u32be(finalPartLength));
   return concatBytes(chunks);
 }
 

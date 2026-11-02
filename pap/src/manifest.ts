@@ -719,7 +719,7 @@ export function validateManifest(value: JsonValue, limits: Limits): ManifestVali
 
   const declaredPaths = new Map<string, { scope: string; artifactLevel: boolean }>();
   const addPath = (declared: string, scope: string, artifactLevel: boolean): void => {
-    if (pathKey(declared) === pathKey("assurance-package.json")) {
+    if (declared.split("/").at(-1)?.toLowerCase() === "assurance-package.json") {
       defects.push({
         code: "pap.package.manifest-self-reference",
         scope,

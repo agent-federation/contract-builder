@@ -6,7 +6,7 @@
  * are reported separately.
  */
 
-import { readdir } from "node:fs/promises";
+import { opendir } from "node:fs/promises";
 import path from "node:path";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { canonicalBase64Decode, utf8 } from "./digest.js";
@@ -31,6 +31,7 @@ export interface SignatureEvaluation {
     | "NOT_APPLICABLE";
   policyDecision: "ACCEPTED" | "REJECTED" | "STALE" | "NOT_EVALUATED";
   envelopeLimitHit: boolean;
+  discoveryFailure: boolean;
   diagnostics: Diagnostic[];
 }
 
@@ -62,14 +63,23 @@ export async function evaluateSignatures(options: {
     signerIdentity: "NOT_APPLICABLE",
     policyDecision: "NOT_EVALUATED",
     envelopeLimitHit: false,
+    discoveryFailure: false,
     diagnostics,
   });
   if (options.mode === "disabled") {
     return empty();
   }
 
-  const discovered = await discoverEnvelopes(options.root);
-  if (discovered.length > options.limits.signatureEnvelopes) {
+  const discovered = await discoverEnvelopes(options.root, options.limits);
+  if (discovered.error !== null) {
+    diagnostics.push({
+      code: "pap.package.io",
+      severity: "error",
+      scope: "signatures",
+      message: discovered.error,
+    });
+  }
+  if (discovered.limitHit || discovered.names.length > options.limits.signatureEnvelopes) {
     diagnostics.push({
       code: "pap.package.limit-exceeded",
       severity: "error",
@@ -82,12 +92,18 @@ export async function evaluateSignatures(options: {
       signerIdentity: "NOT_EVALUATED",
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: true,
+      discoveryFailure: false,
       diagnostics,
     };
   }
 
-  for (const relative of discovered) {
-    const read = await readPackageFile(options.root, relative, options.limits);
+  for (const relative of discovered.names) {
+    const read = await readPackageFile(
+      options.root,
+      relative,
+      options.limits,
+      Math.min(options.limits.jsonStringBytes, options.limits.fileBytes),
+    );
     if (!read.ok || read.bytes === undefined) {
       entries.push({
         path: relative,
@@ -280,26 +296,49 @@ export async function evaluateSignatures(options: {
       options.policy === undefined && entries.length > 0 ? "NOT_EVALUATED" : signerIdentity,
     policyDecision: options.policy === undefined ? "NOT_EVALUATED" : policyDecision,
     envelopeLimitHit: false,
+    discoveryFailure: discovered.error !== null,
     diagnostics,
   };
 }
 
-async function discoverEnvelopes(root: PackageRoot): Promise<string[]> {
+interface EnvelopeDiscovery {
+  names: string[];
+  limitHit: boolean;
+  error: string | null;
+}
+
+async function discoverEnvelopes(root: PackageRoot, limits: Limits): Promise<EnvelopeDiscovery> {
   const directory = path.join(root.real, "signatures");
-  let entries;
-  try {
-    entries = await readdir(directory, { withFileTypes: true });
-  } catch {
-    return [];
-  }
   const names: string[] = [];
-  for (const entry of entries) {
-    if (entry.isFile() && ENVELOPE_NAME.test(entry.name)) {
-      names.push(`signatures/${entry.name}`);
+  let directoryHandle;
+  try {
+    directoryHandle = await opendir(directory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { names, limitHit: false, error: null };
     }
+    return { names, limitHit: false, error: "cannot read the signatures directory" };
+  }
+  try {
+    let entries = 0;
+    const maxEntries = Math.max(1_024, limits.payloadFiles * 2);
+    for await (const entry of directoryHandle) {
+      entries += 1;
+      if (entries > maxEntries) {
+        return { names: [], limitHit: true, error: null };
+      }
+      if (entry.isFile() && ENVELOPE_NAME.test(entry.name)) {
+        names.push(`signatures/${entry.name}`);
+        if (names.length > limits.signatureEnvelopes) {
+          return { names: [], limitHit: true, error: null };
+        }
+      }
+    }
+  } catch {
+    return { names, limitHit: false, error: "cannot enumerate the signatures directory" };
   }
   names.sort();
-  return names;
+  return { names, limitHit: false, error: null };
 }
 
 type Parsed =

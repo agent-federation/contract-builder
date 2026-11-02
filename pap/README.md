@@ -63,6 +63,12 @@ sentinel `bun`/`node`/`contract-builder` shims, and asserts:
 - the required text lines for a `PASS` and a `FAIL` case;
 - that the sentinel shims were never executed.
 
+Payload hashing is streamed: artifacts and inputs are never buffered in full,
+source bytes are retained only as bounded quoted ranges, signature discovery and
+undeclared-file scanning are entry/depth-bounded, and each check has an aggregate
+16 MiB serialized-witness budget. A budget stop is `NOT_EVALUATED` with
+`pap.package.limit-exceeded`, never `PASS`.
+
 `fixtures/vectors/e4-identity-form.json` is the Appendix E.4 identity form used by
 the record-identity and E.10 mutation tests.
 
@@ -84,11 +90,10 @@ makes a required check unevaluable stops the required check set; optional checks
 that do not need the limited class may still run. In both cases the verdict is
 `INCOMPLETE`, `coverage.full` is `false`, and no limit can produce `PASS`.
 
-The RFC matrix lists `coverage.full: false` for F46/F59 even though both cases
-have a completed, failing relation check. RFC §7.5 defines `full` as "every
-required check was evaluated", and a `FAIL` is evaluated, so this implementation
-reports `true` for those two cases and records the discrepancy in
-`docs/architecture/pap-v0.1-implementation-report.md`.
+RFC §7.5 defines `coverage.full` as "every required check was evaluated", and a
+completed `FAIL` is an evaluated check. F46/F59 therefore report `full: true`
+with a `FAIL` verdict; the maintainer confirmed this on PR #64 and the RFC
+matrix rows now say `true`.
 
 ## Implemented and deferred
 

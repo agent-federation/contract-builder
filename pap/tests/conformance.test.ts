@@ -239,3 +239,14 @@ test("F42: explain text never prints a package verdict", () => {
 test("F40: producer-free environment and sentinel shims", () => {
   assert.equal(sentinelLog(), "", "the verifier must not execute producer or runtime sentinels");
 });
+
+test("an evaluated required-check FAIL does not make coverage partial", () => {
+  for (const caseId of ["F02-artifact-byte", "F46-inverse-not-reciprocal", "F59-relation-duplicate"]) {
+    const entry = suite.cases.find((candidate) => candidate.caseId === caseId);
+    assert.ok(entry);
+    const report = JSON.parse(runPap(entry.command, path.join(fixtures, caseId)).stdout);
+    assert.equal(report.verdict, "FAIL");
+    assert.equal(report.coverage.full, true);
+    assert.ok(report.dimensions.checks.results.some((result: any) => result.outcome === "FAIL"));
+  }
+});

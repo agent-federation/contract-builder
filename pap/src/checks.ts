@@ -5,12 +5,6 @@
  * with independently recomputable witnesses. Producer claims are never inputs.
  */
 
-import {
-  base64Encode,
-  domainHash,
-  inputFileDigest,
-  normalizedInputSetDigest,
-} from "./digest.js";
 import type {
   CheckDiagnostic,
   CheckOutcome,
@@ -40,7 +34,8 @@ export interface ArtifactState {
 export interface SourceState {
   source: ManifestSource;
   computed: string | null;
-  bytes?: Uint8Array;
+  /** Raw source byte length, or null when no snapshot is packaged. */
+  size: number | null;
   status: "ok" | "mismatch" | "referenced" | "unread" | "missing";
   message?: string;
 }
@@ -48,8 +43,10 @@ export interface SourceState {
 export interface InputState {
   input: ManifestInput;
   computed: string | null;
-  bytes?: Uint8Array;
-  normalized?: Uint8Array;
+  /** Normalized byte length, used for the streamed set digest. */
+  normalizedSize: number | null;
+  /** Effective normalization after the binary/UTF-8 fallback. */
+  mode: "lf" | "raw" | null;
   status: "ok" | "mismatch" | "unread" | "missing";
   message?: string;
 }
@@ -67,6 +64,8 @@ export interface ClaimState {
   message?: string;
 }
 
+export const WITNESS_BUDGET_BYTES = 16 * 1024 * 1024;
+
 export interface CheckInput {
   packageIdentity: string;
   manifest: Manifest;
@@ -75,8 +74,12 @@ export interface CheckInput {
   inputs: InputState[];
   claims: ClaimState[];
   normalizedInputDigest: string | null;
+  /** `${sourceId}\u0000${start}\u0000${end}` -> extracted quote digest. */
+  sourceSpans: Map<string, string>;
   checker: { id: string; version: string; implementationDigest: string };
   limits: { provenanceBindings: number };
+  /** Aggregate serialized witness budget for one check record. */
+  witnessBudget: number;
 }
 
 function claimState(input: CheckInput, kind: ClaimKind): ClaimState | undefined {
@@ -97,6 +100,21 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
   const witnesses: Witness[] = [];
   let mismatch = false;
   let unread = false;
+  let witnessBytes = 0;
+  let budgetExceeded = false;
+  const pushWitness = (witness: Witness): void => {
+    if (budgetExceeded) return;
+    const size = JSON.stringify(witness).length;
+    if (witnessBytes + size > input.witnessBudget) {
+      budgetExceeded = true;
+      diagnostics.push(
+        checkDiagnostic("pap.package.limit-exceeded", "error", "check witness output budget exceeded"),
+      );
+      return;
+    }
+    witnessBytes += size;
+    witnesses.push(witness);
+  };
 
   const note = (state: "mismatch" | "missing" | "unread", code: string, message: string): void => {
     diagnostics.push(checkDiagnostic(code, "error", message));
@@ -108,7 +126,7 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
   };
 
   for (const state of input.artifacts) {
-    witnesses.push({
+    pushWitness({
       type: "recomputed-digest",
       subject: { kind: "artifact", id: state.artifact.id },
       algorithm: "sha256",
@@ -124,7 +142,7 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
   }
 
   for (const state of input.sources) {
-    witnesses.push({
+    pushWitness({
       type: "recomputed-digest",
       subject: { kind: "source", id: state.source.id },
       algorithm: "sha256",
@@ -143,7 +161,7 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
   }
 
   for (const state of input.inputs) {
-    witnesses.push({
+    pushWitness({
       type: "recomputed-digest",
       subject: { kind: "input", id: state.input.id },
       algorithm: "sha256",
@@ -159,7 +177,7 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
   }
 
   for (const claim of input.claims) {
-    witnesses.push({
+    pushWitness({
       type: "recomputed-digest",
       subject: { kind: "claim", id: claim.kind },
       algorithm: "sha256",
@@ -174,7 +192,8 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
     }
   }
 
-  const outcome: CheckOutcome = mismatch ? "FAIL" : unread ? "NOT_EVALUATED" : "PASS";
+  const outcome: CheckOutcome =
+    mismatch ? "FAIL" : unread || budgetExceeded ? "NOT_EVALUATED" : "PASS";
 
   return {
     checkId: "pap.check.digest-integrity/1",
@@ -204,6 +223,8 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
   const witnesses: Witness[] = [];
   const sourcesUsed = new Set<string>();
   let outcome: CheckOutcome = "PASS";
+  let witnessBytes = 0;
+  let budgetExceeded = false;
 
   if (claim === undefined) {
     diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "claims/provenance.json is absent"));
@@ -236,13 +257,13 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
       unavailable += 1;
       continue;
     }
-    if (source.bytes === undefined || source.computed === null) {
+    if (source.computed === null || source.size === null) {
       diagnostics.push(checkDiagnostic("pap.source.unavailable", "warning", `source ${source.source.id} has no embedded snapshot`));
       unavailable += 1;
       continue;
     }
     const { start, end } = binding.locator;
-    if (start > end || end > source.bytes.length) {
+    if (start > end || end > source.size) {
       diagnostics.push(
         checkDiagnostic(
           "pap.check.span-out-of-range",
@@ -253,17 +274,30 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
       outcome = "FAIL";
       continue;
     }
-    const extracted = source.bytes.subarray(start, end);
-    const extractedDigest = domainHash("pap.quote.v1", extracted);
-    witnesses.push({
+    const extractedDigest = input.sourceSpans.get(`${binding.sourceId}\u0000${start}\u0000${end}`);
+    if (extractedDigest === undefined) {
+      diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", `binding ${binding.id} span could not be read`));
+      unavailable += 1;
+      continue;
+    }
+    const witness: Witness = {
       type: "source-span",
       sourceId: source.source.id,
       sourceDigest: source.computed,
       range: { start, end },
       quoteDigest: binding.quote.digest,
       extractedDigest,
-      quoteBase64: base64Encode(extracted),
-    });
+    };
+    const witnessSize = JSON.stringify(witness).length;
+    if (witnessBytes + witnessSize > input.witnessBudget) {
+      budgetExceeded = true;
+      diagnostics.push(
+        checkDiagnostic("pap.package.limit-exceeded", "error", "source-span witness output budget exceeded"),
+      );
+      break;
+    }
+    witnessBytes += witnessSize;
+    witnesses.push(witness);
     evaluated += 1;
     if (extractedDigest !== binding.quote.digest) {
       diagnostics.push(
@@ -278,7 +312,9 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
   }
 
   if (outcome !== "FAIL") {
-    if (evaluated === 0) {
+    if (budgetExceeded) {
+      outcome = "NOT_EVALUATED";
+    } else if (evaluated === 0) {
       diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "no provenance binding could be evaluated"));
       outcome = "NOT_EVALUATED";
     } else if (unavailable > 0) {
@@ -346,10 +382,22 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
   }
   const relations = claim.parsed as RelationsClaim;
   const violations: RelationViolation[] = [];
+  let violationBytes = 0;
+  let budgetExceeded = false;
+  const addViolation = (violation: RelationViolation): void => {
+    if (budgetExceeded) return;
+    const size = JSON.stringify(violation).length;
+    if (violationBytes + size > input.witnessBudget) {
+      budgetExceeded = true;
+      return;
+    }
+    violationBytes += size;
+    violations.push(violation);
+  };
   const entities = new Map<string, { id: string; kind: string }>();
   for (const entity of relations.entities) {
     if (entities.has(entity.id)) {
-      violations.push({
+      addViolation({
         code: "pap.claim.duplicate-entity",
         subject: entity.id,
         detail: `entity ${entity.id} is declared more than once`,
@@ -361,7 +409,7 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
   const relationMap = new Map<string, RelationsClaim["relations"][number]>();
   for (const relation of relations.relations) {
     if (relationMap.has(relation.name)) {
-      violations.push({
+      addViolation({
         code: "pap.claim.relation-duplicate",
         subject: relation.name,
         detail: `relation ${relation.name} is declared more than once`,
@@ -374,7 +422,7 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
     const subject = `${edge.relation}:${edge.from}->${edge.to}`;
     const relation = relationMap.get(edge.relation);
     if (relation === undefined) {
-      violations.push({
+      addViolation({
         code: "pap.claim.relation-unknown",
         subject,
         detail: `edge names undeclared relation ${edge.relation}`,
@@ -384,7 +432,7 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
     const from = entities.get(edge.from);
     const to = entities.get(edge.to);
     if (from === undefined || to === undefined) {
-      violations.push({
+      addViolation({
         code: "pap.claim.edge-unknown-entity",
         subject,
         detail: `edge endpoint is not a declared entity`,
@@ -392,7 +440,7 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
       continue;
     }
     if (from.kind !== relation.from || to.kind !== relation.to) {
-      violations.push({
+      addViolation({
         code: "pap.claim.relation-kind-mismatch",
         subject,
         detail: `edge entity kinds do not match relation ${edge.relation}`,
@@ -403,7 +451,7 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
     if (relation.inverse === undefined) continue;
     const inverse = relationMap.get(relation.inverse);
     if (inverse === undefined) {
-      violations.push({
+      addViolation({
         code: "pap.claim.inverse-missing",
         subject: relation.name,
         detail: `inverse relation ${relation.inverse} is not declared`,
@@ -411,33 +459,31 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
       continue;
     }
     if (inverse.inverse !== relation.name) {
-      violations.push({
+      addViolation({
         code: "pap.claim.inverse-not-reciprocal",
         subject: relation.name,
         detail: `inverse ${inverse.name} does not point back to ${relation.name}`,
       });
     }
     if (inverse.from !== relation.to || inverse.to !== relation.from) {
-      violations.push({
+      addViolation({
         code: "pap.claim.inverse-kind-mismatch",
         subject: relation.name,
         detail: `inverse ${inverse.name} does not reverse the relation kinds`,
       });
     }
   }
+  const edgeKeys = new Set(
+    relations.edges.map((edge) => `${edge.relation}\u0000${edge.from}\u0000${edge.to}`),
+  );
   for (const edge of relations.edges) {
     const relation = relationMap.get(edge.relation);
     if (relation?.inverse === undefined) continue;
     const inverse = relationMap.get(relation.inverse);
     if (inverse === undefined) continue;
-    const reciprocal = relations.edges.some(
-      (candidate) =>
-        candidate.relation === relation.inverse &&
-        candidate.from === edge.to &&
-        candidate.to === edge.from,
-    );
+    const reciprocal = edgeKeys.has(`${relation.inverse}\u0000${edge.to}\u0000${edge.from}`);
     if (!reciprocal) {
-      violations.push({
+      addViolation({
         code: "pap.claim.inverse-missing",
         subject: `${edge.relation}:${edge.from}->${edge.to}`,
         detail: `reciprocal edge ${relation.inverse}:${edge.to}->${edge.from} is missing`,
@@ -452,10 +498,20 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
   const diagnostics = violations.map((violation) =>
     checkDiagnostic(violation.code, "error", violation.detail),
   );
+  if (budgetExceeded) {
+    diagnostics.push(
+      checkDiagnostic("pap.package.limit-exceeded", "error", "relation witness output budget exceeded"),
+    );
+  }
   const empty = relations.entities.length === 0 && relations.edges.length === 0 && relations.relations.length === 0;
-  const outcome: CheckOutcome =
-    violations.length > 0 ? "FAIL" : empty ? "NOT_EVALUATED" : "PASS";
-  if (empty) {
+  const outcome: CheckOutcome = budgetExceeded
+    ? "NOT_EVALUATED"
+    : violations.length > 0
+      ? "FAIL"
+      : empty
+        ? "NOT_EVALUATED"
+        : "PASS";
+  if (empty && !budgetExceeded) {
     diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "relations claim declares an empty graph"));
   }
   return relationRecord(

@@ -1,14 +1,16 @@
 /**
- * PAP v0.1 path grammar and package-root-confined file reads.
+ * PAP v0.1 path grammar and package-root-confined streaming reads.
  *
- * Declared paths are validated before any filesystem access. Reads reject
- * symlinks, non-regular files, paths that resolve outside the package root and
- * files that exceed the configured byte limit.
+ * Declared paths are validated before any filesystem access. Every path
+ * component is checked for a symlink; the final object must be a regular file;
+ * reads stay under the package root and are streamed through a bounded reader.
+ * Payload hashing consumes chunks and never buffers the whole file.
  */
 
 import { constants } from "node:fs";
-import { lstat, open, readdir, realpath } from "node:fs/promises";
+import { lstat, open, opendir, realpath } from "node:fs/promises";
 import path from "node:path";
+import { concatBytes, createDomainHasher } from "./digest.js";
 import type { Limits } from "./types.js";
 
 export interface PathValidation {
@@ -59,6 +61,14 @@ export interface ReadResult {
   message?: string;
 }
 
+export interface HashResult {
+  ok: boolean;
+  digest?: string;
+  size?: number;
+  failure?: ReadFailure;
+  message?: string;
+}
+
 export interface PackageRoot {
   /** Path exactly as supplied by the caller (used only for the report). */
   supplied: string;
@@ -98,46 +108,86 @@ export async function resolvePackageRoot(supplied: string): Promise<
   return { ok: true, root: { supplied, real } };
 }
 
-export async function readPackageFile(
+interface ResolvedFile {
+  absolute: string;
+  size: number;
+}
+
+async function resolvePackageFile(
   root: PackageRoot,
   relative: string,
-  limits: Limits,
-  cap: number = limits.fileBytes,
-): Promise<ReadResult> {
-  const absolute = path.join(root.real, ...relative.split("/"));
-  let info;
-  try {
-    info = await lstat(absolute);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") {
-      return { ok: false, failure: "missing", message: `declared file is missing: ${relative}` };
+  cap: number,
+): Promise<
+  | { ok: true; file: ResolvedFile }
+  | { ok: false; failure: ReadFailure; message: string }
+> {
+  const segments = relative.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return { ok: false, failure: "path-escape", message: `declared path is not root-confined: ${relative}` };
+  }
+  let current = root.real;
+  let finalSize = 0;
+  for (let index = 0; index < segments.length; index += 1) {
+    current = path.join(current, segments[index] as string);
+    let stats;
+    try {
+      stats = await lstat(current);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        return { ok: false, failure: "missing", message: `declared file is missing: ${relative}` };
+      }
+      return { ok: false, failure: "io", message: `cannot stat declared path component: ${relative}` };
     }
-    return { ok: false, failure: "io", message: `cannot stat declared file: ${relative}` };
-  }
-  if (info.isSymbolicLink()) {
-    return { ok: false, failure: "symlink", message: `declared file is a symlink: ${relative}` };
-  }
-  if (!info.isFile()) {
-    return { ok: false, failure: "non-regular", message: `declared file is not a regular file: ${relative}` };
+    if (stats.isSymbolicLink()) {
+      return {
+        ok: false,
+        failure: "symlink",
+        message: `declared path contains a symlink component: ${relative}`,
+      };
+    }
+    const final = index === segments.length - 1;
+    if (final) {
+      if (!stats.isFile()) {
+        return { ok: false, failure: "non-regular", message: `declared file is not a regular file: ${relative}` };
+      }
+      finalSize = stats.size;
+    } else if (!stats.isDirectory()) {
+      return { ok: false, failure: "non-regular", message: `declared path component is not a directory: ${relative}` };
+    }
   }
   let resolved: string;
   try {
-    resolved = await realpath(absolute);
+    resolved = await realpath(current);
   } catch {
     return { ok: false, failure: "io", message: `cannot resolve declared file: ${relative}` };
   }
   if (resolved !== root.real && !resolved.startsWith(`${root.real}${path.sep}`)) {
     return { ok: false, failure: "path-escape", message: `declared file resolves outside the package: ${relative}` };
   }
-  if (info.size > cap) {
+  if (finalSize > cap) {
     return { ok: false, failure: "limit", message: `declared file exceeds the byte limit: ${relative}` };
   }
+  return { ok: true, file: { absolute: current, size: finalSize } };
+}
 
+/**
+ * Stream a package file through a bounded reader. The callback receives chunks
+ * that are safe to retain; the whole payload is never buffered here.
+ */
+export async function streamPackageFile(
+  root: PackageRoot,
+  relative: string,
+  limits: Limits,
+  cap: number,
+  onChunk: (chunk: Uint8Array) => void | Promise<void>,
+): Promise<{ ok: true; size: number } | { ok: false; failure: ReadFailure; message: string }> {
+  const resolved = await resolvePackageFile(root, relative, cap);
+  if (!resolved.ok) return resolved;
   let handle;
   try {
     const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
-    handle = await open(absolute, flags);
+    handle = await open(resolved.file.absolute, flags);
   } catch {
     return { ok: false, failure: "io", message: `cannot open declared file: ${relative}` };
   }
@@ -149,27 +199,18 @@ export async function readPackageFile(
     if (opened.size > cap) {
       return { ok: false, failure: "limit", message: `declared file exceeds the byte limit: ${relative}` };
     }
-    const chunks: Uint8Array[] = [];
-    let total = 0;
     const buffer = new Uint8Array(65_536);
+    let total = 0;
     for (;;) {
       const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
-      if (bytesRead === 0) {
-        break;
-      }
+      if (bytesRead === 0) break;
       total += bytesRead;
       if (total > cap) {
         return { ok: false, failure: "limit", message: `declared file exceeds the byte limit: ${relative}` };
       }
-      chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
+      await onChunk(Buffer.from(buffer.subarray(0, bytesRead)));
     }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-    return { ok: true, bytes };
+    return { ok: true, size: total };
   } catch {
     return { ok: false, failure: "io", message: `cannot read declared file: ${relative}` };
   } finally {
@@ -177,32 +218,144 @@ export async function readPackageFile(
   }
 }
 
-/** List regular files under the package, relative paths with `/` separators. */
-export async function walkPackageFiles(root: PackageRoot): Promise<string[]> {
+/** Buffer a bounded JSON/document file (manifest, claim, signature envelope). */
+export async function readPackageFile(
+  root: PackageRoot,
+  relative: string,
+  limits: Limits,
+  cap: number = limits.fileBytes,
+): Promise<ReadResult> {
+  const chunks: Uint8Array[] = [];
+  const streamed = await streamPackageFile(root, relative, limits, cap, (chunk) => {
+    chunks.push(chunk);
+  });
+  if (!streamed.ok) {
+    return { ok: false, failure: streamed.failure, message: streamed.message };
+  }
+  return { ok: true, bytes: concatBytes(chunks) };
+}
+
+/** Hash a package file without retaining its bytes. */
+export async function hashPackageFile(
+  root: PackageRoot,
+  relative: string,
+  domain: string,
+  limits: Limits,
+  cap: number,
+): Promise<HashResult> {
+  const hasher = createDomainHasher(domain);
+  const streamed = await streamPackageFile(root, relative, limits, cap, (chunk) => {
+    hasher.update(chunk);
+  });
+  if (!streamed.ok) {
+    return { ok: false, failure: streamed.failure, message: streamed.message };
+  }
+  return { ok: true, digest: hasher.digest(), size: streamed.size };
+}
+
+/** Hash one byte range of a package file without retaining the span. */
+export async function hashPackageRange(
+  root: PackageRoot,
+  relative: string,
+  start: number,
+  end: number,
+  domain: string,
+  limits: Limits,
+): Promise<HashResult> {
+  const resolved = await resolvePackageFile(root, relative, limits.fileBytes);
+  if (!resolved.ok) return resolved;
+  if (start > end || end > resolved.file.size) {
+    return {
+      ok: false,
+      failure: "non-regular",
+      message: `range [${start}, ${end}) is outside ${relative}`,
+    };
+  }
+  const hasher = createDomainHasher(domain);
+  let handle;
+  try {
+    handle = await open(resolved.file.absolute, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch {
+    return { ok: false, failure: "io", message: `cannot open declared file: ${relative}` };
+  }
+  try {
+    const buffer = new Uint8Array(65_536);
+    let position = start;
+    let length = 0;
+    while (position < end) {
+      const wanted = Math.min(buffer.length, end - position);
+      const { bytesRead } = await handle.read(buffer, 0, wanted, position);
+      if (bytesRead === 0) break;
+      hasher.update(buffer.subarray(0, bytesRead));
+      position += bytesRead;
+      length += bytesRead;
+    }
+    if (length !== end - start) {
+      return { ok: false, failure: "io", message: `short read of range [${start}, ${end})` };
+    }
+    return { ok: true, digest: hasher.digest(), size: length };
+  } catch {
+    return { ok: false, failure: "io", message: `cannot read declared range: ${relative}` };
+  } finally {
+    await handle.close();
+  }
+}
+
+export interface WalkResult {
+  files: string[];
+  limitHit: boolean;
+  error: string | null;
+}
+
+/**
+ * Bound directory enumeration by entry count and depth. Directory read errors
+ * other than an absent directory are returned, never silently ignored.
+ */
+export async function walkPackageFiles(root: PackageRoot, limits: Limits): Promise<WalkResult> {
   const files: string[] = [];
-  const visit = async (relativeDir: string): Promise<void> => {
-    const absolute = relativeDir === "" ? root.real : path.join(root.real, ...relativeDir.split("/"));
-    let entries;
-    try {
-      entries = await readdir(absolute, { withFileTypes: true });
-    } catch {
+  const maxEntries = Math.max(1_024, limits.payloadFiles * 2);
+  let entries = 0;
+  let limitHit = false;
+  let error: string | null = null;
+  const visit = async (relativeDir: string, depth: number): Promise<void> => {
+    if (limitHit || error !== null) return;
+    if (depth > limits.pathSegments) {
+      limitHit = true;
       return;
     }
-    for (const entry of entries) {
-      const relative = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
-      if (entry.isSymbolicLink()) {
-        continue;
+    const absolute = relativeDir === "" ? root.real : path.join(root.real, ...relativeDir.split("/"));
+    let directory;
+    try {
+      directory = await opendir(absolute);
+    } catch (readError) {
+      const code = (readError as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") {
+        error = `cannot read directory ${relativeDir || "."}`;
       }
-      if (entry.isDirectory()) {
-        await visit(relative);
-      } else if (entry.isFile()) {
-        files.push(relative);
+      return;
+    }
+    try {
+      for await (const entry of directory) {
+        entries += 1;
+        if (entries > maxEntries) {
+          limitHit = true;
+          return;
+        }
+        const relative = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
+        if (entry.isSymbolicLink()) continue;
+        if (entry.isDirectory()) {
+          await visit(relative, depth + 1);
+        } else if (entry.isFile()) {
+          files.push(relative);
+        }
       }
+    } catch {
+      error = `cannot enumerate directory ${relativeDir || "."}`;
     }
   };
-  await visit("");
+  await visit("", 1);
   files.sort();
-  return files;
+  return { files, limitHit, error };
 }
 
 export function declaredFileKind(relative: string): "artifact" | "input" | "source" | "claim" | "signature" | "other" {

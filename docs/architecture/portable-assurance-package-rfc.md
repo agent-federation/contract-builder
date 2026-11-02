@@ -3147,7 +3147,7 @@ file" (a package defect), and pin the reciprocal inverse-declaration rule of §8
 |---|---|---|---|---|---|
 | F44 | `checkSpecs` requires `source-quote/1`; manifest declares no `claims.provenance`; source snapshot present | `integrity.package=PASS`, `DI=PASS`, `SQ=NOT_EVALUATED`, `coverage.full=false` | `INCOMPLETE` | 2 | `pap.check.not-evaluated` |
 | F45 | `checkSpecs` requires `relation-consistency/1`; manifest declares no `claims.relations`; provenance and source unchanged | `integrity.package=PASS`, `DI=PASS`, `SQ=PASS`, `RC=NOT_EVALUATED`, `coverage.full=false` | `INCOMPLETE` | 2 | `pap.check.not-evaluated` |
-| F46 | relations claim declares `A.inverse = B`, but `B.inverse` is absent or names a third relation | `integrity.package=PASS`, `DI=PASS`, `RC=FAIL`, `coverage.full=false` | `FAIL` | 1 | `pap.claim.inverse-not-reciprocal` |
+| F46 | relations claim declares `A.inverse = B`, but `B.inverse` is absent or names a third relation | `integrity.package=PASS`, `DI=PASS`, `RC=FAIL`, `coverage.full=true` | `FAIL` | 1 | `pap.claim.inverse-not-reciprocal` |
 
 F44 and F45 differ from F26/F27 deliberately: an absent claim file is format-permitted and
 reported as an incomplete scope, while a missing declared file is a package defect. F46 is the
@@ -3174,7 +3174,7 @@ each one removes an implementation choice that could otherwise produce divergent
 | F56 | `base/` plus a trusted valid envelope and an invalid envelope; policy `signature-optional.json` (`mode: "optional"`) | `signature.validity=VALID` (one verifies), invalid entry `INVALID`, `trust.policyDecision=REJECTED`, `trust.signerIdentity=TRUSTED` | `UNTRUSTED` | 3 | `pap.signature.invalid` |
 | F57 | `papVersion: "1.0"`, otherwise 0.1-shaped manifest | `integrity.package=PASS`, required checks `NOT_EVALUATED`, `coverage.full=false` | `UNSUPPORTED` | 4 | `pap.compat.version-unsupported` |
 | F58 | provenance binding names a `sourceId` the manifest does not declare | `integrity.package=FAIL` | `FAIL` | 1 | `pap.package.claim-invalid` |
-| F59 | two relations in `claims/relations.json` share a `name` | `integrity.package=PASS`, `RC=FAIL`, `coverage.full=false` | `FAIL` | 1 | `pap.claim.relation-duplicate` |
+| F59 | two relations in `claims/relations.json` share a `name` | `integrity.package=PASS`, `RC=FAIL`, `coverage.full=true` | `FAIL` | 1 | `pap.claim.relation-duplicate` |
 | F60 | `assurance-package.json` absent from an otherwise valid directory | `package.identity=null`, `integrity.package=FAIL`, `integrity.artifacts=NOT_EVALUATED`; no check set | `FAIL` | 1 | `pap.package.io` |
 | F61 | `base/` with only `relation-consistency/1` required (DI/SQ optional), policy requiring only that check, and `lowered-limits.json` (`fileBytes: 64`) | `integrity.artifacts=NOT_EVALUATED` although `integrity` is not required, `RC=PASS`, `coverage.full=false`; the limit forces `INCOMPLETE` rather than a vacuous `PASS` | `INCOMPLETE` | 2 | `pap.package.limit-exceeded`, `pap.limit.lowered` |
 

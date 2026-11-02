@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
@@ -190,6 +190,82 @@ test("a producer report that mimics a verifier record is invalid", () => {
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.dimensions.integrity.package, "FAIL");
   assert.ok(parsed.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.claims.spoofed-result"));
+});
+
+test("a symlinked parent path component is rejected", () => {
+  const dir = tempPackage();
+  rmSync(path.join(dir, "artifacts/ACME-SUPPLIER.draft.md"));
+  mkdirSync(path.join(dir, "artifacts/real"));
+  const content = Buffer.from("# inner\n");
+  writeFileSync(path.join(dir, "artifacts/real/file.md"), content);
+  symlinkSync("real", path.join(dir, "artifacts/linkdir"));
+  const value = manifest(dir);
+  value.artifacts[0].path = "artifacts/linkdir/file.md";
+  value.artifacts[0].bytes = content.length;
+  value.artifacts[0].digest = domainHash("pap.artifact.v1", content);
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.symlink"));
+});
+
+test("a nested package manifest is rejected", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "nested"));
+  writeFileSync(path.join(dir, "nested/assurance-package.json"), "{}\n");
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.manifest-self-reference"));
+});
+
+test("a declared nested package manifest is a structural failure", () => {
+  const dir = tempPackage();
+  writeFileSync(path.join(dir, "artifacts/assurance-package.json"), "{}\n");
+  const value = manifest(dir);
+  value.artifacts[0].path = "artifacts/assurance-package.json";
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.equal(report.dimensions.integrity.artifacts, "NOT_EVALUATED");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.manifest-self-reference"));
+});
+
+test("directory enumeration has a bounded entry budget", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "notes"));
+  for (let index = 0; index < 1_100; index += 1) {
+    writeFileSync(path.join(dir, "notes", `entry-${index}.txt`), "x");
+  }
+  const policy = unsignedPolicy();
+  policy.id = "policy-traversal-budget";
+  policy.limits = { payloadFiles: 1 };
+  const file = writePolicy("policy.json", policy);
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 2);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.coverage.full, false);
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+});
+
+test("an unreadable signature directory fails the package", () => {
+  const dir = tempPackage();
+  writeFileSync(path.join(dir, "signatures"), "not a directory");
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-optional.json"), "utf8"),
+  );
+  const file = writePolicy("policy.json", policy);
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.io"));
 });
 
 test("inspect reports structure without producing a verdict", () => {

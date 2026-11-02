@@ -4,12 +4,14 @@
  * the Appendix C report.
  */
 
-import { domainHash, inputFileDigest, normalizeLf, normalizedInputSetDigest } from "./digest.js";
+import { domainHash } from "./digest.js";
 import { jcsBytes } from "./json.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { validateManifest } from "./manifest.js";
 import type { CheckSpec, Manifest, ManifestDefect } from "./manifest.js";
 import {
+  hashPackageFile,
+  hashPackageRange,
   pathKey,
   readPackageFile,
   resolvePackageRoot,
@@ -20,10 +22,12 @@ import type { PackageRoot } from "./paths.js";
 import { loadPolicy, PolicyInvalid, DIMENSION_ORDER } from "./policy.js";
 import type { LoadedPolicy, TrustPolicy } from "./policy.js";
 import { parseClaimFile } from "./claims.js";
+import { hashInput, normalizedInputSetDigestStream } from "./input.js";
 import type { ClaimIssue, ParsedClaim } from "./claims.js";
 import {
   checkSpecImpl,
   isImplementedCheck,
+  WITNESS_BUDGET_BYTES,
 } from "./checks.js";
 import type {
   ArtifactState,
@@ -234,8 +238,13 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   const policyChecks = loadedPolicy?.policy.requiredChecks ?? [];
 
   const payloads = await loadPayloads(root, limits, manifest, structuralFailure, artifactPathFailure, diagnostics, diag);
+  let enumerationFailure = false;
+  let nestedManifestFailure = false;
   if (manifest !== null && !structuralFailure) {
-    await reportUndeclaredFiles(root, manifest, diag);
+    const scan = await reportUndeclaredFiles(root, manifest, limits, diag);
+    if (scan.limitHit) payloads.limitHit = true;
+    enumerationFailure = scan.error !== null;
+    nestedManifestFailure = scan.nestedManifest;
   }
   if (
     manifest?.build?.normalizedInputDigest !== undefined &&
@@ -295,7 +304,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
         : "PASS";
 
   let integrityPackage: VerificationReport["dimensions"]["integrity"]["package"] = "PASS";
-  if (structuralFailure || artifactPathFailure) {
+  if (structuralFailure || artifactPathFailure || enumerationFailure || nestedManifestFailure) {
     integrityPackage = "FAIL";
   } else if (
     payloads.artifacts.some((artifact) => artifact.status === "missing") ||
@@ -358,11 +367,15 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
       signerIdentity: "NOT_APPLICABLE",
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: false,
+      discoveryFailure: false,
       diagnostics: [],
     };
   }
   for (const diagnostic of signatureEvaluation.diagnostics) {
     diag(diagnostic.code, diagnostic.severity, diagnostic.scope, diagnostic.message);
+  }
+  if (signatureEvaluation.discoveryFailure) {
+    integrityPackage = "FAIL";
   }
   if (
     loadedPolicy !== undefined &&
@@ -517,6 +530,7 @@ export interface Payloads {
   claims: ClaimState[];
   claimMap: Partial<Record<ClaimKind, ClaimState>>;
   normalizedInputDigest: string | null;
+  sourceSpans: Map<string, string>;
   limitHit: boolean;
   limitedClasses: Set<"artifacts" | "sources" | "inputs">;
 }
@@ -526,7 +540,7 @@ export async function loadPayloads(
   limits: Limits,
   manifest: Manifest | null,
   structuralFailure: boolean,
-  artifactPathFailure: boolean,
+  _artifactPathFailure: boolean,
   diagnostics: Diagnostic[],
   diag: (code: string, severity: Diagnostic["severity"], scope: string, message: string) => void,
 ): Promise<Payloads> {
@@ -537,6 +551,7 @@ export async function loadPayloads(
     claims: [],
     claimMap: {},
     normalizedInputDigest: null,
+    sourceSpans: new Map(),
     limitHit: false,
     limitedClasses: new Set(),
   };
@@ -546,11 +561,12 @@ export async function loadPayloads(
 
   let stopped = false;
   let totalBytes = 0;
-  const read = async (
+  const hashPayload = async (
     relative: string,
     kind: "artifacts" | "sources" | "inputs",
+    domain: string,
   ): Promise<
-    | { ok: true; bytes: Uint8Array }
+    | { ok: true; digest: string; size: number }
     | { ok: false; failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io"; message: string }
   > => {
     if (stopped) {
@@ -565,21 +581,61 @@ export async function loadPayloads(
       result.limitedClasses.add(kind);
       return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
     }
-    const outcome = await readPackageFile(root, relative, limits, cap);
-    if (outcome.ok && outcome.bytes !== undefined) {
-      totalBytes += outcome.bytes.length;
+    const outcome = await hashPackageFile(root, relative, domain, limits, cap);
+    if (outcome.ok && outcome.digest !== undefined && outcome.size !== undefined) {
+      totalBytes += outcome.size;
       if (totalBytes > limits.totalPayloadBytes) {
         stopped = true;
         result.limitHit = true;
         result.limitedClasses.add(kind);
         return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
       }
-      return { ok: true, bytes: outcome.bytes };
+      return { ok: true, digest: outcome.digest, size: outcome.size };
     }
     if (outcome.failure === "limit") {
       stopped = true;
       result.limitHit = true;
       result.limitedClasses.add(kind);
+    }
+    return {
+      ok: false,
+      failure: outcome.failure ?? "io",
+      message: outcome.message ?? "payload is not readable",
+    };
+  };
+  const hashInputPayload = async (
+    input: Manifest["inputs"][number],
+  ): Promise<
+    | { ok: true; digest: string; normalizedSize: number; mode: "lf" | "raw" }
+    | { ok: false; failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io"; message: string }
+  > => {
+    if (stopped) {
+      result.limitedClasses.add("inputs");
+      return { ok: false, failure: "limit", message: "payload evaluation stopped by an earlier limit" };
+    }
+    const remaining = Math.max(0, limits.totalPayloadBytes - totalBytes);
+    const cap = Math.min(limits.fileBytes, remaining);
+    if (cap <= 0) {
+      stopped = true;
+      result.limitHit = true;
+      result.limitedClasses.add("inputs");
+      return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
+    }
+    const outcome = await hashInput(root, input.path, input.normalization, limits, cap);
+    if (outcome.ok) {
+      totalBytes += outcome.rawSize;
+      if (totalBytes > limits.totalPayloadBytes) {
+        stopped = true;
+        result.limitHit = true;
+        result.limitedClasses.add("inputs");
+        return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
+      }
+      return { ok: true, digest: outcome.digest, normalizedSize: outcome.normalizedSize, mode: outcome.mode };
+    }
+    if (outcome.failure === "limit") {
+      stopped = true;
+      result.limitHit = true;
+      result.limitedClasses.add("inputs");
     }
     return {
       ok: false,
@@ -634,36 +690,18 @@ export async function loadPayloads(
   const duplicateArtifactPaths = duplicateDeclaredPaths(manifest);
   for (const artifact of manifest.artifacts) {
     if (artifactsBlocked) {
-      result.artifacts.push({
-        artifact,
-        computed: null,
-        byteCount: null,
-        status: "unread",
-        message: "payload count limit exceeded",
-      });
+      result.artifacts.push({ artifact, computed: null, byteCount: null, status: "unread", message: "payload count limit exceeded" });
       continue;
     }
     if (duplicateArtifactPaths.has(pathKey(artifact.path))) {
-      result.artifacts.push({
-        artifact,
-        computed: null,
-        byteCount: null,
-        status: "missing",
-        message: `artifact path is duplicated: ${artifact.path}`,
-      });
+      result.artifacts.push({ artifact, computed: null, byteCount: null, status: "missing", message: `artifact path is duplicated: ${artifact.path}` });
       continue;
     }
     if (!usablePath(artifact.path, "artifacts/")) {
-      result.artifacts.push({
-        artifact,
-        computed: null,
-        byteCount: null,
-        status: "missing",
-        message: `artifact path is invalid: ${artifact.path}`,
-      });
+      result.artifacts.push({ artifact, computed: null, byteCount: null, status: "missing", message: `artifact path is invalid: ${artifact.path}` });
       continue;
     }
-    const outcome = await read(artifact.path, "artifacts");
+    const outcome = await hashPayload(artifact.path, "artifacts", "pap.artifact.v1");
     if (!outcome.ok) {
       failState(outcome.failure, artifact.id, outcome.message);
       result.artifacts.push({
@@ -675,114 +713,93 @@ export async function loadPayloads(
       });
       continue;
     }
-    const computed = domainHash("pap.artifact.v1", outcome.bytes);
-    if (computed !== artifact.digest || outcome.bytes.length !== artifact.bytes) {
-      const message = `artifact ${artifact.id} declares ${artifact.digest}/${artifact.bytes} bytes but computed ${computed}/${outcome.bytes.length}`;
+    if (outcome.digest !== artifact.digest || outcome.size !== artifact.bytes) {
+      const message = `artifact ${artifact.id} declares ${artifact.digest}/${artifact.bytes} bytes but computed ${outcome.digest}/${outcome.size}`;
       diag("pap.integrity.artifact-mismatch", "error", artifact.id, message);
-      result.artifacts.push({
-        artifact,
-        computed,
-        byteCount: outcome.bytes.length,
-        status: "mismatch",
-        message,
-      });
+      result.artifacts.push({ artifact, computed: outcome.digest, byteCount: outcome.size, status: "mismatch", message });
     } else {
-      result.artifacts.push({ artifact, computed, byteCount: outcome.bytes.length, status: "ok" });
+      result.artifacts.push({ artifact, computed: outcome.digest, byteCount: outcome.size, status: "ok" });
     }
   }
 
   for (const source of manifest.sources) {
     if (sourcesBlocked && source.path !== undefined) {
-      result.sources.push({
-        source,
-        computed: null,
-        status: "unread",
-        message: "payload count limit exceeded",
-      });
+      result.sources.push({ source, computed: null, size: null, status: "unread", message: "payload count limit exceeded" });
       continue;
     }
     if (source.path === undefined) {
-      result.sources.push({ source, computed: null, status: "referenced" });
+      result.sources.push({ source, computed: null, size: null, status: "referenced" });
       continue;
     }
     if (!usablePath(source.path, "sources/")) {
-      result.sources.push({
-        source,
-        computed: null,
-        status: "missing",
-        message: `source path is invalid: ${source.path}`,
-      });
+      result.sources.push({ source, computed: null, size: null, status: "missing", message: `source path is invalid: ${source.path}` });
       continue;
     }
-    const outcome = await read(source.path, "sources");
+    const outcome = await hashPayload(source.path, "sources", "pap.source.raw.v1");
     if (!outcome.ok) {
       failState(outcome.failure, source.id, outcome.message);
       result.sources.push({
         source,
         computed: null,
+        size: null,
         status: outcome.failure === "limit" ? "unread" : "missing",
         message: outcome.message,
       });
       continue;
     }
-    const computed = domainHash("pap.source.raw.v1", outcome.bytes);
-    if (computed !== source.digest) {
+    if (outcome.digest !== source.digest) {
       const message = `source ${source.id} does not match its declared raw digest`;
       diag("pap.integrity.source-mismatch", "error", source.id, message);
-      result.sources.push({ source, computed, bytes: outcome.bytes, status: "mismatch", message });
+      result.sources.push({ source, computed: outcome.digest, size: outcome.size, status: "mismatch", message });
     } else {
-      result.sources.push({ source, computed, bytes: outcome.bytes, status: "ok" });
+      result.sources.push({ source, computed: outcome.digest, size: outcome.size, status: "ok" });
     }
   }
 
-  const inputEntries: { path: string; bytes: Uint8Array }[] = [];
+  const inputEntries: { path: string; mode: "lf" | "raw"; normalizedSize: number }[] = [];
   let inputSetComplete = true;
   for (const input of manifest.inputs) {
     if (inputsBlocked) {
-      result.inputs.push({
-        input,
-        computed: null,
-        status: "unread",
-        message: "payload count limit exceeded",
-      });
+      result.inputs.push({ input, computed: null, normalizedSize: null, mode: null, status: "unread", message: "payload count limit exceeded" });
       inputSetComplete = false;
       continue;
     }
     if (!usablePath(input.path, "inputs/")) {
-      result.inputs.push({
-        input,
-        computed: null,
-        status: "missing",
-        message: `input path is invalid: ${input.path}`,
-      });
+      result.inputs.push({ input, computed: null, normalizedSize: null, mode: null, status: "missing", message: `input path is invalid: ${input.path}` });
       inputSetComplete = false;
       continue;
     }
-    const outcome = await read(input.path, "inputs");
+    const outcome = await hashInputPayload(input);
     if (!outcome.ok) {
       failState(outcome.failure, input.id, outcome.message);
       result.inputs.push({
         input,
         computed: null,
+        normalizedSize: null,
+        mode: null,
         status: outcome.failure === "limit" ? "unread" : "missing",
         message: outcome.message,
       });
       inputSetComplete = false;
       continue;
     }
-    const normalized = input.normalization === "lf" ? normalizeLf(outcome.bytes) : outcome.bytes;
-    const computed = inputFileDigest(input.path, normalized);
-    if (computed !== input.digest) {
+    if (outcome.digest !== input.digest) {
       const message = `input ${input.id} does not match its declared digest`;
       diag("pap.integrity.input-mismatch", "error", input.id, message);
-      result.inputs.push({ input, computed, bytes: outcome.bytes, normalized, status: "mismatch", message });
+      result.inputs.push({ input, computed: outcome.digest, normalizedSize: outcome.normalizedSize, mode: outcome.mode, status: "mismatch", message });
     } else {
-      result.inputs.push({ input, computed, bytes: outcome.bytes, normalized, status: "ok" });
+      result.inputs.push({ input, computed: outcome.digest, normalizedSize: outcome.normalizedSize, mode: outcome.mode, status: "ok" });
     }
-    inputEntries.push({ path: input.path, bytes: normalized });
+    inputEntries.push({ path: input.path, mode: outcome.mode, normalizedSize: outcome.normalizedSize });
   }
   if (manifest.inputs.length > 0 && inputSetComplete) {
-    result.normalizedInputDigest = normalizedInputSetDigest(inputEntries);
+    const setDigest = await normalizedInputSetDigestStream(root, inputEntries, limits);
+    if (setDigest === null) {
+      result.limitHit = true;
+      diag("pap.package.limit-exceeded", "error", "inputs", "normalized input set could not be read within limits");
+    } else {
+      result.normalizedInputDigest = setDigest;
+    }
   }
 
   const declaredSourceIds = new Set(manifest.sources.map((source) => source.id));
@@ -847,16 +864,8 @@ export async function loadPayloads(
         state.invalid = true;
         state.message = parsed.message;
         diag("pap.package.claim-invalid", "error", kind, parsed.message);
-        if (
-          kind === "producerReport" &&
-          parsed.message.includes("mimics a verifier check record")
-        ) {
-          diag(
-            "pap.claims.spoofed-result",
-            "error",
-            kind,
-            "producer report contains verifier-only fields",
-          );
+        if (kind === "producerReport" && parsed.message.includes("mimics a verifier check record")) {
+          diag("pap.claims.spoofed-result", "error", kind, "producer report contains verifier-only fields");
         }
       }
     } else {
@@ -865,6 +874,43 @@ export async function loadPayloads(
     }
     result.claims.push(state);
     result.claimMap[kind] = state;
+  }
+
+  // Compute only the quoted source ranges; source bytes are not retained.
+  const provenance = result.claimMap.provenance?.parsed;
+  if (provenance !== undefined && provenance.kind === "provenance") {
+    for (const binding of provenance.bindings) {
+      const source = result.sources.find((entry) => entry.source.id === binding.sourceId);
+      if (
+        source === undefined ||
+        source.source.path === undefined ||
+        source.size === null ||
+        source.computed === null
+      ) {
+        continue;
+      }
+      const { start, end } = binding.locator;
+      if (start > end || end > source.size) continue;
+      const span = await hashPackageRange(
+        root,
+        source.source.path,
+        start,
+        end,
+        "pap.quote.v1",
+        limits,
+      );
+      if (span.ok && span.digest !== undefined) {
+        result.sourceSpans.set(
+          `${binding.sourceId}\u0000${start}\u0000${end}`,
+          span.digest,
+        );
+      } else if (span.failure === "limit") {
+        result.limitHit = true;
+        diag("pap.package.limit-exceeded", "error", binding.id, span.message ?? "quote range exceeds a limit");
+      } else if (span.message !== undefined) {
+        diag("pap.package.io", "error", binding.id, span.message);
+      }
+    }
   }
 
   return result;
@@ -921,8 +967,10 @@ function evaluateChecks(options: {
     inputs: options.payloads.inputs,
     claims: options.payloads.claims,
     normalizedInputDigest: options.payloads.normalizedInputDigest,
+    sourceSpans: options.payloads.sourceSpans,
     checker: CHECKER,
     limits: { provenanceBindings: options.limits.provenanceBindings },
+    witnessBudget: WITNESS_BUDGET_BYTES,
   };
 
   const required = new Set(options.requiredChecks);
@@ -1253,11 +1301,18 @@ function buildLimitations(diagnostics: Diagnostic[]): Limitation[] {
   return sortLimitations(limitations);
 }
 
+interface UndeclaredScan {
+  limitHit: boolean;
+  error: string | null;
+  nestedManifest: boolean;
+}
+
 async function reportUndeclaredFiles(
   root: PackageRoot,
   manifest: Manifest,
+  limits: Limits,
   diag: (code: string, severity: Diagnostic["severity"], scope: string, message: string) => void,
-): Promise<void> {
+): Promise<UndeclaredScan> {
   const declared = new Set<string>();
   const add = (relative: string): void => {
     declared.add(pathKey(relative));
@@ -1270,13 +1325,31 @@ async function reportUndeclaredFiles(
   for (const ref of Object.values(manifest.claims)) {
     if (ref !== undefined) add(ref.path);
   }
-  const files = await walkPackageFiles(root);
-  for (const file of files) {
+  const walk = await walkPackageFiles(root, limits);
+  if (walk.limitHit) {
+    diag("pap.package.limit-exceeded", "error", "package", "directory enumeration exceeded the verifier budget");
+  }
+  if (walk.error !== null) {
+    diag("pap.package.io", "error", "package", walk.error);
+  }
+  let nestedManifest = false;
+  for (const file of walk.files) {
     if (pathKey(file) === pathKey("assurance-package.json")) continue;
+    if (file.split("/").at(-1)?.toLowerCase() === "assurance-package.json") {
+      nestedManifest = true;
+      diag(
+        "pap.package.manifest-self-reference",
+        "error",
+        file,
+        "a nested package manifest is prohibited",
+      );
+      continue;
+    }
     if (declared.has(pathKey(file))) continue;
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) continue;
     diag("pap.package.undeclared-file", "warning", file, "undeclared file is present and was not read");
   }
+  return { limitHit: walk.limitHit, error: walk.error, nestedManifest };
 }
 
 function duplicateDeclaredPaths(manifest: Manifest): Set<string> {
