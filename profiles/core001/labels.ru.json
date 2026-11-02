@@ -45,6 +45,7 @@
   "binding.no": "нет",
   "applicability.determined": "определена",
   "applicability.decision_dependent": "зависит от решения",
+  "provenance.binding": "структурная",
   "inScope.yes": "в срезе",
   "inScope.no": "вне среза"
 }

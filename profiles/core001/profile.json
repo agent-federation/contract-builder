@@ -139,6 +139,7 @@
     "schemas/decision.schema.json",
     "schemas/case.schema.json",
     "checks/source.ts",
+    "checks/verification.ts",
     "checks/ontology.ts",
     "checks/provision.ts",
     "checks/cases.ts",

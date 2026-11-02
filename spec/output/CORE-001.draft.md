@@ -16,6 +16,7 @@
 | Положений | 5 (связывающих: 3) |
 | Векторов соответствия | 13 |
 | Открытых решений | 1 |
+| Привязок происхождения | 8 · verified=8 · failed=0 · unavailable=0 · stale=0 |
 | Диагностика | ERROR=0 · REVIEW_REQUIRED=5 · WARNING=10 |
 
 > **Черновик.** Есть 5 диагностик `REVIEW_REQUIRED`: часть нормативного содержания не подтверждена человеком. Режим `release` для такого состояния запрещён.
@@ -35,6 +36,11 @@
 | выведен логически | исход получен выводом (например, контрапозицией), а не дословно |
 | недоопределён источником | источник рассматривает ситуацию, но оставляет исход открытым |
 | источник молчит | источник не рассматривает ситуацию |
+| структурная привязка | `ProvenanceBinding` заполнена и источник объявлен; это не проверка доказательства |
+| verified | проверка нашла цитату в объявленном месте текущего источника |
+| failed | проверка не нашла цитату или локатор |
+| unavailable | проверка не выполнялась или метод её не поддерживает |
+| stale | запись проверки относится к другому digest источника |
 
 ## Термины
 
@@ -260,15 +266,38 @@
 
 Открытое решение не является действующей нормой. Положение, зависящее от открытого нормативного решения, публикуется в `draft` с маркером, а в `release` блокирует выпуск. Простое упоминание решения зависимостью не считается.
 
+## Происхождение: привязка и проверка
+
+`ProvenanceBinding` фиксирует связь сущности с источником, локатором и цитатой. Успешная привязка означает только, что все три поля непусты, а источник объявлен в манифесте. Она не подтверждает, что цитата находится в источнике, и не является проверенным доказательством.
+
+`ProvenanceVerification` — отдельный результат проверки. `verified` означает, что объявленный метод нашёл цитату внутри объявленного локатора в текущем источнике. Это не подтверждение удачности выбора цитаты, не криптографическая подлинность и не проверка нормативного смысла. `unavailable` (включая not checked) и `stale` никогда не выводятся как `verified`.
+
+| Сущность | Вид | Источник | Локатор | Привязка | Проверка (outcome) | Метод | Verifier | Версия источника | Digest источника | Время проверки |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `FRAG-10-TABLE-ASSERTED-AT` | fragment | `SRC-CORE001` | `SRC-CORE001#10/table/asserted_at` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `FRAG-10-TABLE-SIGNED-AT` | fragment | `SRC-CORE001` | `SRC-CORE001#10/table/signed_at` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `FRAG-10-P-NOT-INTERCHANGEABLE` | fragment | `SRC-CORE001` | `SRC-CORE001#10` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `FRAG-10.1-P2-TRUST-CONDITION` | fragment | `SRC-CORE001` | `SRC-CORE001#10.1` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `FRAG-10.1-P5-NO-GLOBAL-TIME` | fragment | `SRC-CORE001` | `SRC-CORE001#10.1` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `FRAG-10.2-P1-MOMENT-DEFINED` | fragment | `SRC-CORE001` | `SRC-CORE001#10.2` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `FRAG-10.2-P4-5-REVOCATION` | fragment | `SRC-CORE001` | `SRC-CORE001#10.2` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+| `DEC-TRUSTED-TIME` | decision | `SRC-CORE001` | `SRC-CORE001#15/5` | структурная | verified (found) | `source-adapter:markdown/verifyQuote` | `core001/validator` | `UIA-CORE-001 (Rev 0.3.3)` | `sha256:f40876bb3b3f38c068e4e094a715709836dafc587eae8434ecddba69df981db1` | — |
+
+Время проверки (`checkedAt`) недоступно (`—`): сборка детерминирована и не использует доверенные часы, поэтому время не подставляется. Доверенное время — открытое решение `DEC-TRUSTED-TIME`.
+
+`Digest источника` — SHA-256 байтов, против которых выполнялась проверка. Это запись о том, что именно проверялось, а не проверка объявленного `identity.sha256`: пиннинг digest принят отдельным RFC (#4), но в этой сборке не реализован.
+
+`term` и `provision` не имеют прямой привязки: их `source_ref` и цитаты проверяются профилем относительно фрагмента. Это не независимая проверка и не отображается как `verified`.
+
 ## Приложение A. Матрица трассируемости
 
-| Фрагмент | `source_ref` | Положение | Нормативные зависимости | Векторы |
-|---|---|---|---|---|
-| `FRAG-10.2-P1-MOMENT-DEFINED` | `SRC-CORE001#10.2` | `REQ-TEMPORAL-MOMENT-DEFINED` | — | CASE-REQ-TEMPORAL-MOMENT-DEFINED-POS-1, CASE-REQ-TEMPORAL-MOMENT-DEFINED-NEG-1 |
-| `FRAG-10.2-P4-5-REVOCATION` | `SRC-CORE001#10.2` | `REQ-REVOCATION-NOT-AUTO-INVALID` | — | CASE-REQ-REVOCATION-NOT-AUTO-INVALID-POS-1, CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-1, CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-2, CASE-REQ-REVOCATION-NOT-AUTO-INVALID-NAS-1 |
-| `FRAG-10.1-P2-TRUST-CONDITION` | `SRC-CORE001#10.1` | `REQ-SIGNED-AT-TRUST-CONDITION` | — | CASE-REQ-SIGNED-AT-TRUST-CONDITION-POS-1, CASE-REQ-SIGNED-AT-TRUST-CONDITION-UNDET-1, CASE-REQ-SIGNED-AT-TRUST-CONDITION-NEG-1 |
-| `FRAG-10.1-P5-NO-GLOBAL-TIME` | `SRC-CORE001#10.1` | `INV-NO-GLOBAL-TRUSTED-TIME` | — | CASE-INV-NO-GLOBAL-TRUSTED-TIME-POS-1, CASE-INV-NO-GLOBAL-TRUSTED-TIME-NAS-1 |
-| `FRAG-10-P-NOT-INTERCHANGEABLE` | `SRC-CORE001#10` | `REQ-TIMESTAMPS-NOT-INTERCHANGEABLE` | — | CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-POS-1, CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-NEG-1 |
+| Фрагмент | Проверка фрагмента | `source_ref` | Положение | Нормативные зависимости | Векторы |
+|---|---|---|---|---|---|
+| `FRAG-10.2-P1-MOMENT-DEFINED` | verified | `SRC-CORE001#10.2` | `REQ-TEMPORAL-MOMENT-DEFINED` | — | CASE-REQ-TEMPORAL-MOMENT-DEFINED-POS-1, CASE-REQ-TEMPORAL-MOMENT-DEFINED-NEG-1 |
+| `FRAG-10.2-P4-5-REVOCATION` | verified | `SRC-CORE001#10.2` | `REQ-REVOCATION-NOT-AUTO-INVALID` | — | CASE-REQ-REVOCATION-NOT-AUTO-INVALID-POS-1, CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-1, CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-2, CASE-REQ-REVOCATION-NOT-AUTO-INVALID-NAS-1 |
+| `FRAG-10.1-P2-TRUST-CONDITION` | verified | `SRC-CORE001#10.1` | `REQ-SIGNED-AT-TRUST-CONDITION` | — | CASE-REQ-SIGNED-AT-TRUST-CONDITION-POS-1, CASE-REQ-SIGNED-AT-TRUST-CONDITION-UNDET-1, CASE-REQ-SIGNED-AT-TRUST-CONDITION-NEG-1 |
+| `FRAG-10.1-P5-NO-GLOBAL-TIME` | verified | `SRC-CORE001#10.1` | `INV-NO-GLOBAL-TRUSTED-TIME` | — | CASE-INV-NO-GLOBAL-TRUSTED-TIME-POS-1, CASE-INV-NO-GLOBAL-TRUSTED-TIME-NAS-1 |
+| `FRAG-10-P-NOT-INTERCHANGEABLE` | verified | `SRC-CORE001#10` | `REQ-TIMESTAMPS-NOT-INTERCHANGEABLE` | — | CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-POS-1, CASE-REQ-TIMESTAMPS-NOT-INTERCHANGEABLE-NEG-1 |
 
 ## Приложение B. Диагностика сборки
 

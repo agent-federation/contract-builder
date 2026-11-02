@@ -18,7 +18,9 @@ import { TEST_RENDERERS } from "./support.js";
  * when checks move between modules, provided the artifact and the rendered snapshot do not
  * change (see docs/architecture/m1-implementation-plan.md, section 9.1).
  *
- * Do not regenerate these files to make a failing build pass.
+ * Do not regenerate these files to make a failing build pass. A post-M1 change that
+ * intentionally alters the artifact (for example the Issue #37 provenance section) updates
+ * the hash in the same PR and states the reason in the PR description.
  */
 
 const root = fileURLToPath(new URL("..", import.meta.url));

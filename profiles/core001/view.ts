@@ -1,11 +1,17 @@
 /**
  * CORE-001 view types.
  *
- * These shapes are profile data, not part of the generic IR. `render.ts` imports them with
- * `import type` until PR 5 moves the renderer into the profile.
+ * These shapes are profile data, not part of the generic IR. The profile renderer and
+ * validator consume them; the core only sees the entity envelope.
  */
 
-import type { Entity, ProjectModel } from "../../spec/lib/ir.js";
+import type {
+  Entity,
+  ProjectModel,
+  ProvenanceBinding,
+  ProvenanceVerification,
+} from "../../spec/lib/ir.js";
+import { notCheckedVerification } from "../../spec/lib/provenance.js";
 import { normalizeText } from "./text.js";
 
 export type SourceModality =
@@ -217,6 +223,22 @@ export interface AnalyzedProvision extends Provision {
   fragment_resolved: Fragment;
 }
 
+/** One direct provenance binding and the verification record that accompanies it. */
+export interface ProvenanceEntry {
+  entity: string;
+  kind: string;
+  binding: ProvenanceBinding;
+  verification: ProvenanceVerification;
+}
+
+export interface ProvenanceCounts {
+  bound: number;
+  verified: number;
+  failed: number;
+  unavailable: number;
+  stale: number;
+}
+
 export interface AnalyzedSpec {
   document: DocHeader;
   source: SourceDecl;
@@ -226,6 +248,8 @@ export interface AnalyzedSpec {
   provisions: AnalyzedProvision[];
   decisions: Decision[];
   cases: Case[];
+  provenance: ProvenanceEntry[];
+  provenanceCounts: ProvenanceCounts;
   counts: {
     terms: number;
     provisions: number;
@@ -260,6 +284,7 @@ export function buildView(model: ProjectModel): AnalyzedSpec {
   const fragmentById = new Map(fragments.map((fragment) => [fragment.id, fragment]));
   const decisionById = new Map(decisions.map((decision) => [decision.id, decision]));
   const caseById = new Map(cases.map((testCase) => [testCase.id, testCase]));
+  const lineage = provenanceOf(model);
 
   const provisions: AnalyzedProvision[] = byKind(model, "provision").map((entity) => {
     const provision = toProvision(entity);
@@ -314,6 +339,8 @@ export function buildView(model: ProjectModel): AnalyzedSpec {
     provisions,
     decisions,
     cases,
+    provenance: lineage,
+    provenanceCounts: countProvenance(lineage),
     counts: {
       terms: terms.length,
       provisions: provisions.length,
@@ -327,6 +354,39 @@ export function buildView(model: ProjectModel): AnalyzedSpec {
 
 function byKind(model: ProjectModel, kind: string): Entity[] {
   return model.byKind.get(kind) ?? [];
+}
+
+/**
+ * Direct provenance only. A binding without a verification record is reported as
+ * `unavailable`/`not-checked`; absence is never rendered as verified.
+ */
+function provenanceOf(model: ProjectModel): ProvenanceEntry[] {
+  const entries: ProvenanceEntry[] = [];
+  for (const entity of model.entities) {
+    const binding = entity.provenance;
+    if (binding === undefined) continue;
+    entries.push({
+      entity: entity.id,
+      kind: entity.kind,
+      binding,
+      verification:
+        entity.verification ??
+        notCheckedVerification(entity.id, binding.source, binding.ref, null),
+    });
+  }
+  return entries;
+}
+
+function countProvenance(entries: readonly ProvenanceEntry[]): ProvenanceCounts {
+  const counts: ProvenanceCounts = {
+    bound: entries.length,
+    verified: 0,
+    failed: 0,
+    unavailable: 0,
+    stale: 0,
+  };
+  for (const entry of entries) counts[entry.verification.status] += 1;
+  return counts;
 }
 
 function resolveDecisions(
