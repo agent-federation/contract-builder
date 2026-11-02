@@ -352,13 +352,15 @@ Two residual risks remain, and they are not defects this audit can close:
   the existing repository suite; it does not execute F01–F61, E.9 or E.10, which have no PAP
   harness or fixture corpus yet (Phase 3a).
 
-### 8.5 What the maintainer needs to do
+### 8.5 Decision recorded
 
-1. Approve, amend or defer OD-1–OD-7 (§7).
-2. Record the D1–D12 dispositions in §16 of the RFC (recommended: `accepted`, with the two
-   deferred sub-parts noted).
-3. Then record the Gate 1 decision on #43/#57. This audit deliberately does not close either
-   issue or change the gate status.
+On 2026-11-02 the maintainer accepted OD-1–OD-7 and D1–D12 as recommended, recorded Gate 1 PASS
+and authorized Phase 2 verifier implementation under the accepted v0.1 contract. The decision
+comment is
+[#57 comment 6574200695](https://github.com/agent-federation/contract-builder/issues/57#issuecomment-6574200695);
+the Gate 1 PASS is recorded on #43, and §16 of the RFC carries the accepted D1–D12 statuses.
 
-The accepted specification is ready for Phase 2 verifier implementation. Phase 3 remains the
-separate interoperability demonstration required for Gate 3.
+The accepted specification is ready for Phase 2. Gate 3 remains the separate interoperability
+demonstration required before any cross-implementation claim; F47–F61/E.9/E.10 remain normative
+descriptions rather than executable tests, and the unexercised branches in §5.1 remain explicit
+implementation/test risks.
