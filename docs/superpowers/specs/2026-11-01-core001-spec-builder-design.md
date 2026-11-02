@@ -3,7 +3,7 @@
 Дата: 2026-11-01
 Статус: модель зафиксирована, MVP реализован
 
-Статус реализации движка и публичного контракта: [implementation-status.md](../architecture/implementation-status.md).
+Статус реализации движка и публичного контракта: [implementation-status.md](../../architecture/implementation-status.md).
 
 ## 1. Зачем
 

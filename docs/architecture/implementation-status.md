@@ -94,7 +94,7 @@ carries it.
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
 | R1 | A profile owns entity kinds, relation declarations, provenance mappings, document bindings, diagnostic catalog and validator/view modules; the core names no CORE-001 concept | `accepted` | `implemented` | `tested` | `—` | Contract [§3.2–3.3](engine-public-contract.md) (D6, D15, D16); plan [§7.1](m1-implementation-plan.md), [§10.2](m1-implementation-plan.md); [profile.json](../../profiles/core001/profile.json), [manifest.ts:447](../../spec/lib/manifest.ts#L447); [ir.test.ts:132](../../tests/ir.test.ts#L132), [genericity.test.ts:56](../../tests/genericity.test.ts#L56) |
-| R2 | Document schemas and per-kind entity schemas carry versioned `$id`s; the reserved names (`id`, `kind`, `type`, `provenance`, `relations`, `review`) are permitted in entity schemas | `accepted` | `implemented` | `tested` | `—` | Contract [§5.5](engine-public-contract.md); plan [§7.3](m1-implementation-plan.md); [schema.ts:17](../../spec/lib/schema.ts#L17), [schema.ts:121](../../spec/lib/schema.ts#L121), [provision.schema.json](../../profiles/core001/schemas/provision.schema.json); [ir.test.ts:235](../../tests/ir.test.ts#L235), [example-profile.test.ts:216](../../tests/example-profile.test.ts#L216) |
+| R2 | Document schemas and per-kind entity schemas carry versioned `$id`s; the reserved names (`id`, `kind`, `type`, `provenance`, `relations`, `review`) are permitted in entity schemas | `accepted` | `implemented` | `tested` | `—` | Contract [§5.5](engine-public-contract.md); plan [§7.3](m1-implementation-plan.md); [schema.ts:17](../../spec/lib/schema.ts#L17), [schema.ts:121](../../spec/lib/schema.ts#L121), [provision.schema.json](../../profiles/core001/schemas/provision.schema.json); [ir.test.ts:132](../../tests/ir.test.ts#L132), [example-profile.test.ts:216](../../tests/example-profile.test.ts#L216) |
 | R3 | An undeclared kind or relation is never guessed: `core.profile.unknown-kind` and `core.profile.unknown-relation`; a duplicate `(name, from)` declaration is rejected | `accepted` | `implemented` | `tested` | `—` | Contract [§3.2](engine-public-contract.md), [§5.1–5.2](engine-public-contract.md); plan [§7.4](m1-implementation-plan.md); [ir.ts:81](../../spec/lib/ir.ts#L81), [relations.ts:23](../../spec/lib/relations.ts#L23), [manifest.ts:447](../../spec/lib/manifest.ts#L447); [ir.test.ts:168](../../tests/ir.test.ts#L168), [ir.test.ts:180](../../tests/ir.test.ts#L180), [example-profile.test.ts:258](../../tests/example-profile.test.ts#L258) |
 | R4 | Declarative rule primitives (`matrix`, `substring`, `coverage`, `gate`, …) | `deferred` | `—` | `—` | `—` | Directed hook-only in M1; primitives are the M3 target (D15 narrowed, plan [§3](m1-implementation-plan.md)); contract [§3.3](engine-public-contract.md) |
 | R5 | Typed `ReviewState` with N named review dimensions, and profile `vocabularies` / `renderDefaults` / `overridablePolicyKeys` | `deferred` | `—` | `—` | `—` | D16 narrowed (review stays opaque in `fields`), D24 proposed / M4; plan [§12](m1-implementation-plan.md); [ir.ts:46](../../spec/lib/ir.ts#L46) does not strip `review`, so it stays in `fields` |
@@ -131,7 +131,7 @@ carries it.
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
 | G1 | M1 diagnostic record `{severity: error\|warning\|review, code, file, pointer, message}` with a fixed deterministic order and a read-only emission-order snapshot | `accepted` | `implemented` | `tested` | `—` | Legacy shape frozen for M1, plan [§9.2–9.4](m1-implementation-plan.md); [diagnostics.ts:1](../../spec/lib/diagnostics.ts#L1), [diagnostics.ts:58](../../spec/lib/diagnostics.ts#L58); [golden.test.ts:81](../../tests/golden.test.ts#L81), [golden.test.ts:86](../../tests/golden.test.ts#L86), [golden.test.ts:99](../../tests/golden.test.ts#L99) |
-| G2 | The contract diagnostic: `severity` + `disposition` + resolved `blocking`, a `phase`, `location` object and `data`; namespaced `core.*` codes; exit code 2 reserved for I/O and usage errors | `deferred` | `—` | `—` | `—` | D8, D9, D17 accepted; contract [§18](engine-public-contract.md) corrections 1–4 and [§7](engine-public-contract.md) schedule this for M2; [diagnostics.ts:3](../../spec/lib/diagnostics.ts#L3) has no `disposition`/`phase` |
+| G2 | The contract diagnostic: `severity` + `disposition` + resolved `blocking`, a `phase`, `location` object and `data`; namespaced `core.*` codes; exit code 2 reserved for I/O and usage errors | `deferred` | `—` | `—` | `—` | D8 and D9 accepted, D17 proposed; contract [§18](engine-public-contract.md) corrections 1–4 and [§7](engine-public-contract.md) schedule this for M2; [diagnostics.ts:3](../../spec/lib/diagnostics.ts#L3) has no `disposition`/`phase` |
 | G3 | Every emitted code is declared in the profile catalog, with variants; an unknown finding code fails the build | `accepted` | `implemented` | `tested` | `—` | Contract [§7.1](engine-public-contract.md); plan [§9.3](m1-implementation-plan.md); [hook.ts:100](../../spec/lib/hook.ts#L100), [catalog.json](../../profiles/core001/catalog.json); [hook.test.ts:62](../../tests/hook.test.ts#L62), [hook.test.ts:78](../../tests/hook.test.ts#L78), [hook.test.ts:161](../../tests/hook.test.ts#L161) |
 
 ### 3.7 Rendering, renderer registry and artifact normalization
@@ -156,7 +156,7 @@ carries it.
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
 | K1 | M1 entry point: `runBuild(BuildOptions) → BuildResult` with `exitCode`, `blockedBy`, `diagnostics`, `markdown`, `outputPath`, `written`, `identity` | `accepted` | `implemented` | `tested` | `—` | The M1 narrowing is recorded: D18 deferred to M2 (plan [§12](m1-implementation-plan.md)); [build.ts:31](../../spec/lib/build.ts#L31), [build.ts:45](../../spec/lib/build.ts#L45), [build.ts:56](../../spec/lib/build.ts#L56); [build.test.ts:29](../../tests/build.test.ts#L29), [golden.test.ts:75](../../tests/golden.test.ts#L75) |
-| K2 | Public API `loadProject` / `validateProject` / `buildProject` / `renderModel` / `checkArtifacts`, `BuildStatus`, `phases`, `Artifact[]` in the result, and exit code 2 | `deferred` | `—` | `—` | `—` | D7 and D18 accepted as the contract; plan [§12](m1-implementation-plan.md) and contract [§18](engine-public-contract.md) place the API in M2; no exported package surface exists ([package.json](../../package.json) `private`) |
+| K2 | Public API `loadProject` / `validateProject` / `buildProject` / `renderModel` / `checkArtifacts`, `BuildStatus`, `phases`, `Artifact[]` in the result, and exit code 2 | `deferred` | `—` | `—` | `—` | D7 accepted, D18 proposed and explicitly deferred; plan [§12](m1-implementation-plan.md) and contract [§18](engine-public-contract.md) place the API in M2; no exported package surface exists ([package.json](../../package.json) `private`) |
 | K3 | Contract CLI (`validate` / `build` / `check` subcommands, `--json` returning the contract result object) | `deferred` | `—` | `—` | `—` | Contract [§10](engine-public-contract.md); the M1 CLI exposes `--mode/--spec/--check/--no-write/--strict/--json` flags only ([build.ts:16](../../spec/build.ts#L16), [build.ts:128](../../spec/build.ts#L128)) |
 
 ### 3.10 Adapters, multi-source behavior and the extension trust boundary
@@ -219,16 +219,19 @@ sequence did not change CORE-001 normative content or the generated bytes.
 The accepted contract describes the engine's full public surface. M1 delivered a bounded slice
 of it. These are different kinds of claim and are not interchangeable:
 
-- **Promise accepted but not implemented:** the public API and `BuildStatus` (D7, D18; row K2,
-  §3.9), the contract CLI (row K3, §3.9), three-axis diagnostics with
-  namespacing and exit code 2 (D8, D9, D17; [G2](#36-diagnostics-shape-codes-and-phases)),
-  per-code blocking (D9; H3), rule primitives (D15; R4), multi-source (D21; A2), typed review
-  dimensions (D24; R5), provenance hardening accepted 2026-11-02 (V4), packaging/publication
-  (D14, D20, D29; X1–X2), self-hosting (D26; X3).
+- **Promise accepted but not implemented:** the public API and operations (D7; row K2, §3.9),
+  the contract CLI (row K3, §3.9), three-axis diagnostics and per-code blocking (D8, D9;
+  [G2](#36-diagnostics-shape-codes-and-phases), H3), provenance hardening (accepted 2026-11-02;
+  V4).
+- **Proposed but not implemented:** `BuildStatus` and exit code 2 (D18), code namespacing (D17),
+  rule primitives (D15; R4), multi-source (D21; A2), typed review dimensions (D24; R5), packaging
+  and publication (D14, D20, D29; X1–X2), runtime matrix (D19; X4).
 - **A code comment is staler than the contract:** `RenderOptions.diagnostics` exists and is
   required by contract [§11](engine-public-contract.md), but
   [render.ts:27](../../spec/lib/render.ts#L27) still calls it a "proposed contract extension"
   (see [§8](#8-documentation-drift-and-smallest-corrections)).
+- **Deferred:** isolated hook execution (D32; B4), conformance execution (D27; N2), self-hosting
+  (D26; X3) and the M2–M5 milestone program (X5).
 - **M1 narrowings that are deliberate, not accidental:** one renderer and one artifact per build
   (O3), `review` opaque inside `fields` (R5), legacy diagnostic codes preserved verbatim (G1),
   severity-based blocking (H2), source quote verification in the profile hook (V3).
