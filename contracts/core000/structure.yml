@@ -1,0 +1,38 @@
+components:
+  - id: COMP-CORE
+    name: "Contract Builder core"
+    responsibility: "Generic loading, structure, identity, relations, provenance binding, diagnostics, rendering and build identity."
+    boundary: engine
+    public: true
+    relations:
+      provides: [IF-MANIFEST, IF-BUILD-IDENTITY, IF-PROFILE-VALIDATOR]
+
+interfaces:
+  - id: IF-MANIFEST
+    name: "Project manifest"
+    surface: file
+    stability: accepted
+    description: "contract-builder.json: project, profile, inputs, sources, render, output."
+    owner: COMP-CORE
+  - id: IF-BUILD-IDENTITY
+    name: "Build identity"
+    surface: data
+    stability: accepted
+    description: "BuildResult.identity: projectId, engineVersion, manifestVersion, inputDigest and the extensions list."
+    owner: COMP-CORE
+  - id: IF-PROFILE-VALIDATOR
+    name: "Profile validator hook"
+    surface: api
+    stability: accepted
+    description: "Profile validate(model, ctx) and optional verifyProvenance(model, ctx) exports, loaded only after explicit caller consent."
+    owner: COMP-CORE
+
+trustBoundaries:
+  - id: TB-PROFILE-EXEC
+    name: "Executable profile loading"
+    inside: "Profile view/validator modules and their declared closure run with builder privileges."
+    outside: "No sandbox, capability restriction or process isolation exists."
+    enforcement: explicit_consent
+    statement: "Loading a profile is a trust decision equivalent to installing a dependency; executable profile modules require explicit caller consent, are not sandboxed, and remain in-process with builder privileges."
+    policy_status: settled
+    policy_ref: "#35 (closed; PR #50 merged)"

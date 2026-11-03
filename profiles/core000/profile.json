@@ -1,0 +1,71 @@
+{
+  "id": "core000",
+  "version": "0.1.0",
+  "entityKinds": {
+    "component": { "schema": "core000:component", "identity": "id" },
+    "interface": { "schema": "core000:interface", "identity": "id" },
+    "source_statement": { "schema": "core000:source-statement", "identity": "id" },
+    "claim": { "schema": "core000:claim", "identity": "id" },
+    "evidence": { "schema": "core000:evidence", "identity": "id" },
+    "independent_verification": { "schema": "core000:independent-verification", "identity": "id" },
+    "decision": { "schema": "core000:decision", "identity": "id" },
+    "trust_boundary": { "schema": "core000:trust-boundary", "identity": "id" }
+  },
+  "schemas": {
+    "core000:structure": "schemas/structure.schema.json",
+    "core000:claims": "schemas/claims.schema.json",
+    "core000:component": "schemas/component.schema.json",
+    "core000:interface": "schemas/interface.schema.json",
+    "core000:source-statement": "schemas/source-statement.schema.json",
+    "core000:claim": "schemas/claim.schema.json",
+    "core000:evidence": "schemas/evidence.schema.json",
+    "core000:independent-verification": "schemas/independent-verification.schema.json",
+    "core000:decision": "schemas/decision.schema.json",
+    "core000:trust-boundary": "schemas/trust-boundary.schema.json"
+  },
+  "documents": [
+    { "key": "structure", "input": "structure.yml" },
+    { "key": "claims", "input": "claims.yml" }
+  ],
+  "relations": [
+    { "name": "provides", "from": "component", "to": "interface", "cardinality": "many", "inverse": "providedBy" },
+    { "name": "providedBy", "from": "interface", "to": "component", "cardinality": "many", "inverse": "provides" },
+    { "name": "subject", "from": "claim", "to": "*", "cardinality": "many" },
+    { "name": "cites", "from": "claim", "to": "source_statement", "cardinality": "many", "inverse": "citedBy" },
+    { "name": "citedBy", "from": "source_statement", "to": "claim", "cardinality": "many", "inverse": "cites" },
+    { "name": "evidencedBy", "from": "claim", "to": "evidence", "cardinality": "many", "inverse": "supports" },
+    { "name": "supports", "from": "evidence", "to": "claim", "cardinality": "many", "inverse": "evidencedBy" },
+    { "name": "decidedBy", "from": "claim", "to": "decision", "cardinality": "many", "inverse": "decides" },
+    { "name": "decides", "from": "decision", "to": "claim", "cardinality": "many", "inverse": "decidedBy" },
+    { "name": "verifies", "from": "independent_verification", "to": "claim", "cardinality": "many", "inverse": "verifiedBy" },
+    { "name": "verifiedBy", "from": "claim", "to": "independent_verification", "cardinality": "many", "inverse": "verifies" }
+  ],
+  "provenance": [
+    { "kind": "source_statement", "source": "source", "ref": "source_ref", "quote": "source_quote" }
+  ],
+  "files": [
+    "profile.json",
+    "catalog.json",
+    "view.ts",
+    "validator.ts",
+    "checks/claim-evidence.ts",
+    "checks/trust-policy.ts",
+    "checks/provenance-verification.ts",
+    "renderer.ts",
+    "templates/core000.md.j2",
+    "schemas/structure.schema.json",
+    "schemas/claims.schema.json",
+    "schemas/component.schema.json",
+    "schemas/interface.schema.json",
+    "schemas/source-statement.schema.json",
+    "schemas/claim.schema.json",
+    "schemas/evidence.schema.json",
+    "schemas/independent-verification.schema.json",
+    "schemas/decision.schema.json",
+    "schemas/trust-boundary.schema.json"
+  ],
+  "dependencies": { "nunjucks": "3.2.4" },
+  "view": "view.ts",
+  "validator": "validator.ts",
+  "diagnostics": "catalog.json"
+}

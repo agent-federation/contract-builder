@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/decision.schema.json",
+  "title": "Entity: decision",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "title", "status", "owner", "source", "consequence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^DEC-[A-Z0-9-]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["accepted", "proposed", "deferred", "unresolved", "superseded"] },
+        "owner": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "consequence": { "type": "string", "minLength": 1 },
+        "date": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

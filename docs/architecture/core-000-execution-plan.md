@@ -1,12 +1,28 @@
 # CORE-000 execution plan — bounded self-validation experiment
 
-**Status:** proposed for maintainer review. Planning only. This document does not create the
-CORE-000 project or profile, does not change code, tests, schemas, fixtures or generated
-artifacts, and does not start the experiment.
+**Status:** accepted plan (PR #59). Revision 3 records the 2026-11-02 maintainer decision for the
+bounded S1 package. Decision/planning record only: this document does not create the CORE-000
+project or profile, does not change code, tests, schemas, fixtures or generated artifacts, and does
+not start the experiment.
 **Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47).
+**Revision 2 (Issue [#72](https://github.com/agent-federation/contract-builder/issues/72)):**
+refreshes the baseline and adds the ephemeral PoC mode and the first-slice proposal. The body below
+is based on the accepted plan text (PR #59); revision-2 changes are marked in §1, §7.1, §8, §9, §11
+and §12, and the companion documents are
+[`core-000-baseline-refresh.md`](core-000-baseline-refresh.md) and
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md).
+**Revision 3 (maintainer decision, 2026-11-02):** D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A are
+accepted; D14, P-2, P-3 and P-6 are explicitly deferred for S1; the bounded consumer harness is
+confirmed for S1; G4 and the generic CLI/API gap remain open, and harness use is not independent
+verification. S1 implementation is authorized only after the canonical
+decision-record update is merged and a dedicated implementation task references it. The decision
+was recorded after PR #74 merged as `1c405c2`; this follow-up is documentation-only and changes no
+engine or profile behaviour. No implementation is included here.
 **Design baseline:** the merged design at
 [`cc645357646fe57e2bdedb1d215ae87b79e16501`](https://github.com/agent-federation/contract-builder/commit/cc645357646fe57e2bdedb1d215ae87b79e16501)
-(PR #51). Current `main` at the time of writing is the same commit.
+(PR #51).
+**Refreshed baseline:** `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at
+2026-11-02; see §1 and the baseline refresh.
 **Accepted design:** [`core-000-self-contract.md`](core-000-self-contract.md). Its 78 claims,
 14 kinds, 28 relation declarations, 23 profile policy checks, zero independently verified claims
 and open decisions D1–D15 are the baseline. This plan operationalises the design's experiment; it
@@ -39,14 +55,23 @@ and explicitly accepted.
 
 | Fact | Value at this baseline |
 |---|---|
-| Design merge / current main | `cc645357646fe57e2bdedb1d215ae87b79e16501` (PR #51) |
+| Design merge / original plan baseline | `cc645357646fe57e2bdedb1d215ae87b79e16501` (PR #51) |
+| Refreshed baseline (revision 2) | `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at 2026-11-02 |
 | Accepted design | `docs/architecture/core-000-self-contract.md` |
 | Design register | 78 claims: 37 accepted decisions, 27 implemented, 27 tested, 0 independently verified |
 | Model | 14 kinds; 28 relation declarations (12 reciprocal pairs + 4 without an inverse); 23 profile policy checks |
 | Trust policy | executable profiles require explicit consent; `allowExecutableProfile` defaults false; no sandbox/isolation; consent is not in `inputDigest` |
 | Provenance | binding and verification are separate; the profile exports `verifyProvenance`; a `verified` record is not independent verification |
 | Render | exactly one `manifest.render` declaration; one artifact per build in M1 |
-| Current checks | `bun test` 169 pass / 0 fail (12 files); typecheck clean; `bun run check` clean; CORE-001 artifact `8213a26379f1fb6e7227ce90a9db6db08e3820bd42a579eb38c2adf5dc269b51` (327 lines) |
+| Current checks | `bun test` 292 pass / 0 fail (21 files; 169 engine + 123 PAP); typecheck clean; `bun run check` clean; `bun run build:release` exits 1 by design; CORE-001 artifact `8213a26379f1fb6e7227ce90a9db6db08e3820bd42a579eb38c2adf5dc269b51` (327 lines); `bun.lock` SHA-256 `9ab1d388…` |
+| Environment | local Bun 1.4.4; pinned/CI Bun 1.4.2; Linux x86_64. The local Bun difference is a recorded deviation |
+| PAP | independent v0.1 verifier implemented under `pap/`; Tier B, Gate 3 open; separate product boundary; no demonstrated CORE-000 impact |
+
+**Revision 2 note (proposed).** The original plan baseline was `cc64535`; the refreshed baseline is
+`c6ee644`. `spec/` and `profiles/` are unchanged between the two, `bun.lock` is unchanged and the
+CORE-001 artifact is unchanged, so the plan's interfaces, dependencies and expected outputs stand.
+The test-count baseline moved because `bun test` now also discovers the PAP suite; the engine-only
+count remains 169/12. See [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md).
 
 **Binding constraints for execution.**
 
@@ -116,7 +141,7 @@ plan.
 ### 3.1 Tree
 
 ```text
-contracts/core000/                         # project root (D1 option A; still open)
+contracts/core000/                         # project root (D1 A accepted 2026-11-02)
   contract-builder.json
   structure.yml
   claims.yml
@@ -325,23 +350,34 @@ deferred (matrix G2); this plan does not change it.
 
 ### 4.1 Consent-boundary run (N14)
 
-The positive harness imports the CORE-000 renderer at module load because it always passes
-consent. That import is **not** evidence for the consent boundary and must not be used for N14.
+The positive harness statically imports the CORE-000 renderer at module load; every positive run
+passes consent, but the import is the consumer's own trust decision. It is **not** evidence for the
+consent boundary and must not be used for N14.
+
+**Revision 2 correction (Issue #72, proposed):** the earlier N14 wording used a renderer marker as
+proof. That was wrong. The CORE-000 renderer is consumer-supplied: `runBuild` never imports it, and
+the CLI leaves the registry empty for a CORE-000 project, so a renderer marker could be absent even
+if the consent gate failed. N14 therefore proves the boundary for the modules the engine imports,
+`view` and `validator`. Consumer-supplied renderer loading is a separate trust boundary owned by
+the consumer and is **not** gated by `allowExecutableProfile`.
+
 N14 runs through the CLI without `--allow-executable-profile`:
 
 - `spec/cli-renderers.ts` imports the built-in renderer only when the selected project declares
-  profile `core001` and renderer `core001-markdown`; a CORE-000 project leaves the registry empty.
+  profile `core001` and renderer `core001-markdown`; a CORE-000 project leaves the registry empty,
+  and no CORE-000 renderer is loaded by the CLI.
 - `runBuild` checks consent after loading the manifest/profile and before the closure scan and any
-  profile `import()`, so `view` and `validator` are not evaluated either.
+  profile `import()`, so `view` and `validator` are not evaluated.
 - The N14 test copies the positive project/profile to a temporary directory, adds a
-  module-evaluation marker (a marker-file write) to `renderer.ts`, `view.ts` and `validator.ts`,
-  runs the CLI in a subprocess, and asserts `core.profile.consent-required`, exit 1,
-  `identity: null`, `markdown: null`, and **all three markers absent**. Checking only `view` and
-  `validator` is insufficient; the renderer marker is the required proof.
+  module-evaluation marker (a marker-file write) to `view.ts` and `validator.ts` only, runs the CLI
+  in a subprocess, and asserts `core.profile.consent-required`, exit 1, `identity: null`,
+  `markdown: null`, and **both markers absent**. A renderer marker is not used and would not
+  demonstrate the gate.
 - The marker edit is test-only in the temporary copy and is not committed to the profile.
 
 The positive harness may statically import the renderer because every positive run is an explicit
-consent run; its import order is not a claim about the no-consent path.
+consent run; its import order is not a claim about the no-consent path. The harness's renderer
+import is the consumer's own trust decision, not the engine's consent gate.
 
 ---
 
@@ -373,11 +409,15 @@ The positive draft is expected to contain review diagnostics, not zero diagnosti
 count depends on the 78-claim register and its open decisions; tests assert the expected **code
 set**, not a hard-coded count.
 
+**Identifier note (revision 2, proposed).** P1–P5 here are positive-check IDs and are unrelated to
+maintainer decisions P-1–P-6. The first-slice proposal renames them S1-POS-01–S1-POS-05 to make
+that separation explicit.
+
 ### 5.2 Negative runs — core and project boundary
 
 | ID | Fixture/mutation | Entry point/options | Expected diagnostic(s) | Layer/class |
 |---|---|---|---|---|
-| N14 | positive project copy with renderer/view/validator evaluation markers, no consent | CLI `bun spec/build.ts --spec <copy> --no-write --json` (no flag) | `core.profile.consent-required`; `identity: null`, `markdown: null`; renderer, view and validator markers absent | core, load/consent; implementation behavior |
+| N14 | positive project copy with view/validator evaluation markers, no consent | CLI `bun spec/build.ts --spec <copy> --no-write --json` (no flag) | `core.profile.consent-required`; `identity: null`, `markdown: null`; view and validator markers absent; no CORE-000 renderer is in the CLI path | core, load/consent; implementation behavior |
 | N16 | profile with a non-reciprocal inverse | `run.ts --mutation non-reciprocal-inverse` | `core.profile.invalid` | core, load/profile; structural |
 | N17 | manifest with zero or two `render` declarations | `run.ts --mutation render-cardinality` | `core.manifest.invalid` | core, load; structural |
 | N2 | claim `dependsOn` a missing claim/relation | `run.ts --mutation unresolved-relation` | `ERR_UNKNOWN_REF` | core, reference; structural |
@@ -427,12 +467,15 @@ not independent verification.
 
 ### 6.2 Run evidence record
 
-Each run writes one JSON record. Proposed shape (no absolute paths, no secret data):
+Each run writes one transient JSON record. This is the required base shape; S1 may add evidence
+fields but must retain these. It is not a P-2 decision: P-2 decides only durable
+publication/location and the human-readable summary format. Proposed shape (no absolute paths, no
+secret data):
 
 ```json
 {
   "run": "P1",
-  "commit": "cc645357646fe57e2bdedb1d215ae87b79e16501",
+  "commit": "<pinned-commit>",
   "project": "contracts/core000",
   "mode": "draft",
   "allowExecutableProfile": true,
@@ -472,9 +515,10 @@ Rules:
   early.
 - The record may include the commit and date, but not absolute paths, hostnames, environment
   values, tokens or private material.
-- Evidence is written to `evidence/core000/<run>/result.json`; the human summary in
-  `docs/architecture/core-000-execution-evidence.md` links each run and states its classification
-  and limitations.
+- The transient record is produced per run. Durable publication to
+  `evidence/core000/<run>/result.json` and the human summary in
+  `docs/architecture/core-000-execution-evidence.md` are P-2 decisions; the transient record and
+  its schema assertion are required even if P-2 is deferred.
 - Independent verification records, when they exist, go under `verification/core000/` and are
   authored/reviewed outside the engine; they are not generated by `run.ts`.
 
@@ -503,8 +547,10 @@ bun run check
 ```
 
 The CORE-001 artifact must remain
-`8213a26379f1fb6e7227ce90a9db6db08e3820bd42a579eb38c2adf5dc269b51` (327 lines). No CORE-000
-implementation file is covered by these checks until the execution PRs land.
+`8213a26379f1fb6e7227ce90a9db6db08e3820bd42a579eb38c2adf5dc269b51` (327 lines). At the refreshed
+baseline `bun test` reports 292 pass / 0 fail (21 files; 169 engine + 123 PAP), and
+`bun run pap:test` reports 123 pass / 0 fail (9 files). The engine-only count remains 169/12. No
+CORE-000 implementation file is covered by these checks until the execution PRs land.
 
 ### 7.2 Proposed CORE-000 commands (after implementation)
 
@@ -518,7 +564,7 @@ bun contracts/core000/run.ts --mode draft --write false --evidence evidence/core
 # Release gate
 bun contracts/core000/run.ts --mode release --write false --evidence evidence/core000/P3/result.json
 
-# Check mode after writing the draft to a temporary output root
+# Check option (not a BuildMode) after writing the draft to a temporary output root
 bun contracts/core000/run.ts --mode draft --write true --output-root /tmp/core000-check --evidence evidence/core000/P4a/result.json
 # both P4 commands use the same temp project directory: the first writes, the second checks
 bun contracts/core000/run.ts --mode draft --check true --output-root /tmp/core000-check --evidence evidence/core000/P4b/result.json
@@ -530,7 +576,7 @@ bun contracts/core000/run.ts --mode draft --mutation claim --write false --evide
 bun contracts/core000/run.ts --mutation non-reciprocal-inverse --evidence evidence/core000/N16/result.json
 # ... one command per N case; the harness records the expected/observed codes
 
-# N14: CLI without consent; the CORE-000 renderer is never imported
+# N14: CLI without consent; profile view/validator are never imported; no CORE-000 renderer is in the CLI path
 bun spec/build.ts --spec /tmp/core000-n14-copy --no-write --json              # core.profile.consent-required
 # CLI probe C1: consent given, but the CLI only wires the CORE-001 renderer
 bun spec/build.ts --spec contracts/core000 --no-write --json --allow-executable-profile  # core.registry.missing (G4)
@@ -558,9 +604,10 @@ not to `contracts/core000/output/`.
 
 - `contracts/core000/output/CORE-000.draft.md` — generated draft; commit only if the maintainer
   approves committing generated artifacts for this project.
-- `evidence/core000/<run>/result.json` — one per run.
-- `docs/architecture/core-000-execution-evidence.md` — human-readable summary, classifications,
-  links, limitations.
+- `evidence/core000/<run>/result.json` — one per run when P-2 selects durable publication; the
+  transient record is required regardless.
+- `docs/architecture/core-000-execution-evidence.md` — human-readable summary when P-2 selects
+  that summary format; the transient record's schema assertion is required regardless.
 - Release and negative runs write no artifact; P4 uses a temp output root.
 - The independent-verification record is external and is not produced by any run.
 
@@ -574,7 +621,7 @@ implement them.
 
 | ID | Observation / exact evidence | Effect on this plan | Workaround in the plan | Separate proposal |
 |---|---|---|---|---|
-| G4 | The CLI wires only the CORE-001 renderer (`spec/cli-renderers.ts`: profile `core001`, renderer `core001-markdown`); there is no generic profile-selection CLI and the package is private (`package.json`). | A positive CORE-000 build cannot run through the CLI. | Use `contracts/core000/run.ts` / `tests/core000.test.ts` as the consumer harness. | Implement the M2 public API/CLI and generic renderer selection. |
+| G4 | The CLI wires only the CORE-001 renderer (`spec/cli-renderers.ts`: profile `core001`, renderer `core001-markdown`); there is no generic profile-selection CLI and the package is private (`package.json`). The PAP verifier under `pap/` is a separate product boundary and does not provide a CORE-000 CLI or renderer selection. | A positive CORE-000 build cannot run through the CLI. | Use `contracts/core000/run.ts` / `tests/core000.test.ts` as the consumer harness. | Implement the M2 public API/CLI and generic renderer selection. |
 | G1 | `inputDigest` covers declared inputs, sources, profile closure and extension closures (`spec/lib/identity.ts`); it does not cover code/test files cited as evidence. | Code/test evidence can go stale without changing the digest. | Pin evidence revisions; external review re-checks them; do not treat evidence as build-covered. | Add evidence-file inputs or a raw-file adapter with digest coverage. |
 | G2 | No declarative cross-entity rule primitives are implemented; the profile hook is the M1 mechanism (`spec/lib/hook.ts`). | CORE-000 policy lives in a trusted in-process hook. | Profile hook `validate`; no core change. | Revisit primitives after the M3 second profile. |
 | G3 | Markdown locators are section/table/item only; the declared source-byte pin and paragraph locators are accepted but unimplemented (V4; `spec/lib/adapters/markdown.ts`, `spec/lib/manifest.ts`). | Claim provenance is coarse; `sourceDigest` records bytes checked but is not a declared pin. | Use current locators; label precision; external review checks context. | Implement provenance hardening (#4/#45) separately. |
@@ -588,23 +635,24 @@ G4 until the CLI/API work lands; the plan does not request that core change here
 
 ---
 
-## 9. Open decisions and maintainer input
+## 9. Decision status and maintainer input
 
-The accepted design's open decisions remain open. The plan needs explicit answers or accepted
-defaults before implementation:
+The maintainer recorded the S1 decision on 2026-11-02. Six decisions are accepted, four are
+explicitly deferred for S1, and the consumer harness is confirmed for S1. The full decision record
+remains open for the four deferred items:
 
-| ID | Decision | Options | Recommendation / consequence |
+| ID | Decision | Options | Status / consequence |
 |---|---|---|---|
-| D1 | Project/profile location | A: `contracts/core000/` + `profiles/core000/`; B: under `spec/core000/`; C: separate package/repo | A, matching the accepted design; keeps the project/profile/trust boundary and avoids a package decision. |
-| D13 | Independent-verification record schema/naming | A: separate `independent_verification` kind; B: reuse core `VerificationRecord`; C: free text | A; B conflates provenance verification with independent review. |
-| D14 | Consent-surface representation | A: add consent interface/diagnostic entities; B: trust-boundary prose only; C: separate profile class | A; the accepted consent API/CLI/diagnostic is a public surface. |
-| D15 | Provenance-verification policy | A: every source statement used by a normative claim must have a stored `verified` record; B: review diagnostic; C: no requirement | A for normative claims; a failed/stale/unavailable record is an error; C is not acceptable. |
-| P-1 | Negative-fixture strategy | **B selected:** one base project (`contracts/core000`) plus one deterministic, named mutation per case in a fresh temporary copy (`contracts/core000/mutations.ts`); no per-case complete projects. | B avoids 19 copies of a 78-claim project and the drift that duplication creates. Each run is still isolated (fresh temp dir, exactly one mutation, base commit and mutation ID recorded). The accepted design §7.8 wording is reconciled below. |
-| P-2 | Evidence path/format | A: `evidence/core000/<run>/result.json` + summary doc; B: only a Markdown evidence doc | A; machine-readable, diffable and reviewable without screenshots. |
-| P-3 | Commit generated CORE-000 draft? | A: commit `output/CORE-000.draft.md` after a successful run; B: keep it in temp evidence only | A follows the repository artifact rule and makes review concrete; B avoids committing a generated file before acceptance. |
-| P-4 | Renderer dependency | A: `nunjucks` 3.2.4 (declared, lockfile-pinned); B: no-dependency renderer | A if the profile uses the existing template pattern; the exact version must stay in `files`/`dependencies`. |
-| P-5 | Harness shape | A: `contracts/core000/run.ts` + `tests/core000.test.ts`; B: test-only harness | A for evidence capture; the test imports the same helper. Both are consumers, not core changes. |
-| P-6 | Evidence and verification records in git | A: commit run evidence and future independent records; B: external only | A for reviewability; independent records must not be generated by the engine. |
+| D1 | Project/profile location | A: `contracts/core000/` + `profiles/core000/`; B: under `spec/core000/`; C: separate package/repo | **Accepted — A** on 2026-11-02; keeps the project/profile/trust boundary and avoids a package decision. |
+| D13 | Independent-verification record schema/naming | A: separate `independent_verification` kind; B: reuse core `VerificationRecord`; C: free text | **Accepted — A** on 2026-11-02; B conflates provenance verification with independent review. |
+| D14 | Consent-surface representation | A: add consent interface/diagnostic entities; B: trust-boundary prose only; C: separate profile class | **Deferred for S1 — open.** S1 adds no consent interface/diagnostic entities. |
+| D15 | Provenance-verification policy | A: every source statement used by a normative claim must have a stored `verified` record; B: review diagnostic; C: no requirement | **Accepted — A** on 2026-11-02; a failed/stale/unavailable record is an error. |
+| P-1 | Negative-fixture strategy | **B:** one base project (`contracts/core000`) plus one deterministic, named mutation per case in a fresh temporary copy (`contracts/core000/mutations.ts`); no per-case complete projects. | **Accepted — B** on 2026-11-02. B avoids 19 copies of a 78-claim project and the drift that duplication creates. Each run is still isolated (fresh temp dir, exactly one mutation, base commit and mutation ID recorded). The accepted design §7.8 wording is reconciled below. |
+| P-2 | Durable evidence publication/location and summary format | A: `evidence/core000/<run>/result.json` + summary doc; B: Markdown summary only, raw records external/transient | **Deferred for S1 — open.** Only durable publication/location and the summary format are deferred; S1 still writes and asserts the §6.2 transient record. |
+| P-3 | Commit generated CORE-000 draft? | A: commit `output/CORE-000.draft.md` after a successful run; B: keep it in temp evidence only | **Deferred for S1 — open.** S1 does not commit the generated draft. |
+| P-4 | Renderer dependency | A: `nunjucks` 3.2.4 (declared, lockfile-pinned); B: no-dependency renderer | **Accepted — A** on 2026-11-02; the exact version must stay in `files`/`dependencies`. |
+| P-5 | Harness shape | A: `contracts/core000/run.ts` + `tests/core000.test.ts`; B: test-only harness | **Accepted — A** on 2026-11-02; the test imports the same helper. Both are consumers, not core changes. |
+| P-6 | Evidence and verification records in git | A: commit run evidence and future independent records; B: external only | **Deferred for S1 — open.** S1 does not commit run evidence or external verification records. |
 
 **P-1 reconciliation with the accepted design §7.8.** The design described per-case complete
 small projects as the illustrative fixture layout. This plan keeps the design's run semantics —
@@ -617,10 +665,12 @@ outcome per case. This is a fixture-layout refinement, not a change to the model
 diagnostics or acceptance criteria. If the maintainer prefers the literal complete-project layout,
 the same mutation table can generate materialized fixtures, but the plan recommends B.
 
-**Requested maintainer input:** approve this plan; choose D1, D13, D14, D15, P-2, P-3, P-4, P-5
-and P-6 (or record different defaults); confirm the selected P-1 strategy B and its reconciliation
-with design §7.8; confirm that a consumer harness may be used while G4 remains open; confirm that
-no CORE-000 implementation starts until this plan is accepted.
+**Decision record:** the maintainer accepted D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A, and
+explicitly deferred D14, P-2, P-3 and P-6 for S1 on 2026-11-02. The full decision record remains
+open for the four deferred items. The consumer harness is confirmed for S1 only; G4 and the
+generic CLI/API gap remain open, and harness use is not independent verification.
+S1 implementation may start only after the canonical decision-record update is merged and a
+dedicated implementation task references it.
 
 ---
 
@@ -633,8 +683,9 @@ Each step is a separate focused PR; none changes the generic core.
    `files`/`dependencies` and a smoke test that the profile loads and fails consent correctly.
 2. **Project inputs.** `contracts/core000/contract-builder.json`, `structure.yml`, `claims.yml`
    encoding the accepted design; no new claims; source quotes at current locators.
-3. **Harness and positive run.** `contracts/core000/run.ts`, `tests/core000.test.ts`; P1–P5 with
-   evidence records; the N14 CLI renderer-marker test.
+3. **Harness and positive run.** `contracts/core000/run.ts`, `tests/core000.test.ts`; P1–P5 in
+   §5.1 (S1-POS-01–S1-POS-05 in the first-slice proposal) with evidence records; the N14 CLI
+   view/validator-marker test.
 4. **Negative mutations.** `contracts/core000/mutations.ts` implements N1–N18; each run uses a
    fresh temporary copy of the base project and exactly one mutation, with exact expected codes
    and no-artifact assertions. No per-case complete-project copies.
@@ -659,12 +710,13 @@ This plan is ready for approval when a maintainer confirms that:
 5. the evidence format and classification in §6 clearly separate structural, profile-policy,
    implementation-behavior and independent-verification evidence;
 6. the commands, artifacts and reproducibility checks in §7 are reproducible;
-7. the chosen strategy B is used consistently in §2, §3, §5, §7 and §10 and is reconciled with
-   design §7.8 as required;
-8. the N14 CLI/renderer-marker path demonstrates that the renderer, view and validator modules are
-   not loaded without consent;
+7. the accepted P-1 strategy B is used consistently in §2, §3, §5, §7 and §10 and is reconciled
+   with design §7.8 as required;
+8. the N14 CLI view/validator-marker path demonstrates that the profile `view` and `validator`
+   modules are not loaded without consent; it does not claim that the consumer-supplied renderer is
+   gated;
 9. the gaps in §8 are recorded as separate proposals, not implemented;
-10. the open decisions and requested input in §9 are explicit;
+10. the decision status and remaining open items in §9 are explicit;
 11. no implementation, CORE-001 change, core change or merge is included.
 
 **Limitations of this plan.**
@@ -673,10 +725,103 @@ This plan is ready for approval when a maintainer confirms that:
   observed results. Counts may change when the data is encoded.
 - The accepted design's claims are author-asserted; the register's independent-verification
   dimension remains `—`. A successful plan execution will not change that.
-- The plan assumes the consumer harness is accepted; CLI-only positive execution is blocked by G4.
+- The consumer harness is confirmed for S1 only; G4 and the generic CLI/API gap remain open and
+  CLI-only positive execution is still blocked.
 - The source-byte pin and paragraph locators are not implemented; provenance evidence remains
   coarse.
-- The P-1 strategy B reconciliation needs confirmation; the evidence path, generated-draft commit
-  policy, renderer dependency, harness shape and evidence-in-git policy need maintainer decisions
-  (P-2–P-6).
+- P-1 B is accepted and reconciled with design §7.8. D14, P-2, P-3 and P-6 are explicitly deferred
+  for S1 and remain open; durable evidence publication, generated-draft commit, consent-surface
+  entities and evidence-in-git policy still need later decisions.
 - No sandbox/isolation, security certification or cross-platform determinism is claimed.
+
+---
+
+## 12. Revision 2/3 — Issue #72 additions and decision
+
+This section records the additions requested by Issue #72. They are a companion to the accepted
+plan, not a rewrite of it. The detailed proposals are in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md); the refreshed facts are in
+[`core-000-baseline-refresh.md`](core-000-baseline-refresh.md); the decision entries are refreshed
+in [`core-000-decision-record.md`](core-000-decision-record.md).
+
+### 12.1 Refreshed baseline result
+
+- Current `main`: `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), 2026-11-02.
+- Repository checks: `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` (292 pass /
+  0 fail / 21 files) and `bun run check` are green; `bun run build:release` exits 1 by design;
+  CORE-001 artifact unchanged (`8213a263…`, 327 lines).
+- `spec/` and `profiles/` are unchanged since the original plan baseline; `bun.lock` is unchanged.
+- The PAP verifier is implemented as a separate product boundary under `pap/`; #73 is a docs-only
+  PAP status update. Neither has a demonstrated CORE-000 impact, and neither closes G4.
+- No CORE-000 project, profile, artifact, evidence or independent verification exists.
+- Conclusion: no substantive CORE-000 assumption, interface, dependency, expected output or
+  evidence class changes. Only baseline facts (commit, test counts, PAP context) are refreshed.
+
+### 12.2 Ephemeral PoC mode
+
+The companion document defines the ephemeral mode requested by Issue #72:
+
+- **Separate hypotheses.** H1 self-build, H2 same-environment reproducibility and H3 independent
+  verification have separate methods and result labels. H1 does not imply H2; H2 does not imply
+  H3; only a distinct verifier can produce an H3 result.
+- **Pinned inputs.** Commit, CORE-000 inputs, source document, profile closure, lockfile, Bun
+  version, OS/architecture and controlled environment. A missing pin makes the run
+  `INCONCLUSIVE`.
+- **Execution boundary.** A fresh temporary workspace is not a security sandbox. The current
+  engine has explicit consent, fail-closed import, path containment, closure digests and artifact
+  normalization; it has no sandbox, privilege drop, read-only mount, network isolation or
+  CPU/memory/time limits. The first slice executes only repository-owned reviewed profile code and
+  claims no isolation. The consent gate covers the profile `view`/`validator`; a consumer-supplied
+  renderer is a separate trust boundary imported by the consumer. Enforced isolation for untrusted
+  profiles is a separate security proposal referencing #35.
+- **Outputs and evidence.** Draft artifact, diagnostics, build identity, artifact SHA-256, run log,
+  source-repository-clean check, separate workspace write/cleanup assertions and a transient JSON
+  evidence record. No absolute paths or secrets. The transient record is required; durable
+  publication is subject to P-2/P-6.
+- **Repeatability.** Two fresh environments with the same pins; `inputDigest`, artifact bytes and
+  diagnostics are compared. Byte equality is the only basis for `REPRODUCIBLE_BYTE_IDENTICAL`;
+  a pre-declared normalization is the only path to `REPRODUCIBLE_NORMALIZED`; otherwise
+  `NOT_REPRODUCIBLE`. Cross-platform, cross-version, different lockfile/commit and evidence-file
+  freshness are excluded.
+- **Negative cases.** The recommended P-1 strategy B (pending confirmation): one base project plus
+  exactly one named mutation in a fresh copy. No combined mutations; expected diagnostic, exit 1,
+  `blockedBy: "errors"` and no artifact.
+- **Failure behavior.** Missing dependencies, unsupported inputs, resource exhaustion, incomplete
+  checks and non-deterministic output remain visible and cannot become a success label.
+- **Cleanup and retention.** Temporary workspaces, caches, marker files and host-path logs are
+  deleted; evidence JSON, hashes and the comparison report are retained only under the applicable
+  decision; no secrets, private material or premature generated artifact is committed.
+
+### 12.3 First implementation slice
+
+The first-slice proposal is in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. It is a bounded 8-kind /
+11-relation / 9-policy-check vertical slice over five accepted claims, with exact files, commands,
+expected results, tests, negative cases (N2, N3, N8, N11, N14), exclusions, stop conditions and
+acceptance criteria. The maintainer accepted D1 A, D13 A, D15 A, P-1 B, P-4 A and P-5 A for this
+bounded package on 2026-11-02 and explicitly deferred D14, P-2, P-3 and P-6 for S1; the full
+decision record remains open for those four items. The consumer harness is confirmed for S1 only;
+G4 and the generic CLI/API gap remain open and are not closed by the harness; harness use is not
+independent verification. P-2's deferral covers only durable
+publication/location and the summary format; S1 still writes and asserts the transient §6.2
+record. S1 implementation is authorized only after the canonical decision-record
+update is merged and a dedicated implementation task references it; this document does not
+implement S1. The proposed S2 follow-up package is
+[`core-000-s2-package.md`](core-000-s2-package.md); it is not authorized by this plan.
+
+### 12.4 What revisions 2 and 3 do not change
+
+- It does not change the accepted plan's file boundaries, pipeline mapping, run matrix for the
+  full model, evidence classes or generic-core constraints.
+- It does not change `spec/`, `profiles/`, `spec/output/`, CORE-001 content or `pap/`.
+- It records the 2026-11-02 decision but does not implement S1, execute a profile, or claim
+  isolation, reproducibility, independent verification, security or correctness.
+- It supersedes the earlier “B selected” wording: P-1 B is now accepted by the 2026-11-02
+  decision; the reconciled §7.8 fixture strategy is the approved one.
+
+### 12.5 Requested maintainer action
+
+Merge the canonical decision-record documentation update. No further decision is needed for S1;
+after merge, S1 implementation may start when a dedicated implementation task references the merged
+record. The four deferred items (D14, P-2, P-3, P-6) remain open for later decisions; the full
+decision record is not fully closed.

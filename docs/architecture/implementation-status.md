@@ -1,10 +1,11 @@
 # Implementation status — engine architecture and public contract
 
 **As-of snapshot.** Audited `main` at commit
-[`f1ddcf78888d2be5130d5975526cad47c4774284`](https://github.com/agent-federation/contract-builder/commit/f1ddcf78888d2be5130d5975526cad47c4774284)
-("feat: add an independent example profile and end-to-end fixture (#46)"), audit date
-**2026-11-02** (UTC). Every status in this document describes that commit only; later commits may
-change it.
+[`07cbf5bd6cbed740e55351612d0300196b8d1464`](https://github.com/agent-federation/contract-builder/commit/07cbf5bd6cbed740e55351612d0300196b8d1464)
+("feat: add the CORE-000 S1 bounded self-build slice (#77)"), audit date
+**2026-11-02** (UTC). The original M1 audit remains pinned to `f1ddcf7`; this snapshot carries
+forward its rows and records the bounded CORE-000 S1 delta below. Every status in this document
+describes the stated baseline or an explicitly identified later change; later commits may change it.
 
 **Snapshot update for Issue #35.** Row H5 and the consent clause in row A3 record the executable
 profile consent added after `f1ddcf7` by the focused [#35](https://github.com/agent-federation/contract-builder/issues/35)
@@ -24,6 +25,12 @@ change: `ProvenanceVerification` and `VerificationRecord` are part of the IR, th
 verifier supplies claims, and outputs render binding and verification separately. Rows V1 and
 §5–§6 are revised only where that change alters their wording. Every other row still describes
 `f1ddcf7`; no independent verification is claimed for the new row.
+
+**Snapshot update for CORE-000 S1.** PR [#77](https://github.com/agent-federation/contract-builder/pull/77)
+merged at `07cbf5b`. The new X3a row and §4.1 record only the bounded five-claim S1 slice;
+the full 78-claim CORE-000 model, cross-environment reproducibility (H2) and independent
+verification (H3) remain uncompleted. The PR's maintainer review is linked as evidence for the
+specific implementation behaviors inspected; it is not H3 and does not verify claim truth.
 
 **What this is.** The audit deliverable requested by
 [#39](https://github.com/agent-federation/contract-builder/issues/39): a source-backed status
@@ -203,7 +210,9 @@ carries it.
 |---|---|---|---|---|---|---|
 | X1 | Package split into core / CLI / renderer / adapter / profile packages | `proposed` | `—` | `—` | `—` | D14 `proposed` (future target, contract [§18](engine-public-contract.md)); [package.json](../../package.json) stays one private package with no `exports` |
 | X2 | Publication and distribution scope | `proposed` | `—` | `—` | `—` | D20 unresolved (blocked by #10, contract [§18](engine-public-contract.md)); D29 unresolved with a local-directory default; M5 |
-| X3 | Self-hosting: the engine's own contract described as a project using the public model | `deferred` | `—` | `—` | `—` | D26 `deferred`, M5 (plan [§17](m1-implementation-plan.md); contract [§14](engine-public-contract.md)) |
+| X3 | Full self-hosting: the complete engine contract represented and maintained through the public model | `deferred` | `—` | `—` | `—` | D26 `deferred`, M5 (plan [§17](m1-implementation-plan.md); contract [§14](engine-public-contract.md)); bounded S1 is tracked separately in X3a and does not close this row |
+| X3a | Bounded CORE-000 S1 self-build: a five-claim project is loaded, validated, related, provenance-checked, policy-checked, rendered and identified through the existing generic pipeline; draft succeeds and release is blocked by the expected review findings | `accepted` | `implemented` | `tested` | `—` | Maintainer authorization: [#72 approval](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746), canonical decision [#75](https://github.com/agent-federation/contract-builder/pull/75), implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76); code [contracts/core000/run.ts](../../contracts/core000/run.ts), [profiles/core000/](../../profiles/core000/); tests [core000.test.ts](../../tests/core000.test.ts), `bun test`; merged [PR #77](https://github.com/agent-federation/contract-builder/pull/77), [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507). H2 is `NOT_TESTED`; H3 is `NOT_PERFORMED` (PR evidence record). |
+| X3b | S1 ephemeral workspace copy and undeclared-write detection: profile/source inputs are copied rather than symlinked into the checkout; workspace snapshot detects undeclared writes | `accepted` | `implemented` | `tested` | `—` | S1 boundary approved in [#72](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); implementation [contracts/core000/run.ts](../../contracts/core000/run.ts); regression assertions [tests/core000.test.ts](../../tests/core000.test.ts); [maintainer review #5739321136](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) independently reviewed these bounded implementation behaviors (real copies, no-symlink condition, whole-workspace write detection and regression test). This is maintainer code review, not independent verification under this matrix's verification axis, not H3, sandboxing or a second verifier implementation. |
 | X4 | Declared runtime matrix (Node 20+ library, Bun development/CI) | `proposed` | `—` | `—` | `—` | D19 `proposed` (contract [§18](engine-public-contract.md)); CI runs Bun only ([ci.yml](../../.github/workflows/ci.yml)) |
 | X5 | Remaining M2–M5 milestones (public API, three-axis diagnostics, code namespacing, rule primitives, multi-source, review dimensions, provenance hardening, packaging, self-hosting) | `deferred` | `—` | `—` | `—` | Plan [§17](m1-implementation-plan.md) "Deferred capabilities"; each has its own row above where material |
 
@@ -232,6 +241,42 @@ it proves. Merged is not the same as verified: see [§7](#7-verification-evidenc
 (plan [§1](m1-implementation-plan.md)). At `f1ddcf7` the artifact is still 298 lines with the
 same SHA-256 (verified locally, [§10](#10-audit-method-and-recorded-evidence)), so the M1
 sequence did not change CORE-001 normative content or the generated bytes.
+
+---
+
+## 4.1 CORE-000 bounded S1 delivery (PR #77)
+
+PR [#77](https://github.com/agent-federation/contract-builder/pull/77) merged at
+[`07cbf5b`](https://github.com/agent-federation/contract-builder/commit/07cbf5bd6cbed740e55351612d0300196b8d1464)
+after the maintainer-approved scope in [#72](https://github.com/agent-federation/contract-builder/issues/72),
+the canonical decision update [#75](https://github.com/agent-federation/contract-builder/pull/75)
+and implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76).
+
+| Dimension | S1 result | Evidence / limit |
+|---|---|---|
+| Maintainer decision | Accepted bounded S1 | [Approval comment](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); [decision record PR #75](https://github.com/agent-federation/contract-builder/pull/75) |
+| Implementation | Implemented for the bounded five-claim slice | [Harness](../../contracts/core000/run.ts), [profile](../../profiles/core000/), [project inputs](../../contracts/core000/) |
+| Automated tests | Tested | [tests/core000.test.ts](../../tests/core000.test.ts); PR #77 reports 308 passing tests overall (22 files, including 16 CORE-000 tests); [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507) succeeded. The count is the PR's reported test output; CI success is separately linked. |
+| Independent review | Independently reviewed only for the explicit behaviors below | [Maintainer APPROVE review](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) inspected the real copied workspace, absence of checkout symlinks, whole-workspace write detection, regression coverage and approved scope. This is not a second verifier implementation and does not establish H3. |
+
+**What S1 establishes.** The generic pipeline processes the bounded CORE-000 project and
+produces a draft; release is blocked by the expected independent-review findings. The tested
+positive and negative mutations exercise only the cases named in PR #77. The implementation
+records a transient run-evidence object.
+
+**What S1 does not establish.** The complete 78-claim / 14-kind / 28-relation / 23-policy-check
+model named at the S1 milestone is not implemented. That count is the historical S1 snapshot: the
+accepted design prose says 23, its check table enumerates 24, and S2-D1 resolves the full-model
+count. Same-environment, fresh-workspace repeatability (two processes, each
+creating its own fresh workspace) was tested, but H2 cross-environment reproducibility was
+explicitly recorded as `NOT_TESTED`. H3 independent verification was recorded as `NOT_PERFORMED`. No claim is
+`independently_verified`; the review status above applies to selected implementation behaviors,
+not the truth or completeness of CORE-000 claims. The temporary workspace is not a security
+sandbox. D14, P-2, P-3 and P-6 remain deferred for S1.
+
+**Next milestone.** S2 — structure and full model — is the next proposed milestone: complete the
+full model before the later S3 negative/provenance matrix and S4 H2/H3 work. S2 is not authorized
+by this status update; it requires its own bounded implementation task and maintainer approval.
 
 ---
 
