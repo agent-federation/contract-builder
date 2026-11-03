@@ -1,7 +1,9 @@
 # CORE-000 S2.1 implementation proposal — model surface and structure
 
 **Status:** planning-only proposal package for maintainer review. It authorizes no implementation and
-changes no code, schema, fixture, test, evidence or generated artifact.
+changes no code, schema, fixture, test, evidence or generated artifact. **Q1 (lifecycle semantics) is
+resolved by owner decision (2026-11-03)**: 9 phases, one `hasPrerequisite` relation with 8 edges,
+zero transition instances, 29 relations. The remaining questions (Q3, Q5, Q10 blocking) are open.
 **Prepared for:** [Issue #84](https://github.com/agent-federation/contract-builder/issues/84).
 **Baseline:** `8d881d410c9945f7f5925fbf5772b06be2e9cc120` (`main`, 2026-11-02).
 **Accepted sources:** [`core-000-self-contract.md`](../../core-000-self-contract.md) (design),
