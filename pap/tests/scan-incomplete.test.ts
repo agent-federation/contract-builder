@@ -142,6 +142,35 @@ test("a missing declared payload remains a package FAIL, not scan-incomplete", (
 });
 
 test(
+  "an unreadable declared artifacts directory remains a declared-payload FAIL",
+  { skip: skipPermissionTest },
+  () => {
+    const dir = tempPackage();
+    const artifacts = path.join(dir, "artifacts");
+    try {
+      chmodSync(artifacts, 0o000);
+      const result = verify(dir);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.verdict, "FAIL");
+      assert.equal(report.coverage.full, false);
+      assert.equal(report.dimensions.integrity.package, "FAIL");
+      assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+      assert.ok(codes(report).includes("pap.package.io"));
+      assert.ok(codes(report).includes("pap.package.declared-file-missing"));
+      assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
+      // The same unreadable directory also stops the undeclared-file scan;
+      // that warning must not downgrade the declared-payload FAIL.
+      const scan = report.diagnostics.filter((diagnostic: any) => diagnostic.code === scanIncompleteCode);
+      assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
+    } finally {
+      chmodSync(artifacts, 0o755);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   "inspect reports the same scan-incomplete code without a limit violation",
   { skip: skipPermissionTest },
   () => {
