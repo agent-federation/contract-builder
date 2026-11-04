@@ -18,7 +18,7 @@ reconciled. Upstream/canonical synchronization is complete: PR #90 synchronized 
 Q1/Q3/Q5/Q10 decisions, the 29-relation inventory, the Q9 stage allocation and the Issue #84
 description; PR #92 completed the three current/forward-looking 23→24 policy-check count corrections
 while preserving historical S1 references; the remaining two execution-plan references are
-reconciled here to 24 catalog codes and 25 `/diagnostics` rows; Issue #91 is closed. See
+reconciled in PR #117 to 24 catalog codes and 25 `/diagnostics` rows; Issue #91 is closed. See
 [`S2.1-implementation-plan.md`](S2.1-implementation-plan.md) §4.4 for the reconciliation record. S2.1
 implementation was **authorized on 2026-11-04** and **completed by PR #105** (`dbc93de`, merged
 2026-11-04; earlier PRs #100–#102); S2.2 and S2.3 remain separately gated.
