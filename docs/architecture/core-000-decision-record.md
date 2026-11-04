@@ -340,6 +340,115 @@ before a separate authorization. No generic-core, CORE-001 or PAP change is impl
 
 ---
 
+## Maintainer decision — S2.2 scope approvals and Q10 coverage amendment (2026-11-04)
+
+**Source:** owner approvals in [Issue #119 comment
+6638912688](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638912688),
+based on the re-frozen S2.2 scope request ([comment
+6634376883](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6634376883))
+and its corrections ([6638543785](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638543785),
+[6638774981](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638774981)),
+and the independent review ([6638714905](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638714905)).
+Baseline: merged `main` `2497ed9`.
+
+**Decision status: approved — S2.2 scope acceptance criteria.** This section records the owner
+approvals and the Q10 amendment. It does **not** authorize S2.2 implementation.
+
+### Q10 coverage amendment (S2.2 scope)
+
+Q10's 19 public surfaces with 3 covered / 16 uncovered remains the S2.1 baseline and the historical
+record. For the full-register S2.2 scope, the approved option-C subject mapping covers **13** and
+leaves **6** uncovered:
+
+- covered: S1's `COMP-CORE`, `IF-MANIFEST`, `IF-PROFILE-VALIDATOR` plus `COMP-PROFILE`,
+  `COMP-PROJECT`, `IF-PROJECT-MODEL`, `IF-ADAPTER`, `IF-DIAGNOSTIC`, `IF-RENDERER`,
+  `IF-BUILD-IDENTITY`, `IF-CONFORMANCE`, `IF-BUILD-RESULT`, `IF-CLI`;
+- uncovered: `COMP-ADAPTER`, `COMP-RENDERER`, `COMP-CLI`, `COMP-REVIEWER`, `IF-CONSENT-OPTION`,
+  `IF-CONSENT-CLI-FLAG`.
+
+The expected `core000.surface.claim-missing` is **6** with those entity IDs. This is an explicit
+S2.2 amendment, not a rewrite of Q10.
+
+### C1 authority table (approved)
+
+The five S1 values are fixed: `C000-TR-001` human, `C000-TR-003` external, `C000-CT-025` engine,
+`C000-CT-026` engine, `C000-IM-004` external. The 73 new claims:
+
+- **engine (14):** `CT-001`–`CT-007`, `CT-009`–`CT-015`;
+- **external (21):** `CT-008`, `CT-016`, `CT-017`, `CT-021`, `CT-024`, `IM-001`, `IM-002`,
+  `IM-003`, `IM-005`, `IM-006`, `IM-009`, `TR-002`, `TR-004`, `EV-002`, `SV-001`, `SV-002`,
+  `GAP-001`, `GAP-003`, `GAP-004`, `GAP-005`, `GAP-006`;
+- **human (38):** `SC-001`–`SC-005`, `ST-001`–`ST-004`, `CT-018`, `CT-019`, `CT-020`, `CT-022`,
+  `CT-023`, `IM-007`, `IM-008`, `TR-005`, `TR-006`, `EV-001`, `EV-003`, `VF-001`–`VF-004`,
+  `SV-003`–`SV-006`, `GAP-002`, `GAP-007`, `LM-001`–`LM-008`.
+
+`M = 59`; `core000.independent-verification.missing` = **62** (the S1 three plus the 59
+external/human claims).
+
+### Decision-source table (approved)
+
+37 accepted + 2 deferred:
+
+- S1: `TR-001`/`TR-003` → `DEC-35`; `CT-025` → `DEC-PR-56`; `CT-026` → `DEC-PR-55`.
+- `IM-007`, `TR-004` → `DEC-35` (per-claim approved reuse).
+- `CT-008` → `DEC-D8-D9`; `CT-013`, `IM-008` → `DEC-D31`; `TR-002`, `TR-006` → `DEC-D28`.
+- `SC-004`, `SV-003` → `DEC-TASK-C5`; `SC-005` → `DEC-TASK-C1-C14`; `ST-004` → `DEC-TASK-C7`;
+  `TR-005` → `DEC-TASK-C4`.
+- 21 claims → `DEC-DESIGN-51` (per-claim owner-approved design acceptance): `SC-001`, `SC-002`,
+  `CT-001`–`CT-007`, `CT-009`–`CT-012`, `CT-014`–`CT-017`, `CT-021`, `IM-009`, `EV-001`, `EV-003`.
+- `CT-019` → `DEC-DEFER-019`; `CT-023` → `DEC-DEFER-023` (deferred).
+
+No umbrella entity; a D-reference in evidence text is not a `decidedBy` source; status agreement is
+checked per claim.
+
+### H authoring policy (approved)
+
+- `author`: `it-start` for the 73 new claims; the S1 rows stay byte-verbatim.
+- `scope`: per-claim template "CORE-000 accepted design §4.2 row `<ID>` at the accepted design
+  baseline"; the claim statement is the scope.
+- `verification_method`: per-claim template "Accepted design §4.2 evidence/method column for `<ID>`
+  at the accepted design baseline", transcribed to a non-empty method sentence; tested claims
+  include the test method.
+- `lifecycle`: `active` for the 73; the S1 rows unchanged.
+
+### Class fields and C000-CT-011 conditions (approved)
+
+- `conditions` is mandatory for `C000-CT-011` and `C000-CT-012` (`CT-012` takes them from its
+  statement).
+- Approved `C000-CT-011` conditions: "Given a project whose canonical manifest declares its inputs
+  and sources, and whose profile and renderer closures are loaded from the declared paths,
+  `inputDigest` covers those declared inputs and closures; clock, locale, environment, mtimes and
+  absolute paths are excluded."
+- `consequence`, `baseline` and `notes` are encoded and rendered only where the accepted source
+  grounds the value; otherwise they are explicitly deferred and listed in the S2.2 PR. The §7.6
+  class-grouped artifact shape is within the S2.2 `view.ts`/template boundary.
+
+### Expected S2.2 snapshot (approved)
+
+At the committed-artifact revision: **68 diagnostics** — **62** `core000.independent-verification.missing`
+(review) + **6** `core000.surface.claim-missing` (warning, IDs above); **0 errors**; all other
+catalog codes 0; `core000.decision.unresolved` = 0 under S2.2-U (no canonical unresolved decision
+source exists, the `CT-022` link is not created, and the S2.3 synthetic test covers the code);
+`core000.evidence.orphan` = 0; `core000.trust.consent-facts` = 0. The S2.2 test asserts the full
+24-code map and the exact finding `entityId` sets at the named revision.
+
+### Resolution of the independent-review conflicts
+
+- `decision.unresolved = 0` is the approved S2.2-U result: no `unresolved` decision entity exists in
+  the register and no canonical source grounds the `CT-022` link. It is not an assumption and the
+  count is not zero by omission.
+- The 6 `surface.claim-missing` count is the approved Q10 S2.2 amendment above, not an unapproved
+  change to Q10.
+
+### Boundary
+
+This section records owner approvals and the S2.2 acceptance criteria only. S2.2 implementation,
+claim data, the committed draft and S2.2b remain **unauthorized**. After this record, the fresh
+focused independent review of the frozen S2.2 scope is performed, and only then may a separate
+explicit S2.2 authorization be given. No generic-core, CORE-001 or PAP change is implied.
+
+---
+
 ## 0. How to answer the open items
 
 For each item, one of the following is enough:
