@@ -10,6 +10,7 @@ import { runBuild, type BuildResult } from "../spec/lib/build.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas, validateDocuments } from "../spec/lib/schema.js";
+import { trustPolicyFindings } from "../profiles/core000/checks/trust-policy.js";
 import { buildProjectModel, type ProjectModel } from "../spec/lib/ir.js";
 import {
   prepareWorkspace,
@@ -676,4 +677,46 @@ test("S2.1 Slice 1 project still builds with the S1 data", async () => {
   ]) {
     assert.equal((model.byKind.get(kind) ?? []).length, 0, `${kind} must have no S1 data`);
   }
+});
+
+test("S2.1 trust consent facts apply only to the executable-profile boundary", async () => {
+  const model = await buildModel(projectDir);
+
+  const withBoundaries = (
+    boundaries: Array<{ id: string; policy_status: string; enforcement: string }>,
+  ) =>
+    ({
+      ...model,
+      byKind: new Map(model.byKind)
+        .set("claim", [])
+        .set(
+          "trust_boundary",
+          boundaries.map((boundary) => ({
+            id: boundary.id,
+            kind: "trust_boundary",
+            fields: {
+              policy_status: boundary.policy_status,
+              enforcement: boundary.enforcement,
+            },
+            relations: {},
+          })),
+        ),
+    }) as ProjectModel;
+
+  const invalidProfile = withBoundaries([
+    { id: "TB-PROFILE-EXEC", policy_status: "settled", enforcement: "none" },
+  ]);
+  assert.deepEqual(
+    trustPolicyFindings(invalidProfile).map((finding) => ({
+      code: finding.code,
+      entityId: finding.entityId,
+    })),
+    [{ code: "core000.trust.consent-facts", entityId: "TB-PROFILE-EXEC" }],
+  );
+
+  const unrelatedBoundary = withBoundaries([
+    { id: "TB-PROFILE-EXEC", policy_status: "settled", enforcement: "explicit_consent" },
+    { id: "TB-CONSUMER-EXTENSION", policy_status: "settled", enforcement: "none" },
+  ]);
+  assert.deepEqual(trustPolicyFindings(unrelatedBoundary), []);
 });
