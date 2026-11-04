@@ -448,7 +448,7 @@ claims:
     verification_method: "Accepted design §4.2 evidence/method column for C000-CT-011 at the accepted design baseline: M:B2; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI"
     scope: "CORE-000 accepted design §4.2 row C000-CT-011 at the accepted design baseline"
     subject_kind: interface
-    conditions: "Given a project whose canonical manifest declares its inputs and sources, and whose profile and renderer closures are loaded from the declared paths, `inputDigest` covers those declared inputs and closures; clock, locale, environment, mtimes and absolute paths are excluded."
+    conditions: "Given a project whose canonical manifest declares its inputs and sources, and whose profile, source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the canonical manifest, declared input bytes, source bytes, and those closures; clock, locale, environment, mtimes and absolute paths are excluded."
     relations:
       subject:
         - IF-BUILD-IDENTITY

@@ -830,7 +830,7 @@ _2 claims: 2 accepted, 0 proposed, 0 deferred, 0 none_
 - Lifecycle: `active`
 - Statement: `inputDigest` covers the canonical manifest, declared inputs, sources, profile closure and adapter/renderer closures; clock, locale, environment, mtimes and absolute paths are excluded.
 
-- Conditions: Given a project whose canonical manifest declares its inputs and sources, and whose profile and renderer closures are loaded from the declared paths, `inputDigest` covers those declared inputs and closures; clock, locale, environment, mtimes and absolute paths are excluded.
+- Conditions: Given a project whose canonical manifest declares its inputs and sources, and whose profile, source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the canonical manifest, declared input bytes, source bytes, and those closures; clock, locale, environment, mtimes and absolute paths are excluded.
 
 - Scope: CORE-000 accepted design §4.2 row C000-CT-011 at the accepted design baseline
 - Verification method: Accepted design §4.2 evidence/method column for C000-CT-011 at the accepted design baseline: M:B2; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI
