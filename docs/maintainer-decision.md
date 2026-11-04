@@ -26,3 +26,15 @@ I accept **all D1–D12** as recommended in the merged Gate 1 audit and accept *
 **Gate 3 remains OPEN** until a separately implemented checker is compared field-by-field against the conformance corpus under the same tier. F47–F61 and E.9/E.10 remain normative descriptions rather than executable tests; the unexercised resource-limit/signature branches listed in audit §5.1 remain explicit implementation/test risks.
 
 Phase 2 verifier implementation is authorized under the accepted v0.1 contract. Preserve the stated exclusions and limitations; do not silently expand v0.1 scope.
+
+---
+
+### Gate 3 closure — addendum (2026-11-04)
+
+This addendum records a later owner decision. The 2026-11-02 decision text above is preserved as written and is not rewritten; "Gate 3 remains OPEN" above states the position at that date.
+
+**Gate 3: PASS for PAP v0.1 Phase 2a (2026-11-04).** Three independent bundle-v2 implementations (Go, Python, Rust; two model families) agree field-by-field on the frozen Phase 2a case set: 19/19 full + 36/36 identity per implementation, 0 findings. Evidence: `agent-federation/blind-lab` PR [#26](https://github.com/agent-federation/blind-lab/pull/26) (`46df016`, closure record `audit/gate-3-closure.md`), PR [#27](https://github.com/agent-federation/blind-lab/pull/27) (`25655230`, ZIP-provenance reconciliation) and PR [#28](https://github.com/agent-federation/blind-lab/pull/28) (`6930766`, external auditor verdict); result commits/tags Go `8d49d69`/`pap-go-p2a-003-result`, Python `58f368c`/`pap-py-p2a-003-result`, Rust `0b31dac`/`pap-rs-p2a-003-result`. Decision record: [`ODR-PAP-005`](decisions/ODR-PAP-005-gate-3-closure-phase-2a.md).
+
+Scope and caveats: Phase 2a only — 6 later-phase cases excluded; no Phase 2b/2c/2d, Tier B or full-PAP conformance claim; the three implementations share one owner/harness; two model families, not three independent human teams; the external auditor approved unconditionally for the Phase 2a scope after a documentation-level ZIP-provenance review and did not independently re-hash the archive. No contract, case set, implementation or prior record was changed.
+
+This addendum does not close Gate 2 (the separately distributed verifier release required by RFC §9.1 remains unavailable), and it does not complete Phases 4–5 of #43.

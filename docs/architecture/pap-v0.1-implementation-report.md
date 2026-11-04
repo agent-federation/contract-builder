@@ -1,7 +1,8 @@
 # PAP v0.1 verifier — Phase 2 implementation report
 
-**Status:** implementation complete for Tier B; Gate 3 remains **OPEN**. This report
-does not claim cross-implementation agreement, interoperability or semantic truth.
+**Status:** implementation complete for Tier B. At publication (2026-11-02) Gate 3 was **OPEN**; it
+is **PASSED for PAP Phase 2a** as of the dated status update below. This report itself does not
+claim cross-implementation agreement, interoperability or semantic truth.
 **Issue:** [#62](https://github.com/agent-federation/contract-builder/issues/62) —
 «Implement the PAP v0.1 verifier — Phase 2».
 **Normative baseline:** accepted
@@ -11,6 +12,12 @@ OD-1–OD-7; Gate 1 PASS) and the Gate 1
 **Verifier entry point:** `pap/bin/pap` / `bun run pap`.
 **Conformance tier:** Tier B — the Tier A core plus the optional DSSE/Ed25519
 adapter. The in-toto mapping is outside both tiers and is not implemented.
+
+> **Status update — 2026-11-04.** Gate 3 is PASSED for PAP Phase 2a
+> ([`ODR-PAP-005`](../decisions/ODR-PAP-005-gate-3-closure-phase-2a.md); `blind-lab` PR #26/#27/#28:
+> three independent bundle-v2 implementations, 19/19 full + 36/36 identity each, 0 findings). The
+> 2026-11-02 findings, limitations and evidence rows below remain as written; the Gate 3 evidence is
+> external to this report.
 
 ---
 

@@ -14,10 +14,15 @@ D1–D12 and every §13.8 area. Its recommendations were accepted by the maintai
 §16 and the decision record on #57 are authoritative. A Gate 1 PASS records specification
 readiness for independent implementation only; it is not Gate 3.
 **Implementation status:** Phase 2 verifier implementation is merged into `main` via PR #64 and
-available under `pap/`; independent interoperability validation remains pending. Gate 0 is recorded
-COMPLETE on #43.
-**Conformance status:** Gate 3 is **OPEN**; no cross-implementation agreement or independent
-verification is claimed.
+available under `pap/`. Independent interoperability validation for the Phase 2a subset is recorded
+by Gate 3 below. Gate 0 is recorded COMPLETE on #43.
+**Conformance status:** Gate 3 is **PASSED for PAP Phase 2a** (2026-11-04). Three independent
+bundle-v2 implementations (Go, Python, Rust; two model families) agree field-by-field on the frozen
+Phase 2a case set: 19/19 full + 36/36 identity each, 0 findings. The closure is Phase 2a only (6
+later-phase cases excluded; no Phase 2b/2c/2d, Tier B or full-PAP claim; shared owner/harness; two
+model families; documentation-level ZIP-provenance review). Record:
+[`ODR-PAP-005`](../decisions/ODR-PAP-005-gate-3-closure-phase-2a.md); evidence: `blind-lab`
+PR #26/#27/#28.
 
 **Related:** [`docs/architecture/build-identity.md`](build-identity.md) (implemented
 `inputDigest`), [`docs/architecture/provenance-hardening-rfc.md`](provenance-hardening-rfc.md)
@@ -214,9 +219,9 @@ the current status. PAP does not claim to close any of them.
 > since been accepted (2026-11-02), Gate 1 PASS is recorded, and Gate 0 is recorded COMPLETE on
 > #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
 > #32/#33/#35. The maintainer then authorized Phase 2 verifier implementation. A Phase 2
-> implementation is merged into `main` via PR #64 and available under `pap/`; independent
-> interoperability validation remains pending. Gate 3 remains OPEN. This note cites those records
-> and does not independently re-audit Gate 0.
+> implementation is merged into `main` via PR #64 and available under `pap/`; Gate 3 is **PASSED for
+> PAP Phase 2a** (2026-11-04; ODR-PAP-005), limited to the Phase 2a case set and its stated caveats.
+> This note cites those records and does not independently re-audit Gate 0 or the Gate 3 evidence.
 
 | Phase | Content | State at `f1ddcf7` | PAP implication |
 |---|---|---|---|
@@ -247,8 +252,9 @@ and Phase 2 could not begin while #35 remained open. Subsequently, Gate 0 was re
 #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
 #32/#33/#35. The maintainer's 2026-11-02 decision then authorized Phase 2 verifier implementation
 under the accepted contract (#57). The Phase 2 implementation is merged into `main` via PR #64 and
-available under `pap/`; independent interoperability validation remains pending. This document cites
-those records and does not independently re-audit Gate 0.
+available under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to
+the Phase 2a case set and its stated caveats. This document cites
+those records and does not independently re-audit Gate 0 or the Gate 3 evidence.
 
 ### 2.5 A new product track, not M1
 
@@ -317,8 +323,9 @@ the verifier MUST NOT import the producer runtime, execute producer or profile c
 network in v0.1. This RFC does not implement either product. The maintainer accepted the v0.1
 specification on 2026-11-02; Gate 0 is recorded COMPLETE on #43 (comment 6570952005); and Phase 2
 was then authorized. The Phase 2 implementation is merged into `main` via PR #64 and available
-under `pap/`; independent interoperability validation remains pending. This status cites those
-records and does not independently re-audit Gate 0 (§2.4; #43; #44).
+under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to the Phase 2a
+case set and its stated caveats. This status cites those
+records and does not independently re-audit Gate 0 or the Gate 3 evidence (§2.4; #43; #44).
 
 The document is organised as follows. §4 defines the package layout and the manifest; §5 the
 identities, hash domains and digest rules; §6 the trust model and the local policy input; §7 the
@@ -3571,8 +3578,9 @@ blocker and escalates it; it is never resolved by adopting the reference behavio
 This RFC itself is **design only**: it adds no verifier, producer, CLI, fixture generator or test
 code. The maintainer accepted the v0.1 specification on 2026-11-02 and authorized Phase 2 after
 Gate 0 was recorded COMPLETE on #43 (comment 6570952005). The Phase 2 implementation is merged into
-`main` via PR #64 and available under `pap/`; independent interoperability validation remains
-pending. This document cites those records and does not independently re-audit Gate 0.
+`main` via PR #64 and available under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04;
+ODR-PAP-005), limited to the Phase 2a case set and its stated caveats. This document cites those
+records and does not independently re-audit Gate 0 or the Gate 3 evidence.
 
 - **Phase 2** (independent verifier CLI) consumes §4–§9 and §12. Its gate is a recipient verifying
   offline with no Contract Builder service or runtime dependency; §12 cases are the evidence, with
@@ -3594,8 +3602,8 @@ is an RFC amendment, not a silent implementation choice.
 This RFC authorizes no implementation by itself. With the decision register in §16 accepted,
 Gate 0 recorded COMPLETE on #43, and Phase 2 authorized by the maintainer on 2026-11-02, the
 following sequence keeps the format independently reviewable and matches roadmap #43 Phases 2–3.
-The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; independent
-interoperability validation remains pending. The sequence is:
+The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; Gate 3 is
+PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to the Phase 2a case set. The sequence is:
 
 | Step | Work | Exit condition |
 |---|---|---|
@@ -5461,7 +5469,7 @@ during integration, this appendix MUST be updated in the same change.
 | 8 | Positive and negative conformance fixtures have expected results. | §12, §12.2, §12.4 | Every runnable matrix row states expected dimensions, verdict, exit code and diagnostics; no-report CLI rows state exit code and stderr code. Expected results are normative in §12.2/§12.4; Appendix E fixes the digest/JCS values. |
 | 9 | A second implementation can implement the supported subset without private Contract Builder dependencies. | §13 | Algorithms and schemas are language-neutral and published; the independent subset and its equality requirements are defined; no producer import is permitted. |
 | 10 | Non-goals and deferred integrations (Sigstore/SCITT/OCI, production key management, temporal graph, mandates) are explicit. | §14, §11, §3.3 | Twelve non-goals and deferred integrations are listed with their reasons and consequences; none is silently included. |
-| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2. The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; independent interoperability validation remains pending and Gate 3 remains OPEN. This row cites those records and does not independently re-audit Gate 0. |
+| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2. The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to the Phase 2a case set. This row cites those records and does not independently re-audit Gate 0 or the Gate 3 evidence. |
 
 ### H.3 Required decisions / open questions (12 items)
 
