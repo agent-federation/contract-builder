@@ -2,8 +2,8 @@
 
 **Status:** planning proposal package for maintainer review. It changes no code, schema, fixture,
 test, evidence or generated artifact. **S2.1 implementation was authorized by the project owner on
-2026-11-04** (Issue #84 comment 6623307799) and is not yet performed; S2.2 and S2.3 remain separately
-gated. **All ten planning
+2026-11-04** (Issue #84 comment 6623307799) and is **complete** (PRs #100–#102; final PR #105
+`dbc93de`, merged 2026-11-04); S2.2 and S2.3 remain separately gated. **All ten planning
 questions (Q1–Q10) are resolved by owner decisions (2026-11-03/04).** Q1: 9 phases, 8
 `hasPrerequisite` edges, zero transition instances, 29 relations. Q2: a second consumer-extension
 trust boundary and a scoped consent-facts check. Q3: 25 diagnostics (24 profile-owned + 1 core-owned).
@@ -17,10 +17,11 @@ IDs. No planning question remains open.
 reconciled. Upstream/canonical synchronization is complete: PR #90 synchronized the accepted
 Q1/Q3/Q5/Q10 decisions, the 29-relation inventory, the Q9 stage allocation and the Issue #84
 description; PR #92 completed the three current/forward-looking 23→24 policy-check count corrections
-while preserving historical S1 references, and Issue #91 is closed. See
+while preserving historical S1 references; the remaining two execution-plan references are
+reconciled here to 24 catalog codes and 25 `/diagnostics` rows; Issue #91 is closed. See
 [`S2.1-implementation-plan.md`](S2.1-implementation-plan.md) §4.4 for the reconciliation record. S2.1
-implementation was **authorized on 2026-11-04** and is **not yet performed**; S2.2 and S2.3 remain
-separately gated.
+implementation was **authorized on 2026-11-04** and **completed by PR #105** (`dbc93de`, merged
+2026-11-04; earlier PRs #100–#102); S2.2 and S2.3 remain separately gated.
 **Prepared for:** [Issue #84](https://github.com/agent-federation/contract-builder/issues/84).
 **Baseline:** `8d881d410c9945f7f5925fbf5772b06be2e9cc120` (`main`, 2026-11-02).
 **Accepted sources:** [`core-000-self-contract.md`](../../core-000-self-contract.md) (design),
