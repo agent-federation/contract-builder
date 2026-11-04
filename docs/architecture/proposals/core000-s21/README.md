@@ -27,7 +27,7 @@ requiring maintainer review, or unresolved.
 | [`S2.1-implementation-plan.md`](S2.1-implementation-plan.md) | Baseline, verified current state, proposed model surface, structure encoding, sequence, commands, expected outputs, stop conditions. |
 | [`S2.1-change-inventory.md`](S2.1-change-inventory.md) | Path-by-path inventory with current state, change, rationale, dependency, risk and status (required / conditional / no change). |
 | [`S2.1-test-plan.md`](S2.1-test-plan.md) | S2.1 test matrix, exact expected diagnostic set, and the S2.1 / S2.3 / S3 boundary. |
-| [`S2.1-open-questions.md`](S2.1-open-questions.md) | Unresolved maintainer decisions with evidence, options, recommendation, consequence and blocking status. |
+| [`S2.1-open-questions.md`](S2.1-open-questions.md) | Maintainer decisions with resolution status, evidence, options, recommendation, consequence and blocking status. |
 | [`S2.1-maintainer-summary.md`](S2.1-maintainer-summary.md) | Verified facts, proposed implementation, recommendations, open decisions, blockers and the exact authorization requested. |
 
 ## What this package does not do
