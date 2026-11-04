@@ -64,6 +64,61 @@
       "code": "core000.trust.consent-facts",
       "severity": "review",
       "message": "Trust boundary \"{{id}}\" must be policy_status settled with enforcement explicit_consent; found \"{{policy_status}}\" and \"{{enforcement}}\"."
+    },
+    {
+      "code": "core000.claim.invalid-status",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" carries an invalid status value."
+    },
+    {
+      "code": "core000.claim.unsupported-guarantee",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" asserts a guarantee with no supporting evidence."
+    },
+    {
+      "code": "core000.claim.status-class-conflict",
+      "severity": "error",
+      "message": "Claim \"{{id}}\" has a class/status combination the profile does not accept."
+    },
+    {
+      "code": "core000.independent-verification.incomplete",
+      "severity": "error",
+      "message": "Independent verification \"{{id}}\" is incomplete."
+    },
+    {
+      "code": "core000.independent-verification.self",
+      "severity": "error",
+      "message": "Independent verification \"{{id}}\" is not produced by a distinct verifier."
+    },
+    {
+      "code": "core000.independent-verification.record-missing",
+      "severity": "error",
+      "message": "Independent-verification record \"{{id}}\" is missing."
+    },
+    {
+      "code": "core000.model.interface-owner-mismatch",
+      "severity": "error",
+      "message": "Interface \"{{id}}\" has owner \"{{owner}}\", which does not match its providing component."
+    },
+    {
+      "code": "core000.evidence.locator",
+      "severity": "error",
+      "message": "Evidence \"{{id}}\" has an empty locator or revision after trimming."
+    },
+    {
+      "code": "core000.evidence.orphan",
+      "severity": "warning",
+      "message": "Evidence \"{{id}}\" supports no claim."
+    },
+    {
+      "code": "core000.surface.claim-missing",
+      "severity": "warning",
+      "message": "Public surface \"{{id}}\" has no covering claim."
+    },
+    {
+      "code": "core000.conformance.case-uncovered",
+      "severity": "warning",
+      "message": "Conformance case \"{{id}}\" is not covered by a claim."
     }
   ]
 }
