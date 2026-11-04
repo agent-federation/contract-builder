@@ -518,8 +518,11 @@ async function profileDirectoryFiles(): Promise<string[]> {
   const entries = await readdir(profileDir, { recursive: true });
   const files: string[] = [];
   for (const entry of entries) {
+    const parts = entry.split(path.sep);
+    // Ignore OS metadata such as .DS_Store; it is not part of the declared profile closure.
+    if (parts.some((part) => part.startsWith("."))) continue;
     const full = path.join(profileDir, entry);
-    if ((await lstat(full)).isFile()) files.push(entry.split(path.sep).join("/"));
+    if ((await lstat(full)).isFile()) files.push(parts.join("/"));
   }
   return files.sort();
 }
