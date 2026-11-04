@@ -15,36 +15,645 @@ sourceStatements:
     source_quote: "A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit."
 
 claims:
-  - id: C000-TR-001
+  - id: C000-SC-001
     author: "it-start"
-    statement: "After explicit consent, executable profile code runs in-process with the builder process's privileges; the engine does not sandbox it."
-    class: trust_boundary
-    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    statement: "CORE-000 is a working project identifier, not an adopted UIA standard and not a source of normative authority by itself."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
     authority: human
     lifecycle: active
-    verification_method: "Code inspection of spec/lib/build.ts and the accepted contract; a security review is external."
-    scope: "Executable profile loading at main dffdaa2."
-    subject_kind: trust_boundary
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SC-001 at the accepted design baseline: #47 naming note; §1.4"
+    scope: "CORE-000 accepted design §4.2 row C000-SC-001 at the accepted design baseline"
+    subject_kind: component
     relations:
-      subject: [TB-PROFILE-EXEC]
-      cites: [SRC-TR-001]
-      evidencedBy: [EV-TRUST-CODE, EV-TRUST-TEST]
-      decidedBy: [DEC-35]
+      subject:
+        - COMP-PROJECT
+      decidedBy:
+        - DEC-DESIGN-51
 
-  - id: C000-TR-003
+  - id: C000-SC-002
     author: "it-start"
-    statement: "Executable profile loading requires explicit caller consent: allowExecutableProfile defaults false, the CLI flag is --allow-executable-profile, and absent consent fails closed with core.profile.consent-required before import."
+    statement: "CORE-000 describes the engine's public contract — components, interfaces, lifecycle, guarantees, constraints, dependencies, extensions, diagnostics, identity, trust, decisions, provenance and evidence — not private module structure."
+    class: requirement
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SC-002 at the accepted design baseline: #47 §1; C:§1–2; §3.1"
+    scope: "CORE-000 accepted design §4.2 row C000-SC-002 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-CORE
+      decidedBy:
+        - DEC-DESIGN-51
+
+  - id: C000-SC-003
+    author: "it-start"
+    statement: "CORE-000 is self-described through the existing generic pipeline; the experiment requires no generic-core change."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SC-003 at the accepted design baseline: §5, §7; PR #46 (independent example profile); P:§13"
+    scope: "CORE-000 accepted design §4.2 row C000-SC-003 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-SC-004
+    author: "it-start"
+    statement: "A successful self-build or self-validation evidences only the checks actually run; it is not independent verification, certification, or proof of correctness, security, determinism or conformance."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SC-004 at the accepted design baseline: task C5; C:§1.1, §6.3; §7.2"
+    scope: "CORE-000 accepted design §4.2 row C000-SC-004 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+      decidedBy:
+        - DEC-TASK-C5
+
+  - id: C000-SC-005
+    author: "it-start"
+    statement: "This task does not implement CORE-000, change generic-core behaviour, or design the Portable Assurance Package, independent verifier, sandbox or package split."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SC-005 at the accepted design baseline: task C1/C14; #47 non-goals; PR scope"
+    scope: "CORE-000 accepted design §4.2 row C000-SC-005 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-TASK-C1-C14
+      decidedBy:
+        - DEC-TASK-C1-C14
+
+  - id: C000-ST-001
+    author: "it-start"
+    statement: "Only claims with class `requirement`/`constraint`/`guarantee` and decision `accepted` are normative for CORE-000; this design is `proposed`."
+    class: constraint
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-ST-001 at the accepted design baseline: §1.4"
+    scope: "CORE-000 accepted design §4.2 row C000-ST-001 at the accepted design baseline"
+    subject_kind: claim
+    relations:
+      subject:
+        - C000-SC-001
+        - C000-SC-002
+        - C000-SC-004
+        - C000-SC-005
+        - C000-ST-004
+        - C000-CT-001
+        - C000-CT-002
+        - C000-CT-003
+        - C000-CT-004
+        - C000-CT-005
+        - C000-CT-006
+        - C000-CT-007
+        - C000-CT-008
+        - C000-CT-009
+        - C000-CT-010
+        - C000-CT-011
+        - C000-CT-012
+        - C000-CT-013
+        - C000-CT-014
+        - C000-CT-015
+        - C000-CT-016
+        - C000-CT-017
+        - C000-CT-021
+        - C000-CT-025
+        - C000-CT-026
+        - C000-TR-003
+        - C000-TR-005
+        - C000-EV-001
+        - C000-SV-003
+
+  - id: C000-ST-002
+    author: "it-start"
+    statement: "Important claims carry stable IDs, one class, separate status dimensions and a verification/evidence method; low-level details may be covered by evidence instead."
+    class: requirement
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-ST-002 at the accepted design baseline: §4.1, §4.4"
+    scope: "CORE-000 accepted design §4.2 row C000-ST-002 at the accepted design baseline"
+    subject_kind: claim
+    relations:
+      subject:
+        - C000-SC-001
+        - C000-SC-002
+        - C000-SC-004
+        - C000-SC-005
+        - C000-ST-001
+        - C000-ST-002
+        - C000-ST-003
+        - C000-ST-004
+        - C000-CT-001
+        - C000-CT-002
+        - C000-CT-003
+        - C000-CT-004
+        - C000-CT-005
+        - C000-CT-006
+        - C000-CT-024
+        - C000-CT-007
+        - C000-CT-008
+        - C000-CT-009
+        - C000-CT-010
+        - C000-CT-011
+        - C000-CT-012
+        - C000-CT-013
+        - C000-CT-014
+        - C000-CT-015
+        - C000-CT-016
+        - C000-CT-017
+        - C000-CT-019
+        - C000-CT-021
+        - C000-CT-023
+        - C000-CT-025
+        - C000-CT-026
+        - C000-IM-007
+        - C000-IM-008
+        - C000-TR-001
+        - C000-TR-002
+        - C000-TR-003
+        - C000-TR-005
+        - C000-TR-006
+        - C000-EV-001
+        - C000-EV-002
+        - C000-VF-001
+        - C000-VF-003
+        - C000-VF-004
+        - C000-SV-003
+        - C000-SV-006
+
+  - id: C000-ST-003
+    author: "it-start"
+    statement: "Status reuses the #39 six terms in separate decision/implementation/tests/verification dimensions, with `—` (data `none`) for no supported claim and no seventh status."
+    class: requirement
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-ST-003 at the accepted design baseline: M:§1–2; §2.3"
+    scope: "CORE-000 accepted design §4.2 row C000-ST-003 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-ST-004
+    author: "it-start"
+    statement: "An implementation fact does not become a normative requirement merely because it exists in the repository."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-ST-004 at the accepted design baseline: task C7; #47 §2; §2.2"
+    scope: "CORE-000 accepted design §4.2 row C000-ST-004 at the accepted design baseline"
+    subject_kind: claim
+    relations:
+      subject:
+        - C000-IM-001
+        - C000-IM-002
+        - C000-IM-003
+        - C000-IM-004
+        - C000-IM-005
+        - C000-IM-006
+      decidedBy:
+        - DEC-TASK-C7
+
+  - id: C000-CT-001
+    author: "it-start"
+    statement: "A project has a manifest; `contract-builder.json` is the only fixed file name, and inputs, sources, renderer and outputs are declared in it."
     class: requirement
     status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-001 at the accepted design baseline: M:P1; `spec/lib/manifest.ts`; `tests/manifest.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-001 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-MANIFEST
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-MANIFEST-CODE
+        - EV-MANIFEST-TEST
+
+  - id: C000-CT-002
+    author: "it-start"
+    statement: "Declared inputs are validated by document schemas, then extracted by declared pointers and per-kind schemas; an undeclared kind fails."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-002 at the accepted design baseline: M:P2,R1; `spec/lib/schema.ts`, `spec/lib/ir.ts`; `tests/manifest.test.ts`, `tests/build.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-002 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-PROJECT-MODEL
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-SCHEMA-TS
+        - EV-CODE-SPEC-LIB-IR-TS
+        - EV-MANIFEST-TEST
+        - EV-TEST-TESTS-BUILD-TEST-TS
+
+  - id: C000-CT-003
+    author: "it-start"
+    statement: "Entity identities are non-empty and unique across kinds; declared relation targets resolve; undeclared relation keys fail; an inverse is a reciprocal declaration (same edge set, reversed endpoints, no wildcard inverse) and an inverse declared `one` rejects a second source."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-003 at the accepted design baseline: M:I3,R3; C:§3.2, §5.2; `spec/lib/relations.ts`, `spec/lib/manifest.ts`; PR #52; `tests/ir.test.ts`, `tests/manifest.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-003 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-PROJECT-MODEL
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-RELATIONS-TS
+        - EV-MANIFEST-CODE
+        - EV-TEST-TESTS-IR-TEST-TS
+        - EV-MANIFEST-TEST
+
+  - id: C000-CT-004
+    author: "it-start"
+    statement: "The profile declares kinds, relations, schemas, provenance mappings and diagnostics; the core names no domain vocabulary."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-004 at the accepted design baseline: M:R1; `profiles/core001/profile.json`; `tests/genericity.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-004 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROFILE
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-PROFILES-CORE001-PROFILE-JSON
+        - EV-TEST-TESTS-GENERICITY-TEST-TS
+
+  - id: C000-CT-005
+    author: "it-start"
+    statement: "A provenance binding carries `{source, ref, quote}`; the source must be declared; an incomplete binding fails; binding is structural and attaches a `not-checked` verification record, never a verified one."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-005 at the accepted design baseline: M:V1; C:§4; `spec/lib/provenance.ts`; `tests/ir.test.ts`, `tests/provenance.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-005 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-PROJECT-MODEL
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-PROVENANCE-TS
+        - EV-TEST-TESTS-IR-TEST-TS
+        - EV-PROVENANCE-TEST
+
+  - id: C000-CT-006
+    author: "it-start"
+    statement: "The markdown adapter resolves section, table-column and ordered-item locators and reports `found`/`outside`/`unknown-locator`; the profile verifier maps the outcome into a verification record and the core stores it."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-006 at the accepted design baseline: M:V2,V5; `spec/lib/adapters/markdown.ts`, `spec/lib/provenance.ts`; `tests/build.test.ts`, `tests/provenance.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-006 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-ADAPTER
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-ADAPTERS-MARKDOWN-TS
+        - EV-CODE-SPEC-LIB-PROVENANCE-TS
+        - EV-TEST-TESTS-BUILD-TEST-TS
+        - EV-PROVENANCE-TEST
+
+  - id: C000-CT-024
+    author: "it-start"
+    statement: "Core-enforced quote verification and the accepted `unknown-block` locator outcome are `proposed`, not implemented; `unsupported` exists in the `LocatorResult` type but is not produced by the M1 markdown adapter."
+    class: requirement
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
     authority: external
     lifecycle: active
-    verification_method: "bun test tests/consent.test.ts"
-    scope: "Consent policy merged by PR #50, verified at main dffdaa2."
-    subject_kind: trust_boundary
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-024 at the accepted design baseline: M:V3; C:§5.2 step 7, §11; D25; `spec/lib/source.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-024 at the accepted design baseline"
+    subject_kind: source_statement
     relations:
-      subject: [TB-PROFILE-EXEC]
-      evidencedBy: [EV-CONSENT-CODE, EV-CONSENT-TEST]
-      decidedBy: [DEC-35]
+      subject:
+        - SRC-PROVENANCE-001
+
+  - id: C000-CT-007
+    author: "it-start"
+    statement: "Diagnostics are deterministic and catalog-resolved; an unknown finding code fails the build."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-007 at the accepted design baseline: M:G1,G3; `spec/lib/hook.ts`, `spec/lib/diagnostics.ts`; `tests/hook.test.ts`, `tests/golden.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-007 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-DIAGNOSTIC
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-HOOK-TS
+        - EV-CODE-SPEC-LIB-DIAGNOSTICS-TS
+        - EV-TEST-TESTS-HOOK-TEST-TS
+        - EV-TEST-TESTS-GOLDEN-TEST-TS
+
+  - id: C000-CT-008
+    author: "it-start"
+    statement: "The contract diagnostic shape (severity + disposition + phase + blocking + data) is accepted but deferred to M2; the current record is the legacy shape."
+    class: requirement
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-008 at the accepted design baseline: M:G2; C:§7, §18; D8/D9/D17"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-008 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-DIAGNOSTIC
+      decidedBy:
+        - DEC-D8-D9
+
+  - id: C000-CT-009
+    author: "it-start"
+    statement: "The renderer registry, preloaded templates and UTF-8/LF/one-trailing-newline normalization are implemented; an unknown renderer id fails."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-009 at the accepted design baseline: M:O1,O2; `spec/lib/render.ts`; `tests/renderer.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-009 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-RENDERER
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-RENDER-TS
+        - EV-TEST-TESTS-RENDERER-TEST-TS
+
+  - id: C000-CT-010
+    author: "it-start"
+    statement: "Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; it is not rendered into the artifact."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`; `tests/identity.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-010 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-IDENTITY
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-IDENTITY-TS
+        - EV-TEST-TESTS-IDENTITY-TEST-TS
+
+  - id: C000-CT-011
+    author: "it-start"
+    statement: "`inputDigest` covers the canonical manifest, declared inputs, sources, profile closure and adapter/renderer closures; clock, locale, environment, mtimes and absolute paths are excluded."
+    class: guarantee
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-011 at the accepted design baseline: M:B2; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-011 at the accepted design baseline"
+    subject_kind: interface
+    conditions: "Given a project whose canonical manifest declares its inputs and sources, and whose profile and renderer closures are loaded from the declared paths, `inputDigest` covers those declared inputs and closures; clock, locale, environment, mtimes and absolute paths are excluded."
+    relations:
+      subject:
+        - IF-BUILD-IDENTITY
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-IDENTITY-TS
+        - EV-TEST-TESTS-IDENTITY-TEST-TS
+
+  - id: C000-CT-012
+    author: "it-start"
+    statement: "Byte determinism is conditional on the same engine version, `inputDigest` and extension identities, and on every trusted extension honouring its deterministic contract; it is not absolute reproducibility."
+    class: guarantee
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-012 at the accepted design baseline: C:§8.1, §8.3; BI; `tests/golden.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-012 at the accepted design baseline"
+    subject_kind: interface
+    conditions: "Same engine version, `inputDigest` and extension identities, and every trusted extension honouring its deterministic contract."
+    relations:
+      subject:
+        - IF-BUILD-IDENTITY
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-TEST-TESTS-GOLDEN-TEST-TS
+
+  - id: C000-CT-013
+    author: "it-start"
+    statement: "Paths are root-contained by default; `external: true` is an explicit trust declaration; outputs never leave the output root."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-013 at the accepted design baseline: M:P3; C:§5.7; D31; `tests/manifest.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-013 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-MANIFEST
+      decidedBy:
+        - DEC-D31
+      evidencedBy:
+        - EV-MANIFEST-TEST
+
+  - id: C000-CT-014
+    author: "it-start"
+    statement: "Extension closures, lockfile authority and the static import scan are implemented; an undeclared or unpinned import fails."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-014 at the accepted design baseline: M:B3; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-014 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-IDENTITY
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-IDENTITY-TS
+        - EV-TEST-TESTS-IDENTITY-TEST-TS
+
+  - id: C000-CT-015
+    author: "it-start"
+    statement: "Declarative conformance vectors are stored, validated and linked to their claims; execution is deferred."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: engine
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-015 at the accepted design baseline: M:N1,N2; C:§12; `profiles/core001/checks/cases.ts`; `tests/checks.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-015 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-CONFORMANCE
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-PROFILES-CORE001-CHECKS-CASES-TS
+        - EV-TEST-TESTS-CHECKS-TEST-TS
+
+  - id: C000-CT-016
+    author: "it-start"
+    statement: "The public API (`loadProject`/`validateProject`/`buildProject`/`renderModel`/`checkArtifacts`, `BuildStatus`, phases, exit code 2) is accepted but deferred to M2."
+    class: requirement
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-016 at the accepted design baseline: M:K2; C:§9; D7/D18"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-016 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-RESULT
+      decidedBy:
+        - DEC-DESIGN-51
+
+  - id: C000-CT-017
+    author: "it-start"
+    statement: "The contract CLI (`validate` / `build` / `check`, `--json` result object) is accepted but deferred."
+    class: requirement
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-017 at the accepted design baseline: M:K3; C:§10"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-017 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-CLI
+      decidedBy:
+        - DEC-DESIGN-51
+
+  - id: C000-CT-018
+    author: "it-start"
+    statement: "Multi-source projects are proposed, not implemented or tested; M1 exercises one source."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-018 at the accepted design baseline: M:A2; C:§5.3; D21; #5"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-018 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-PROJECT-MODEL
+
+  - id: C000-CT-019
+    author: "it-start"
+    statement: "Multiple renderers and multiple artifacts per build are deferred; the `Artifact[]` shape is forward-compatible."
+    class: requirement
+    status: { decision: deferred, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-019 at the accepted design baseline: M:O3; C:§8, §11; PR #56"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-019 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-RENDERER
+      decidedBy:
+        - DEC-DEFER-019
+
+  - id: C000-CT-020
+    author: "it-start"
+    statement: "Typed `ReviewState` and per-dimension review are proposed/deferred."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-020 at the accepted design baseline: M:R5; C:§4; D24"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-020 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-CT-021
+    author: "it-start"
+    statement: "Provenance hardening (paragraph locators and a source-byte digest) is accepted but not implemented."
+    class: requirement
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-021 at the accepted design baseline: M:V4; `provenance-hardening-rfc.md`; #45"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-021 at the accepted design baseline"
+    subject_kind: source_statement
+    relations:
+      subject:
+        - SRC-PROVENANCE-001
+      decidedBy:
+        - DEC-DESIGN-51
+
+  - id: C000-CT-022
+    author: "it-start"
+    statement: "Packaging, publication and a declared runtime matrix are proposed/unresolved; nothing is published."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-022 at the accepted design baseline: M:X1,X2,X4; C:§13, §17; D14/D19/D20/D29"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-022 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-CT-023
+    author: "it-start"
+    statement: "Full self-hosting is deferred; CORE-000 is a bounded step, not the M5 self-hosting program."
+    class: requirement
+    status: { decision: deferred, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-023 at the accepted design baseline: M:X3; C:§14; D26"
+    scope: "CORE-000 accepted design §4.2 row C000-CT-023 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-CORE
+      decidedBy:
+        - DEC-DEFER-023
 
   - id: C000-CT-025
     author: "it-start"
@@ -78,6 +687,59 @@ claims:
       evidencedBy: [EV-PROVENANCE-CODE, EV-PROVENANCE-TEST]
       decidedBy: [DEC-PR-55]
 
+  - id: C000-IM-001
+    author: "it-start"
+    statement: "The current build entry point is `runBuild(BuildOptions)`; `package.json` is private and publishes no package surface."
+    class: implementation_fact
+    status: { decision: none, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-001 at the accepted design baseline: `spec/lib/build.ts:56`; `package.json`; tests call `runBuild`"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-001 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-RESULT
+      evidencedBy:
+        - EV-TRUST-CODE
+        - EV-CODE-PACKAGE-JSON
+        - EV-TEST-TESTS-BUILD-TEST-TS
+
+  - id: C000-IM-002
+    author: "it-start"
+    statement: "Current diagnostics are `{severity: error / warning / review, code, file, pointer, message}` with no disposition, phase, data or object location."
+    class: implementation_fact
+    status: { decision: none, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-002 at the accepted design baseline: M:G1; `spec/lib/diagnostics.ts`; `tests/golden.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-002 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-DIAGNOSTIC
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-DIAGNOSTICS-TS
+        - EV-TEST-TESTS-GOLDEN-TEST-TS
+
+  - id: C000-IM-003
+    author: "it-start"
+    statement: "Current exit codes are 0 and 1; usage errors exit 1; exit code 2 is not implemented."
+    class: implementation_fact
+    status: { decision: none, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-003 at the accepted design baseline: `spec/lib/build.ts` result mapping; `spec/build.ts`; M:G2"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-003 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-RESULT
+      evidencedBy:
+        - EV-TRUST-CODE
+        - EV-CODE-SPEC-BUILD-TS
+        - EV-TEST-TESTS-BUILD-TEST-TS-32-TESTS-BUILD-TEST-TS-62-TESTS-BUILD-TEST-TS-96-TESTS-BUILD-TEST-TS-110-TESTS-BUILD-TEST-TS-116-TESTS-BUILD-TEST-TS-134
+
   - id: C000-IM-004
     author: "it-start"
     statement: "profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine's renderer is consumer-supplied, and the CLI imports the CORE-001 renderer conditionally."
@@ -91,6 +753,696 @@ claims:
     relations:
       subject: [IF-PROFILE-VALIDATOR]
       evidencedBy: [EV-CONSENT-CODE, EV-CONSENT-TEST]
+
+  - id: C000-IM-005
+    author: "it-start"
+    statement: "Build identity is computed after load/validation, is `null` when the build stops early, and is never rendered."
+    class: implementation_fact
+    status: { decision: none, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`; `tests/identity.test.ts`; BI"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-005 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-IDENTITY
+      evidencedBy:
+        - EV-TRUST-CODE
+        - EV-TEST-TESTS-IDENTITY-TEST-TS
+
+  - id: C000-IM-006
+    author: "it-start"
+    statement: "The CLI dynamically imports the CORE-001 renderer only with explicit consent, a matching profile `core001`/renderer `core001-markdown` declaration and a valid profile closure; there is no generic profile-selection CLI."
+    class: implementation_fact
+    status: { decision: none, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-006 at the accepted design baseline: `spec/cli-renderers.ts`; `tests/consent.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-006 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-CLI
+      evidencedBy:
+        - EV-CODE-SPEC-CLI-RENDERERS-TS
+        - EV-CONSENT-TEST
+
+  - id: C000-IM-007
+    author: "it-start"
+    statement: "The profile loader requires explicit consent; absent consent fails closed before import; after consent, view/validator run in-process with builder privileges and no sandbox or isolation."
+    class: trust_boundary
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-007 at the accepted design baseline: M:H5; `spec/lib/build.ts`; `tests/consent.test.ts`; §6.1"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-007 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-PROFILE-EXEC
+      decidedBy:
+        - DEC-35
+      evidencedBy:
+        - EV-TRUST-CODE
+        - EV-CONSENT-TEST
+
+  - id: C000-IM-008
+    author: "it-start"
+    statement: "`external: true` is a path trust declaration, not an executable-profile opt-in and not isolation."
+    class: trust_boundary
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-008 at the accepted design baseline: C:§5.7; D31; `tests/manifest.test.ts`"
+    scope: "CORE-000 accepted design §4.2 row C000-IM-008 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-CONSUMER-EXTENSION
+      decidedBy:
+        - DEC-D31
+      evidencedBy:
+        - EV-MANIFEST-CODE
+        - EV-MANIFEST-TEST
+
+  - id: C000-IM-009
+    author: "it-start"
+    statement: "The extension closure and static import scan are integrity/accounting guards, not a security boundary."
+    class: limitation
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-009 at the accepted design baseline: M:B3; BI \"Static import scan\""
+    scope: "CORE-000 accepted design §4.2 row C000-IM-009 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-BUILD-IDENTITY
+      decidedBy:
+        - DEC-DESIGN-51
+      evidencedBy:
+        - EV-CODE-SPEC-LIB-IDENTITY-TS-604-SPEC-LIB-IDENTITY-TS-753
+        - EV-TEST-TESTS-IDENTITY-TEST-TS-555
+
+  - id: C000-TR-001
+    author: "it-start"
+    statement: "After explicit consent, executable profile code runs in-process with the builder process's privileges; the engine does not sandbox it."
+    class: trust_boundary
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Code inspection of spec/lib/build.ts and the accepted contract; a security review is external."
+    scope: "Executable profile loading at main dffdaa2."
+    subject_kind: trust_boundary
+    relations:
+      subject: [TB-PROFILE-EXEC]
+      cites: [SRC-TR-001]
+      evidencedBy: [EV-TRUST-CODE, EV-TRUST-TEST]
+      decidedBy: [DEC-35]
+
+  - id: C000-TR-002
+    author: "it-start"
+    statement: "Determinism of profile hooks is an author obligation, not an engine guarantee; the engine cannot enforce purity."
+    class: assumption
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-TR-002 at the accepted design baseline: C:§3.3; D28/D32"
+    scope: "CORE-000 accepted design §4.2 row C000-TR-002 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-PROFILE-EXEC
+      decidedBy:
+        - DEC-D28
+
+  - id: C000-TR-003
+    author: "it-start"
+    statement: "Executable profile loading requires explicit caller consent: allowExecutableProfile defaults false, the CLI flag is --allow-executable-profile, and absent consent fails closed with core.profile.consent-required before import."
+    class: requirement
+    status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "bun test tests/consent.test.ts"
+    scope: "Consent policy merged by PR #50, verified at main dffdaa2."
+    subject_kind: trust_boundary
+    relations:
+      subject: [TB-PROFILE-EXEC]
+      evidencedBy: [EV-CONSENT-CODE, EV-CONSENT-TEST]
+      decidedBy: [DEC-35]
+
+  - id: C000-TR-004
+    author: "it-start"
+    statement: "Consent permits trusted executable profile code to run in-process with builder privileges; it is not a sandbox, isolation or capability restriction."
+    class: limitation
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-TR-004 at the accepted design baseline: C:§3.3; PR #50; §6.2"
+    scope: "CORE-000 accepted design §4.2 row C000-TR-004 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-PROFILE-EXEC
+      decidedBy:
+        - DEC-35
+
+  - id: C000-TR-005
+    author: "it-start"
+    statement: "CORE-000 trust-boundary claims are reconciled with the merged #35/PR #50 outcome; a later consent-policy change requires a new reconciliation."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-TR-005 at the accepted design baseline: task C4; PR #50; §6.4"
+    scope: "CORE-000 accepted design §4.2 row C000-TR-005 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-PROFILE-EXEC
+      decidedBy:
+        - DEC-TASK-C4
+
+  - id: C000-TR-006
+    author: "it-start"
+    statement: "Loading a profile is a trust decision equivalent to installing a dependency."
+    class: assumption
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-TR-006 at the accepted design baseline: C:§3.3; D28; PR #50"
+    scope: "CORE-000 accepted design §4.2 row C000-TR-006 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-PROFILE-EXEC
+      decidedBy:
+        - DEC-D28
+
+  - id: C000-EV-001
+    author: "it-start"
+    statement: "Test evidence is revision-bound; a passing test is evidence of that run, not of correctness or independence."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-EV-001 at the accepted design baseline: M:§1, §7; §2.4"
+    scope: "CORE-000 accepted design §4.2 row C000-EV-001 at the accepted design baseline"
+    subject_kind: evidence
+    relations:
+      subject:
+        - EV-TRUST-TEST
+        - EV-CONSENT-TEST
+        - EV-MANIFEST-TEST
+        - EV-PROVENANCE-TEST
+        - EV-TEST-TESTS-BUILD-TEST-TS
+        - EV-TEST-TESTS-IR-TEST-TS
+        - EV-TEST-TESTS-GENERICITY-TEST-TS
+        - EV-TEST-TESTS-HOOK-TEST-TS
+        - EV-TEST-TESTS-GOLDEN-TEST-TS
+        - EV-TEST-TESTS-RENDERER-TEST-TS
+        - EV-TEST-TESTS-IDENTITY-TEST-TS
+        - EV-TEST-TESTS-CHECKS-TEST-TS
+        - EV-TEST-TESTS-BUILD-TEST-TS-32-TESTS-BUILD-TEST-TS-62-TESTS-BUILD-TEST-TS-96-TESTS-BUILD-TEST-TS-110-TESTS-BUILD-TEST-TS-116-TESTS-BUILD-TEST-TS-134
+        - EV-TEST-TESTS-IDENTITY-TEST-TS-555
+      decidedBy:
+        - DEC-DESIGN-51
+
+  - id: C000-EV-002
+    author: "it-start"
+    statement: "Independent verification requires a verifier distinct from the author, access to evidence, a recorded method/scope/result and a per-claim record; a merge, green CI or empty approval does not qualify."
+    class: requirement
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-EV-002 at the accepted design baseline: M:§7; §8"
+    scope: "CORE-000 accepted design §4.2 row C000-EV-002 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+
+  - id: C000-EV-003
+    author: "it-start"
+    statement: "No independent verification of the engine or CORE-000 exists at the baseline; every independent-verification dimension is `—`."
+    class: limitation
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-EV-003 at the accepted design baseline: M:§7; §8.5"
+    scope: "CORE-000 accepted design §4.2 row C000-EV-003 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+      decidedBy:
+        - DEC-DESIGN-51
+
+  - id: C000-VF-001
+    author: "it-start"
+    statement: "The engine cannot set `independently_verified`; only an external verification record can support it."
+    class: requirement
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-VF-001 at the accepted design baseline: §8.1, §8.3"
+    scope: "CORE-000 accepted design §4.2 row C000-VF-001 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+
+  - id: C000-VF-002
+    author: "it-start"
+    statement: "A concrete manual independent-review protocol exists in §8.2 but has not been performed."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-VF-002 at the accepted design baseline: §8.2"
+    scope: "CORE-000 accepted design §4.2 row C000-VF-002 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+
+  - id: C000-VF-003
+    author: "it-start"
+    statement: "Contract conformance, test-coverage sufficiency, cross-platform determinism, security/trust boundary, independence itself, semantic truth and self-description completeness require external authority."
+    class: constraint
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-VF-003 at the accepted design baseline: §8.1"
+    scope: "CORE-000 accepted design §4.2 row C000-VF-003 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+
+  - id: C000-VF-004
+    author: "it-start"
+    statement: "An independent-verification record carries `id`, `method`, `verifier`, `independence`, `independence_basis`, `performed`, `result`, `scope`, `revision`, `claim_results` and `limitations`; `commands`, `date` and `record_locator` are conditional per §8.3. It is separate from the core provenance `VerificationRecord`."
+    class: requirement
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-VF-004 at the accepted design baseline: §5.3, §8.3; C:§4"
+    scope: "CORE-000 accepted design §4.2 row C000-VF-004 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+
+  - id: C000-SV-001
+    author: "it-start"
+    statement: "The self-validation experiment uses the existing generic pipeline and a consumer harness; it requires no generic-core change."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SV-001 at the accepted design baseline: §7.3–7.5; PR #46"
+    scope: "CORE-000 accepted design §4.2 row C000-SV-001 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-SV-002
+    author: "it-start"
+    statement: "The experiment checks schemas, identity, relations, provenance, CORE-000 policy, artifact normalization and build identity, and renders one Markdown artifact."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SV-002 at the accepted design baseline: §7.5–7.6"
+    scope: "CORE-000 accepted design §4.2 row C000-SV-002 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-SV-003
+    author: "it-start"
+    statement: "A successful build establishes only structural/relational self-consistency and CORE-000 profile-policy compliance."
+    class: constraint
+    status: { decision: accepted, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SV-003 at the accepted design baseline: task C5; C:§1.1, §6.3; §7.2"
+    scope: "CORE-000 accepted design §4.2 row C000-SV-003 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+      decidedBy:
+        - DEC-TASK-C5
+
+  - id: C000-SV-004
+    author: "it-start"
+    statement: "The negative cases cover at least inconsistent component/interface, unresolved dependency/relation, implemented-without-evidence and unsupported/unverified guarantee, plus identity, relation, provenance and trust cases."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SV-004 at the accepted design baseline: §7.8"
+    scope: "CORE-000 accepted design §4.2 row C000-SV-004 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-SV-005
+    author: "it-start"
+    statement: "The experiment cannot establish that the code matches the claims; that requires external evidence and independent review."
+    class: limitation
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SV-005 at the accepted design baseline: §7.2, §8"
+    scope: "CORE-000 accepted design §4.2 row C000-SV-005 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-SV-006
+    author: "it-start"
+    statement: "The release build remains blocked while review diagnostics (missing independent verification, unresolved decisions) remain; the consent policy is settled, so it is no longer a blocker."
+    class: constraint
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-SV-006 at the accepted design baseline: §7.7, §7.10"
+    scope: "CORE-000 accepted design §4.2 row C000-SV-006 at the accepted design baseline"
+    subject_kind: claim
+    relations:
+      subject:
+        - C000-TR-001
+        - C000-TR-003
+        - C000-IM-004
+        - C000-CT-008
+        - C000-CT-016
+        - C000-CT-017
+        - C000-CT-021
+        - C000-CT-024
+        - C000-IM-001
+        - C000-IM-002
+        - C000-IM-003
+        - C000-IM-005
+        - C000-IM-006
+        - C000-IM-009
+        - C000-TR-002
+        - C000-TR-004
+        - C000-EV-002
+        - C000-SV-001
+        - C000-SV-002
+        - C000-GAP-001
+        - C000-GAP-003
+        - C000-GAP-004
+        - C000-GAP-005
+        - C000-GAP-006
+        - C000-SC-001
+        - C000-SC-002
+        - C000-SC-003
+        - C000-SC-004
+        - C000-SC-005
+        - C000-ST-001
+        - C000-ST-002
+        - C000-ST-003
+        - C000-ST-004
+        - C000-CT-018
+        - C000-CT-019
+        - C000-CT-020
+        - C000-CT-022
+        - C000-CT-023
+        - C000-IM-007
+        - C000-IM-008
+        - C000-TR-005
+        - C000-TR-006
+        - C000-EV-001
+        - C000-EV-003
+        - C000-VF-001
+        - C000-VF-002
+        - C000-VF-003
+        - C000-VF-004
+        - C000-SV-003
+        - C000-SV-004
+        - C000-SV-005
+        - C000-SV-006
+        - C000-GAP-002
+        - C000-GAP-007
+        - C000-LM-001
+        - C000-LM-002
+        - C000-LM-003
+        - C000-LM-004
+        - C000-LM-005
+        - C000-LM-006
+        - C000-LM-007
+        - C000-LM-008
+
+  - id: C000-GAP-001
+    author: "it-start"
+    statement: "The generic core has no raw-file input/adapter for code/test evidence; evidence files cannot participate in `inputDigest`, so claim/evidence staleness is invisible to the build."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-001 at the accepted design baseline: §9 G1"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-001 at the accepted design baseline"
+    subject_kind: evidence
+    relations:
+      subject:
+        - EV-TRUST-CODE
+        - EV-TRUST-TEST
+        - EV-CONSENT-CODE
+        - EV-CONSENT-TEST
+        - EV-MANIFEST-CODE
+        - EV-MANIFEST-TEST
+        - EV-PROVENANCE-CODE
+        - EV-PROVENANCE-TEST
+        - EV-CODE-SPEC-LIB-SCHEMA-TS
+        - EV-CODE-SPEC-LIB-IR-TS
+        - EV-TEST-TESTS-BUILD-TEST-TS
+        - EV-CODE-SPEC-LIB-RELATIONS-TS
+        - EV-TEST-TESTS-IR-TEST-TS
+        - EV-CODE-PROFILES-CORE001-PROFILE-JSON
+        - EV-TEST-TESTS-GENERICITY-TEST-TS
+        - EV-CODE-SPEC-LIB-PROVENANCE-TS
+        - EV-CODE-SPEC-LIB-ADAPTERS-MARKDOWN-TS
+        - EV-CODE-SPEC-LIB-HOOK-TS
+        - EV-CODE-SPEC-LIB-DIAGNOSTICS-TS
+        - EV-TEST-TESTS-HOOK-TEST-TS
+        - EV-TEST-TESTS-GOLDEN-TEST-TS
+        - EV-CODE-SPEC-LIB-RENDER-TS
+        - EV-TEST-TESTS-RENDERER-TEST-TS
+        - EV-CODE-SPEC-LIB-IDENTITY-TS
+        - EV-TEST-TESTS-IDENTITY-TEST-TS
+        - EV-CODE-PROFILES-CORE001-CHECKS-CASES-TS
+        - EV-TEST-TESTS-CHECKS-TEST-TS
+        - EV-CODE-PACKAGE-JSON
+        - EV-CODE-SPEC-BUILD-TS
+        - EV-TEST-TESTS-BUILD-TEST-TS-32-TESTS-BUILD-TEST-TS-62-TESTS-BUILD-TEST-TS-96-TESTS-BUILD-TEST-TS-110-TESTS-BUILD-TEST-TS-116-TESTS-BUILD-TEST-TS-134
+        - EV-CODE-SPEC-CLI-RENDERERS-TS
+        - EV-CODE-SPEC-LIB-IDENTITY-TS-604-SPEC-LIB-IDENTITY-TS-753
+        - EV-TEST-TESTS-IDENTITY-TEST-TS-555
+
+  - id: C000-GAP-002
+    author: "it-start"
+    statement: "Cross-entity declarative rule primitives are not implemented; CORE-000 policy needs a trusted profile hook."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-002 at the accepted design baseline: §9 G2; M:R4"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-002 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROFILE
+
+  - id: C000-GAP-003
+    author: "it-start"
+    statement: "Binding/verification separation is implemented (#37), but locators are coarse, core quote verification is proposed and the accepted V4 hardening is unimplemented."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-003 at the accepted design baseline: §9 G3; M:V3,V4; PR #55"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-003 at the accepted design baseline"
+    subject_kind: source_statement
+    relations:
+      subject:
+        - SRC-PROVENANCE-001
+
+  - id: C000-GAP-004
+    author: "it-start"
+    statement: "The public API/CLI are not generic; the experiment needs a consumer harness, and the CLI only conditionally wires the CORE-001 renderer rather than selecting arbitrary profiles."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-004 at the accepted design baseline: §9 G4; M:K2,K3; C000-IM-006"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-004 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-CLI
+
+  - id: C000-GAP-005
+    author: "it-start"
+    statement: "Multi-target rendering/multi-artifact is deferred and #38 now rejects zero or multiple `manifest.render` declarations; a machine-readable JSON claim export is not available in M1."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-005 at the accepted design baseline: §9 G5; M:O3; PR #56"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-005 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-RENDERER
+
+  - id: C000-GAP-006
+    author: "it-start"
+    statement: "Multi-source is untested; CORE-000 uses one source and treats other documents as evidence references."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: external
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-006 at the accepted design baseline: §9 G6; M:A2"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-006 at the accepted design baseline"
+    subject_kind: interface
+    relations:
+      subject:
+        - IF-PROJECT-MODEL
+
+  - id: C000-GAP-007
+    author: "it-start"
+    statement: "Review dimensions and a typed verification record are not core features; CORE-000 encodes them as data and profile checks."
+    class: proposal
+    status: { decision: proposed, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-GAP-007 at the accepted design baseline: §9 G7; M:R5"
+    scope: "CORE-000 accepted design §4.2 row C000-GAP-007 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D24
+
+  - id: C000-LM-001
+    author: "it-start"
+    statement: "This design is not implemented or executed; no CORE-000 artifact, diagnostics or digest exists yet."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-001 at the accepted design baseline: §11"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-001 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-LM-002
+    author: "it-start"
+    statement: "Statuses derive from the #39 snapshot at `f1ddcf7` plus its #35/#36/#37 snapshot updates; #38 is cited from the contract and tests; current main is `260de89`, and any later change requires re-audit."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-002 at the accepted design baseline: §1.5, §11"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-002 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-LM-003
+    author: "it-start"
+    statement: "Claims are author-asserted data; profile checks enforce evidence presence and consistency, not truth."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-003 at the accepted design baseline: §2.7, §11"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-003 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-LM-004
+    author: "it-start"
+    statement: "No independent verification exists; a `release` CORE-000 build cannot claim it."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-004 at the accepted design baseline: §8.5"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-004 at the accepted design baseline"
+    subject_kind: decision
+    relations:
+      subject:
+        - DEC-D13
+
+  - id: C000-LM-005
+    author: "it-start"
+    statement: "Consent is implemented, but no sandbox, isolation or capability restriction exists; process/WASM isolation remains deferred (D32)."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-005 at the accepted design baseline: §6, §11"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-005 at the accepted design baseline"
+    subject_kind: trust_boundary
+    relations:
+      subject:
+        - TB-PROFILE-EXEC
+
+  - id: C000-LM-008
+    author: "it-start"
+    statement: "A `verified` provenance record is a method-specific check of a binding, not independent verification or certification."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-008 at the accepted design baseline: C:§4, §6.3; §8"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-008 at the accepted design baseline"
+    subject_kind: source_statement
+    relations:
+      subject:
+        - SRC-PROVENANCE-001
+
+  - id: C000-LM-006
+    author: "it-start"
+    statement: "The model, schemas and hook rules are proposals and may change during implementation."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-006 at the accepted design baseline: §5, §10"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-006 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
+
+  - id: C000-LM-007
+    author: "it-start"
+    statement: "No claim is made about cross-platform determinism, security, hermeticity, legal effect or external conformance."
+    class: limitation
+    status: { decision: none, implementation: none, tests: none, verification: none }
+    authority: human
+    lifecycle: active
+    verification_method: "Accepted design §4.2 evidence/method column for C000-LM-007 at the accepted design baseline: C:§8.3; §11"
+    scope: "CORE-000 accepted design §4.2 row C000-LM-007 at the accepted design baseline"
+    subject_kind: component
+    relations:
+      subject:
+        - COMP-PROJECT
 
 evidence:
   - id: EV-TRUST-CODE
@@ -165,6 +1517,231 @@ evidence:
     independence: author
     availability: available
 
+  - id: EV-CODE-SPEC-LIB-SCHEMA-TS
+    kind: code
+    locator: "spec/lib/schema.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-IR-TS
+    kind: code
+    locator: "spec/lib/ir.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-BUILD-TEST-TS
+    kind: test
+    locator: "tests/build.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-RELATIONS-TS
+    kind: code
+    locator: "spec/lib/relations.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-IR-TEST-TS
+    kind: test
+    locator: "tests/ir.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-PROFILES-CORE001-PROFILE-JSON
+    kind: code
+    locator: "profiles/core001/profile.json"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-GENERICITY-TEST-TS
+    kind: test
+    locator: "tests/genericity.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-PROVENANCE-TS
+    kind: code
+    locator: "spec/lib/provenance.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-ADAPTERS-MARKDOWN-TS
+    kind: code
+    locator: "spec/lib/adapters/markdown.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-HOOK-TS
+    kind: code
+    locator: "spec/lib/hook.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-DIAGNOSTICS-TS
+    kind: code
+    locator: "spec/lib/diagnostics.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-HOOK-TEST-TS
+    kind: test
+    locator: "tests/hook.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-GOLDEN-TEST-TS
+    kind: test
+    locator: "tests/golden.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-RENDER-TS
+    kind: code
+    locator: "spec/lib/render.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-RENDERER-TEST-TS
+    kind: test
+    locator: "tests/renderer.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-IDENTITY-TS
+    kind: code
+    locator: "spec/lib/identity.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-IDENTITY-TEST-TS
+    kind: test
+    locator: "tests/identity.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-PROFILES-CORE001-CHECKS-CASES-TS
+    kind: code
+    locator: "profiles/core001/checks/cases.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-CHECKS-TEST-TS
+    kind: test
+    locator: "tests/checks.test.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-PACKAGE-JSON
+    kind: code
+    locator: "package.json"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-BUILD-TS
+    kind: code
+    locator: "spec/build.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-BUILD-TEST-TS-32-TESTS-BUILD-TEST-TS-62-TESTS-BUILD-TEST-TS-96-TESTS-BUILD-TEST-TS-110-TESTS-BUILD-TEST-TS-116-TESTS-BUILD-TEST-TS-134
+    kind: test
+    locator: "tests/build.test.ts:32; tests/build.test.ts:62; tests/build.test.ts:96; tests/build.test.ts:110; tests/build.test.ts:116; tests/build.test.ts:134"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-CLI-RENDERERS-TS
+    kind: code
+    locator: "spec/cli-renderers.ts"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-CODE-SPEC-LIB-IDENTITY-TS-604-SPEC-LIB-IDENTITY-TS-753
+    kind: code
+    locator: "spec/lib/identity.ts:604; spec/lib/identity.ts:753"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
+  - id: EV-TEST-TESTS-IDENTITY-TEST-TS-555
+    kind: test
+    locator: "tests/identity.test.ts:555"
+    revision: "2497ed9"
+    description: "Accepted S2.2 register evidence locator."
+    producer: "repository"
+    independence: author
+    availability: available
+
 independentVerifications: []
 
 decisions:
@@ -188,5 +1765,89 @@ decisions:
     owner: maintainer
     source: "Issue #38; PR #56"
     consequence: "Zero or multiple manifest.render declarations are rejected before rendering or writing."
+
+  - id: DEC-D13
+    title: "Independent-verification record representation (D13)"
+    status: accepted
+    owner: maintainer
+    source: "Canonical decision record D13 (accepted, 2026-11-02)"
+    consequence: "A distinct independent_verification kind/schema represents independent verification; it is not the core provenance VerificationRecord."
+
+  - id: DEC-D24
+    title: "Review dimensions and typed review record (D24, proposed)"
+    status: proposed
+    owner: maintainer
+    source: "Engine public contract D24 (proposed), allowed by the S2.2-B amendment"
+    consequence: "Review dimensions and a typed review record are proposed, not implemented; the claim is a proposal awaiting a decision outcome."
+
+  - id: DEC-D8-D9
+    title: "Diagnostic axes and blocking policy (D8/D9)"
+    status: accepted
+    owner: maintainer
+    source: "Engine public contract D8/D9 (accepted legend)"
+    consequence: "Diagnostic severity, disposition and blocking are declared; the profile owns the policy."
+
+  - id: DEC-D28
+    title: "Profile hook trust and identity (D28)"
+    status: accepted
+    owner: maintainer
+    source: "Engine public contract D28 (accepted legend)"
+    consequence: "Profile hooks run as trusted in-process code; the profile identity is digest-pinned."
+
+  - id: DEC-D31
+    title: "Path and trust boundary (D31)"
+    status: accepted
+    owner: maintainer
+    source: "Engine public contract D31 (accepted legend)"
+    consequence: "Paths are root-contained by default; external: true is an explicit trust declaration."
+
+  - id: DEC-TASK-C1-C14
+    title: "Task constraints C1/C14 — scope and non-goals"
+    status: accepted
+    owner: maintainer
+    source: "Accepted task constraints C1-C15 (design §5.3.1); C1/C14"
+    consequence: "The task does not implement CORE-000, change generic-core behaviour, or design the Portable Assurance Package."
+
+  - id: DEC-TASK-C4
+    title: "Task constraint C4 — trust-boundary reconciliation"
+    status: accepted
+    owner: maintainer
+    source: "Accepted task constraints C1-C15 (design §5.3.1); C4"
+    consequence: "CORE-000 trust-boundary claims are reconciled with the merged consent outcome; later policy changes need a new reconciliation."
+
+  - id: DEC-TASK-C5
+    title: "Task constraint C5 — self-validation scope"
+    status: accepted
+    owner: maintainer
+    source: "Accepted task constraints C1-C15 (design §5.3.1); C5"
+    consequence: "A successful self-build evidences only the checks actually run; it is not independent verification or certification."
+
+  - id: DEC-TASK-C7
+    title: "Task constraint C7 — implementation facts"
+    status: accepted
+    owner: maintainer
+    source: "Accepted task constraints C1-C15 (design §5.3.1); C7"
+    consequence: "An implementation fact does not become a normative requirement merely because it exists in the repository."
+
+  - id: DEC-DESIGN-51
+    title: "Accepted design register basis (PR #51)"
+    status: accepted
+    owner: maintainer
+    source: "Accepted design register §4.2; PR #51 (per-claim owner-approved)"
+    consequence: "The named claims are grounded in the accepted design register rows and their accepted statuses."
+
+  - id: DEC-DEFER-019
+    title: "Multiple renderers and artifacts deferred (CT-019)"
+    status: deferred
+    owner: maintainer
+    source: "Accepted design §4.2 row C000-CT-019; PR #56"
+    consequence: "Multiple renderers and artifacts per build are deferred; the Artifact[] shape is forward-compatible."
+
+  - id: DEC-DEFER-023
+    title: "Full self-hosting deferred (CT-023)"
+    status: deferred
+    owner: maintainer
+    source: "Accepted design §4.2 row C000-CT-023; PR #51"
+    consequence: "Full self-hosting is deferred; CORE-000 is a bounded step, not the M5 self-hosting program."
 
 conformanceCases: []

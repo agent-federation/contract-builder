@@ -118,9 +118,13 @@ _None declared._
 
 {% endfor %}
 {% endif %}
-## Claims
+{% for claimGroup in claimGroups %}
+## {{claimGroup.label}}
 
-{% for claim in claims %}
+{# `none` is a Nunjucks keyword, so the count is reached by subscript, not dot notation. #}
+_{{claimGroup.claims.length}} claims: {{claimGroup.counts.accepted}} accepted, {{claimGroup.counts.proposed}} proposed, {{claimGroup.counts.deferred}} deferred, {{claimGroup.counts["none"]}} none_
+
+{% for claim in claimGroup.claims %}
 ### {{claim.id}}
 
 - Class: `{{claim.className}}`
@@ -128,8 +132,20 @@ _None declared._
 - Authority: `{{claim.authority}}`
 - Lifecycle: `{{claim.lifecycle}}`
 - Statement: {{claim.statement}}
+{% if claim.conditions %}
+- Conditions: {{claim.conditions}}
+{% endif %}
 - Scope: {{claim.scope}}
 - Verification method: {{claim.verificationMethod}}
+{% if claim.baseline %}
+- Baseline: {{claim.baseline}}
+{% endif %}
+{% if claim.consequence %}
+- Consequence: {{claim.consequence}}
+{% endif %}
+{% if claim.notes %}
+- Notes: {{claim.notes}}
+{% endif %}
 {% if claim.subjects.length > 0 %}
 - Subjects: {% for subject in claim.subjects %}{% if not loop.first %}, {% endif %}`{{subject.id}}` ({{subject.kind}}){% endfor %}
 {% endif %}
@@ -143,6 +159,7 @@ _None declared._
 - Decisions: {% for decision in claim.decisions %}{% if not loop.first %}, {% endif %}`{{decision.id}}` ({{decision.status}}){% endfor %}
 {% endif %}
 
+{% endfor %}
 {% endfor %}
 ## Source statements and provenance verification
 
