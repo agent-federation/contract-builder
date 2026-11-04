@@ -24,7 +24,7 @@ engine or profile behaviour. No implementation is included here.
 **Refreshed baseline:** `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at
 2026-11-02; see §1 and the baseline refresh.
 **Accepted design:** [`core-000-self-contract.md`](core-000-self-contract.md). Its 78 claims,
-14 kinds, 29 relation declarations, 23 profile policy checks, zero independently verified claims
+14 kinds, 29 relation declarations, 24 profile policy checks, zero independently verified claims
 and open decisions D1–D15 are the baseline. This plan operationalises the design's experiment; it
 does not re-open settled design choices.
 
@@ -59,7 +59,7 @@ and explicitly accepted.
 | Refreshed baseline (revision 2) | `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` (PR #73), current `main` at 2026-11-02 |
 | Accepted design | `docs/architecture/core-000-self-contract.md` |
 | Design register | 78 claims: 37 accepted decisions, 27 implemented, 27 tested, 0 independently verified |
-| Model | 14 kinds; 29 relation declarations (12 reciprocal pairs + 5 without an inverse); 23 profile policy checks |
+| Model | 14 kinds; 29 relation declarations (12 reciprocal pairs + 5 without an inverse); 24 profile policy checks |
 | Trust policy | executable profiles require explicit consent; `allowExecutableProfile` defaults false; no sandbox/isolation; consent is not in `inputDigest` |
 | Provenance | binding and verification are separate; the profile exports `verifyProvenance`; a `verified` record is not independent verification |
 | Render | exactly one `manifest.render` declaration; one artifact per build in M1 |
