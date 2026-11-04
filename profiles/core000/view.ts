@@ -640,11 +640,18 @@ function claimView(model: ProjectModel, entity: Entity): ClaimView {
  * Claims keep document order inside a group; no locale-sensitive sorting is used anywhere.
  */
 function groupClaims(claims: readonly ClaimView[]): readonly ClaimGroupView[] {
+  const byClass = new Map<string, ClaimView[]>();
+  for (const claim of claims) {
+    const list = byClass.get(claim.className);
+    if (list === undefined) byClass.set(claim.className, [claim]);
+    else list.push(claim);
+  }
+
   const groups: ClaimGroupView[] = [];
   const seen = new Set<string>();
   for (const className of CLAIM_CLASS_ORDER) {
-    const members = claims.filter((claim) => claim.className === className);
-    if (members.length === 0) continue;
+    const members = byClass.get(className);
+    if (members === undefined || members.length === 0) continue;
     seen.add(className);
     groups.push(claimGroupView(className, members));
   }
@@ -653,12 +660,7 @@ function groupClaims(claims: readonly ClaimView[]): readonly ClaimGroupView[] {
   for (const claim of claims) {
     if (seen.has(claim.className)) continue;
     seen.add(claim.className);
-    groups.push(
-      claimGroupView(
-        claim.className,
-        claims.filter((candidate) => candidate.className === claim.className),
-      ),
-    );
+    groups.push(claimGroupView(claim.className, byClass.get(claim.className) ?? []));
   }
   return groups;
 }
