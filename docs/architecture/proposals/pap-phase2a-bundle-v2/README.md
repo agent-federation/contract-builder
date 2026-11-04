@@ -9,7 +9,7 @@ the preliminary architect position in
 **Author:** automated agent (`it-start`).
 **Decision status:** none of D-P2A-1/2/3 is accepted. The recommendations are proposals; the maintainer owns the decisions. F58 is expressly pending.
 **Baseline:** `agent-federation/contract-builder` base branch at
-`0a5132e` (the PR base, 2026-11-04); handoff bundle `agent-federation/contract-builder-independent` at
+`5291f1b` (the PR base, 2026-11-04); handoff bundle `agent-federation/contract-builder-independent` at
 `c568051` (2026-11-03); bundle snapshot source commit `c6ee644` (2026-11-02).
 
 This package answers one question: **which of the three preliminary positions are supported by the
@@ -33,7 +33,7 @@ audit tooling and the three implementation repositories are not premises for any
 
 | Fact | Evidence |
 |---|---|
-| The RFC and `cases.json` are unchanged between the bundle's source commit and the PR base | `git diff c6ee644..0a5132e -- docs/architecture/portable-assurance-package-rfc.md pap/fixtures/pap-v0.1/cases.json` is empty; `cases.json` SHA-256 `8ae2693b34a31f1a49fdee0e5e5e235419e8d510d2a9b6f84e809b0c1ef154df` |
+| The RFC and `cases.json` are unchanged between the bundle's source commit and the PR base | `git diff c6ee644..5291f1b -- docs/architecture/portable-assurance-package-rfc.md pap/fixtures/pap-v0.1/cases.json` is empty; `cases.json` SHA-256 `8ae2693b34a31f1a49fdee0e5e5e235419e8d510d2a9b6f84e809b0c1ef154df` |
 | The bundle is a 433-file snapshot | [`snapshot/manifest.json`](https://github.com/agent-federation/contract-builder-independent/blob/c568051f6a4b8feaf8c0b5fabfd5e3e735e2af98/snapshot/manifest.json), `snapshot/SHA256SUMS` (434 lines including the manifest); source commit `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` |
 | `archive.tar` is absent from the bundle but present in the source at the frozen commit | bundle `pap/fixtures/pap-v0.1/` has only `F25-archive/.gitkeep`; source `pap/fixtures/pap-v0.1/archive.tar` is 38 bytes, SHA-256 `81f5d80365e91b9fa4ae4be8202fa440181de22cf6e88d421a20a5b3d1d9f2a7` |
 | The source `archive.tar` is a sentinel, not a tar | content is `not a tar that a verifier may extract.\n`; the public reference returns exit 64, no stdout, stderr `pap: pap.cli.usage: package path is not a directory: ../archive.tar` |

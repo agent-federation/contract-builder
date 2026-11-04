@@ -9,10 +9,10 @@ this document.
 
 **Decision status:** D-P2A-1/2/3 are proposals only; no owner decision is recorded and implementation is not authorized. F58 is pending by design.
 
-**Baseline:** `agent-federation/contract-builder` base branch at `0a5132e`; handoff bundle
+**Baseline:** `agent-federation/contract-builder` base branch at `5291f1b`; handoff bundle
 `agent-federation/contract-builder-independent` at `c568051`; bundle snapshot source commit
-`c6ee644`. The RFC and `cases.json` are byte-identical between `c6ee644` and `0a5132e`
-(`git diff c6ee644..0a5132e -- docs/architecture/portable-assurance-package-rfc.md pap/fixtures/pap-v0.1/cases.json`
+`c6ee644`. The RFC and `cases.json` are byte-identical between `c6ee644` and `5291f1b`
+(`git diff c6ee644..5291f1b -- docs/architecture/portable-assurance-package-rfc.md pap/fixtures/pap-v0.1/cases.json`
 is empty). `cases.json` SHA-256 is
 `8ae2693b34a31f1a49fdee0e5e5e235419e8d510d2a9b6f84e809b0c1ef154df`.
 

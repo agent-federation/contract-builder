@@ -11,7 +11,7 @@
   "basis": {
     "rfc": "docs/architecture/portable-assurance-package-rfc.md §14 step 2a",
     "brief": "AGENT_BRIEF.md §4.1–4.6 and §5",
-    "baseCommit": "0a5132ec9e36e12a85d66a2231f77f042136e13e",
+    "baseCommit": "5291f1b6e5ebe36781f1dccf647c869ef6dc86a6",
     "snapshotSourceCommit": "c6ee64416c91ab56f9d8270114c8f8a8b9d2f608",
     "casesJson": {
       "path": "pap/fixtures/pap-v0.1/cases.json",

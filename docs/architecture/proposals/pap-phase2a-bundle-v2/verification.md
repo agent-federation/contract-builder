@@ -14,7 +14,7 @@ export BUN="${BUN:-$HOME/.bun/bin/bun}"                      # Bun 1.4.x
 export PATH="$(dirname "$BUN"):$PATH"                        # package scripts call `bun`
 ```
 
-The proposal baseline is the PR base `0a5132e`, bundle `c568051`, snapshot source `c6ee644`.
+The proposal baseline is the PR base `5291f1b`, bundle `c568051`, snapshot source `c6ee644`.
 The PR head is whatever commit the PR currently shows; the commands below identify the base and
 the snapshot explicitly and do not require a fixed PR head SHA.
 
@@ -26,7 +26,7 @@ This proposal is based on an explicitly identified base and snapshot, not on a m
 
 | Item | Commit |
 |---|---|
-| PR base (`main` when this revision was prepared) | `0a5132ec9e36e12a85d66a2231f77f042136e13e` |
+| PR base (`main` when this revision was prepared) | `5291f1b6e5ebe36781f1dccf647c869ef6dc86a6` |
 | Handoff bundle | `c568051f6a4b8feaf8c0b5fabfd5e3e735e2af98` |
 | Bundle snapshot source | `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` |
 
@@ -35,7 +35,7 @@ require `HEAD` to equal either; a PR head that contains the base is sufficient.
 
 ```bash
 cd "$REPO"
-BASE=0a5132ec9e36e12a85d66a2231f77f042136e13e
+BASE=5291f1b6e5ebe36781f1dccf647c869ef6dc86a6
 SNAPSHOT=c6ee64416c91ab56f9d8270114c8f8a8b9d2f608
 git rev-parse HEAD
 git cat-file -e "${BASE}^{commit}"
@@ -644,7 +644,7 @@ decision being implemented; the proposal package itself must not be changed to m
 
 | Check | Result |
 |---|---|
-| Baseline identity (§0) | `0a5132e` and `c6ee644` exist; `git diff c6ee644..HEAD` over the RFC and `cases.json` is empty; `cases.json` and RFC hashes match |
+| Baseline identity (§0) | `5291f1b` and `c6ee644` exist; `git diff c6ee644..HEAD` over the RFC and `cases.json` is empty; `cases.json` and RFC hashes match |
 | Appendix E.3 vector (§1.1) | Passed: `implementationDigest = sha256:73f738…`, `checkerIdentity = sha256:15a0b0…` |
 | Appendix E.1 base identity (§1.2) | Passed: `sha256:77a8d1d0…` |
 | Reproducible closure self-check (§1.4) | Passed: baseline E.3 digests; mutating one included byte gave `sha256:960b89…` / `sha256:401ff6…`; a non-included file left the baseline unchanged |
@@ -667,7 +667,7 @@ decision being implemented; the proposal package itself must not be changed to m
 - F58 is pending, not settled. The verifier asserts the default (identity-only) and the alternate
   (full, 20/35/6); it does not choose between them. The owner decision is required before the
   case set is final.
-- The base and snapshot are pinned (`0a5132e` / `c6ee644`). If the PR base advances, update
+- The base and snapshot are pinned (`5291f1b` / `c6ee644`). If the PR base advances, update
   `basis.baseCommit`, `BASE` in §0 and `BASE_COMMIT` in `verify_cases.py` in the same commit and
   re-run the verifier; the RFC and `cases.json` content must remain unchanged.
 - The implementation-record self-check in §1.5 depends on implementation-specific build commands;
