@@ -559,7 +559,7 @@ From the repository root with Bun 1.4.4:
 |---|---|
 | `bun install --frozen-lockfile` | ok (14 packages) |
 | `bun run typecheck` | ok (`tsc --noEmit`, exit 0) |
-| `bun test` | 311 pass, 0 fail (22 files) |
+| `bun test` | 312 pass, 0 fail (22 files) |
 | `bun run check` | ok (exit 0; generated artifact check passed) |
 | `bun test pap/tests` | 123 pass, 0 fail (9 files) |
 | `git diff --check` | ok (no whitespace errors) |
