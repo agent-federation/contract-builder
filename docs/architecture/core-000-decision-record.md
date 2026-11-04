@@ -3,7 +3,8 @@
 **Status:** canonical CORE-000 decision record. The original S1 decisions were recorded on
 2026-11-02; D14, P-2, P-3 and P-6 were deferred for S1 at that time and were subsequently accepted
 for the full-model planning scope on 2026-11-03. S2-D1–S2-D4 were also accepted on 2026-11-03.
-These later decisions do not authorize S2.1, S2.2 or S2.3 implementation. This document does not
+Q1, Q3, Q5 and Q10 were accepted on 2026-11-03/04; Q2, Q4, Q6, Q7, Q8 and Q9 were accepted on
+2026-11-04. None of these later decisions authorize S2.1, S2.2 or S2.3 implementation. This document does not
 implement CORE-000 and does not change code, tests, schemas, fixtures, evidence or generic-core
 behaviour.
 **Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47), refreshed by
@@ -108,6 +109,37 @@ never be represented as independent.
 not authorize S2.1, S2.2 or S2.3. Each stage requires its own separate, explicit maintainer
 authorization after review of that stage's exact scope. Approval or merge of this documentation PR,
 or creation/linking of an implementation issue, is not implementation authorization.
+
+---
+
+## Maintainer decision — 2026-11-04
+
+**Source:** [Issue #84 comment
+6621648632](https://github.com/agent-federation/contract-builder/issues/84#issuecomment-6621648632)
+(maintainer, 2026-11-04), based on the adversarial review of Q2/Q4/Q6/Q7/Q8/Q9 at merged `main`
+`8bfebec`. This section records six accepted S2.1 planning decisions and the stated later-stage
+artifact direction. It does not authorize implementation.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| Q2 | **Accepted — B + D** | Add a distinct `TB-CONSUMER-EXTENSION` trust boundary with `enforcement: none` and `policy_status: settled`, describing only the consumer's own import decision (the engine's `allowExecutableProfile` gate does not govern it; no sandbox/isolation/engine enforcement implied). Scope `core000.trust.consent-facts` to `TB-PROFILE-EXEC` per design §5.7, with exact-set tests; a non-profile boundary with `enforcement: none` must not produce that finding. The inventory wording is corrected: an extra `review` finding does not fail the positive draft. |
+| Q4 | **Accepted — A + D clarification** | `diagnostic.id = diagnostic.code`; `status` remains an open non-empty string (no closed enum) with a format constraint; S2.1 uses `status: declared` for every row, documented as a data-level label, not a diagnostic lifecycle state. Tests cover `id === code`, uniqueness, exact catalog/core membership, trimmed non-empty status, the S2.1 status set `{declared}`, and phase/`raisedIn` agreement. Ownership remains catalog membership, never ID-prefix inference. |
+| Q6 | **Accepted — A′** | `core000.claim.invalid-status` is retained as a defensive, unit-level assertion; schema validation shadows it in the pipeline and no pipeline observability is claimed. `core000.evidence.locator` is limited to non-empty trimmed locator/revision; no locator regex or grammar is added, and the path/URL/command form stays human review. Catalog messages and S2.3 planning must not claim stronger guarantees. |
+| Q7 | **Accepted — A′** | `core000.claim.status-class-conflict` enforces only the machine-decidable subset: `non_goal`/`deferred` with `implementation: implemented` or `tests: tested`, and `proposal` with `implementation: implemented`. The `limitation` exception remains human review; no marker field, accepted-limitation ID list or literal rule is added. The check and its catalog message describe machine-decidable class/status conflicts only; S2.3 uses synthetic cases and notes that the project register has no `deferred`/`non_goal` class rows. |
+| Q8 | **Accepted — A′** | Seven dependency rows (`bun`, `ajv`, `nunjucks`, `yaml`, `typescript`, `@types/node`, `@types/nunjucks`); no transitive or unsourced pipeline/decision/product rows. `resolved` rows use exact lockfile versions (ajv 8.20.0, nunjucks 3.2.4, yaml 2.9.1, typescript 5.9.3, @types/node 22.20.5, @types/nunjucks 3.2.6). `bun` is runtime/`declared` with `version: >=1.4.0`; the `packageManager: bun@1.4.2` pin is a separate consequence/note. Only import-grounded `requires` edges are kept (COMP-CORE→ajv, COMP-CORE→yaml, COMP-RENDERER→nunjucks); the COMP-CORE→bun edge is removed and no build-tooling edges are invented. |
+| Q9 | **Accepted — A + staged D** | S2.1 commits no draft and no durable producer evidence (transient harness output only). Planning direction: `contracts/core000/output/CORE-000.draft.md` in S2.2 after the full register; `evidence/core000/<run>/result.json` and `docs/architecture/core-000-execution-evidence.md` in S2.3 after focused checks. Before those stages, specify a reproducible copy-from-temporary-workspace procedure and a CORE-000-specific artifact verification command/check; `bun run check` validates CORE-001 only and must not be relied on for CORE-000. This is staged planning, not authorization to create artifacts or implement S2.2/S2.3. |
+
+**Cross-question constraints.** Q1, Q3, Q5 and Q10 remain resolved exactly as recorded. Q3's single
+25-entry model-level diagnostic inventory, required `diagnostic.phase`, and ownership by catalog
+membership are preserved. Q5's bounded typed accessors and the generic IR's reserved `Entity.kind`
+are preserved. Q10's 19 public surfaces / 16 uncovered warnings are preserved. Repository facts,
+accepted normative rules, these owner decisions and any implementation proposal remain distinct;
+no accepted source was rewritten and no new semantics was inferred.
+
+**Authorization boundary.** This section records planning decisions and the Q9 staged direction
+only. It does not authorize S2.1, S2.2 or S2.3 implementation, code, schema, fixture, test, evidence
+or generated-artifact changes. Each stage still requires its own separate, explicit maintainer
+authorization.
 
 ---
 
