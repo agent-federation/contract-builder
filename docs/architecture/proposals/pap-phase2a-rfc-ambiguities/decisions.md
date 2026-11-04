@@ -33,7 +33,7 @@ add no diagnostic. The preliminary argues that §4.3.2/§10.5 “no symlinks” 
 paths, not the operator's own CLI argument, and that A would change reference behaviour for an
 external test nobody implements. If B is accepted, the RFC should say the CLI argument may be
 resolved, the resolved root must be a directory, and symlinks **inside** the package remain
-rejected; external FS-01 is then demoted rather than used as a gate.
+rejected; external FS-01 is then treated as resolved rather than used as a gate.
 
 ### Repository evidence
 
@@ -95,16 +95,16 @@ symlinked root. It is not the only possible reading, which is why the RFC needs 
   an explicit exception.
 - **B — permit, resolve, no diagnostic.** A symlink to a directory is permitted; the verifier
   resolves it once and applies every containment rule to the resolved root. Consequences: matches
-  the reference; no new code; no §12 case change; the external FS-01 expectation must be corrected
-  to `PASS/0`; go/rust/python must resolve the root if FS-01 is retained, because their current
-  `UNSUPPORTED/4`/`INCOMPLETE/2` is not `PASS` either. The wording must state the 64/74 mapping and
+  the reference; no new code; no §12 case change; if the owner accepts B, the external FS-01
+  expectation must be reissued as `PASS/0`; go/rust/python must resolve the root if FS-01 is
+  retained, because their current `UNSUPPORTED/4`/`INCOMPLETE/2` is not `PASS` either. The wording must state the 64/74 mapping and
   that payload symlinks inside the resolved root remain rejected. This is the smallest change.
 - **C — permit with a diagnostic or limitation.** The verdict is unchanged, but an `info` (or
   `warning`) code records that the root was resolved. Consequences: adds a new code to Appendix J
   for a condition that is not a threat and that the operator already knows; adds a limitation to
   every symlinked-root run; makes the report noisier without changing a decision; the external
-  FS-01 expectation still has to change from `FAIL/1` to `PASS/0` (a diagnostic does not satisfy
-  “reject”). The preliminary's objection to C is sound.
+  FS-01 expectation, if B is accepted, still has to be reissued from `FAIL/1` to `PASS/0` (a
+  diagnostic does not satisfy “reject”). The preliminary's objection to C is sound.
 
 ### Recommendation (awaiting owner confirmation): B, with exact root-resolution wording
 
@@ -179,11 +179,13 @@ not leaked as an identity input.
   each must implement root resolution and re-run. If their non-`PASS` result is caused by a
   different missing capability, FS-01 does not isolate root handling and the external test should
   be narrowed before it is used as evidence.
-- **External FS-01:** the `FAIL/1` expectation must be corrected to `PASS/0` and recorded as a
-  contract defect, not merely removed from a gate. A test that is silently “demoted” leaves the
-  next implementation reading the old expectation. If the external owner insists on rejection, that
-  is option A and requires a normative change the threat model does not support; the maintainer
-  would have to decide it explicitly.
+- **External FS-01:** if the owner accepts B, the `FAIL/1` expectation must be reissued as
+  `PASS/0`; the external owner should update and flag the draft contract change (the owner-side
+  `EXT-FS-01` probe currently records the `FAIL/1` expectation with `SPEC_AMBIGUITY`) rather than
+  the lab merely demoting the probe. Until the owner decides, the draft's `FAIL/1` remains an open ambiguity and
+  this PR cannot change it. A non-gating test that still says `FAIL/1` would mislead the next
+  reader. If the external owner insists on rejection, that is option A and requires a normative
+  change the threat model does not support; the maintainer would have to decide it explicitly.
 
 ### Where this proposal disagrees with the preliminary position
 
@@ -195,9 +197,10 @@ not leaked as an identity input.
    say whether a link to a file is 64 or 74, or whether a dangling link is 64 or 74. The reference's
    behaviour (64 and 74 respectively) is the natural reading of §9.7/Appendix J, but it must be in
    the text.
-3. **“Demoted/resolved” is too weak for the external expectation.** The external contract should be
-   corrected to `PASS/0`; a test that is not a gate but still says `FAIL/1` will mislead the next
-   reader. The proposal records this as a contract change, not just a decision not to use the test.
+3. **“Demoted/resolved” is too weak for the external expectation.** If B is accepted, the
+   external contract should be reissued with `PASS/0`; a test that is not a gate but still says
+   `FAIL/1` will mislead the next reader. The correction is conditional on the owner's decision,
+   and the external owner should update `EXT-FS-01` rather than the lab demoting the probe.
 4. **The scope of the resolution rule is unstated.** `PACKAGE` is shared by `verify`, `inspect` and
    `explain`; the wording should say so once in §9.2 rather than read as a `verify`-only rule.
 
@@ -291,10 +294,13 @@ Insert after the first bullet (after line 514):
 
 ```markdown
 - The verifier enumerates the package tree to report undeclared files. It MUST NOT open an
-  undeclared file. If a directory under the package root cannot be enumerated, the verifier MUST
-  emit `pap.package.undeclared-scan-incomplete` (warning) with scope `package`, add the same code
-  to `limitations[]`, and set `coverage.full: false`; the verdict is at most `INCOMPLETE` and MUST
-  NOT be `PASS`. The affected scope is the undeclared-file scan, whose status is `NOT_EVALUATED`.
+  undeclared file. If the package root itself, or any directory under it, cannot be enumerated,
+  the verifier MUST emit `pap.package.undeclared-scan-incomplete` (warning) with scope `package`,
+  add the same code to `limitations[]`, and set `coverage.full: false`; the verdict is at most
+  `INCOMPLETE` and MUST NOT be `PASS`. This includes a root that is readable through a known
+  manifest path but cannot be listed; it does not include a root that cannot be resolved
+  (`pap.package.not-found`/74) or a manifest that cannot be read (`pap.package.io` with a `FAIL`
+  report). The affected scope is the undeclared-file scan, whose status is `NOT_EVALUATED`.
   Because the report has no separate per-scope status field for that scan, the report represents
   that status with the diagnostic, the limitation and `coverage.full: false`; no dimension is
   changed to `NOT_EVALUATED` solely by this condition. A `PASS` is impossible because §7.4 rule 6
@@ -335,7 +341,7 @@ Replace the sentence at lines 1758–1763 with:
 Add after the `pap.package.undeclared-file` row (line 5600):
 
 ```markdown
-| `pap.package.undeclared-scan-incomplete` | warning | The verifier could not enumerate part of the package tree, so the absence of undeclared files was not established; the scan is `NOT_EVALUATED`, `coverage.full: false`, verdict at most `INCOMPLETE`, and a limitation with the same code. Declared payload integrity is unaffected |
+| `pap.package.undeclared-scan-incomplete` | warning | The verifier could not complete the undeclared-file scan: an I/O error while enumerating the package root or a directory under it, or a private implementation scan budget (entry count or traversal depth) stopped it. The absence of undeclared files was not established; the scan is `NOT_EVALUATED`, `coverage.full: false`, verdict at most `INCOMPLETE`, and a limitation with the same code. Declared payload integrity is unaffected; a declared payload failure remains `pap.package.io`/`declared-file-missing`/`FAIL` |
 ```
 
 #### Exact proposed wording — RFC §13.8
@@ -362,6 +368,9 @@ The new code, its report fields and the Appendix J entry are checked against the
   `coverage`, not by the severity.
 - **Scope:** the string `package`; no new field is introduced. The report has no per-scope status
   object for the undeclared-file scan, so the proposal does not invent one.
+- **One meaning:** the code means “the scan did not complete”, whether the cause is an I/O error,
+  an internal entry budget, or a traversal-depth budget. It never means a declared payload failed;
+  R-PAP-3's private budget is the same condition, not a second code.
 - **Message:** non-normative per §7.7/Appendix J; it names the relative directory or the root, never
   an absolute host path.
 - **Limitation reporting:** `limitations[]` requires `{code, detail}`; the same code is used, with
@@ -401,12 +410,15 @@ prediction, not an executed A probe.
   `enumerationFailure`; `computeCoverage`/`computeVerdict` receive a scan-incomplete flag and set
   `full: false`, `INCOMPLETE/2`. The existing `enumerate` hostile test currently has no
   unreadable-directory case; add one with a mocked/controlled failure or a platform guard, plus the
-  aggregation test from P12 (artifact mismatch + unreadable undeclared directory) asserting that the
-  independent `FAIL/1` is preserved and `coverage.full` is `false`.
+  root-unlistable case (P7b) and the aggregation test from P12 (artifact mismatch + unreadable
+  undeclared directory) asserting that the independent `FAIL/1` is preserved and `coverage.full` is
+  `false`.
 - **go/rust/python:** the external FS-04 expectation (`INCOMPLETE/2`) is A, so those
   implementations already aim at the right outcome; they need the exact code and coverage rule.
-  Their current scan behaviour was not recorded, so this proposal does not claim they are
-  conformant.
+  Their current scan behaviour was not recorded — the Issue #95 evidence is FS-04-adjacent
+  (unreadable declared directory), not FS-04 — so this proposal does not claim they are
+  conformant. FS-04 must be re-run on go/rust/python before it is used as conformance evidence; it
+  is on the owner-side tail list.
 - **External FS-04:** A matches its `INCOMPLETE/2` expectation. The external contract should name
   the diagnostic code and the `coverage.full: false` assertion, and should distinguish the declared
   unreadable-file case (which stays `FAIL/1`). The “FS-04-adjacent” probe is not a substitute for
@@ -500,8 +512,9 @@ The RFC does not fix:
 - **B — non-normative robustness (recommended).** Do not add a §4.3.4 limit. A verifier MAY use an
   internal robustness budget to bound its own scan. If that budget stops the scan, the report uses
   the R-PAP-2 incomplete-scan outcome — `pap.package.undeclared-scan-incomplete` (warning),
-  `coverage.full: false`, verdict at most `INCOMPLETE` — and never `pap.package.limit-exceeded`,
-  because that code is reserved for §4.3.4 limits. The external directory-count test is a
+  `coverage.full: false`, verdict at most `INCOMPLETE` — for any private bound (entry count,
+  traversal depth or other), and never `pap.package.limit-exceeded`, because that code is reserved
+  for §4.3.4 limits. The external directory-count test is a
   robustness test (no crash, hang or unbounded resource use), not a conformance verdict. This is
   the preliminary position and the recommendation. Consequences: no new normative limit and no
   Appendix B/C change; the reference's current 8 192-entry cap may remain, but its report must stop
@@ -549,12 +562,14 @@ dependency note above and do not add this text without a substitute report outco
 ```markdown
 - v0.1 does not define a limit on the number of filesystem entries visited by the undeclared-file
   scan. A verifier MAY use an internal robustness budget to bound its own scan. If that budget
-  stops the scan, the verifier MUST report the scan as incomplete under this section
-  (`pap.package.undeclared-scan-incomplete`, `coverage.full: false`, verdict at most `INCOMPLETE`)
-  and MUST NOT report it as `pap.package.limit-exceeded`, which is reserved for the §4.3.4 limits.
-  No conformance case may assert a specific internal budget, and no `PASS` may be reported when the
-  scan did not complete. An implementation that chooses not to bound its scan accepts the
-  no-wall-clock residual of §10.5.
+  stops the scan on entry count, traversal depth or any other private bound, the verifier MUST
+  report the scan as incomplete under this section (`pap.package.undeclared-scan-incomplete`,
+  `coverage.full: false`, verdict at most `INCOMPLETE`) and MUST NOT report it as
+  `pap.package.limit-exceeded`, which is reserved for the §4.3.4 limits. The same code therefore
+  covers both an I/O enumeration failure and a private scan stop; it never means a declared
+  payload failed. No conformance case may assert a specific internal budget, and no `PASS` may be
+  reported when the scan did not complete. An implementation that chooses not to bound its scan
+  accepts the no-wall-clock residual of §10.5.
 ```
 
 #### Exact proposed wording — RFC §10.5 (B)
@@ -685,8 +700,8 @@ case is a future implementation artifact, not a change in this proposal.
   undeclared file) remains `PASS/0`; the scan completes under any reasonable private budget. Under
   A, no existing case changes; a future F62 (A2) or a large fixture (A1) would pin the limit.
 - **Reference:** under B, replace the `pap.package.limit-exceeded` report for the private
-  `maxEntries` stop with the R-PAP-2 incomplete-scan code, and keep the budget private (or remove
-  it; either is permitted). Under A, replace `maxEntries = max(1024, payloadFiles × 2)` with
+  `maxEntries` stop and the `depth > limits.pathSegments` stop with the R-PAP-2 incomplete-scan
+  code, and keep the budget private (or remove it; either is permitted). Under A, replace `maxEntries = max(1024, payloadFiles × 2)` with
   `limits.scanEntries` (A2) or a fixed 8 192 (A1), extend `Limits`/policy parsing as applicable,
   and update `pap/tests/hostile.test.ts:239–255`. The `inspect` walker, if it keeps its own bound,
   should report an incomplete inspection rather than a package verdict.
@@ -804,9 +819,10 @@ Replace the last bullet (lines 484–486) with:
   differ only by case, are `INVALID` even on a case-sensitive filesystem, so a package behaves
   identically when copied to a case-insensitive one. The duplicate and case-fold rules apply to all
   declared payload paths as one set, not per class. Because the declared root is fixed per class, a
-  well-formed package cannot contain one package-relative path in two classes, and an
-  implementation MUST NOT add a separate cross-class collision rule. A declaration whose path does
-  not start with its class root is `pap.package.path-invalid`; the duplicate rule is still
+  well-formed package cannot contain one package-relative path in two classes. No separate
+  cross-class collision rule is required; a verifier that already applies the global duplicate set
+  is conformant. A declaration whose path does not start with its class root is
+  `pap.package.path-invalid`; the duplicate rule is still
   evaluated over the same declaration set, so a malformed declaration may additionally produce
   `pap.package.path-duplicate` when it equals another declaration.
 ```
@@ -874,9 +890,9 @@ confirmation; the wording is corrected.
 
 | Decision | RFC sections changed | New diagnostic | New limit / schema | §12 case change | Reference change | External test effect |
 |---|---|---|---|---|---|---|
-| R-PAP-1 | §4.3.2, §9.2, §9.10, Appendix J row | none | none | none | none (test coverage only) | FS-01 expect `PASS/0`, not `FAIL/1` |
+| R-PAP-1 | §4.3.2, §9.2, §9.10, Appendix J row | none | none | none | none (test coverage only) | if B is accepted, reissue FS-01 as `PASS/0`; until then the draft `FAIL/1` is an open ambiguity |
 | R-PAP-2 | §4.3.3, §7.5, Appendix J, §13.8 | `pap.package.undeclared-scan-incomplete` (warning) | none | none (unit/hostile test; no portable static case) | `pap.package.io`/`FAIL`/`coverage.full:true` → new code/`INCOMPLETE`/`coverage.full:false` | FS-04 `INCOMPLETE/2` matches A; name the code and coverage assertion |
-| R-PAP-3 | B: §4.3.3/§10.5; A (owner option): §4.3.4, §10.5, §7.5, Appendix B/C, §13.8 | none under B; A reuses `pap.package.limit-exceeded` | none under B; A1 fixed 8 192, A2 adds `limits.scanEntries` and `effectiveLimits.scanEntries` | none existing; future F62 only under A | reconcile the private 8 192 cap report with R-PAP-2 | B: robustness-only; A: conformance-eligible |
+| R-PAP-3 | B: §4.3.3/§10.5; A (owner option): §4.3.4, §10.5, §7.5, Appendix B/C, §13.8 | none under B; A reuses `pap.package.limit-exceeded` | none under B; A1 fixed 8 192, A2 adds `limits.scanEntries` and `effectiveLimits.scanEntries` | none existing; future F62 only under A | reconcile the private entry/depth cap reports with R-PAP-2 | B: robustness-only; A: conformance-eligible |
 | R-PAP-4 | §4.3.1 wording only | none | none | none | none | assert well-formed cross-class basename `PASS`, not same-path “allowed” |
 
 No decision requires a broader RFC amendment, a new dimension, or a reopening of D1–D12/§16.1.
@@ -903,8 +919,9 @@ authorize. Accepted entries would be recorded by `it-start` in the established p
 - **Normative changes:** §4.3.2, §9.2, §9.10 and Appendix J `pap.package.not-found`.
 - **Evidence:** RFC §4.3.2/§9.2/§9.7/§9.10/§10.5; reference `pap/src/paths.ts:79–109`; probes P2–P4;
   Issue #95 FS-01.
-- **Consequences:** no new diagnostic; FS-01 expectation changes from `FAIL/1` to `PASS/0`;
-  go/rust/python need root resolution if FS-01 is retained.
+- **Consequences:** no new diagnostic; if B is accepted, the external FS-01 expectation is
+  reissued as `PASS/0` (owner-side `EXT-FS-01` updated after the decision); go/rust/python need
+  root resolution if FS-01 is retained.
 
 ### R-PAP-2 entry
 
@@ -931,6 +948,9 @@ authorize. Accepted entries would be recorded by `it-start` in the established p
 - **Consequences:** the reference's 8 192-entry cap may remain private, but its report must stop
   using `pap.package.limit-exceeded`; two verifiers may disagree on huge packages; the external
   test cannot be a gate.
+- **Dependency:** R-PAP-2's `pap.package.undeclared-scan-incomplete` is the only authorized report
+  outcome for a private scan stop. If the owner rejects R-PAP-2, B is not implementable as written;
+  the reference must remove the private cap or the owner must choose A.
 - **Owner alternative (not proposed):** A. A1 fixed 8 192 or A2 policy-configurable
   `limits.scanEntries` + `effectiveLimits`; either adds acceptance change and makes the external
   test conformance-eligible. The owner must choose this explicitly if desired.

@@ -166,6 +166,24 @@ the reference walker rather than producing a traversal error. The probe uses a p
 which is the same class of failure but host-dependent. The proposal therefore recommends a
 unit/hostile test for A rather than a committed `F` package.
 
+### P7b — the package root itself is not listable, but the manifest is readable
+
+This covers the root case the review asked to include explicitly. The root is mode `111` (execute
+but not read): the verifier can open the known manifest path but cannot enumerate the root.
+
+```bash
+cp -a "$REPO/pap/fixtures/pap-v0.1/F01-unchanged" "$P/root-unlistable"
+chmod 111 "$P/root-unlistable"
+pap-probe p7b-root-unlistable "$P/root-unlistable"
+chmod 755 "$P/root-unlistable"
+```
+
+Observed on the current reference: `exit=1`, `FAIL`, `integrity.package=FAIL`,
+`integrity.artifacts=PASS`, `coverage.full=true`; diagnostics `["pap.package.io"]`; limitations the
+same. Under the proposed A rule this is a scan-incomplete condition (root included), so it would be
+`pap.package.undeclared-scan-incomplete`/`coverage.full:false`/`INCOMPLETE`, not a package `FAIL`.
+The probe is host-dependent: a privileged process can list a mode-111 directory.
+
 ### P12 — aggregation: scan error plus an independent FAIL
 
 This is the aggregation case requested in review. It combines the current R-PAP-2 scan failure with
@@ -355,6 +373,25 @@ Observed: `exit=2`, `INCOMPLETE`, `coverage.full=false`, `pap.package.limit-exce
 This is the same branch as the existing hostile test; it is included because it is much cheaper
 than P8 and can be used as the basis for a future `F62` with a new `scanEntries` policy field.
 
+### P8c — traversal-depth budget
+
+The reference walker also stops when `depth > limits.pathSegments` (16). That is a second private
+scan bound, not a §4.3.4 declared-payload limit.
+
+```bash
+cp -a "$REPO/pap/fixtures/pap-v0.1/F01-unchanged" "$P/depth-budget"
+mkdir -p "$P/depth-budget/notes"
+d="$P/depth-budget/notes"
+for i in $(seq 1 16); do d="$d/d$i"; mkdir -p "$d"; done
+printf 'x\n' > "$d/leaf.txt"
+pap-probe p8c-depth-budget "$P/depth-budget"
+```
+
+Observed: `exit=2`, `INCOMPLETE`, `integrity.package=PASS`, `integrity.artifacts=PASS`,
+`coverage.full=false`, two `pap.package.limit-exceeded` diagnostics. The depth stop is a private
+scan bound; under R-PAP-3 B it uses the R-PAP-2 `pap.package.undeclared-scan-incomplete` code, not
+`pap.package.limit-exceeded`.
+
 ## 4. R-PAP-4 — cross-class / case-only collisions
 
 ### P9 — F24: case-only duplicate within `artifacts/`
@@ -448,11 +485,15 @@ What is missing and matters:
 
 - **FS-01:** the external expectation (`FAIL/1`) is met by no baseline, but the three
   implementations are not `PASS/0` either. B does not make them conformant; it gives them a target.
+  The owner-side `EXT-FS-01` probe currently records the external `FAIL/1` expectation with
+  `SPEC_AMBIGUITY`; the correction to `PASS/0` is conditional on the owner accepting B, and the
+  external owner should reissue the draft rather than the lab demoting the probe.
 - **FS-04:** the Issue #95 list records “FS-04-adjacent” (unreadable declared directory), which is
   a different scenario from the external FS-04 (scan traversal). The reference's scan behaviour is
-  reproduced here (P7); the three implementations' scan behaviour is unknown.
-- **Directory-count:** there is no recorded probe row for the external directory-count test; P8/P8b
-  establish the reference's hidden cap only.
+  reproduced here (P7); the three implementations' scan behaviour is unknown. FS-04 must be re-run
+  on go/rust/python before it is used as conformance evidence; it is on the owner-side tail list.
+- **Directory-count:** there is no recorded probe row for the external directory-count test;
+  P8/P8b/P8c establish the reference's hidden entry and depth caps only.
 - **LIM-03:** this is validated, not one of the four R-PAP decisions; this package does not
   re-litigate it.
 
@@ -468,8 +509,10 @@ What is missing and matters:
 | P5 symlinked parent | 1 | FAIL | FAIL | FAIL | false | `pap.package.symlink` |
 | P6 declared dir unreadable | 1 | FAIL | FAIL | FAIL | false | `pap.package.io`, `pap.package.declared-file-missing` |
 | P7 scan traversal error | 1 | FAIL | FAIL | PASS | true | `pap.package.io` |
+| P7b root unlistable, manifest readable | 1 | FAIL | FAIL | PASS | true | `pap.package.io` |
 | P8 8 300 dirs | 2 | INCOMPLETE | PASS | PASS | false | `pap.package.limit-exceeded` ×2 |
 | P8b lowered `payloadFiles` | 2 | INCOMPLETE | PASS | PASS | false | `pap.package.limit-exceeded`, `pap.limit.lowered` |
+| P8c 16-deep undeclared tree | 2 | INCOMPLETE | PASS | PASS | false | `pap.package.limit-exceeded` ×2 |
 | P9 F24 | 1 | FAIL | FAIL | FAIL | false | `pap.package.path-duplicate` |
 | P10 same basename, two classes | 0 | PASS | PASS | PASS | true | — |
 | P11 wrong-root declaration | 1 | FAIL | FAIL | FAIL | false | `pap.package.path-invalid`, `pap.package.path-duplicate` |
@@ -484,8 +527,10 @@ What is missing and matters:
 - root symlink resolution, with the 64/74 mapping and the payload-symlink rejection;
 - symlinked-parent rejection;
 - declared unreadable-directory failure;
-- the R-PAP-2 scan error currently maps to `pap.package.io`/`FAIL`/`coverage.full:true`;
-- the reference has an 8 192-entry scan cap reported as `pap.package.limit-exceeded`/`INCOMPLETE`;
+- the R-PAP-2 scan error currently maps to `pap.package.io`/`FAIL`/`coverage.full:true`, including
+  the root-unlistable case (P7/P7b);
+- the reference has an 8 192-entry scan cap and a 16-level depth cap, both reported as
+  `pap.package.limit-exceeded`/`INCOMPLETE`;
 - F24's within-class case-only duplicate;
 - same-basename cross-class coexistence and wrong-root rejection;
 - the aggregation case: an independent artifact mismatch still yields `FAIL/1`, not `INCOMPLETE`;
@@ -514,21 +559,23 @@ From the repository root with Bun 1.4.4:
 |---|---|
 | `bun install --frozen-lockfile` | ok (14 packages) |
 | `bun run typecheck` | ok (`tsc --noEmit`, exit 0) |
-| `bun test` | 308 pass, 0 fail (22 files) |
+| `bun test` | 311 pass, 0 fail (22 files) |
 | `bun run check` | ok (exit 0; generated artifact check passed) |
 | `bun test pap/tests` | 123 pass, 0 fail (9 files) |
 | `git diff --check` | ok (no whitespace errors) |
 
 The probe commands are the `pap-probe` invocations in §0–§4. P8 (8 300 directories) is the slow
-probe; all others are quick. The aggregation probe P12 is in §2. The reference probes were run on
-Linux with uid 1003, so a mode-000 directory is unreadable to the process; a root/privileged run
+probe; all others are quick. The root-unlistable probe P7b and aggregation probes P12/P12b/P12c
+are in §2, and the depth-budget probe P8c is in §3. The reference probes were run on Linux with uid 1003, so a mode-000 directory
+is unreadable to the process; a root/privileged run
 would not reproduce P6/P7/P12's traversal error.
 
 ### Checks not run
 
 - **The three independent Phase 2a implementations (go, rust, python).** They are not in this
   repository and were not available here; their results are quoted from Issue #95. No probe of
-  their scan-failure or aggregation behaviour exists.
+  their scan-failure or aggregation behaviour exists. FS-04 must be re-run on them before it is
+  used as conformance evidence (owner-side tail list).
 - **The external conformance contract v0.1.0-draft.** It is outside this repository; its FS-01,
   FS-04 and directory-count fixtures/expectations were not executed.
 - **The A-specific R-PAP-2 and R-PAP-3 reports.** No implementation of A exists in this baseline;

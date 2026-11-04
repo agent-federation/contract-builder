@@ -16,6 +16,10 @@ three independent Phase 2a implementations. The independent implementations and 
 conformance contract are not in this repository and were not re-run here; the limitation is
 recorded in [`probes.md`](probes.md).
 
+**Review status:** the architect review on PR #99 accepted the four recommendations as planning
+input; this is not the owner's decision and does not settle any option. The package remains a
+proposal for the maintainer's decision.
+
 This package answers one question: **which of the four preliminary R-PAP positions are supported
 by the repository, where do they disagree with it, and what exact wording would implement the
 maintainer's decision?** It re-derives each question from the public RFC, corpus, schemas and
@@ -26,7 +30,7 @@ does not record owner decisions and does not start implementation.
 
 | Decision | Preliminary position | This proposal (recommendation, awaiting owner confirmation) | Disagreement |
 |---|---|---|---|
-| R-PAP-1 — symlinked package root | B: permit, resolve, no diagnostic | **B**, with explicit root-resolution wording and exit-code mapping in §4.3.2/§9.2/§9.10/Appendix J, and with the external FS-01 expectation corrected to `PASS/0` | Partial. B is right, but the preliminary position does not state which error is `64` and which is `74`, does not say that all three commands resolve the root, and treats “nobody rejects it” as agreement when three of the four baselines do not return `PASS` either. |
+| R-PAP-1 — symlinked package root | B: permit, resolve, no diagnostic | **B**, with explicit root-resolution wording and exit-code mapping in §4.3.2/§9.2/§9.10/Appendix J; if B is accepted, the external FS-01 expectation must be reissued as `PASS/0` | Partial. B is right, but the preliminary position does not state which error is `64` and which is `74`, does not say that all three commands resolve the root, and treats “nobody rejects it” as agreement when three of the four baselines do not return `PASS` either. |
 | R-PAP-2 — traversal error during the undeclared-file scan | A: `INCOMPLETE`, `coverage.full:false`, never `FAIL` | **A**, implemented with a new warning code and a `coverage.full` rule; the declared-file rule is restated; the option set is corrected because A and C are not mutually exclusive | Yes. The current reference implementation is **B**, not A: it emits `pap.package.io` as an error, sets `integrity.package: FAIL`, keeps `coverage.full:true` and exits 1. The preliminary recommendation would change reference behaviour and needs exact diagnostic/coverage wording, not only the desired verdict. |
 | R-PAP-3 — directory/entry ceiling during the scan | B: non-normative robustness only | **B** (the preliminary position), with the normative ceiling isolated as an explicit owner option (A1 fixed / A2 policy-configurable) and the reference's private cap report reconciled with R-PAP-2 | No disagreement on B. The disagreement is that B is not the status quo: the reference already caps at 8 192 entries but reports `pap.package.limit-exceeded`, which §4.3.4 does not authorize; B must change that report or waive Appendix J. A is a legitimate owner option, not settled here. |
 | R-PAP-4 — cross-class / case-only path collision | A: codify current behaviour | **A**, but with the rule stated as “impossible for a well-formed declaration”, not “allowed”, and with no new diagnostics | Partial. A is right, but “an identical package-relative path across different payload classes is allowed” is not reachable: the class roots are disjoint. The live case is a case-only duplicate **within** a class (F24), which the reference already rejects globally. |
@@ -49,14 +53,16 @@ of the alternatives.
    `PACKAGE` argument. The reference resolves a symlinked root and returns `PASS/0`; a dangling
    link returns `74`; a link to a regular file returns `64`; a payload symlink under the resolved
    root still returns `FAIL/1` with `pap.package.symlink`. Those four outcomes are the exact
-   wording B needs, and the external FS-01 expectation (`FAIL/1`) must be corrected rather than
-   silently demoted. The claim that “nobody rejects it” is not the same as “everyone agrees”:
+   wording B needs, and the external FS-01 expectation (`FAIL/1`) must be reissued if B is accepted,
+   by the external owner updating `EXT-FS-01`, not by the lab silently demoting it. The claim that
+   “nobody rejects it” is not the same as “everyone agrees”:
    three of the four baselines return `UNSUPPORTED/4` or `INCOMPLETE/2`, so B still obliges those
    implementations to resolve the root if FS-01 is retained as a conformance test.
 
 2. **R-PAP-2 recommends A but the reference currently implements B.** A probe with an unreadable
-   undeclared directory makes the reference emit `pap.package.io` as an **error**, set
-   `integrity.package: FAIL`, keep `coverage.full: true` and exit `1`. That is option B. It is also
+   undeclared directory, or an unlistable package root with a readable manifest, makes the
+   reference emit `pap.package.io` as an **error**, set `integrity.package: FAIL`, keep
+   `coverage.full: true` and exit `1`. That is option B. It is also
    outside Appendix J's stated effect for `pap.package.io` (“a declared file or the manifest cannot
    be read”). A is a defensible correction, but the proposal must record that it changes the
    reference, add a code that is not `pap.package.io`, and amend the `coverage.full` definition.
@@ -66,14 +72,15 @@ of the alternatives.
    (outcome) and C (mechanism) are not alternatives; A needs the new-code mechanism.
 
 3. **R-PAP-3's recommendation is B, but B is not the status quo.** The reference already bounds
-   directory enumeration by `max(1024, effective payloadFiles × 2)` entries and reports
-   `pap.package.limit-exceeded` with `INCOMPLETE` when the bound is hit. With the default limits that
-   is 8 192 entries. A package with 8 300 directories produced `INCOMPLETE/2`,
-   `integrity.package: PASS`, `coverage.full:false` and two `pap.package.limit-exceeded` diagnostics.
-   No §4.3.4 row authorizes that limit. B is the preliminary position and the recommendation, but it
-   must reconcile that report (use R-PAP-2's incomplete-scan code) and reclassify the external test
-   as robustness-only. A normative `scanEntries` limit is isolated as an explicit owner decision
-   (A1 fixed or A2 policy-configurable), not presented as settled.
+   directory enumeration by `max(1024, effective payloadFiles × 2)` entries and by a 16-level depth
+   check, and reports `pap.package.limit-exceeded` with `INCOMPLETE` when either stops the scan. With
+   the default limits the entry cap is 8 192. A package with 8 300 directories produced
+   `INCOMPLETE/2`, `integrity.package: PASS`, `coverage.full:false` and two
+   `pap.package.limit-exceeded` diagnostics; a 16-deep undeclared tree produced the same shape.
+   No §4.3.4 row authorizes either bound. B is the preliminary position and the recommendation, but
+   it must reconcile those reports (use R-PAP-2's incomplete-scan code) and reclassify the external
+   test as robustness-only. A normative `scanEntries` limit is isolated as an explicit owner
+   decision (A1 fixed or A2 policy-configurable), not presented as settled.
 
 4. **R-PAP-4's A is right, but its sentence is wrong.** The rule “the same package-relative path in
    two classes” cannot occur for a well-formed declaration because §4.3.1 fixes a distinct root per
