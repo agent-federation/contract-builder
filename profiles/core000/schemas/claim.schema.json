@@ -61,7 +61,11 @@
             "trust_boundary",
             "extension_point",
             "diagnostic",
-            "dependency"
+            "dependency",
+            "claim",
+            "decision",
+            "evidence",
+            "source_statement"
           ]
         },
         "conditions": { "type": "string", "minLength": 1 },

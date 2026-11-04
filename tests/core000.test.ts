@@ -10,7 +10,8 @@ import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas, validateDocuments } from "../spec/lib/schema.js";
 import { trustPolicyFindings } from "../profiles/core000/checks/trust-policy.js";
-import { buildProjectModel, type ProjectModel } from "../spec/lib/ir.js";
+import { claimEvidenceFindings } from "../profiles/core000/checks/claim-evidence.js";
+import { buildProjectModel, type Entity, type ProjectModel } from "../spec/lib/ir.js";
 import {
   prepareWorkspace,
   runHarness,
@@ -1120,4 +1121,138 @@ test("S2.1 Q5 domain-kind accessors are bounded and fail closed", async () => {
     ok: false,
     reason: "malformed",
   });
+});
+
+function subjectClaim(kind: string, subjects: string[]): Entity {
+  return {
+    id: "C000-XX-001",
+    kind: "claim",
+    fields: {
+      lifecycle: "active",
+      class: "constraint",
+      status: {
+        decision: "none",
+        implementation: "none",
+        tests: "none",
+        verification: "none",
+      },
+      subject_kind: kind,
+      scope: "S2.2a subject-kind test claim.",
+      verification_method: "S2.2a subject-kind test method.",
+    },
+    relations: subjects.length > 0 ? { subject: subjects } : {},
+  };
+}
+
+test("S2.2a claim subject kinds: schema, check and fixed-register matrix", async () => {
+  const diagnostics = new Diagnostics();
+  const loaded = await loadProject(projectDir, diagnostics);
+  assert.ok(loaded !== null, diagnostics.report());
+  const schemas = await loadSchemas(loaded.project, diagnostics);
+  assert.ok(schemas !== null, diagnostics.report());
+  const validate = schemas.get("core000:claim");
+  assert.ok(validate, "claim schema must load");
+
+  const base = {
+    id: "C000-XX-001",
+    author: "test",
+    statement: "A claim about a subject kind.",
+    class: "constraint",
+    status: {
+      decision: "none",
+      implementation: "none",
+      tests: "none",
+      verification: "none",
+    },
+    verification_method: "subject-kind test.",
+    scope: "S2.2a subject-kind test.",
+    authority: "engine",
+    lifecycle: "active",
+    subject_kind: "claim",
+  };
+
+  for (const kind of ["claim", "decision", "evidence", "source_statement"]) {
+    assert.equal(
+      validate({ ...base, subject_kind: kind }),
+      true,
+      `${kind}: ${JSON.stringify(validate.errors)}`,
+    );
+  }
+  assert.equal(
+    validate({ ...base, subject_kind: "component" }),
+    true,
+    "structural subject kinds remain valid",
+  );
+  assert.equal(
+    validate({ ...base, subject_kind: "register" }),
+    false,
+    "an unknown subject kind must be rejected",
+  );
+
+  const profile = await readProfileDeclaration();
+  assert.equal(Object.keys(profile.entityKinds).length, 14);
+  assert.equal(Object.keys(profile.schemas).length, 16);
+  assert.equal(profile.relations.length, 29);
+  assert.equal(profile.files.length, 28);
+
+  const model = await buildModel(projectDir);
+  const subjectEntity = (id: string, kind: string): Entity => ({
+    id,
+    kind,
+    fields: {},
+    relations: {},
+  });
+  const withSubjects = (claim: Entity, extras: Entity[]): ProjectModel => {
+    const byKind = new Map(model.byKind);
+    byKind.set("claim", [claim, ...extras.filter((entity) => entity.kind === "claim")]);
+    for (const entity of extras) {
+      if (entity.kind === "claim") continue;
+      byKind.set(entity.kind, [...(byKind.get(entity.kind) ?? []), entity]);
+    }
+    const byId = new Map(model.byId);
+    for (const entity of [claim, ...extras]) byId.set(entity.id, entity);
+    return { ...model, byKind, byId };
+  };
+
+  for (const [kind, id] of [
+    ["claim", "C000-XX-002"],
+    ["decision", "DEC-XX"],
+    ["evidence", "EV-XX"],
+    ["source_statement", "SRC-XX"],
+  ] as const) {
+    const claim = subjectClaim(kind, [id]);
+    const findings = claimEvidenceFindings(withSubjects(claim, [subjectEntity(id, kind)]));
+    assert.deepEqual(findings, [], `${kind} subject must pass the subject check`);
+  }
+
+  const iface = subjectEntity("IF-XX", "interface");
+  const wrong = subjectClaim("claim", ["IF-XX"]);
+  assert.deepEqual(
+    claimEvidenceFindings(withSubjects(wrong, [iface])).map((finding) => ({
+      code: finding.code,
+      entityId: finding.entityId,
+    })),
+    [{ code: "core000.claim.subject-kind-mismatch", entityId: "C000-XX-001" }],
+  );
+
+  const missing = subjectClaim("claim", []);
+  assert.deepEqual(
+    claimEvidenceFindings(withSubjects(missing, [])).map((finding) => ({
+      code: finding.code,
+      entityId: finding.entityId,
+    })),
+    [{ code: "core000.claim.missing-subject", entityId: "C000-XX-001" }],
+  );
+
+  const mixed = subjectClaim("claim", ["C000-XX-002", "IF-XX"]);
+  const mixedFindings = claimEvidenceFindings(
+    withSubjects(mixed, [subjectEntity("C000-XX-002", "claim"), iface]),
+  );
+  assert.deepEqual(
+    mixedFindings.map((finding) => ({ code: finding.code, entityId: finding.entityId })),
+    [{ code: "core000.claim.subject-kind-mismatch", entityId: "C000-XX-001" }],
+  );
+
+  const self = subjectClaim("claim", ["C000-XX-001"]);
+  assert.deepEqual(claimEvidenceFindings(withSubjects(self, [])), []);
 });

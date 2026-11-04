@@ -269,6 +269,61 @@ remain separately gated; no generic-core, CORE-001 or PAP change is implied.
 
 ---
 
+## Maintainer decision and authorization — S2.2a subject model (2026-11-04)
+
+**Source:** owner rulings in [Issue #119 comment
+6633603904](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6633603904)
+(2026-11-04) and the S2.2a implementation authorization in [Issue #119 comment
+6633888644](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6633888644)
+(2026-11-04). Baseline: merged `main` `2d1f09a`.
+
+**Status:** the S2.2a subject-model scope is accepted and its implementation is authorized for the
+exact scope below. S2.2 remains **not authorized**; it is re-frozen only after S2.2a lands and a
+fresh independent scope review is completed.
+
+| Decision | Accepted effect |
+|---|---|
+| S2.2a-1 — subject kinds | Add `claim`, `decision`, `evidence` and `source_statement` to the claim `subject_kind` enum. `subject` means “about”, not “applies to”; a `claim` subject is a specific claim or set of claims, never “the register”. One kind per claim; in the fixed 78-claim register a claim needing two kinds is ungroundable and requires an owner ruling (no split into new claims). No missing-subject exemption and no check-code change. |
+| S2.2a-2 — global-register modelling (option C) | Precise `claim` subsets for the rules whose statement determines a set: `C000-ST-001` 29 claims (class `requirement`/`constraint`/`guarantee`, decision `accepted`), `C000-ST-002` 45-claim candidate (classes `requirement`/`constraint`/`guarantee`/`assumption`/`trust_boundary`), `C000-ST-004` 6 (`C000-IM-001..006`), `C000-SV-006` the S1 three plus the S2.2-C `M` external/human claims. The nine truly register-wide rules — `C000-ST-003`, `C000-SV-003`, `C000-SV-005`, `C000-LM-001/002/003/006/007`, `C000-CT-020` — take the **documented structural proxy `COMP-PROJECT`** (“The CORE-000 project inputs: manifest, structure, claims and evidence references”). `IF-PROJECT-MODEL` is not chosen now; it remains the alternative if the register is later modelled as a model entity. The proxy is not a claim that the component is the register. |
+| S2.2a-3 — five firm claims | `C000-SC-001` → `COMP-PROJECT` documented proxy; `C000-IM-008` → `TB-CONSUMER-EXTENSION` documented proxy; `C000-SC-005` → task constraints C1/C14 as decision entities (S2.2-B); `C000-GAP-007` → `D24` via the S2.2-B amendment; `C000-SV-004` → `COMP-PROJECT` documented proxy (interim until the S2.3 negative-case set is defined; deferral was not chosen because it would leave 77/78 and amend S2-D2 A). |
+| S2.2a-4 — D13 | The eight claims `C000-SC-004`, `C000-EV-002`, `C000-EV-003`, `C000-VF-001..004` and `C000-LM-004` take the accepted `D13` decision entity as their `decision` subject; S2.2-B creates the entity. |
+| S2.2a-5 — D24 / S2.2-B amendment | Allow **proposed engine-contract entries as sources for proposed decision entities**. `D24` becomes a proposed decision entity with its source recorded; `C000-GAP-007` takes it as a `decision` subject. The original restriction remains for accepted decisions: the proposed engine contract is not a canonical source for an accepted decision. |
+| S2.2a-6 — semantics and future work | `subject` is “about”; `appliesTo`/scope is future research only (#122), not part of S2.2a/S2.2 and not blocking S2.2. |
+
+**S2.2 consequence.** With option C all 78 accepted claims are encodable: the nine register-wide
+rules use `COMP-PROJECT`, `ST-001`/`ST-002` the precise subsets, and the structural/evidence/
+source/decision subjects remain as scoped. The edge volume is the option-C total (≈ 233
+illustrative; exact once the `T + N` evidence rows are fixed). After S2.2-B/C/D/E the conditional
+floor reaches 0 errors; reviews are `3 + M`; U = 0; surface coverage is 13 covered / 6 uncovered,
+with the six IDs listed in the S2.2 PR. The S2.2 mapping itself is S2.2 data, not S2.2a data.
+
+**Authorized implementation scope.** The S2.2a implementation is limited to:
+
+- `profiles/core000/schemas/claim.schema.json` — add the four `subject_kind` values; no other
+  schema change.
+- `docs/architecture/core-000-self-contract.md` — §5.3.1 enum and semantics paragraph; §5.4
+  `subject`/`subject_kind` wording (“about”, the concept may be a claim/decision/evidence row/
+  source statement; one kind per claim; fixed-register no-split exception).
+- `docs/architecture/core-000-decision-record.md` — this section.
+- `tests/core000.test.ts` — the S2.2a test matrix: schema accepts each new value and rejects an
+  unknown value; a model with a claim subject to a claim/decision/evidence/source statement passes
+  the subject check; a wrong-kind subject still produces `core000.claim.subject-kind-mismatch`; a
+  missing subject still produces `core000.claim.missing-subject`; mixed-kind subjects produce a
+  mismatch; the self-reference case; the S2.1 14/16/29/28 counts remain.
+
+**Explicitly excluded:** no A1b/register entity kind, no `profile.json`/`structure.yml`/
+`contract-builder.json`/catalog/`claims.yml`/`view.ts`/template/renderer/`run.ts`/`mutations.ts`/
+`spec/lib/**` change; no A1a data (the subject relations are S2.2 data); no S2.2/S2.2b
+implementation; no committed CORE-000 draft; no claim-status promotion.
+
+**Verification:** `bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`
+(CORE-001 unaffected); CI `check` green; the PR body states the commands and the CI run. No merge
+and no auto-merge — the maintainer merges. The S2.2 scope is re-frozen after S2.2a lands, then a
+fresh independent scope review and a separate explicit S2.2 authorization are required. S2.3 and
+S3 remain separately gated; no generic-core, CORE-001 or PAP change is implied.
+
+---
+
 ## 0. How to answer the open items
 
 For each item, one of the following is enough:

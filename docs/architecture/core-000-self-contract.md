@@ -773,8 +773,17 @@ claim:
   verification_method: "<command, review method or record locator>"
   scope: "<what the claim covers>"
   subject_kind: component | interface | phase | transition | trust_boundary |
-                extension_point | diagnostic | dependency
+                extension_point | diagnostic | dependency |
+                claim | decision | evidence | source_statement
 ```
+
+A meta-claim uses the kind of the entity it is about: `claim` for a specific claim or set of
+claims, `decision` for a decision entity, `evidence` for an evidence row, and `source_statement`
+for a source statement. `claim` does not mean “the register”; register- or design-wide rules use a
+documented structural subject (the S2.2a ruling uses `COMP-PROJECT`). All subjects of one claim
+share the kind. In the fixed 78-claim S2.2 register a claim that needs two kinds is ungroundable
+and requires an owner ruling rather than a new claim ID; the split rule remains for future
+registers.
 
 `authority` names the authority required to establish the claim, not the author:
 
@@ -813,7 +822,7 @@ lists both halves so the proposed profile passes the reciprocal-declaration chec
 | 4 | `requiredBy` | dependency → component | many | `requires` | Reciprocal half of `requires`. |
 | 5 | `startsAt` | transition → phase | one | — | The phase a transition leaves. |
 | 6 | `endsAt` | transition → phase | one | — | The phase a transition enters. |
-| 7 | `subject` | claim → `*` | many | — | The surface or concept the claim is about; `subject_kind` restricts the allowed target kind. |
+| 7 | `subject` | claim → `*` | many | — | The surface or concept the claim is about; `subject_kind` restricts the allowed target kind. The concept may be a claim, decision, evidence row or source statement; this is an “about” relation, not “applies to”. |
 | 8 | `cites` | claim → source_statement | many | `citedBy` | The claim restates or relies on a quoted contract passage. |
 | 9 | `citedBy` | source_statement → claim | many | `cites` | Reciprocal half of `cites`. |
 | 10 | `evidencedBy` | claim → evidence | many | `supports` | Evidence for the claim. |
@@ -850,11 +859,18 @@ one subject. This is a deliberate split: existence is generic, allowed subject k
 The alternative, `subject` typed to a single kind, cannot express claims about phases, trust
 boundaries and diagnostics without seven relations.
 
+**What the concept may be.** The concept may be a claim, decision, evidence row or source
+statement, not only a structural surface. That is an “about” relation: it records what the claim
+is about, not which records it applies to or governs. An `appliesTo`/scope relation would be a
+separate model change and is not part of this design.
+
 **Why `subject_kind` is singular.** All subjects of one claim share a kind, so the hook can check
 them against one value. A claim that needs to point at two different kinds is split into two
-claims linked by `dependsOn`, or modelled with a structural relation. This keeps the hook check
-simple and the artifact grouping clear. The alternative — an array of subject kinds — would make
-the check positional and easier to get wrong.
+claims linked by `dependsOn`, or modelled with a structural relation. In the fixed 78-claim S2.2
+register the split is not performed because it would add claim IDs; such a claim is ungroundable
+and requires an owner ruling. This keeps the hook check simple and the artifact grouping clear.
+The alternative — an array of subject kinds — would make the check positional and easier to get
+wrong.
 
 **Why relations are declared rather than inferred.** The core never guesses a relation from a
 field name (C:§3.2). Every relation above is declared in `profile.json`; data that puts a key in
