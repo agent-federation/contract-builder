@@ -703,7 +703,9 @@ test("S2.1 Slice 2 document pointers and structure inventory", async () => {
   );
   for (const iface of model.byKind.get("interface") ?? []) {
     const owner = String(iface.fields.owner);
-    assert.equal(componentProvides.get(owner)?.has(iface.id), true, `${iface.id} owner provides it`);
+    const provides = componentProvides.get(owner);
+    assert.ok(provides, `${iface.id} owner ${owner} is a declared component`);
+    assert.equal(provides.has(iface.id), true, `${iface.id} owner provides it`);
   }
 
   assert.deepEqual(ids("trust_boundary"), ["TB-CONSUMER-EXTENSION", "TB-PROFILE-EXEC"]);
@@ -748,6 +750,7 @@ test("S2.1 Slice 2 document pointers and structure inventory", async () => {
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const visit = (phase: string): void => {
+    assert.ok(phase in graph, `prerequisite phase ${phase} is declared`);
     if (visited.has(phase)) return;
     assert.equal(visiting.has(phase), false, `prerequisite cycle at ${phase}`);
     visiting.add(phase);
