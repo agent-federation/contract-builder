@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/transition.schema.json",
+  "title": "Entity: transition",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "condition", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^TR-[A-Z0-9-]+$" },
+        "condition": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

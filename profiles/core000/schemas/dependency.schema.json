@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/dependency.schema.json",
+  "title": "Entity: dependency",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "name", "kind", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z@][a-z0-9@._/-]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["runtime", "toolchain", "pipeline", "decision", "product"] },
+        "status": { "enum": ["declared", "resolved", "pending", "deferred", "not_applicable"] },
+        "version": { "type": "string", "minLength": 1 },
+        "consequence": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}
