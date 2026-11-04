@@ -296,11 +296,11 @@ Insert after the first bullet (after line 514):
   dimension and has no separate report field, so the incompleteness is expressed by the
   diagnostic, the limitation and `coverage.full: false`, and no dimension is changed to
   `NOT_EVALUATED` solely by this condition. This is a report-level outcome
-  for a package that was otherwise evaluated, not the exit-74 CLI I/O failure of §9.7; a `PACKAGE`
-  that cannot be resolved or read before evaluation remains `pap.package.not-found`/
-  `pap.package.io`. This rule does not apply to a declared payload: a missing, unreadable or
-  non-regular declared payload remains `pap.package.declared-file-missing`/`pap.package.io` and
-  `FAIL` (the next bullet; §7.3).
+  for a package that was otherwise evaluated, not the exit-74 CLI I/O failure of §9.7: resolving
+  the root still uses `pap.package.not-found` (74) when the `PACKAGE` does not exist, and an
+  unreadable or missing manifest still uses `pap.package.io` with a `FAIL` report (§7.7). This rule
+  does not apply to a declared payload: a missing, unreadable or non-regular declared payload
+  remains `pap.package.declared-file-missing`/`pap.package.io` and `FAIL` (the next bullet; §7.3).
 ```
 
 #### Exact proposed wording — RFC §7.5
