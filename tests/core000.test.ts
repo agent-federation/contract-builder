@@ -9,6 +9,8 @@ import { runBuild, type BuildResult } from "../spec/lib/build.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas, validateDocuments } from "../spec/lib/schema.js";
+import type { ValidatorFinding } from "../spec/lib/hook.js";
+import { claimEvidenceFindings } from "../profiles/core000/checks/claim-evidence.js";
 import { trustPolicyFindings } from "../profiles/core000/checks/trust-policy.js";
 import { buildProjectModel, type ProjectModel } from "../spec/lib/ir.js";
 import {
@@ -1120,4 +1122,101 @@ test("S2.1 Q5 domain-kind accessors are bounded and fail closed", async () => {
     ok: false,
     reason: "malformed",
   });
+});
+
+test("S2.2a non-structural claim subjects use existing entity kinds", async () => {
+  const diagnostics = new Diagnostics();
+  const loaded = await loadProject(projectDir, diagnostics);
+  assert.ok(loaded !== null, diagnostics.report());
+  const schemas = await loadSchemas(loaded.project, diagnostics);
+  assert.ok(schemas !== null, diagnostics.report());
+  const validateClaim = schemas.get("core000:claim");
+  assert.ok(validateClaim, "claim schema must load");
+
+  const claimBase: Record<string, unknown> = {
+    id: "C000-SX-001",
+    author: "it-start",
+    statement: "a meta-claim",
+    class: "constraint",
+    status: { decision: "accepted", implementation: "none", tests: "none", verification: "none" },
+    verification_method: "bun test tests/core000.test.ts",
+    scope: "S2.2a subject-kind policy",
+    authority: "engine",
+    lifecycle: "active",
+    subject_kind: "component",
+  };
+  for (const value of ["claim", "decision", "evidence", "source_statement"]) {
+    assert.equal(
+      validateClaim({ ...claimBase, subject_kind: value }),
+      true,
+      JSON.stringify(validateClaim.errors),
+    );
+  }
+  assert.equal(validateClaim({ ...claimBase, subject_kind: "register" }), false);
+
+  const model = await buildModel(projectDir);
+  const claim = model.byId.get("C000-CT-025")!;
+  const only = (findings: readonly ValidatorFinding[], code: string): ValidatorFinding[] =>
+    findings.filter((finding) => finding.code === code && finding.entityId === claim.id);
+  const withSubject = (subjectKind: string, subjects: string[]): ProjectModel => {
+    const next = {
+      ...claim,
+      fields: { ...claim.fields, subject_kind: subjectKind },
+      relations: { ...claim.relations, subject: subjects },
+    };
+    const byId = new Map(model.byId);
+    byId.set(claim.id, next);
+    const byKind = new Map(model.byKind);
+    byKind.set(
+      "claim",
+      (model.byKind.get("claim") ?? []).map((entity) =>
+        entity.id === claim.id ? next : entity,
+      ),
+    );
+    return { ...model, byId, byKind } as ProjectModel;
+  };
+
+  for (const [kind, target] of [
+    ["claim", "C000-TR-001"],
+    ["decision", "DEC-35"],
+    ["evidence", "EV-TRUST-CODE"],
+    ["source_statement", "SRC-TR-001"],
+    ["claim", claim.id],
+  ] as const) {
+    const subject = model.byId.get(target);
+    assert.ok(subject, `subject target ${target} must exist`);
+    assert.equal(subject.kind, kind, `subject target ${target} must be a ${kind}`);
+    const findings = claimEvidenceFindings(withSubject(kind, [target]));
+    assert.deepEqual(only(findings, "core000.claim.subject-kind-mismatch"), []);
+    assert.deepEqual(only(findings, "core000.claim.missing-subject"), []);
+  }
+
+  const wrongKind = claimEvidenceFindings(withSubject("claim", ["IF-MANIFEST"]));
+  assert.equal(only(wrongKind, "core000.claim.subject-kind-mismatch").length, 1);
+
+  const mixed = claimEvidenceFindings(withSubject("claim", ["IF-MANIFEST", "C000-TR-001"]));
+  assert.equal(only(mixed, "core000.claim.subject-kind-mismatch").length, 1);
+
+  const relations = { ...claim.relations };
+  delete relations["subject"];
+  const noSubject = {
+    ...claim,
+    fields: { ...claim.fields, subject_kind: "claim" },
+    relations,
+  };
+  const subjectlessById = new Map(model.byId);
+  subjectlessById.set(claim.id, noSubject);
+  const subjectlessByKind = new Map(model.byKind);
+  subjectlessByKind.set(
+    "claim",
+    (model.byKind.get("claim") ?? []).map((entity) =>
+      entity.id === claim.id ? noSubject : entity,
+    ),
+  );
+  const missing = claimEvidenceFindings({
+    ...model,
+    byId: subjectlessById,
+    byKind: subjectlessByKind,
+  } as ProjectModel);
+  assert.equal(only(missing, "core000.claim.missing-subject").length, 1);
 });
