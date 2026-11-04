@@ -393,10 +393,10 @@ entry with `origin: "bundle-local"` and the case-set path; the provenance docume
 snapshot has one bundle-local experiment file. The check is:
 
 ```bash
-python3 - <<'PY'
-import json
+python3 - "$BUNDLE" <<'PY'
+import json, sys
 from pathlib import Path
-bundle = Path("<bundle>")
+bundle = Path(sys.argv[1])
 m = json.loads((bundle / "snapshot/manifest.json").read_text(encoding="utf-8"))
 entry = [e for e in m.get("bundle_local", []) if e["path"].endswith("cases-phase2a.json")]
 assert entry and entry[0]["origin"] == "bundle-local", entry
@@ -483,9 +483,9 @@ SNAPSHOT=c6ee64416c91ab56f9d8270114c8f8a8b9d2f608
 git cat-file -e "${SNAPSHOT}:pap/fixtures/pap-v0.1/archive.tar"
 test "$(git show "${SNAPSHOT}:pap/fixtures/pap-v0.1/archive.tar" | sha256sum | cut -d' ' -f1)" = \
      "81f5d80365e91b9fa4ae4be8202fa440181de22cf6e88d421a20a5b3d1d9f2a7"
-python3 - <<'PY'
-import json
-m = json.load(open("<bundle>/snapshot/manifest.json", encoding="utf-8"))
+python3 - "$BUNDLE" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1] + "/snapshot/manifest.json", encoding="utf-8"))
 assert m["source"]["commit"] == "c6ee64416c91ab56f9d8270114c8f8a8b9d2f608", m["source"]
 print("OK: bundle provenance source commit matches the archive.tar source")
 PY
