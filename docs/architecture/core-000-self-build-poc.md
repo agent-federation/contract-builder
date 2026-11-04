@@ -76,7 +76,7 @@ Every run pins the following. A run that cannot pin one of them is `INCONCLUSIVE
 | Environment controls | `TZ=UTC`, `LC_ALL=C.UTF-8`, isolated `HOME`, no secrets in the environment | The engine claims these are not build inputs; controlling them prevents accidental differences from being attributed to the inputs. |
 
 The exact CORE-000 data is the accepted design's data, not new normative content. S1 deliberately
-encodes a small subset (§10). The full 78-claim / 14-kind / 29-relation / 23-check register is a
+encodes a small subset (§10). The full 78-claim / 14-kind / 29-relation / 24-check register is a
 later slice.
 
 ### 2.2 Dependencies
