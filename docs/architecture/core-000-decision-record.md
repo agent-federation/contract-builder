@@ -269,6 +269,77 @@ remain separately gated; no generic-core, CORE-001 or PAP change is implied.
 
 ---
 
+## Maintainer decision — S2.2a subject-model change (2026-11-04)
+
+**Source:** owner rulings in [Issue #119 comment
+6633603904](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6633603904)
+and the S2.2a implementation authorization in [Issue #119 comment
+6633888644](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6633888644)
+(project owner, 2026-11-04). Baseline: merged `main` `2d1f09a`.
+
+**Decision status: Accepted for the exact scope below.** S2.2a adds non-structural claim subjects,
+staged from the S2.2 owner rulings. It does not add a register/self kind (that is a future S2.2b
+decision) and does not write S2.2 claim data.
+
+### Accepted model change
+
+- Add four `subject_kind` values, reusing existing entity kinds: `claim`, `decision`, `evidence`,
+  `source_statement`.
+- Semantics: an **"about"** edge, not an `appliesTo`/scope relation. `claim` means a specific claim
+  or set of claims, never "the register". A claim subject may be self-referential when the rule
+  applies to its own class, and the data lists the self-edge explicitly. All subjects of one claim
+  share one kind; a claim needing two kinds is split in future registers, and in the fixed 78-claim
+  register it is ungroundable and requires an owner ruling. No missing-subject exemption and no
+  check-code change.
+- `subject` stays `claim → *`, many, no inverse; no `profile.json` or relation change;
+  `claim.schema.json` enum is the only schema change; `profileDigest`/`inputDigest` change as
+  expected; `entityKinds` 14 / `schemas` 16 / `relations` 29 / `files` 28 are unchanged.
+
+### Recorded owner rulings this change serves
+
+- **Global-register modelling — option C.** Precise `claim` subsets for `C000-ST-001` (29 claims),
+  `C000-ST-002` (45, confirmed), `C000-ST-004` (6) and `C000-SV-006` (the S1 three plus the `M`
+  external/human claims). The nine truly register-wide rules (`ST-003`, `SV-003`, `SV-005`,
+  `LM-001`, `LM-002`, `LM-003`, `LM-006`, `LM-007`, `CT-020`) use one documented `COMP-PROJECT`
+  proxy — not a claim that the component *is* the register; `IF-PROJECT-MODEL` remains an
+  alternative if a model-entity subject is later preferred.
+- **Five firm claims.** `C000-SC-001` → documented `COMP-PROJECT` proxy; `C000-IM-008` →
+  documented `TB-CONSUMER-EXTENSION` proxy; `C000-SC-005` → task-constraint decisions C1/C14;
+  `C000-GAP-007` → `D24` via the S2.2-B amendment; `C000-SV-004` → documented `COMP-PROJECT` proxy,
+  interim until the S2.3 negative-case set is defined.
+- **D13 accepted.** `C000-SC-004`, `C000-EV-002`, `C000-EV-003`, `C000-VF-001..004` and
+  `C000-LM-004` take the `D13` decision entity as their `decision` subject; S2.2-B creates it.
+- **S2.2-B amendment.** Engine-contract entries marked `proposed` may source proposed decision
+  entities (so `D24` can ground `GAP-007`); the original restriction remains for accepted
+  decisions.
+- **`subject` is "about", not "applies to".** `appliesTo`/scope remains future research (#122) and
+  is not part of S2.2a or S2.2.
+
+### Fixed-register consequence
+
+The S2.2 register can encode all 78 accepted claims under option C: nine rules via the
+`COMP-PROJECT` proxy, `ST-001`'s 29 and `ST-002`'s 45 precise claim subjects, the structural /
+evidence / source / decision subjects, and the documented firm proxies. The subject-edge volume is
+the option-C total (illustrative ≈ 233 until the S2.2-E evidence-row count `T + N` is fixed). The
+diagnostic floor and the exact multiset are pinned by the S2.2 scope, not by this section.
+
+### Authorization of this scope
+
+**S2.2a implementation is authorized** for exactly: `profiles/core000/schemas/claim.schema.json`
+(the four enum values), `docs/architecture/core-000-self-contract.md` (§5.3.1 and §5.4), this
+decision-record section, and `tests/core000.test.ts` (the S2.2a matrix: each new value accepted and
+an unknown value rejected; kind-matched subjects pass; a wrong kind still produces
+`core000.claim.subject-kind-mismatch`; a missing subject still produces
+`core000.claim.missing-subject`; mixed-kind subjects mismatch; the self-reference case; the S2.1
+14/16/29/28 counts unchanged). Baseline `main` `2d1f09a`; verified with typecheck, tests and
+`bun run check` per the Issue #119 authorization.
+
+**Still gated.** S2.2 data, artifact, committed draft and S2.2b (register kind) are not authorized.
+S2.2 requires its scope to be re-frozen with the S2.2 owner rulings and a fresh independent review
+before a separate authorization. No generic-core, CORE-001 or PAP change is implied.
+
+---
+
 ## 0. How to answer the open items
 
 For each item, one of the following is enough:
