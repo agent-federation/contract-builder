@@ -5,6 +5,13 @@ import { hasValidIndependentVerification } from "./provenance-verification.js";
 
 const EVIDENCE_KINDS = new Set(["code", "test", "ci"]);
 
+const STATUS_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
+  decision: new Set(["accepted", "proposed", "deferred", "none"]),
+  implementation: new Set(["implemented", "none"]),
+  tests: new Set(["tested", "none"]),
+  verification: new Set(["independently_verified", "none"]),
+};
+
 /** Claim/evidence/decision conflicts that the CORE-000 profile owns. */
 export function claimEvidenceFindings(model: ProjectModel): ValidatorFinding[] {
   const findings: ValidatorFinding[] = [];
@@ -16,6 +23,38 @@ export function claimEvidenceFindings(model: ProjectModel): ValidatorFinding[] {
     const implementation = text(status.implementation);
     const tests = text(status.tests);
     const verification = text(status.verification);
+    const className = text(claim.fields.class);
+
+    // Defensive unit-level assertion: schema validation normally rejects an invalid enum first.
+    if (
+      !STATUS_VALUES.decision!.has(decision) ||
+      !STATUS_VALUES.implementation!.has(implementation) ||
+      !STATUS_VALUES.tests!.has(tests) ||
+      !STATUS_VALUES.verification!.has(verification)
+    ) {
+      findings.push(finding("core000.claim.invalid-status", claim));
+    }
+
+    if (className === "guarantee") {
+      const hasConditions = text(claim.fields.conditions).trim().length > 0;
+      const hasScope = text(claim.fields.scope).trim().length > 0;
+      const hasMethod = text(claim.fields.verification_method).trim().length > 0;
+      const hasSupport =
+        (claim.relations.cites ?? []).length > 0 || (claim.relations.evidencedBy ?? []).length > 0;
+      if (!hasConditions || !hasScope || !hasMethod || !hasSupport) {
+        findings.push(finding("core000.claim.unsupported-guarantee", claim));
+      }
+    }
+
+    // Q7 A′ subset only: the `limitation` exception remains a human-review rule.
+    if (
+      (className === "non_goal" || className === "deferred") &&
+      (implementation === "implemented" || tests === "tested")
+    ) {
+      findings.push(finding("core000.claim.status-class-conflict", claim));
+    } else if (className === "proposal" && implementation === "implemented") {
+      findings.push(finding("core000.claim.status-class-conflict", claim));
+    }
 
     if (implementation === "implemented" && !hasEvidenceOfKind(model, claim, EVIDENCE_KINDS)) {
       findings.push(finding("core000.claim.implemented-without-evidence", claim));
