@@ -14,27 +14,46 @@ export BUN="${BUN:-$HOME/.bun/bin/bun}"                      # Bun 1.4.x
 export PATH="$(dirname "$BUN"):$PATH"                        # package scripts call `bun`
 ```
 
-The expected baseline is `contract-builder` `8c3a5fa`, bundle `c568051`, snapshot source
-`c6ee644`. Substitute the actual implementation commits when the decisions are implemented.
+The proposal baseline is the PR base `0a5132e`, bundle `c568051`, snapshot source `c6ee644`.
+The PR head is whatever commit the PR currently shows; the commands below identify the base and
+the snapshot explicitly and do not require a fixed PR head SHA.
 
 ---
 
-## 0. Baseline integrity
+## 0. Baseline and checkout identity
+
+This proposal is based on an explicitly identified base and snapshot, not on a moving `main`:
+
+| Item | Commit |
+|---|---|
+| PR base (`main` when this revision was prepared) | `0a5132ec9e36e12a85d66a2231f77f042136e13e` |
+| Handoff bundle | `c568051f6a4b8feaf8c0b5fabfd5e3e735e2af98` |
+| Bundle snapshot source | `c6ee64416c91ab56f9d8270114c8f8a8b9d2f608` |
+
+Run from a checkout of the PR head. The commands below pin the base and the snapshot and do not
+require `HEAD` to equal either; a PR head that contains the base is sufficient.
 
 ```bash
 cd "$REPO"
+BASE=0a5132ec9e36e12a85d66a2231f77f042136e13e
+SNAPSHOT=c6ee64416c91ab56f9d8270114c8f8a8b9d2f608
 git rev-parse HEAD
-git diff --stat c6ee64416c91ab56f9d8270114c8f8a8b9d2f608..HEAD -- \
+git cat-file -e "${BASE}^{commit}"
+git cat-file -e "${SNAPSHOT}^{commit}"
+git merge-base --is-ancestor "$BASE" HEAD
+git diff --stat "${SNAPSHOT}"..HEAD -- \
   docs/architecture/portable-assurance-package-rfc.md \
   pap/fixtures/pap-v0.1/cases.json
 sha256sum pap/fixtures/pap-v0.1/cases.json
 sha256sum docs/architecture/portable-assurance-package-rfc.md
 ```
 
-Expected at the proposal baseline:
+Expected:
 
-- `HEAD` is `8c3a5fa…`;
-- the `git diff --stat` is empty (the RFC and corpus did not change since the snapshot source);
+- `HEAD` prints the PR head; it is not required to equal `BASE`;
+- both commits exist and `git merge-base --is-ancestor` exits 0;
+- the `git diff --stat` is empty (the RFC and corpus did not change between the snapshot source
+  and this PR);
 - `cases.json` is
   `8ae2693b34a31f1a49fdee0e5e5e235419e8d510d2a9b6f84e809b0c1ef154df`;
 - the RFC is
@@ -164,7 +183,85 @@ Note: a Phase 2a verifier may not implement `--trust-policy` fully; the check us
 policy interface the brief permits for testing (`AGENT_BRIEF.md` §4.7). If the implementation
 rejects the option, use its documented minimal invocation and check the same report fields.
 
-### 1.4 Two-way self-check
+### 1.4 Reproducible closure self-check (E.3 vector)
+
+This runs the self-check on the normative E.3 inputs, so it is reproducible without an
+implementation. It changes exactly one byte in an included file and confirms both the
+`implementationDigest` and the derived `checkerIdentity` change; it then adds a file outside the
+declared closure and confirms neither changes.
+
+```bash
+cd "$REPO"
+python3 - <<'PY'
+import hashlib, json, struct
+
+def H(domain, data):
+    return hashlib.sha256(domain.encode("ascii") + b"\x00" + data).hexdigest()
+
+def rec(tag, parts):
+    out = struct.pack(">I", len(tag.encode("utf-8"))) + tag.encode("utf-8")
+    out += struct.pack(">I", len(parts))
+    for part in parts:
+        if isinstance(part, str):
+            part = part.encode("utf-8")
+        out += struct.pack(">I", len(part)) + part
+    return out
+
+def compute(files, dependencies):
+    payload = rec("extension", ["checker", "pap.verifier.reference", "0.1.0"])
+    for path, data in sorted(files):
+        payload += rec("file", [path, data])
+    for name, version, integrity in sorted(dependencies):
+        payload += rec("dependency", [name, version, integrity])
+    implementation_digest = "sha256:" + H("pap.extension.closure.v1", payload)
+    canonical = json.dumps(
+        {"id": "pap.verifier.reference", "version": "0.1.0",
+         "implementationDigest": implementation_digest},
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    checker_identity = "sha256:" + H("pap.checker.identity.v1", canonical)
+    return implementation_digest, checker_identity
+
+files = [
+    ("src/checks/digest.ts", b'export const checkId = "pap.check.digest-integrity/1";\n'),
+    ("src/checks/source.ts", b"export const spanCheck = true;\n"),
+]
+deps = [("zod", "3.23.8", "sha512-9K5fXZ0G8p3oUo4WQ9m2l1v0B9m3r7Yqk1s2V4pL6c0=")]
+
+baseline = compute(files, deps)
+assert baseline == (
+    "sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0",
+    "sha256:15a0b0149dc95f7b9711e7b28fc4189ed8539b03ffd2c96e967205316d75963f",
+), baseline
+
+# (a) Change exactly one byte in one included file: /1 -> /2.
+mutated_files = [
+    (path, data.replace(b"/1", b"/2") if path == "src/checks/digest.ts" else data)
+    for path, data in files
+]
+mutated = compute(mutated_files, deps)
+assert mutated[0] != baseline[0], "included-byte change must change implementationDigest"
+assert mutated[1] != baseline[1], "included-byte change must change checkerIdentity"
+
+# (b) Add a file that is present in the directory but outside the declared closure.
+directory_files = files + [("tests/helper.ts", b"export const helper = true;\n")]
+declared_files = [(path, data) for path, data in directory_files if not path.startswith("tests/")]
+assert compute(declared_files, deps) == baseline, "non-included file must not change the identity"
+
+print("baseline implementationDigest:", baseline[0])
+print("baseline checkerIdentity:     ", baseline[1])
+print("mutated implementationDigest: ", mutated[0])
+print("mutated checkerIdentity:      ", mutated[1])
+print("OK: included byte changes both digests; a non-included file changes neither")
+PY
+```
+
+Expected: the four digests, then
+`OK: included byte changes both digests; a non-included file changes neither`. The mutated values
+are `sha256:960b89…` (implementation) and `sha256:401ff6…` (checker identity) for this exact
+mutation; only the inequality assertions are normative.
+
+### 1.5 Two-way self-check (implementation record)
 
 The implementation must record both directions. The reviewer re-runs the recorded commands and
 checks the before/after values; the check is not reproducible from the report alone.
@@ -198,7 +295,7 @@ PY
 The exact fields are listed in [`decisions.md`](decisions.md) §D-P2A-1. The record is stored
 outside the blind workspace, as the existing experiment records are.
 
-### 1.5 Negative control — no package-derived copy
+### 1.6 Negative control — no package-derived copy
 
 The rust failure copied `implementationDigest` from a value inside the package's
 `claims/producer-report.json`. A conforming run must not have its digest hex appear as a
@@ -231,102 +328,38 @@ are the evidence.
 
 ## 2. D-P2A-2 — case set
 
-The following checks assume the proposed `cases-phase2a.json` is present at
-`$BUNDLE/pap/fixtures/pap-v0.1/cases-phase2a.json` and that `cases.json` is unchanged.
+The following checks cover the proposal artifact in this repository and the final bundle update
+after implementation. §2.1 checks the proposal classification; §2.2–§2.3 check the bundle
+provenance and snapshot. The final bundle file is expected at
+`$BUNDLE/pap/fixtures/pap-v0.1/cases-phase2a.json`; `cases.json` is unchanged.
 
 ### 2.1 Case-set schema, counts and identity expectations
 
-This script is the machine check for the exact case list in [`decisions.md`](decisions.md). It
-asserts the 19/36/6 membership, the applicability subset, the `packageIdentity` expectations and
-the `cases.json` pin. It was run against a provisional generated set while preparing this
-proposal; run it again against the committed file.
+This check runs [`verify_cases.py`](verify_cases.py) against the repository corpus and the
+proposed artifact [`cases-phase2a.proposed.json`](cases-phase2a.proposed.json). It is the machine
+check for the exact case list in [`decisions.md`](decisions.md): ids, counts, membership, the
+F46/F59 exclusion, F58's pending status, applicable codes and `packageIdentity` expectations. It
+was run while preparing this revision; the output is recorded in §5.
 
 ```bash
 cd "$REPO"
-CASE_SET="${BUNDLE}/pap/fixtures/pap-v0.1/cases-phase2a.json"
-python3 - "$CASE_SET" <<'PY'
-import hashlib, json, sys
-from pathlib import Path
-
-repo = Path.cwd()
-base = repo / "pap/fixtures/pap-v0.1"
-case_set = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-corpus = json.loads((base / "cases.json").read_text(encoding="utf-8"))
-base_id = "sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020"
-
-FULL = {
-    "F07-unknown-check", "F08-critical-extension", "F09-newer-check", "F10-newer-minor",
-    "F21-truncated-manifest", "F22-path-traversal", "F23-symlink", "F24-case-duplicate",
-    "F26-missing-artifact", "F29-duplicate-key", "F30-unknown-field", "F33-required-feature",
-    "F35-manifest-limit", "F50-bom", "F51-exponent-number", "F53-check-version",
-    "F54-all-optional", "F57-major-version", "F60-missing-manifest",
-}
-IDENTITY = {
-    "F01-unchanged", "F02-artifact-byte", "F03-source-byte", "F04-input-byte", "F05-quote-span",
-    "F06-relation-edge", "F11-untrusted-role", "F12-invalid-signature", "F13-trusted-signature",
-    "F14-no-policy", "F15-stale-policy", "F16-unknown-signer", "F17-package-not-allowed",
-    "F18-two-envelopes", "F19-required-signature-absent", "F20-producer-mismatch",
-    "F27-referenced-source", "F28-review-missing", "F31-undeclared-file", "F32-optional-extension",
-    "F34-noncanonical", "F36-determinism", "F40-producer-free", "F43-profile-mismatch",
-    "F44-no-provenance", "F45-no-relations", "F46-inverse-not-reciprocal",
-    "F47-policy-boundary-expiry", "F48-policy-boundary-issued", "F49-policy-one-second-after",
-    "F52-lowered-limits", "F55-review-approved", "F56-optional-mixed", "F58-undeclared-source",
-    "F59-relation-duplicate", "F61-relations-only-lowered",
-}
-EXCLUDED = {
-    "F25-archive": "2c", "F37-inspect-usage": "2c", "F38-explain-usage": "2c",
-    "F39-explain-unknown": "2c", "F41-invalid-policy": "2c", "F42-explain-positive": "2c",
-}
-
-def jcs(obj):
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-
-def package_identity(package_dir):
-    path = base / package_dir / "assurance-package.json"
-    if not path.exists():
-        return None
-    try:
-        obj = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    return "sha256:" + hashlib.sha256(b"pap.package.v1\x00" + jcs(obj)).hexdigest()
-
-def expected_identity(case):
-    rel = case.get("expect", {}).get("identityRelations", {})
-    if rel.get("packageIdentity") == "equals-base":
-        return base_id
-    if "packageIdentity" in rel and rel["packageIdentity"] is None:
-        return None
-    return package_identity(case.get("package", case["caseId"]))
-
-by_id = {c["caseId"]: c for c in corpus["cases"]}
-assert len(corpus["cases"]) == 61 and len(by_id) == 61
-assert set(case_set["cases"]) == set(by_id)
-assert {k for k, v in case_set["cases"].items() if v["profile"] == "full"} == FULL
-assert {k for k, v in case_set["cases"].items() if v["profile"] == "identityOnly"} == IDENTITY
-assert {k for k, v in case_set["cases"].items() if v["profile"] == "excluded"} == set(EXCLUDED)
-
-for cid, entry in case_set["cases"].items():
-    assert entry["profile"] in ("full", "identityOnly", "excluded"), (cid, entry)
-    if entry["profile"] == "full":
-        expected = by_id[cid].get("expect", {})
-        assert "exitCode" in expected and "verdict" in expected, cid
-        assert set(entry["applicableDiagnosticCodes"]) <= set(expected.get("diagnosticCodes", [])), cid
-        assert entry["packageIdentity"] == expected_identity(by_id[cid]), cid
-    elif entry["profile"] == "identityOnly":
-        assert entry["packageIdentity"] == expected_identity(by_id[cid]), cid
-    else:
-        assert entry["owningPhase"] == EXCLUDED[cid], cid
-
-assert case_set["basis"]["casesJson"]["sha256"] == hashlib.sha256((base / "cases.json").read_bytes()).hexdigest()
-assert package_identity("base") == base_id
-print("OK: 61 cases, 19 full / 36 identityOnly / 6 excluded")
-print("OK: profile membership, applicable codes and identity expectations")
-PY
+python3 docs/architecture/proposals/pap-phase2a-bundle-v2/verify_cases.py \
+  --repo . \
+  --case-set docs/architecture/proposals/pap-phase2a-bundle-v2/cases-phase2a.proposed.json
 ```
 
-The expected output is the two `OK:` lines. The script does not read any verifier report; the only
-inputs are `cases.json`, the fixtures and the case set.
+Expected:
+
+```text
+OK: 61 cases; 19 full / 36 identityOnly / 6 excluded
+OK: case ids, profile membership, applicable codes and packageIdentity expectations
+OK: F46/F59 are identity-only; F58 is pending D-P2A-2 (default 19/36/6, alternate 20/35/6)
+```
+
+The verifier reads only `cases.json`, the fixtures and the proposed case set; it does not read any
+verifier report. `cases-phase2a.proposed.json` is a proposal artifact, not the bundle file. The
+final bundle file uses the shape in [`decisions.md`](decisions.md) and the `caseSetOrigin` /
+`caseSetCommit` provenance fields.
 
 ### 2.2 Source-first provenance
 
@@ -409,7 +442,8 @@ For every identityOnly case:
 ```
 
 The comparison must not read the reference implementation's report as the expected identity; the
-expected values are the case-set literals generated by §2.1. A mismatch is a finding; a mismatch
+expected values are the literals pinned in `cases-phase2a.proposed.json` and re-checked by
+`verify_cases.py` (§2.1). A mismatch is a finding; a mismatch
 on F46/F59 when they are compared as full cases is expected, which is why the proposal moves them
 to identity-only.
 
@@ -431,6 +465,34 @@ cat pap/fixtures/pap-v0.1/archive.tar
 Expected: 38 bytes; SHA-256 `81f5d80365e91b9fa4ae4be8202fa440181de22cf6e88d421a20a5b3d1d9f2a7`;
 content `not a tar that a verifier may extract.` followed by one LF. The file is a regular file,
 not a tar and not a directory.
+
+The F25 case metadata and the source provenance must agree with that path:
+
+```bash
+cd "$REPO"
+python3 - <<'PY'
+import json
+cases = json.load(open("pap/fixtures/pap-v0.1/cases.json", encoding="utf-8"))
+case = next(c for c in cases["cases"] if c["caseId"] == "F25-archive")
+assert case["command"] == ["verify", "../archive.tar"], case["command"]
+assert case.get("noReport") is True, case
+assert case["stderrCodes"] == ["pap.cli.usage"], case["stderrCodes"]
+print("OK: F25 case metadata names ../archive.tar, no report, pap.cli.usage")
+PY
+SNAPSHOT=c6ee64416c91ab56f9d8270114c8f8a8b9d2f608
+git cat-file -e "${SNAPSHOT}:pap/fixtures/pap-v0.1/archive.tar"
+test "$(git show "${SNAPSHOT}:pap/fixtures/pap-v0.1/archive.tar" | sha256sum | cut -d' ' -f1)" = \
+     "81f5d80365e91b9fa4ae4be8202fa440181de22cf6e88d421a20a5b3d1d9f2a7"
+python3 - <<'PY'
+import json
+m = json.load(open("<bundle>/snapshot/manifest.json", encoding="utf-8"))
+assert m["source"]["commit"] == "c6ee64416c91ab56f9d8270114c8f8a8b9d2f608", m["source"]
+print("OK: bundle provenance source commit matches the archive.tar source")
+PY
+```
+
+The case metadata lives in `pap/fixtures/pap-v0.1/cases.json` (unchanged); the fixture is the
+source blob at `c6ee644`; the bundle's provenance names that source commit.
 
 ### 3.2 Manifest and checksum update
 
@@ -496,11 +558,32 @@ commit, so the snapshot is still an exact copy. The source `archive.tar` must no
 the source is already at a newer commit, verify that the file is byte-identical to the `c6ee644`
 blob first.
 
-### 3.3 F25 probe
+The resulting manifest and checksum inventory must name the restored file exactly once:
 
 ```bash
-cd "$REPO/pap/fixtures/pap-v0.1/F25-archive"
-"$BUN" ../../../bin/pap verify ../archive.tar --format json > /tmp/f25.out 2> /tmp/f25.err
+cd "$BUNDLE"
+python3 - <<'PY'
+import json
+m = json.load(open("snapshot/manifest.json", encoding="utf-8"))
+entries = [f for f in m["files"] if f["path"] == "pap/fixtures/pap-v0.1/archive.tar"]
+assert len(entries) == 1, entries
+assert entries[0]["size"] == 38, entries[0]
+assert entries[0]["sha256"] == "81f5d80365e91b9fa4ae4be8202fa440181de22cf6e88d421a20a5b3d1d9f2a7", entries[0]
+print("OK: manifest entry for the restored archive.tar")
+PY
+grep -c 'pap/fixtures/pap-v0.1/archive.tar' snapshot/SHA256SUMS
+```
+
+Expected: `OK: manifest entry for the restored archive.tar` and `1` checksum line for the file.
+
+### 3.3 F25 probe
+
+Run this after §3.2 has restored the file in the same `$BUNDLE`. It exercises the case in the
+bundle, not only in the source checkout:
+
+```bash
+cd "$BUNDLE/pap/fixtures/pap-v0.1/F25-archive"
+"$BUN" "$REPO/pap/bin/pap" verify ../archive.tar --format json > /tmp/f25.out 2> /tmp/f25.err
 code=$?
 test "$code" -eq 64
 test ! -s /tmp/f25.out
@@ -510,10 +593,10 @@ cat /tmp/f25.err
 ```
 
 Expected: exit 64; empty stdout; stderr `pap: pap.cli.usage: package path is not a directory:
-../archive.tar`. This was executed while preparing the proposal against the current `main`; it is
-the public reference implementation, not private code. The same run against the bundle before the
-fix returns exit 74 (`pap.package.not-found`) because the file is absent — that is the defect being
-fixed.
+../archive.tar`. This was executed against the restored scratch bundle while preparing this
+revision; the verifier is the public reference implementation under `pap/`, not private code. The
+same run against the bundle before the fix returns exit 74 (`pap.package.not-found`) because the
+file is absent — that is the defect being fixed.
 
 ### 3.4 Combined bundle check
 
@@ -561,23 +644,32 @@ decision being implemented; the proposal package itself must not be changed to m
 
 | Check | Result |
 |---|---|
+| Baseline identity (§0) | `0a5132e` and `c6ee644` exist; `git diff c6ee644..HEAD` over the RFC and `cases.json` is empty; `cases.json` and RFC hashes match |
 | Appendix E.3 vector (§1.1) | Passed: `implementationDigest = sha256:73f738…`, `checkerIdentity = sha256:15a0b0…` |
 | Appendix E.1 base identity (§1.2) | Passed: `sha256:77a8d1d0…` |
-| JCS/SHA-256 case-set checker (§2.1, provisional 19/36/6 set) | Passed: 61 cases, profile membership, applicable codes, identity expectations |
-| D-P2A-3 scratch snapshot update (§3.2) | Passed: 434 files, manifest hash `b19a710e059b4629021dcbeb9f60a965945ab6d8c2e9cd8873283116af57b169`, snapshot verifier OK |
-| F25 reference probe (§3.3) | Passed: exit 64, empty stdout, `pap.cli.usage` |
+| Reproducible closure self-check (§1.4) | Passed: baseline E.3 digests; mutating one included byte gave `sha256:960b89…` / `sha256:401ff6…`; a non-included file left the baseline unchanged |
+| Proposed case-set verifier (§2.1) | Passed: `verify_cases.py` reports 61 cases, 19/36/6, F46/F59 identity-only, F58 pending (default 19/36/6, alternate 20/35/6) |
+| D-P2A-3 scratch snapshot update (§3.2) | Passed: 434 files, manifest hash `b19a710e059b4629021dcbeb9f60a965945ab6d8c2e9cd8873283116af57b169`, manifest/sums entries for `archive.tar`, owner-side verifier OK |
+| F25 metadata and provenance (§3.1) | Passed: case command `verify ../archive.tar`, `noReport`, `pap.cli.usage`; source blob `81f5…` at `c6ee644` |
+| F25 scratch-bundle probe (§3.3) | Passed: exit 64, empty stdout, `pap.cli.usage` against the restored scratch bundle |
 | `bun run check` on the proposal tree | Passed: `Результат: ok (артефакт не записан)` |
-| Full local CI (`bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`) | Passed: install OK, typecheck exit 0, 308 tests pass / 0 fail, check `ok (артефакт не записан)` |
-| Three independent implementations / owner-side comparison matrix | Not run; their public summary is in the issue. The case-set critique is derived from the public RFC, brief and corpus. |
+| Full local CI (`bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`) | Passed on the code tree: install OK, typecheck exit 0, 308 tests pass / 0 fail, check `ok (артефакт не записан)`; the later commits are documentation-only and CI reruns it |
+| Implementation-record self-check (§1.5) | Not run: no implementation is authorized; the reproducible §1.4 vector self-check is the executed substitute |
+| Actual bundle edit / snapshot regeneration | Not run: proposal-only; the exact procedure was reproduced in a scratch bundle |
+| Three independent implementations / owner-side comparison matrix | Not run; the public issue summary is the evidence. The case-set critique is derived from the public RFC, brief and corpus. |
 
 ## 6. Limits
 
-- The case-set checker in §2.1 was run against a provisional set generated from the proposal's
-  tables; the committed file must be checked again. The checker hardcodes the proposal's exact
-  membership, so a deliberate change to the case list requires updating both the file and the
-  checker's constants.
-- The self-check in §1.4 depends on implementation-specific build commands; the record must
-  contain the exact commands and before/after values. The re-run is by the reviewer.
+- The case-set verifier in §2.1 was run against the committed proposed artifact
+  `cases-phase2a.proposed.json`; the final bundle file must be checked again after implementation.
+  The verifier hardcodes the proposal's exact default membership, so a deliberate change to the
+  case list requires updating the artifact and the verifier's constants.
+- F58 is pending, not settled. The verifier asserts the default (identity-only) and the alternate
+  (full, 20/35/6); it does not choose between them. The owner decision is required before the
+  case set is final.
+- The implementation-record self-check in §1.5 depends on implementation-specific build commands;
+  the record must contain the exact commands and before/after values. It is not run here because
+  no implementation is authorized; the reproducible §1.4 vector self-check is run instead.
 - The snapshot verifier is owner-side tooling; the public manifest and `SHA256SUMS` are the data.
   The §3.2 script reproduces the update without the tool, and the tool is only an additional
   check. If the tool is unavailable, the script's own counts and the `sha256sum` checks are

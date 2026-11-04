@@ -7,10 +7,12 @@ the options, their consequences, and the exact proposed wording or artifact chan
 decision input, not a decision record: the maintainer remains the owner. No option is accepted by
 this document.
 
-**Baseline:** `agent-federation/contract-builder` `main` at `8c3a5fa`; handoff bundle
+**Decision status:** D-P2A-1/2/3 are proposals only; no owner decision is recorded and implementation is not authorized. F58 is pending by design.
+
+**Baseline:** `agent-federation/contract-builder` base branch at `0a5132e`; handoff bundle
 `agent-federation/contract-builder-independent` at `c568051`; bundle snapshot source commit
-`c6ee644`. The RFC and `cases.json` are byte-identical between `c6ee644` and `8c3a5fa`
-(`git diff c6ee644..8c3a5fa -- docs/architecture/portable-assurance-package-rfc.md pap/fixtures/pap-v0.1/cases.json`
+`c6ee644`. The RFC and `cases.json` are byte-identical between `c6ee644` and `0a5132e`
+(`git diff c6ee644..0a5132e -- docs/architecture/portable-assurance-package-rfc.md pap/fixtures/pap-v0.1/cases.json`
 is empty). `cases.json` SHA-256 is
 `8ae2693b34a31f1a49fdee0e5e5e235419e8d510d2a9b6f84e809b0c1ef154df`.
 
@@ -94,7 +96,9 @@ convention for the experiment. The RFC's algorithm and E.3 vector are the normat
 
 A is the only option that makes the identity reproducible from the authorized inputs. The recipe
 must be complete, because an incomplete recipe still admits divergent identities. The proposed
-wording follows.
+wording follows. The recipe is checked two ways: [`verification.md`](verification.md) §1.4 reruns
+the E.3 vector and mutates one included byte (both digests must change) and one excluded file
+(neither may change); §1.5 checks the implementation record and both self-check directions.
 
 #### Exact proposed text — insert after `AGENT_BRIEF.md` §4.4 (before §4.5)
 
@@ -285,7 +289,7 @@ The evidence for these consequences is the RFC §12.2/§12.5 corpus rules, the b
 boundary discipline, and the fact that the current bundle has no case-set artifact (`cases.json`
 is the only corpus index).
 
-### Re-derived case list: 19 full / 36 identity / 6 excluded
+### Re-derived case list: 19 full / 36 identity / 6 excluded (default; F58 pending)
 
 The 22 count is not reproducible from the public corpus under the case-set rule. F46 and F59
 cannot be full because their expected `(verdict, integrity.package)` pair depends on the
@@ -371,9 +375,13 @@ non-base cases).
 | F52-lowered-limits | policy-driven limit (2c) and checks (2b) | base |
 | F55-review-approved | human review (2d) | `sha256:6e5ca77778f45a060fd7fda00c1950e7bc64392cd55ed3f054c7e26754e53670` |
 | F56-optional-mixed | signature/trust (2d) | base |
-| F58-undeclared-source | claim schema/cross-field validation not required by the brief; open question | `sha256:943d9196a31bb322d421eff9447b136234f0bd0ed4b247c0a9613a0d510dd998` |
+| F58-undeclared-source | claim schema/cross-field validation not required by the brief; **pending owner decision D-P2A-2** (default identity-only; alternate full, 20/35/6) | `sha256:943d9196a31bb322d421eff9447b136234f0bd0ed4b247c0a9613a0d510dd998` |
 | F59-relation-duplicate | RC check (2b) — moved from the preliminary's full set | `sha256:be227cd044ae034450ef5ab217d3f161825d12ce2649a831a97dcc197c83234e` |
 | F61-relations-only-lowered | policy-driven limit (2c) and RC check (2b) | `sha256:0955f1f709939b165d42762d5a6908c989cbf7c3d42a2e9ecea159acea4c8ac8` |
+
+F58 is included in the 36 identity-only cases under the default; if the owner moves it to full,
+the identity set is 35 and the full set is 20. The proposed artifact marks it
+`pendingOwnerDecision: D-P2A-2` and records the alternate profile.
 
 #### Excluded cases (6)
 
@@ -385,6 +393,34 @@ non-base cases).
 | F39-explain-unknown | 2c | `explain` CLI unknown check |
 | F41-invalid-policy | 2c | trust-policy parsing/evaluation |
 | F42-explain-positive | 2c | `explain` positive output |
+
+### Proposed artifact and reproducibility
+
+The concrete proposal is [`cases-phase2a.proposed.json`](cases-phase2a.proposed.json), with the
+checker [`verify_cases.py`](verify_cases.py). The artifact is **not** a bundle file: it is the
+reviewable instance of the classification in this document, and it records that D-P2A-1/2/3 are
+still owner decisions and that F58 is pending.
+
+```bash
+cd "$REPO"
+python3 docs/architecture/proposals/pap-phase2a-bundle-v2/verify_cases.py \
+  --repo . \
+  --case-set docs/architecture/proposals/pap-phase2a-bundle-v2/cases-phase2a.proposed.json
+```
+
+Expected:
+
+```text
+OK: 61 cases; 19 full / 36 identityOnly / 6 excluded
+OK: case ids, profile membership, applicable codes and packageIdentity expectations
+OK: F46/F59 are identity-only; F58 is pending D-P2A-2 (default 19/36/6, alternate 20/35/6)
+```
+
+The verifier re-derives each `packageIdentity` from the frozen manifest bytes and checks it
+against the proposal; it reads only `cases.json`, the fixtures and the proposed artifact. The
+final bundle file uses the shape below and the `caseSetOrigin` / `caseSetCommit` provenance fields;
+the proposal-only fields (`proposalStatus`, `pendingOwnerDecisions`, `summary.f58PendingOwnerDecision`)
+are not copied into the bundle.
 
 ### Exact proposed `cases-phase2a.json` shape
 
@@ -460,8 +496,10 @@ exact expected subset (not a prefix filter); `packageIdentity` is a digest, `equ
 
 ### How success is checked mechanically
 
-1. The case-set JSON validates against the shape above; every `caseId` exists in `cases.json`;
-   no case is missing or duplicated; the profile counts are 19/36/6 and the total is 61.
+1. The proposed artifact validates with `verify_cases.py`: every `caseId` exists in
+   `cases.json`, no case is missing or duplicated, the profile counts are 19/36/6 and the total is
+   61. The final bundle file uses the same case entries; the verifier is re-run against it with the
+   proposal-only fields removed.
 2. For full cases, the expected exit code and verdict come from `cases.json`; the harness checks
    them exactly, checks the `applicableDiagnosticCodes` as an expected subset, checks the
    `integrity.package`/`integrity.artifacts` dimension statuses that `cases.json` constrains, and
@@ -610,7 +648,9 @@ removing a useful negative test.
 
 ### Recommendation: A
 
-A is the minimal, source-faithful fix:
+A is the minimal, source-faithful fix. [`verification.md`](verification.md) §3.1 checks the
+source blob, the F25 case metadata and the bundle provenance; §3.2 reproduces the manifest/checksum
+update; §3.3 runs the F25 probe against the restored scratch bundle.
 
 - The file at the frozen source commit is a deliberate sentinel, not a real archive. The
   preliminary's A rationale ("restoring a real archive.tar") does not match the repository.
@@ -707,7 +747,7 @@ F25 executable and is not recommended here.
 | Decision | Recommendation | RFC change? | Open question |
 |---|---|---|---|
 | D-P2A-1 | A, with the complete §4.4.1 recipe and record fields | No | None |
-| D-P2A-2 | A, separate `cases-phase2a.json`, default 19/36/6 (20/35/6 if F58 is Phase 2a), experiment-scope, source-first provenance | No for experiment scope; yes if it is made normative | F58 scope |
+| D-P2A-2 | A, separate `cases-phase2a.json`, proposed default 19/36/6 (20/35/6 if F58 is Phase 2a), experiment-scope, source-first provenance; F58 is pending | No for experiment scope; yes if it is made normative | F58 scope |
 | D-P2A-3 | A, restore the 38-byte source sentinel and update manifest/checksums | No | None |
 
 The maintainer remains the decision owner. This proposal records no accepted decision and starts
