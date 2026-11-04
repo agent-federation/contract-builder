@@ -114,7 +114,7 @@ count remains 169/12. See [`core-000-baseline-refresh.md`](core-000-baseline-ref
 | `contracts/core000/mutations.ts` | test support | deterministic, named mutations for the negative cases; not a project input and not profile code |
 | `contracts/core000/run.ts` | consumer harness | positive/negative mutation runs; calls `runBuild` with consent and the CORE-000 renderer; writes run evidence JSON. Not used for N14 (see §4.1). |
 | `profiles/core000/profile.json` | profile | 14 kinds, 29 relation declarations, 16 schemas, documents, provenance, files, dependencies, view/validator/diagnostics |
-| `profiles/core000/catalog.json` | profile | 23 CORE-000 diagnostic codes in the M1 catalog shape |
+| `profiles/core000/catalog.json` | profile | 24 CORE-000 diagnostic codes in the M1 catalog shape |
 | `profiles/core000/view.ts` | profile executable | builds the artifact view |
 | `profiles/core000/validator.ts` | profile executable | exports `validate` and `verifyProvenance` |
 | `profiles/core000/checks/claim-evidence.ts` | profile executable | claim/evidence/decision/independent-verification policy |
@@ -282,9 +282,9 @@ extracted object.
 The project data is a direct encoding of the accepted design, not new normative content:
 
 - `structure.yml` contains the design's public components, interfaces, lifecycle phases and
-  transitions, extension points, the settled `TB-PROFILE-EXEC` trust boundary, the 23 CORE-000
-  diagnostic entries and the dependency/extension rows. Every entity has an ID from the design's
-  vocabulary; no private module names become claims.
+  transitions, extension points, the settled `TB-PROFILE-EXEC` trust boundary, the 25 CORE-000
+  diagnostic entries (24 catalog codes plus 1 core-owned) and the dependency/extension rows. Every
+  entity has an ID from the design's vocabulary; no private module names become claims.
 - `claims.yml` contains the 78 `C000-*` claims from design §4.2 with the same IDs, classes,
   decision/implementation/tests/verification dimensions, evidence methods and relations;
   `sourceStatements` for the contract quotes used by `cites`; `evidence` rows for the cited code,
