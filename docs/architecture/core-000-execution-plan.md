@@ -65,7 +65,7 @@ and explicitly accepted.
 | Render | exactly one `manifest.render` declaration; one artifact per build in M1 |
 | Current checks | `bun test` 292 pass / 0 fail (21 files; 169 engine + 123 PAP); typecheck clean; `bun run check` clean; `bun run build:release` exits 1 by design; CORE-001 artifact `8213a26379f1fb6e7227ce90a9db6db08e3820bd42a579eb38c2adf5dc269b51` (327 lines); `bun.lock` SHA-256 `9ab1d388…` |
 | Environment | local Bun 1.4.4; pinned/CI Bun 1.4.2; Linux x86_64. The local Bun difference is a recorded deviation |
-| PAP | independent v0.1 verifier implemented under `pap/`; Tier B, Gate 3 open; separate product boundary; no demonstrated CORE-000 impact |
+| PAP | independent v0.1 verifier implemented under `pap/`; Tier B; Gate 3 passed for PAP Phase 2a (2026-11-04, [`ODR-PAP-005`](../decisions/ODR-PAP-005-gate-3-closure-phase-2a.md)); separate product boundary; no demonstrated CORE-000 impact |
 
 **Revision 2 note (proposed).** The original plan baseline was `cc64535`; the refreshed baseline is
 `c6ee644`. `spec/` and `profiles/` are unchanged between the two, `bun.lock` is unchanged and the

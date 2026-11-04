@@ -14,6 +14,11 @@ status commit, `c6ee644` (PR #73), and the commands were rerun at `c6ee644`.
 [`core-000-self-build-poc.md`](core-000-self-build-poc.md) (ephemeral plan and first slice) and
 [`core-000-decision-record.md`](core-000-decision-record.md) (open decisions).
 
+> **Gate 3 status update — 2026-11-04.** The PAP rows in §3 and §4 record the refreshed 2026-11-02
+> baseline. Gate 3 is now **PASSED for PAP Phase 2a**
+> ([`ODR-PAP-005`](../decisions/ODR-PAP-005-gate-3-closure-phase-2a.md); `blind-lab` PR #26/#27/#28).
+> The baseline facts and the CORE-000 no-impact finding below remain as written.
+
 > **What this is.** A factual refresh of the accepted CORE-000 execution plan's baseline. It
 > records the exact current-`main` commit, the commands that were rerun, their results, and the
 > demonstrated impact of later merges on the plan's assumptions, interfaces, dependencies,

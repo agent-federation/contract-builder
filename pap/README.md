@@ -16,9 +16,10 @@ The verifier is a separate product boundary inside this repository:
   call, symlinks and non-regular files are rejected, and resource limits are
   enforced while reading.
 
-The implementation does not establish Gate 3. Gate 3 still requires a separately
-implemented checker compared field-by-field against the same corpus under the
-same tier.
+Gate 3 is **PASSED for PAP Phase 2a** (2026-11-04): separately implemented
+checkers agree field-by-field on the frozen Phase 2a case set. See
+[`ODR-PAP-005`](../docs/decisions/ODR-PAP-005-gate-3-closure-phase-2a.md) for the
+scope and caveats; this implementation remains the reference described below.
 
 **Packaging boundary.** RFC §9.1 requires the verifier to be a separate project
 with its own release and pinned artifacts. During Phase 2, `pap/` is an in-repo
