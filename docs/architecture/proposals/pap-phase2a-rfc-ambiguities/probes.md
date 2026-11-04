@@ -166,6 +166,132 @@ the reference walker rather than producing a traversal error. The probe uses a p
 which is the same class of failure but host-dependent. The proposal therefore recommends a
 unit/hostile test for A rather than a committed `F` package.
 
+### P12 — aggregation: scan error plus an independent FAIL
+
+This is the aggregation case requested in review. It combines the current R-PAP-2 scan failure with
+an independently established `FAIL` (F02's artifact digest mismatch) and checks that the
+independent failure is not downgraded to `INCOMPLETE`.
+
+```bash
+cp -a "$REPO/pap/fixtures/pap-v0.1/F02-artifact-byte" "$P/aggregation"
+mkdir -p "$P/aggregation/notes"
+printf 'extra\n' > "$P/aggregation/notes/extra.txt"
+chmod 000 "$P/aggregation/notes"
+pap-probe p12-aggregation "$P/aggregation"
+chmod 755 "$P/aggregation/notes"
+```
+
+Observed on the current reference: `exit=1`, `FAIL`, `integrity.package=FAIL`,
+`integrity.artifacts=FAIL`, `coverage.full=true`; diagnostics include `pap.check.failed`,
+`pap.integrity.artifact-mismatch` (twice), `pap.package.io`, and
+`pap.claims.producer-mismatch`. The artifact mismatch is the independent `FAIL`; the scan error adds
+a package `FAIL` under the current B behaviour.
+
+Under the proposed A rule, the same package would report the scan as
+`pap.package.undeclared-scan-incomplete` (warning), leave `integrity.package` unfailed by the scan,
+and set `coverage.full=false`; the artifact mismatch would still make `integrity.artifacts=FAIL` and
+`pap.check.digest-integrity/1=FAIL`, so §7.4 rule 1 still gives `FAIL`, not `INCOMPLETE`. That
+A-specific report is a **specification prediction**, not an executed probe: no implementation of A
+exists in this baseline, and the three independent implementations are not available. The
+precedence argument is explicit in §7.4: rule 1 (`FAIL`) is evaluated before rule 4
+(`INCOMPLETE`), and the scan-incomplete rule contributes only `coverage.full: false` and a
+limitation.
+
+### P12b — verdict-engine aggregation check (coverage false + independent FAIL)
+
+This is a unit-level check of the existing §7.4 precedence function, not an implementation of A. It
+constructs the minimal report shape that A would produce for the aggregation case — a required
+`FAIL` check and `integrity.artifacts=FAIL`, with `coverage.full=false` — and asks the reference
+verdict engine for the result.
+
+```bash
+cat > "$P/p12b.ts" <<EOF
+import { computeVerdict } from "$REPO/pap/src/report.ts";
+const report = {
+  dimensions: {
+    integrity: { package: "PASS", artifacts: "FAIL" },
+    sources: { integrity: "PASS", availability: "PASS" },
+    signature: { validity: "NOT_APPLICABLE" },
+    trust: {
+      signerIdentity: "NOT_APPLICABLE",
+      policyDecision: "NOT_EVALUATED",
+      checkerRecognition: "NOT_APPLICABLE",
+      profileRecognition: "NOT_APPLICABLE",
+    },
+    humanReview: { status: "NOT_APPLICABLE" },
+    checks: { results: [
+      { checkId: "pap.check.digest-integrity/1", outcome: "FAIL", required: true },
+    ] },
+  },
+  coverage: { full: false },
+};
+const verdict = computeVerdict(report as any, {
+  requiredChecks: ["pap.check.digest-integrity/1"],
+  requiredDimensions: ["integrity", "checks"],
+  signatureMode: "disabled",
+  humanReviewRequired: false,
+  policyState: "FRESH",
+  limitStopped: false,
+  unsupportedVersion: false,
+  unsupportedFeature: false,
+  emptyRequiredSet: false,
+});
+console.log(verdict);
+EOF
+"$BUN" "$P/p12b.ts"
+```
+
+Observed: `FAIL`, exit 0. The `coverage.full=false` does not downgrade the independent `FAIL`;
+rule 1 is evaluated first. This is the exact aggregation property the review asked for, tested
+against the reference's verdict engine. It does not execute A's scan-incomplete diagnostic path,
+because that path does not exist at the baseline.
+
+### P12c — verdict-engine check (coverage false, no independent FAIL)
+
+This is the complementary unit-level check: the same minimal report shape, but every required check
+passes and `coverage.full=false` is the only negative condition. The verdict must be `INCOMPLETE`,
+never `PASS`, so a suppressed scan error cannot be rendered as success.
+
+```bash
+cat > "$P/p12c.ts" <<EOF
+import { computeVerdict } from "$REPO/pap/src/report.ts";
+const report = {
+  dimensions: {
+    integrity: { package: "PASS", artifacts: "PASS" },
+    sources: { integrity: "PASS", availability: "PASS" },
+    signature: { validity: "NOT_APPLICABLE" },
+    trust: {
+      signerIdentity: "NOT_APPLICABLE",
+      policyDecision: "NOT_EVALUATED",
+      checkerRecognition: "NOT_APPLICABLE",
+      profileRecognition: "NOT_APPLICABLE",
+    },
+    humanReview: { status: "NOT_APPLICABLE" },
+    checks: { results: [
+      { checkId: "pap.check.digest-integrity/1", outcome: "PASS", required: true },
+    ] },
+  },
+  coverage: { full: false },
+};
+const verdict = computeVerdict(report as any, {
+  requiredChecks: ["pap.check.digest-integrity/1"],
+  requiredDimensions: ["integrity", "checks"],
+  signatureMode: "disabled",
+  humanReviewRequired: false,
+  policyState: "FRESH",
+  limitStopped: false,
+  unsupportedVersion: false,
+  unsupportedFeature: false,
+  emptyRequiredSet: false,
+});
+console.log(verdict);
+EOF
+"$BUN" "$P/p12c.ts"
+```
+
+Observed: `INCOMPLETE`, exit 0. This is the existing verdict engine with the A-shaped coverage
+condition; the new diagnostic itself is not executed because it does not exist at the baseline.
+
 ## 3. R-PAP-3 — directory / entry ceiling
 
 ### P8 — 8 300 undeclared directories
@@ -347,6 +473,9 @@ What is missing and matters:
 | P9 F24 | 1 | FAIL | FAIL | FAIL | false | `pap.package.path-duplicate` |
 | P10 same basename, two classes | 0 | PASS | PASS | PASS | true | — |
 | P11 wrong-root declaration | 1 | FAIL | FAIL | FAIL | false | `pap.package.path-invalid`, `pap.package.path-duplicate` |
+| P12 aggregation (artifact mismatch + scan error) | 1 | FAIL | FAIL | FAIL | true (current B) | `pap.check.failed`, `pap.integrity.artifact-mismatch`, `pap.package.io` |
+| P12b verdict engine (`coverage.full=false` + required FAIL) | 0 | FAIL (returned) | — | — | false | `FAIL` from rule 1, not `INCOMPLETE` |
+| P12c verdict engine (`coverage.full=false`, all checks PASS) | 0 | INCOMPLETE (returned) | — | — | false | `INCOMPLETE`, never `PASS` |
 
 ## 7. What the probes prove and what they do not
 
@@ -358,7 +487,12 @@ What is missing and matters:
 - the R-PAP-2 scan error currently maps to `pap.package.io`/`FAIL`/`coverage.full:true`;
 - the reference has an 8 192-entry scan cap reported as `pap.package.limit-exceeded`/`INCOMPLETE`;
 - F24's within-class case-only duplicate;
-- same-basename cross-class coexistence and wrong-root rejection.
+- same-basename cross-class coexistence and wrong-root rejection;
+- the aggregation case: an independent artifact mismatch still yields `FAIL/1`, not `INCOMPLETE`;
+- the existing verdict engine returns `FAIL` for a report with `coverage.full=false` and a required
+  `FAIL` (P12b), so the scan-incomplete coverage condition cannot downgrade an independent `FAIL`;
+- the same engine returns `INCOMPLETE` for `coverage.full=false` with all checks passing (P12c),
+  so a suppressed scan error cannot be rendered as `PASS`.
 
 **Do not prove:**
 
@@ -366,4 +500,47 @@ What is missing and matters:
 - the external contract's exact fixture or expected JSON, which is outside the repository;
 - a portable §12 fixture for R-PAP-2 (the mode-000 probe is host-dependent);
 - that the reference's current behaviour is correct; the probes are evidence for the decision,
-  not a decision.
+  not a decision;
+- the A-specific scan-incomplete report or the A-specific aggregation report, which no
+  implementation in this baseline produces; those are specification predictions.
+
+## 8. Verification commands and checks not run
+
+### Commands actually run (local)
+
+From the repository root with Bun 1.4.4:
+
+| Command | Result |
+|---|---|
+| `bun install --frozen-lockfile` | ok (14 packages) |
+| `bun run typecheck` | ok (`tsc --noEmit`, exit 0) |
+| `bun test` | 308 pass, 0 fail (22 files) |
+| `bun run check` | ok (exit 0; generated artifact check passed) |
+| `bun test pap/tests` | 123 pass, 0 fail (9 files) |
+| `git diff --check` | ok (no whitespace errors) |
+
+The probe commands are the `pap-probe` invocations in §0–§4. P8 (8 300 directories) is the slow
+probe; all others are quick. The aggregation probe P12 is in §2. The reference probes were run on
+Linux with uid 1003, so a mode-000 directory is unreadable to the process; a root/privileged run
+would not reproduce P6/P7/P12's traversal error.
+
+### Checks not run
+
+- **The three independent Phase 2a implementations (go, rust, python).** They are not in this
+  repository and were not available here; their results are quoted from Issue #95. No probe of
+  their scan-failure or aggregation behaviour exists.
+- **The external conformance contract v0.1.0-draft.** It is outside this repository; its FS-01,
+  FS-04 and directory-count fixtures/expectations were not executed.
+- **The A-specific R-PAP-2 and R-PAP-3 reports.** No implementation of A exists in this baseline;
+  the A-specific `pap.package.undeclared-scan-incomplete` report, the `coverage.full:false`
+  aggregation report and the `scanEntries` limit report are specification predictions, not
+  executed tests.
+- **`bun run build` and `bun run build:release`.** Not run: this change is docs-only, `bun run
+  check` covers the generated artifact, and `build:release` is expected to exit 1 by design
+  (REVIEW_REQUIRED diagnostics), so a green run is not a meaningful check here.
+- **Platform-specific traversal failures.** P6/P7/P12 use a permission error on Linux; Windows,
+  macOS archive round-trips and privileged CI runs may behave differently. This is recorded as a
+  testability limitation in R-PAP-2.
+- **GitHub CI.** The repository `check` job is run by the PR workflow; its result is reported in
+  the PR checks, not re-implemented in this document. The local commands above are the same
+  sequence the job runs.

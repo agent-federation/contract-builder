@@ -5,7 +5,8 @@ This document records the repository evidence for the four decisions requested i
 position from [issue comment 6623392390](https://github.com/agent-federation/contract-builder/issues/95#issuecomment-6623392390),
 the options, their consequences, and the exact proposed wording or artifact change. It is
 decision input, not a decision record: the maintainer remains the owner. No option is accepted by
-this document.
+this document. **All positions are recommendations awaiting owner confirmation; none is an accepted
+normative decision. R-PAP-1 and R-PAP-4 in particular are recommendations, not settled rules.**
 
 **Baseline:** `agent-federation/contract-builder` `main` at
 `0a5132ec9e36e12a85d66a2231f77f042136e13e` (2026-11-04). The RFC is
@@ -105,12 +106,13 @@ symlinked root. It is not the only possible reading, which is why the RFC needs 
   FS-01 expectation still has to change from `FAIL/1` to `PASS/0` (a diagnostic does not satisfy
   “reject”). The preliminary's objection to C is sound.
 
-### Recommendation: B, with exact root-resolution wording
+### Recommendation (awaiting owner confirmation): B, with exact root-resolution wording
 
 B is the only option that matches the threat model, the reference, and the operator's ability to
-choose the package path. The exact wording below closes the three gaps that make the current
-`PASS/0` behaviour under-specified: the resolution point, the 64/74 mapping, and the scope of the
-“no symlinks” rule.
+choose the package path. This is a recommendation awaiting owner confirmation, not an accepted
+normative decision. The exact wording below closes the three gaps that make the current `PASS/0`
+behaviour under-specified: the resolution point, the 64/74 mapping, and the scope of the “no
+symlinks” rule.
 
 #### Exact proposed wording — RFC §4.3.2
 
@@ -199,8 +201,8 @@ not leaked as an identity input.
 4. **The scope of the resolution rule is unstated.** `PACKAGE` is shared by `verify`, `inspect` and
    `explain`; the wording should say so once in §9.2 rather than read as a `verify`-only rule.
 
-The core recommendation (B, no diagnostic) is adopted by this proposal; these are precision
-corrections, not a different option.
+The core recommendation (B, no diagnostic) is this proposal's recommendation, awaiting owner
+confirmation; these are precision corrections, not a different option.
 
 ---
 
@@ -275,7 +277,7 @@ about.
   plus a limitation already says that. A and C are not mutually exclusive: A needs a code, which
   is C's diagnostic part; A does not need C's dimension part.
 
-### Recommendation: A, with a new warning code and a coverage rule
+### Recommendation (awaiting owner confirmation): A, with a new warning code and a coverage rule
 
 A is the only option that keeps the declared/undeclared split and prevents a warning-level scope
 from becoming a package failure. It is a targeted addition: one warning code, one `coverage.full`
@@ -292,15 +294,19 @@ Insert after the first bullet (after line 514):
   undeclared file. If a directory under the package root cannot be enumerated, the verifier MUST
   emit `pap.package.undeclared-scan-incomplete` (warning) with scope `package`, add the same code
   to `limitations[]`, and set `coverage.full: false`; the verdict is at most `INCOMPLETE` and MUST
-  NOT be `PASS`. The affected scope is the undeclared-file scan; it is not a required check or
-  dimension and has no separate report field, so the incompleteness is expressed by the
-  diagnostic, the limitation and `coverage.full: false`, and no dimension is changed to
-  `NOT_EVALUATED` solely by this condition. This is a report-level outcome
-  for a package that was otherwise evaluated, not the exit-74 CLI I/O failure of §9.7: resolving
-  the root still uses `pap.package.not-found` (74) when the `PACKAGE` does not exist, and an
-  unreadable or missing manifest still uses `pap.package.io` with a `FAIL` report (§7.7). This rule
-  does not apply to a declared payload: a missing, unreadable or non-regular declared payload
-  remains `pap.package.declared-file-missing`/`pap.package.io` and `FAIL` (the next bullet; §7.3).
+  NOT be `PASS`. The affected scope is the undeclared-file scan, whose status is `NOT_EVALUATED`.
+  Because the report has no separate per-scope status field for that scan, the report represents
+  that status with the diagnostic, the limitation and `coverage.full: false`; no dimension is
+  changed to `NOT_EVALUATED` solely by this condition. A `PASS` is impossible because §7.4 rule 6
+  requires `coverage.full: true`, and this rule sets it false. An independently established
+  `FAIL` (for example an artifact digest mismatch) remains `FAIL` under §7.4 rule 1: this rule
+  contributes only the coverage condition of rule 4 and cannot downgrade a higher-precedence
+  verdict. This is a report-level outcome for a package that was otherwise evaluated, not the
+  exit-74 CLI I/O failure of §9.7: resolving the root still uses `pap.package.not-found` (74) when
+  the `PACKAGE` does not exist, and an unreadable or missing manifest still uses `pap.package.io`
+  with a `FAIL` report (§7.7). This rule does not apply to a declared payload: a missing,
+  unreadable or non-regular declared payload remains
+  `pap.package.declared-file-missing`/`pap.package.io` and `FAIL` (the next bullet; §7.3).
 ```
 
 #### Exact proposed wording — RFC §7.5
@@ -329,7 +335,7 @@ Replace the sentence at lines 1758–1763 with:
 Add after the `pap.package.undeclared-file` row (line 5600):
 
 ```markdown
-| `pap.package.undeclared-scan-incomplete` | warning | The verifier could not enumerate part of the package tree, so the absence of undeclared files was not established; `coverage.full: false`, verdict at most `INCOMPLETE`, and a limitation with the same code. Declared payload integrity is unaffected |
+| `pap.package.undeclared-scan-incomplete` | warning | The verifier could not enumerate part of the package tree, so the absence of undeclared files was not established; the scan is `NOT_EVALUATED`, `coverage.full: false`, verdict at most `INCOMPLETE`, and a limitation with the same code. Declared payload integrity is unaffected |
 ```
 
 #### Exact proposed wording — RFC §13.8
@@ -340,10 +346,45 @@ Add a row to the “Underspecified areas” table:
 | Undeclared-file scan completeness | **Resolved** by §4.3.3/§7.5: an enumeration failure yields `pap.package.undeclared-scan-incomplete`, `coverage.full: false` and `INCOMPLETE`; a declared-file failure remains `FAIL`. | a unit/hostile test; no portable static case (see below) |
 ```
 
-No §7.4 change is needed: rule 4 already maps `coverage.full: false` to `INCOMPLETE`. No §9.7
-change is needed: exit 74 remains the pre-evaluation CLI failure; this rule is a report-level
-outcome. No report-schema change is needed: Appendix C's diagnostic/limitation code patterns admit
-the new code.
+No §7.4 change is needed: rule 4 already maps `coverage.full: false` to `INCOMPLETE`, while rule 1
+still gives `FAIL` precedence for an independently established failure. No §9.7 change is needed:
+exit 74 remains the pre-evaluation CLI failure; this rule is a report-level outcome. No
+report-schema change is needed: Appendix C's diagnostic/limitation code patterns admit the new code.
+
+#### Diagnostic consistency check
+
+The new code, its report fields and the Appendix J entry are checked against the existing schema:
+
+- **Code pattern:** `pap.package.undeclared-scan-incomplete` matches Appendix C's
+  `^pap\.[a-z0-9.-]+$` for both `diagnostics[].code` and `limitations[].code`.
+- **Severity:** `warning` is one of the three Appendix C severities and matches Appendix J's
+  “limitation or already-accounted negative decision” meaning; the verdict is carried by
+  `coverage`, not by the severity.
+- **Scope:** the string `package`; no new field is introduced. The report has no per-scope status
+  object for the undeclared-file scan, so the proposal does not invent one.
+- **Message:** non-normative per §7.7/Appendix J; it names the relative directory or the root, never
+  an absolute host path.
+- **Limitation reporting:** `limitations[]` requires `{code, detail}`; the same code is used, with
+  a non-normative detail string. This is the same pattern as `pap.check.not-evaluated` and
+  `pap.package.undeclared-file`.
+- **Verdict semantics:** `coverage.full: false` reaches §7.4 rule 4 (`INCOMPLETE`); rule 1 (`FAIL`)
+  still outranks it; rule 6 (`PASS`) requires `full: true`, so the scan-incomplete condition alone
+  can never produce `PASS`.
+- **Appendix J:** the new row states the same severity, `NOT_EVALUATED` scan status,
+  `coverage.full: false`, at-most-`INCOMPLETE` verdict and limitation requirement. No existing row
+  changes.
+
+No report-schema change is required for this diagnostic; only the code string is new.
+
+#### Aggregation check
+
+The scan-incomplete rule must not mask an independent `FAIL`. The test is a precedence check, not
+a new verdict rule: a package with an artifact digest mismatch (F02) and an unreadable undeclared
+directory has a rule 1 `FAIL`; the scan-incomplete condition only sets `coverage.full: false` and
+adds a rule 4 condition. The verdict must remain `FAIL`, not become `INCOMPLETE`. Probe P12 records
+the reference's current aggregation result (`FAIL/1`); because no implementation of A exists, the
+A-specific report (`FAIL/1` plus the new warning and `coverage.full: false`) is a specification
+prediction, not an executed A probe.
 
 ### Affected §12 cases, implementations and external tests
 
@@ -359,7 +400,9 @@ the new code.
   `pap.package.io` for `walk.error`; `integrityPackage` no longer becomes `FAIL` on
   `enumerationFailure`; `computeCoverage`/`computeVerdict` receive a scan-incomplete flag and set
   `full: false`, `INCOMPLETE/2`. The existing `enumerate` hostile test currently has no
-  unreadable-directory case; add one with a mocked/controlled failure or a platform guard.
+  unreadable-directory case; add one with a mocked/controlled failure or a platform guard, plus the
+  aggregation test from P12 (artifact mismatch + unreadable undeclared directory) asserting that the
+  independent `FAIL/1` is preserved and `coverage.full` is `false`.
 - **go/rust/python:** the external FS-04 expectation (`INCOMPLETE/2`) is A, so those
   implementations already aim at the right outcome; they need the exact code and coverage rule.
   Their current scan behaviour was not recorded, so this proposal does not claim they are
@@ -391,9 +434,17 @@ the new code.
 5. **The testability gap is unaddressed.** A cannot be pinned by a portable static fixture in the
    current corpus. That does not make A wrong, but it means the decision needs a test strategy, not
    just wording.
+6. **The affected scope must be `NOT_EVALUATED` without inventing a field.** The review asks for
+   that status explicitly. Appendix C has no per-scope status for the undeclared-file scan, so the
+   proposal states the status and represents it with `coverage.full: false` and the limitation; it
+   must not add a field that the report schema does not have.
+7. **The aggregation case is part of the rule.** An independent `FAIL` must remain `FAIL`; the
+   scan-incomplete condition only feeds rule 4. The proposal adds P12 and the §7.4 precedence
+   sentence, so “never `PASS` because the scan was suppressed” does not become “downgrade an
+   independent `FAIL` to `INCOMPLETE`”.
 
-The core recommendation (A, never FAIL) is adopted by this proposal; these are precision and
-implementation corrections.
+The core recommendation (A, never FAIL) is this proposal's recommendation, awaiting owner
+confirmation; these are precision and implementation corrections.
 
 ---
 
@@ -414,10 +465,11 @@ without creating a false gate; C loses the information.
 |---|---|
 | The normative limits are declaration/byte/JSON/collection counts; there is no directory or entry limit | RFC §4.3.4 lines 532–544 and §10.5 lines 2637–2651. `payload files` counts manifest declarations, not filesystem entries; `claims files` counts claim declarations; the JSON/relation limits are semantic collections. |
 | The scan is not bounded by a normative limit | RFC §4.3.3 lines 510–520 defines the warning but no scan bound; §4.3.4 has no row for entries visited. |
+| `pap.package.limit-exceeded` is reserved for §4.3.4 limits | Appendix J line 5601: “A **§4.3.4 resource limit** was exceeded.” A private scan budget is not in §4.3.4. |
 | “No wall-clock budget” is a time limitation, not an entry-count limitation | RFC §10.4 T17 line 2617; §10.5 lines 2676–2677. A count limit is a different control and is compatible with deferring a wall-clock budget. |
 | The threat model acknowledges resource exhaustion and the residual | T17 line 2617: CPU/memory can be consumed up to the limits; no wall-clock budget. §10.6 line 2695: DoS beyond the bounded CPU/memory limits is a host-level concern. |
-| The reference already imposes an undocumented entry budget | `pap/src/paths.ts:316`: `const maxEntries = Math.max(1_024, limits.payloadFiles * 2);`; lines 317–358 count every directory entry and stop with `limitHit`. With default `payloadFiles = 4096`, the cap is 8 192 entries. |
-| The reference reports the cap with a normative limit code | `pap/src/verify.ts:1348–1350`: `pap.package.limit-exceeded`, severity `error`; `:245` sets `payloads.limitHit`; `:329–330` emits a second `pap.package.limit-exceeded`. |
+| The reference currently imposes an undocumented entry budget | `pap/src/paths.ts:316`: `const maxEntries = Math.max(1_024, limits.payloadFiles * 2);`; lines 317–358 count every directory entry and stop with `limitHit`. With default `payloadFiles = 4096`, the cap is 8 192 entries. |
+| The reference currently reports the cap with a normative limit code | `pap/src/verify.ts:1348–1350`: `pap.package.limit-exceeded`, severity `error`; `:245` sets `payloads.limitHit`; `:329–330` emits a second `pap.package.limit-exceeded`. |
 | The reference test expects `INCOMPLETE` | `pap/tests/hostile.test.ts:239–255`: 1 100 undeclared entries with `payloadFiles: 1` (cap 1 024) → exit 2, `INCOMPLETE`, `coverage.full: false`, `pap.package.limit-exceeded`. |
 | Reference probe | 8 300 directories under an undeclared `bulk/` → `INCOMPLETE/2`, `integrity.package: PASS`, `integrity.artifacts: PASS`, `coverage.full: false`, two `pap.package.limit-exceeded` diagnostics. See [`probes.md`](probes.md) P8. |
 | The corpus does not pin a directory/entry ceiling | No F case names a directory count; `cases.json` has no such case. |
@@ -438,53 +490,94 @@ The RFC does not fix:
 - whether the verifier may bound the undeclared-file scan at all;
 - what the bound counts (directories, files, symlinks, all entries);
 - what default applies and whether policy may lower it;
-- what the report says when the bound is hit;
+- what the report says when a private bound is hit;
 - whether `coverage.full` becomes false (the current `payloadFiles`-derived cap does set
   `payloads.limitHit`, so the reference's behaviour is `INCOMPLETE`, but that is implementation
   behaviour, not a §4.3.4 rule).
 
 ### Options and consequences
 
-- **A — add a normative `scanEntries` limit.** Default 8 192 entries; the verifier counts every
-  directory entry visited (files, directories and symbolic links) during the undeclared-file scan
-  and stops at the cap; exceeding it emits `pap.package.limit-exceeded`, records the scan as
-  incomplete (no dimension status change), sets `coverage.full: false`, and caps the verdict at
-  `INCOMPLETE`. The policy may lower it through a new optional `limits.scanEntries` property (or
-  the default is fixed and non-lowerable in v0.1; see the exact wording). Consequences: one new
-  limit row in §4.3.4, one in §10.5, one in the limit-interaction table, one optional Appendix B
-  property, one Appendix C `effectiveLimits` enum entry, one `coverage.full` conjunct; the external
-  directory-count test becomes a conformance case that can be authored against a fixed number; the
-  reference's hidden cap becomes the normative cap; a package with more than the cap changes from
-  `PASS` to `INCOMPLETE`, which is a limit outcome, not a producer defect. The default 8 192 is
-  2 × the 4 096 declaration limit and matches the reference's public default; a lower value
-  tightens acceptance, a higher value weakens the bound.
-- **B — non-normative robustness only.** No RFC change. Consequences: the reference's 8 192-entry
-  cap and its `pap.package.limit-exceeded` report remain non-conformant to §4.3.4, because the
-  table does not contain that limit; two conforming verifiers can disagree on the same package
-  (`PASS/0` versus `INCOMPLETE/2`); the external test must be reclassified as robustness-only, and
-  it must not assert a report outcome; if the reference keeps its cap, it needs a non-normative code
-  or an explicit waiver; if it removes the cap, the scan is unbounded and the DoS residual grows.
-  B does not resolve the question; it moves it into implementation-defined behaviour.
+- **B — non-normative robustness (recommended).** Do not add a §4.3.4 limit. A verifier MAY use an
+  internal robustness budget to bound its own scan. If that budget stops the scan, the report uses
+  the R-PAP-2 incomplete-scan outcome — `pap.package.undeclared-scan-incomplete` (warning),
+  `coverage.full: false`, verdict at most `INCOMPLETE` — and never `pap.package.limit-exceeded`,
+  because that code is reserved for §4.3.4 limits. The external directory-count test is a
+  robustness test (no crash, hang or unbounded resource use), not a conformance verdict. This is
+  the preliminary position and the recommendation. Consequences: no new normative limit and no
+  Appendix B/C change; the reference's current 8 192-entry cap may remain, but its report must stop
+  using `pap.package.limit-exceeded`; two verifiers may still disagree on a package that exceeds one
+  verifier's private budget (one `PASS`, one `INCOMPLETE`); the external test cannot be a
+  pass/fail gate; the no-wall-clock residual of §10.5 remains.
+- **A — normative ceiling (explicit owner decision, not recommended here).** Add a §4.3.4 limit.
+  Two variants for the owner to choose:
+  - **A1 — fixed, non-lowerable.** Default 8 192 entries; no Appendix B or Appendix C change; adds
+    one §4.3.4 row, one §10.5 row, the enforcement rule and the `coverage.full` conjunct.
+  - **A2 — policy-configurable.** Default 8 192; lowerable through a new `limits.scanEntries`
+    property and reported in `effectiveLimits`; adds Appendix B and the Appendix C
+    `effectiveLimits` enum entry. Testable with a small fixture.
+  In both variants exceeding the limit yields `pap.package.limit-exceeded`, leaves the scan
+  incomplete, sets `coverage.full: false` and caps the verdict at `INCOMPLETE`. Consequences:
+  deterministic agreement at the boundary; packages above the limit change from `PASS` to
+  `INCOMPLETE`; the external test becomes conformance-eligible; the owner must choose fixed vs
+  configurable and accept the acceptance change. A is a legitimate option, but it conflicts with
+  the preliminary maintainer position, so this proposal does not recommend it.
 - **C — drop the test.** Consequences: no RFC change; the probe information is lost; the next
   implementation still has to decide whether to cap. It does not resolve the ambiguity either.
 
-### Recommendation: A, with a normative `scanEntries` limit
+### Recommendation (awaiting owner confirmation): B, with the reference's private cap made non-normative
 
-A is the smaller and more deterministic change. The reference already caps enumeration; the only
-question is whether the cap is a private implementation detail or part of the contract. A private
-cap that changes the verdict is not a detail: it is observable behaviour that two conforming
-verifiers can disagree on. The RFC's own principle — limits are a verifier safety boundary, not a
-producer defect — supports making the boundary explicit. Deferring a wall-clock budget is not a
-reason to leave the entry count unbounded, because the entry count is exactly the kind of
-collection-size limit §4.3.4 already uses (`payload files`, `claims files`, `provenance bindings`,
-`relation entities/edges`, `signature envelopes`).
+B is the preliminary position and the recommendation. It keeps v0.1's limit table unchanged and
+keeps the directory-count probe as a robustness check. It is not “do nothing”: the current
+reference uses `pap.package.limit-exceeded` for its private cap, which §4.3.4 does not define. B
+depends on R-PAP-2's `pap.package.undeclared-scan-incomplete` code: a private budget stop needs an
+authorized report outcome. If R-PAP-2 is rejected, B has no way to report the stop without new
+normative surface; in that case the reference must remove its cap or the owner must choose A. The
+two decisions should be accepted together. B requires three things:
 
-A count of **entries**, not directories, is the right unit: a single directory with millions of
-files bypasses a directory-only limit. The default **8 192** matches the reference's public default
-and gives 2× headroom over the 4 096 declaration limit; it is a maintainer choice, and the wording
-below isolates the number so it can be changed without rewriting the rule.
+1. no normative `scanEntries` limit and no Appendix B/C addition;
+2. a private budget, if used, reports through the R-PAP-2 incomplete-scan path
+   (`pap.package.undeclared-scan-incomplete`, `coverage.full: false`, `INCOMPLETE`), never
+   `pap.package.limit-exceeded`;
+3. the external directory-count test is reclassified as robustness-only, with no `PASS`/`INCOMPLETE`
+   assertion.
 
-#### Exact proposed wording — RFC §4.3.4 table
+#### Exact proposed wording — RFC §4.3.3 (B)
+
+Add after the R-PAP-2 scan bullet. B depends on that bullet; if R-PAP-2 is rejected, see the
+dependency note above and do not add this text without a substitute report outcome:
+
+```markdown
+- v0.1 does not define a limit on the number of filesystem entries visited by the undeclared-file
+  scan. A verifier MAY use an internal robustness budget to bound its own scan. If that budget
+  stops the scan, the verifier MUST report the scan as incomplete under this section
+  (`pap.package.undeclared-scan-incomplete`, `coverage.full: false`, verdict at most `INCOMPLETE`)
+  and MUST NOT report it as `pap.package.limit-exceeded`, which is reserved for the §4.3.4 limits.
+  No conformance case may assert a specific internal budget, and no `PASS` may be reported when the
+  scan did not complete. An implementation that chooses not to bound its scan accepts the
+  no-wall-clock residual of §10.5.
+```
+
+#### Exact proposed wording — RFC §10.5 (B)
+
+Add after the “No archive parsing, no wall-clock timeout” bullet (line 2676):
+
+```markdown
+- **No normative scan-entry limit.** The undeclared-file scan has no §4.3.4 entry-count limit in
+  v0.1. A verifier may bound its own scan; that bound is an implementation robustness measure, not
+  a producer-facing limit, and a stop is reported as an incomplete scan (§4.3.3), never as
+  `pap.package.limit-exceeded`.
+```
+
+No Appendix B or Appendix C change is required under B. The `pap.package.limit-exceeded` row in
+Appendix J stays as is (§4.3.4 limits only).
+
+#### Alternative A — exact wording if the owner chooses it
+
+This subsection is not a recommendation. It is the exact text for the owner to use if A is chosen.
+For A1 (fixed, non-lowerable), omit the `limits.scanEntries` sentence and the Appendix B/Appendix C
+changes below; for A2 (policy-configurable), keep them.
+
+##### A — RFC §4.3.4 table
 
 Add a row after `payload files` (line 535):
 
@@ -492,7 +585,7 @@ Add a row after `payload files` (line 535):
 | filesystem entries visited by the undeclared-file scan | 8 192 |
 ```
 
-#### Exact proposed wording — RFC §4.3.4 enforcement
+##### A — RFC §4.3.4 enforcement
 
 Add a bullet after the payload-count bullet (after line 561):
 
@@ -515,7 +608,7 @@ Add a row to the limit-interaction summary table (after the signature-envelopes 
 | scan entries (undeclared-file enumeration) | undeclared-file scan incomplete; no dimension status change; entries before the stop may be reported | `false` | `INCOMPLETE` |
 ```
 
-#### Exact proposed wording — RFC §10.5 table
+##### A — RFC §10.5 table
 
 Add a row after `Payload files` (line 2640):
 
@@ -523,16 +616,16 @@ Add a row after `Payload files` (line 2640):
 | Undeclared-file scan entries | 8 192 | count every entry visited while walking; stop at the cap; do not open an undeclared file |
 ```
 
-#### Exact proposed wording — RFC §7.5
+##### A — RFC §7.5
 
 The scan-completeness conjunct is the same one R-PAP-2 requires; see R-PAP-2 §“Exact proposed
-wording — RFC §7.5”. If both decisions are accepted, insert it once. A limit hit is also covered by
-the existing `pap.package.limit-exceeded` clause of §7.5; the new conjunct makes a scan stop
-without a limit (an I/O error) expressible as well.
+wording — RFC §7.5”. If both are accepted, insert it once. A limit hit is also covered by the
+existing `pap.package.limit-exceeded` clause of §7.5; the new conjunct makes a scan stop without a
+limit (an I/O error) expressible as well.
 
-#### Exact proposed wording — Appendix B, `limits`
+##### A2 — Appendix B, `limits` (policy-configurable variant only)
 
-Add an optional property to the `limits` object (after `payloadFiles`, line 243):
+Add an optional property after the `payloadFiles` property (lines 240–244):
 
 ```json
 "scanEntries": {
@@ -542,35 +635,28 @@ Add an optional property to the `limits` object (after `payloadFiles`, line 243)
 }
 ```
 
-If the maintainer prefers no policy-schema change, omit this property and state in §4.3.4 that the
-8 192 default is fixed and not lowerable in v0.1. That variant is still option A; it is narrower but
-less consistent with the other limits, and it also avoids the `effectiveLimits` enum change below.
-The proposal recommends the property because it makes the new limit testable with a small fixture
-and keeps the “policy may lower, never raise” rule uniform.
+##### A2 — Appendix C, `effectiveLimits` (policy-configurable variant only)
 
-#### Exact proposed wording — Appendix C, `effectiveLimits`
-
-If `scanEntries` is policy-lowerable, add it to the `effectiveLimits` property-name enum:
+Add `scanEntries` to the `effectiveLimits` property-name enum:
 
 ```json
 "scanEntries"
 ```
 
 The property remains `{"type": "integer", "minimum": 1}` under `additionalProperties`; no other
-report-shape change is needed. If the fixed non-lowerable variant is chosen, this enum addition is
-not needed, because `effectiveLimits` only reports lowered limits.
+report-shape change is needed.
 
-#### Exact proposed wording — RFC §13.8
+##### A — RFC §13.8
 
 Add a row to the “Underspecified areas” table:
 
 ```markdown
-| Undeclared-file scan bound | **Resolved** by §4.3.4/§10.5: a normative `scanEntries` limit (default 8 192); over-limit is `pap.package.limit-exceeded`, the scan is incomplete, `coverage.full: false`, `INCOMPLETE`. | a future `F62` with a lowered `scanEntries` |
+| Undeclared-file scan bound | **Resolved** by §4.3.4/§10.5: a normative `scanEntries` limit (default 8 192); over-limit is `pap.package.limit-exceeded`, the scan is incomplete, `coverage.full: false`, `INCOMPLETE`. | a future `F62` with a lowered `scanEntries` (A2) or a large fixture (A1) |
 ```
 
-#### Future case (not part of this proposal)
+##### A — future case (not part of this proposal)
 
-A practical case can lower the limit instead of creating 8 193 entries:
+For A2, a practical case can lower the limit instead of creating 8 193 entries:
 
 ```json
 {
@@ -595,48 +681,47 @@ case is a future implementation artifact, not a change in this proposal.
 
 ### Affected §12 cases, implementations and external tests
 
-- **§12 cases:** no existing case changes. F31 (one undeclared file) remains `PASS/0`; the scan
-  completes under the default. A future F62 can pin the limit with a lowered policy; adding it is
-  implementation work. The default 8 192 is high enough that no existing fixture is affected.
-- **Reference:** replace `maxEntries = max(1024, payloadFiles × 2)` with `limits.scanEntries`
-  (default 8 192); extend `Limits`, policy parsing and `effectiveLimits`; keep the existing
-  `pap.package.limit-exceeded` report but align the scope/message with the new rule; update
-  `pap/tests/hostile.test.ts:239–255` to lower `scanEntries` rather than `payloadFiles`. The
-  `inspect` walker (if it keeps its own bound) should use the same limit and report an incomplete
-  inspection rather than a package verdict.
-- **go/rust/python:** each needs a bounded scan and the same `scanEntries` default to agree on a
-  package at the boundary. With B, they can differ indefinitely; that is the conformance problem A
-  fixes.
-- **External directory-count test:** under A it becomes a conformance case; the test must either
-  exceed 8 192 entries or lower `scanEntries` via policy. Its current `SPEC_AMBIGUITY` label is then
-  resolvable. Under B it must be reclassified as robustness-only and must not assert
-  `INCOMPLETE/2`; the current reference test would still assert it, which is the inconsistency B
-  leaves behind.
+- **§12 cases:** under B, no existing case changes and no new normative case is added. F31 (one
+  undeclared file) remains `PASS/0`; the scan completes under any reasonable private budget. Under
+  A, no existing case changes; a future F62 (A2) or a large fixture (A1) would pin the limit.
+- **Reference:** under B, replace the `pap.package.limit-exceeded` report for the private
+  `maxEntries` stop with the R-PAP-2 incomplete-scan code, and keep the budget private (or remove
+  it; either is permitted). Under A, replace `maxEntries = max(1024, payloadFiles × 2)` with
+  `limits.scanEntries` (A2) or a fixed 8 192 (A1), extend `Limits`/policy parsing as applicable,
+  and update `pap/tests/hostile.test.ts:239–255`. The `inspect` walker, if it keeps its own bound,
+  should report an incomplete inspection rather than a package verdict.
+- **go/rust/python:** under B, each may choose its own robustness budget; any stop must use the
+  R-PAP-2 incomplete-scan report, and the external test cannot compare the budget. Under A, each
+  needs the same default to agree at the boundary. With B, two implementations may still differ on
+  a package that exceeds only one private budget; that is the accepted non-normative residual.
+- **External directory-count test:** under B it is a robustness test only and must not assert
+  `PASS`/`INCOMPLETE`; under A it becomes conformance-eligible and must be authored against 8 192
+  entries (A1) or a lowered `scanEntries` (A2).
 
 ### Where this proposal disagrees with the preliminary position
+
+The recommendation agrees with the preliminary position: B, not A. The disagreement is about what
+B requires, not whether B is right.
 
 1. **B is not the status quo.** The reference already caps enumeration at 8 192 entries and reports
    `pap.package.limit-exceeded`; `pap/tests/hostile.test.ts` asserts `INCOMPLETE`. The preliminary
    position presents B as preserving current behaviour, but current behaviour is a non-normative
-   cap that uses a normative code. B either blesses that silently or requires a code change.
-2. **B leaves two conforming verifiers disagreeing.** A package with 8 300 entries is `INCOMPLETE/2`
-   on the reference and `PASS/0` on a verifier without a cap. §13.4/§13.6 comparison cannot accept
-   that. A gives both the same answer.
+   cap that uses a normative code. B must either change that report or explicitly waive Appendix J
+   for the private budget; the proposal recommends the R-PAP-2 incomplete-scan report.
+2. **B leaves two verifiers disagreeing on huge packages.** A package with 8 300 entries is
+   `INCOMPLETE/2` on the reference and `PASS/0` on a verifier without a cap. That is the accepted
+   cost of keeping the ceiling non-normative; it must be stated in the decision record, not hidden.
 3. **“No wall-clock budget” does not imply “no entry budget.”** The RFC records a deferred time
-   budget; it also uses collection-size limits extensively. An entry cap is the same kind of control
-   and is compatible with deferring time.
-4. **A is not a producer defect.** Over-limit yields `INCOMPLETE`, not `FAIL`, and the package is
-   not declared invalid. The preliminary's own principle — limits are verifier safety, not producer
-   defects — supports A, not B.
-5. **A directory-only ceiling is insufficient.** The issue's name says “directory-count”, but the
-   risk is total entries; one directory with many files bypasses a directory-only cap. The proposal
-   uses `scanEntries`.
+   budget; a private entry budget is still permitted under B, but it is an implementation choice,
+   not a §4.3.4 limit.
+4. **A directory-only ceiling is insufficient.** If the owner later chooses A, the unit must be
+   total entries, not directories; one directory with many files bypasses a directory-only cap.
+5. **The external test must be reclassified under B and re-authored under A.** A test that is
+   `SPEC_AMBIGUITY` and asserts a verdict cannot remain a gate while the ceiling is non-normative.
 
-The core disagreement is real: the proposal recommends A, not B. If the maintainer prefers B, the
-minimum coherent version is: remove the reference's `pap.package.limit-exceeded` use for the scan
-cap, reclassify the external test as robustness-only, and state that a verifier-imposed scan cap is
-outside the conformance contract. That is a larger behavioural change than A, which is why the
-proposal does not recommend it.
+The main blocker is the owner's choice between B and A: B is the preliminary position and this
+proposal's recommendation; A is isolated above with its fixed/configurable variants and acceptance
+consequences. This proposal does not present A as settled.
 
 ---
 
@@ -701,11 +786,12 @@ The RFC does not fix:
   shape is the within-class case-only collision, which F24 already covers with
   `pap.package.path-duplicate`. It is over-specification.
 
-### Recommendation: A, with corrected wording and no new diagnostics
+### Recommendation (awaiting owner confirmation): A, with corrected wording and no new diagnostics
 
 A is right: the duplicate/case rule is already global, and the cross-class case is structurally
-impossible for a well-formed declaration. The correction is to say “impossible”, not “allowed”,
-and to state that a malformed declaration that reuses another class's path is already handled by
+impossible for a well-formed declaration. This is a recommendation awaiting owner confirmation,
+not an accepted normative decision. The correction is to say “impossible”, not “allowed”, and to
+state that a malformed declaration that reuses another class's path is already handled by
 `path-invalid` (and may additionally be `path-duplicate` because the duplicate map is global). This
 avoids implying a permission that the grammar does not grant and avoids a new diagnostic.
 
@@ -779,8 +865,8 @@ new rule and should not be added to the expectation unless a future case wants
    proposal should cross-reference it and stop there. The preliminary's “cross-reference F24”
    suggestion is adopted here.
 
-The core recommendation (A, no new diagnostics) is adopted by this proposal; the wording is
-corrected.
+The core recommendation (A, no new diagnostics) is this proposal's recommendation, awaiting owner
+confirmation; the wording is corrected.
 
 ---
 
@@ -790,14 +876,14 @@ corrected.
 |---|---|---|---|---|---|---|
 | R-PAP-1 | §4.3.2, §9.2, §9.10, Appendix J row | none | none | none | none (test coverage only) | FS-01 expect `PASS/0`, not `FAIL/1` |
 | R-PAP-2 | §4.3.3, §7.5, Appendix J, §13.8 | `pap.package.undeclared-scan-incomplete` (warning) | none | none (unit/hostile test; no portable static case) | `pap.package.io`/`FAIL`/`coverage.full:true` → new code/`INCOMPLETE`/`coverage.full:false` | FS-04 `INCOMPLETE/2` matches A; name the code and coverage assertion |
-| R-PAP-3 | §4.3.4, §10.5, §7.5, Appendix B, Appendix C, §13.8 | none (reuse `pap.package.limit-exceeded`) | `scanEntries`, default 8 192; optional `limits.scanEntries`; optional `effectiveLimits.scanEntries` | none existing; future F62 | replace hidden 8 192 cap with the normative limit | directory-count test becomes conformance-eligible |
+| R-PAP-3 | B: §4.3.3/§10.5; A (owner option): §4.3.4, §10.5, §7.5, Appendix B/C, §13.8 | none under B; A reuses `pap.package.limit-exceeded` | none under B; A1 fixed 8 192, A2 adds `limits.scanEntries` and `effectiveLimits.scanEntries` | none existing; future F62 only under A | reconcile the private 8 192 cap report with R-PAP-2 | B: robustness-only; A: conformance-eligible |
 | R-PAP-4 | §4.3.1 wording only | none | none | none | none | assert well-formed cross-class basename `PASS`, not same-path “allowed” |
 
 No decision requires a broader RFC amendment, a new dimension, or a reopening of D1–D12/§16.1.
-R-PAP-2 adds a diagnostic code permitted by Appendix C's existing pattern. R-PAP-3 is the largest
-change: it adds an optional Appendix B property and a matching Appendix C `effectiveLimits` enum
-entry; both are optional if the maintainer prefers a fixed, non-lowerable default, in which case
-the report schema is unchanged.
+R-PAP-2 adds a diagnostic code permitted by Appendix C's existing pattern. R-PAP-3 recommends B,
+which changes no limit table and no schema; its alternative A is an explicit owner decision, and
+only A2 would add the Appendix B property and Appendix C enum entry. The owner's choice between B
+and A is the main open decision in this package.
 
 ---
 
@@ -805,7 +891,7 @@ the report schema is unchanged.
 
 The following is draft text for the canonical PAP decision record if the maintainer accepts a
 recommendation. It is **not** a decision record and records no owner decision; the maintainer may
-accept, amend or reject any entry. Each entry names the evidence and the normative changes it would
+accept, amend or reject any entry. No entry below has been accepted. Each entry names the evidence and the normative changes it would
 authorize. Accepted entries would be recorded by `it-start` in the established proposal flow (#84).
 
 ### R-PAP-1 entry
@@ -834,18 +920,20 @@ authorize. Accepted entries would be recorded by `it-start` in the established p
 
 ### R-PAP-3 entry
 
-- **Proposed decision:** A. Add a normative `scanEntries` limit (default 8 192) on entries visited by
-  the undeclared-file scan. Exceeding it is `pap.package.limit-exceeded`, the scan is incomplete,
-  `coverage.full: false`, verdict at most `INCOMPLETE`. The limit is policy-lowerable through
-  `limits.scanEntries` and reported in `effectiveLimits` (or fixed and non-lowerable if the
-  maintainer prefers the narrower variant).
-- **Normative changes:** §4.3.4, §10.5, §7.5, Appendix B and Appendix C (only for the lowerable
-  variant), §13.8.
-- **Evidence:** RFC §4.3.4/§10.5/T17; reference `pap/src/paths.ts:316`,
+- **Proposed decision:** B. Keep the directory/entry ceiling non-normative for v0.1. A verifier MAY
+  use a private robustness budget; if it stops the scan, the report uses R-PAP-2's incomplete-scan
+  outcome (`pap.package.undeclared-scan-incomplete`, `coverage.full: false`, `INCOMPLETE`), never
+  `pap.package.limit-exceeded`. The external directory-count test is robustness-only.
+- **Normative changes:** §4.3.3/§10.5 clarify that no normative scan-entry limit exists; no
+  Appendix B/C change.
+- **Evidence:** RFC §4.3.3/§4.3.4/§10.5/T17 and Appendix J; reference `pap/src/paths.ts:316`,
   `pap/src/verify.ts:1348–1350`, `pap/tests/hostile.test.ts:239–255`; probes P8/P8b.
-- **Consequences:** the reference's hidden 8 192-entry cap becomes normative; a package above the
-  cap changes from `PASS` to `INCOMPLETE`; the external directory-count test becomes
-  conformance-eligible or is reclassified under B.
+- **Consequences:** the reference's 8 192-entry cap may remain private, but its report must stop
+  using `pap.package.limit-exceeded`; two verifiers may disagree on huge packages; the external
+  test cannot be a gate.
+- **Owner alternative (not proposed):** A. A1 fixed 8 192 or A2 policy-configurable
+  `limits.scanEntries` + `effectiveLimits`; either adds acceptance change and makes the external
+  test conformance-eligible. The owner must choose this explicitly if desired.
 
 ### R-PAP-4 entry
 

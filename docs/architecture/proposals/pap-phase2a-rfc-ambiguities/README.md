@@ -1,7 +1,8 @@
 # PAP v0.1 Phase 2a RFC ambiguity decision proposal — R-PAP-1..4
 
 **Status:** planning-only proposal package for maintainer review. It authorizes no implementation
-and changes no RFC, appendix, schema, fixture, corpus, verifier or generated artifact.
+and changes no RFC, appendix, schema, fixture, corpus, verifier or generated artifact. **All
+positions are recommendations awaiting owner confirmation; none is an accepted normative decision.**
 
 **Prepared for:** [Issue #95](https://github.com/agent-federation/contract-builder/issues/95) and
 the preliminary architect position in
@@ -23,11 +24,11 @@ does not record owner decisions and does not start implementation.
 
 ## Recommendation at a glance
 
-| Decision | Preliminary position | This proposal | Disagreement |
+| Decision | Preliminary position | This proposal (recommendation, awaiting owner confirmation) | Disagreement |
 |---|---|---|---|
 | R-PAP-1 — symlinked package root | B: permit, resolve, no diagnostic | **B**, with explicit root-resolution wording and exit-code mapping in §4.3.2/§9.2/§9.10/Appendix J, and with the external FS-01 expectation corrected to `PASS/0` | Partial. B is right, but the preliminary position does not state which error is `64` and which is `74`, does not say that all three commands resolve the root, and treats “nobody rejects it” as agreement when three of the four baselines do not return `PASS` either. |
 | R-PAP-2 — traversal error during the undeclared-file scan | A: `INCOMPLETE`, `coverage.full:false`, never `FAIL` | **A**, implemented with a new warning code and a `coverage.full` rule; the declared-file rule is restated; the option set is corrected because A and C are not mutually exclusive | Yes. The current reference implementation is **B**, not A: it emits `pap.package.io` as an error, sets `integrity.package: FAIL`, keeps `coverage.full:true` and exits 1. The preliminary recommendation would change reference behaviour and needs exact diagnostic/coverage wording, not only the desired verdict. |
-| R-PAP-3 — directory/entry ceiling during the scan | B: non-normative robustness only | **A**: add a normative `scanEntries` limit (default 8 192), with an incomplete scan scope, `coverage.full:false` and `INCOMPLETE`; B is only coherent if the reference's hidden cap is removed/reclassified and the external test stops being a conformance gate | Yes. B is presented as the status quo, but the reference already has an undocumented 8 192-entry cap and reports `pap.package.limit-exceeded`/`INCOMPLETE`, which §4.3.4 does not authorize. B therefore leaves a live non-conformance and lets two conforming verifiers disagree on the same package. |
+| R-PAP-3 — directory/entry ceiling during the scan | B: non-normative robustness only | **B** (the preliminary position), with the normative ceiling isolated as an explicit owner option (A1 fixed / A2 policy-configurable) and the reference's private cap report reconciled with R-PAP-2 | No disagreement on B. The disagreement is that B is not the status quo: the reference already caps at 8 192 entries but reports `pap.package.limit-exceeded`, which §4.3.4 does not authorize; B must change that report or waive Appendix J. A is a legitimate owner option, not settled here. |
 | R-PAP-4 — cross-class / case-only path collision | A: codify current behaviour | **A**, but with the rule stated as “impossible for a well-formed declaration”, not “allowed”, and with no new diagnostics | Partial. A is right, but “an identical package-relative path across different payload classes is allowed” is not reachable: the class roots are disjoint. The live case is a case-only duplicate **within** a class (F24), which the reference already rejects globally. |
 
 The four recommendations are independent; the maintainer may accept some and reject others. Each
@@ -59,18 +60,20 @@ of the alternatives.
    outside Appendix J's stated effect for `pap.package.io` (“a declared file or the manifest cannot
    be read”). A is a defensible correction, but the proposal must record that it changes the
    reference, add a code that is not `pap.package.io`, and amend the `coverage.full` definition.
-   The issue's option taxonomy is also misleading: A (outcome) and C (mechanism) are not
-   alternatives; A needs the new-code mechanism.
+   The aggregation case is probed on the current reference (P12) and at the verdict-engine level
+   (P12b/P12c): an independent `FAIL` stays `FAIL`, and `coverage.full:false` with all checks
+   passing is `INCOMPLETE`, never `PASS`. The issue's option taxonomy is also misleading: A
+   (outcome) and C (mechanism) are not alternatives; A needs the new-code mechanism.
 
-3. **R-PAP-3's B is not the status quo.** The reference already bounds directory enumeration by
-   `max(1024, effective payloadFiles × 2)` entries and reports `pap.package.limit-exceeded` with
-   `INCOMPLETE` when the bound is hit. With the default limits that is 8 192 entries. A package with
-   8 300 directories produced `INCOMPLETE/2`, `integrity.package: PASS`, `coverage.full:false` and
-   two `pap.package.limit-exceeded` diagnostics. No §4.3.4 row authorizes that limit. B, read
-   literally, either leaves that behaviour non-conformant or requires removing it; either way it
-   does not give two independent verifiers the same answer. A normative `scanEntries` limit is the
-   smaller, more deterministic change, and it is still a verifier safety boundary, not a producer
-   defect.
+3. **R-PAP-3's recommendation is B, but B is not the status quo.** The reference already bounds
+   directory enumeration by `max(1024, effective payloadFiles × 2)` entries and reports
+   `pap.package.limit-exceeded` with `INCOMPLETE` when the bound is hit. With the default limits that
+   is 8 192 entries. A package with 8 300 directories produced `INCOMPLETE/2`,
+   `integrity.package: PASS`, `coverage.full:false` and two `pap.package.limit-exceeded` diagnostics.
+   No §4.3.4 row authorizes that limit. B is the preliminary position and the recommendation, but it
+   must reconcile that report (use R-PAP-2's incomplete-scan code) and reclassify the external test
+   as robustness-only. A normative `scanEntries` limit is isolated as an explicit owner decision
+   (A1 fixed or A2 policy-configurable), not presented as settled.
 
 4. **R-PAP-4's A is right, but its sentence is wrong.** The rule “the same package-relative path in
    two classes” cannot occur for a well-formed declaration because §4.3.1 fixes a distinct root per
@@ -90,11 +93,11 @@ of the alternatives.
    the reference only. R-PAP-2 is the decision most exposed to that missing evidence.
 
 6. **The four questions are asymmetric in size.** R-PAP-1 and R-PAP-4 are clarifications of current
-   text; R-PAP-2 is a new diagnostic and a coverage rule; R-PAP-3 is the only one that adds a
-   normative numeric limit and optional policy/report-schema entries. The package treats them
-   separately so the maintainer can accept the small ones without accepting the larger one. None of
-   them reopens D1–D12, the Q-series, or v0.1 scope; R-PAP-3 is a bounded safety limit inside
-   §4.3.4, not a new feature.
+   text; R-PAP-2 is a new diagnostic and a coverage rule; R-PAP-3 is a non-normative robustness
+   recommendation whose alternative (A) is the only option that would add a normative numeric limit
+   and optional policy/report-schema entries. The package treats them separately so the maintainer
+   can accept the small ones without accepting the larger one. None of them reopens D1–D12, the
+   Q-series, or v0.1 scope.
 
 ## What this package does not do
 
@@ -122,10 +125,10 @@ No question requires a broader RFC amendment or reopens v0.1 scope:
 
 - R-PAP-1 clarifies §9.2/§4.3.2 and one Appendix J row; it adds no diagnostic.
 - R-PAP-2 adds one warning code and one `coverage` conjunct; it adds no dimension.
-- R-PAP-3 adds one §4.3.4/§10.5 limit and one optional Appendix B `limits` property, plus the
-  matching Appendix C `effectiveLimits` enum entry. If the maintainer considers a new policy field
-  too broad, the same default can be fixed and non-lowerable in v0.1; that is still option A and
-  leaves both schema files unchanged.
+- R-PAP-3 recommends B: no normative limit and no schema change. Its alternative A is an explicit
+  owner decision, not part of the recommendation: A1 is a fixed non-lowerable 8 192 limit; A2 adds
+  `limits.scanEntries` and the matching Appendix C `effectiveLimits` enum entry. If the owner
+  chooses A, the acceptance change and the external test's conformance status are stated.
 - R-PAP-4 adds a clarifying sentence to §4.3.1 and no new normative surface.
 
 Implementation remains separately authorized. Accepted decisions would be recorded in the
