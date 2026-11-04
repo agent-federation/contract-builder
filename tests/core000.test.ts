@@ -1183,6 +1183,9 @@ test("S2.2a non-structural claim subjects use existing entity kinds", async () =
     ["source_statement", "SRC-TR-001"],
     ["claim", claim.id],
   ] as const) {
+    const subject = model.byId.get(target);
+    assert.ok(subject, `subject target ${target} must exist`);
+    assert.equal(subject.kind, kind, `subject target ${target} must be a ${kind}`);
     const findings = claimEvidenceFindings(withSubject(kind, [target]));
     assert.deepEqual(only(findings, "core000.claim.subject-kind-mismatch"), []);
     assert.deepEqual(only(findings, "core000.claim.missing-subject"), []);
