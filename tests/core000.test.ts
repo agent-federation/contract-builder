@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { access, lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -30,6 +31,9 @@ import {
 const root = fileURLToPath(new URL("..", import.meta.url));
 const projectDir = path.join(root, "contracts", "core000");
 const claimsPath = path.join(projectDir, "claims.yml");
+const MISSING_REVIEW_IDS = ["C000-CT-008", "C000-CT-016", "C000-CT-017", "C000-CT-018", "C000-CT-019", "C000-CT-020", "C000-CT-021", "C000-CT-022", "C000-CT-023", "C000-CT-024", "C000-EV-001", "C000-EV-002", "C000-EV-003", "C000-GAP-001", "C000-GAP-002", "C000-GAP-003", "C000-GAP-004", "C000-GAP-005", "C000-GAP-006", "C000-GAP-007", "C000-IM-001", "C000-IM-002", "C000-IM-003", "C000-IM-004", "C000-IM-005", "C000-IM-006", "C000-IM-007", "C000-IM-008", "C000-IM-009", "C000-LM-001", "C000-LM-002", "C000-LM-003", "C000-LM-004", "C000-LM-005", "C000-LM-006", "C000-LM-007", "C000-LM-008", "C000-SC-001", "C000-SC-002", "C000-SC-003", "C000-SC-004", "C000-SC-005", "C000-ST-001", "C000-ST-002", "C000-ST-003", "C000-ST-004", "C000-SV-001", "C000-SV-002", "C000-SV-003", "C000-SV-004", "C000-SV-005", "C000-SV-006", "C000-TR-001", "C000-TR-002", "C000-TR-003", "C000-TR-004", "C000-TR-005", "C000-TR-006", "C000-VF-001", "C000-VF-002", "C000-VF-003", "C000-VF-004"];
+const SURFACE_WARNING_IDS = ["COMP-ADAPTER", "COMP-CLI", "COMP-RENDERER", "COMP-REVIEWER", "IF-CONSENT-CLI-FLAG", "IF-CONSENT-OPTION"];
+
 
 const codes = (result: BuildResult): string[] => result.diagnostics.map((item) => item.code);
 
@@ -91,7 +95,7 @@ async function prepareN14Workspace(): Promise<{ workspace: Workspace; profileDir
   return { workspace, profileDir };
 }
 
-test("S1-POS-01: the positive draft builds with the exact 19-diagnostic S2.1 set", async () => {
+test("S1-POS-01: the positive draft builds with the exact 68-diagnostic S2.2 set", async () => {
   const run = await runHarness({ run: "S1-POS-01" });
   const result = run.result;
 
@@ -100,7 +104,7 @@ test("S1-POS-01: the positive draft builds with the exact 19-diagnostic S2.1 set
   assert.equal(result.written, false);
   assert.ok(result.identity !== null, "identity must be non-null");
   assert.ok(result.markdown !== null, "markdown must be non-null");
-  assert.equal(result.diagnostics.length, 19);
+  assert.equal(result.diagnostics.length, 68);
 
   const idOf = (diagnostic: { message: string }): string => {
     const match = /"([^"]+)"/.exec(diagnostic.message);
@@ -111,30 +115,13 @@ test("S1-POS-01: the positive draft builds with the exact 19-diagnostic S2.1 set
   const reviews = result.diagnostics.filter((diagnostic) => diagnostic.severity === "review");
   const warnings = result.diagnostics.filter((diagnostic) => diagnostic.severity === "warning");
   const errors = result.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
-  assert.equal(reviews.length, 3);
-  assert.equal(warnings.length, 16);
+  assert.equal(reviews.length, 62);
+  assert.equal(warnings.length, 6);
   assert.equal(errors.length, 0);
   assert.equal(reviews.every((diagnostic) => diagnostic.code === "core000.independent-verification.missing"), true);
-  assert.deepEqual(reviews.map(idOf).sort(), ["C000-IM-004", "C000-TR-001", "C000-TR-003"]);
+  assert.deepEqual(reviews.map(idOf).sort(), MISSING_REVIEW_IDS);
   assert.equal(warnings.every((diagnostic) => diagnostic.code === "core000.surface.claim-missing"), true);
-  assert.deepEqual(warnings.map(idOf).sort(), [
-    "COMP-ADAPTER",
-    "COMP-CLI",
-    "COMP-PROFILE",
-    "COMP-PROJECT",
-    "COMP-RENDERER",
-    "COMP-REVIEWER",
-    "IF-ADAPTER",
-    "IF-BUILD-IDENTITY",
-    "IF-BUILD-RESULT",
-    "IF-CLI",
-    "IF-CONFORMANCE",
-    "IF-CONSENT-CLI-FLAG",
-    "IF-CONSENT-OPTION",
-    "IF-DIAGNOSTIC",
-    "IF-PROJECT-MODEL",
-    "IF-RENDERER",
-  ]);
+  assert.deepEqual(warnings.map(idOf).sort(), SURFACE_WARNING_IDS);
 });
 
 test("S1-POS-02: two separate processes produce the same identity, artifact hash and diagnostic order", () => {
@@ -281,11 +268,13 @@ test("S1 workspace assertion detects an undeclared write outside the project cop
 });
 
 test("S1 the harness refuses artifact and evidence writes inside the repository", async () => {
+  const artifactPath = path.join(projectDir, "output", "CORE-000.draft.md");
+  const committed = await readFile(artifactPath, "utf8");
   await assert.rejects(
     runHarness({ specDir: projectDir, write: true }),
     /repository|temporary copy/,
   );
-  await assert.rejects(access(path.join(projectDir, "output", "CORE-000.draft.md")));
+  assert.equal(await readFile(artifactPath, "utf8"), committed);
 
   const evidencePath = path.join(projectDir, "transient-evidence.json");
   await assert.rejects(runHarness({ evidencePath }), /repository|temporary copy/);
@@ -795,7 +784,7 @@ test("S2.1 Slice 2 document pointers and structure inventory", async () => {
     "EXT-PROFILE-VIEW",
     "EXT-RENDERER",
   ]);
-  assert.equal((model.byKind.get("claim") ?? []).length, 5);
+  assert.equal((model.byKind.get("claim") ?? []).length, 78);
   assert.deepEqual(
     (model.documents.claims as { conformanceCases?: unknown }).conformanceCases,
     [],
@@ -975,13 +964,47 @@ test("S2.1 view and template render the full model", async () => {
     trustBoundaries: 2,
     dependencies: 7,
     diagnostics: 25,
-    claims: 5,
+    claims: 78,
     sourceStatements: 3,
-    evidence: 8,
-    decisions: 3,
+    evidence: 34,
+    decisions: 15,
     conformanceCases: 0,
     independentVerifications: 0,
   });
+  assert.deepEqual(view.claimStatusCounts, {
+    accepted: 37,
+    proposed: 25,
+    deferred: 2,
+    noneCount: 14,
+    implemented: 27,
+    tested: 27,
+    independentlyVerified: 0,
+  });
+  assert.equal(view.claims.length, 78);
+  assert.deepEqual(
+    view.claimGroups.map((group) => group.className),
+    [
+      "requirement",
+      "guarantee",
+      "assumption",
+      "constraint",
+      "implementation_fact",
+      "trust_boundary",
+      "proposal",
+      "limitation",
+    ],
+  );
+  assert.equal(view.claimGroups.find((group) => group.className === "requirement")?.claims.length, 28);
+  assert.ok(
+    String(view.claims.find((claim) => claim.id === "C000-CT-011")?.conditions).includes(
+      "Given a project whose canonical manifest declares its inputs and sources",
+    ),
+  );
+  assert.ok(
+    String(view.claims.find((claim) => claim.id === "C000-CT-012")?.conditions).includes(
+      "Same engine version",
+    ),
+  );
   assert.equal(view.phases.length, 9);
   assert.equal(
     view.phases.reduce((count, phase) => count + phase.prerequisites.length, 0),
@@ -1011,6 +1034,10 @@ test("S2.1 view and template render the full model", async () => {
   assert.ok(markdown.includes("PH-VERIFICATION"));
   assert.ok(markdown.includes("COMP-RENDERER"));
   assert.ok(markdown.includes("core000.surface.claim-missing"));
+  for (const heading of ["## Claims", "### requirement", "### guarantee", "#### C000-CT-011"]) {
+    assert.ok(markdown.includes(heading), `artifact is missing ${heading}`);
+  }
+  assert.ok(markdown.includes("**Claim status:** accepted=37"));
   assert.ok(markdown.includes(view.transitionNote));
   assert.ok(markdown.includes("_None declared._"));
   assert.ok(markdown.includes("- Prerequisites: `PH-STRUCTURE`, `PH-PROVENANCE`"));
@@ -1219,4 +1246,239 @@ test("S2.2a non-structural claim subjects use existing entity kinds", async () =
     byKind: subjectlessByKind,
   } as ProjectModel);
   assert.equal(only(missing, "core000.claim.missing-subject").length, 1);
+});
+
+test("S2.2 artifact verification", async () => {
+  const artifactPath = path.join(projectDir, "output", "CORE-000.draft.md");
+  const committedBytes = await readFile(artifactPath);
+  const committedText = committedBytes.toString("utf8");
+  const sha256 = (bytes: Uint8Array): string =>
+    `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+
+  const first = await runHarness({ run: "S2.2-artifact-verification" });
+  assert.equal(first.result.exitCode, 0, failure(first.result));
+  assert.equal(first.result.blockedBy, null);
+  assert.equal(first.result.written, false);
+  assert.ok(first.result.identity !== null, "identity must be non-null");
+  assert.ok(first.result.markdown !== null, "markdown must be non-null");
+  assert.equal(first.result.markdown, committedText);
+  assert.equal(first.evidence.artifactSha256, sha256(committedBytes));
+  for (const count of [
+    "claims=78",
+    "evidence=34",
+    "decisions=15",
+    "source statements=3",
+    "accepted=37",
+    "proposed=25",
+    "deferred=2",
+  ]) {
+    assert.ok(first.result.markdown.includes(count), `artifact is missing ${count}`);
+  }
+
+  const second = await runHarness({ run: "S2.2-artifact-verification-2" });
+  assert.equal(second.result.exitCode, 0, failure(second.result));
+  assert.equal(second.result.identity?.inputDigest, first.result.identity?.inputDigest);
+  assert.equal(second.evidence.artifactSha256, first.evidence.artifactSha256);
+  assert.deepEqual(
+    second.result.diagnostics.map((diagnostic) => diagnostic.code),
+    first.result.diagnostics.map((diagnostic) => diagnostic.code),
+  );
+  assert.equal(first.result.markdown?.includes(REPO_ROOT), false);
+  assert.equal(first.result.markdown?.includes(tmpdir()), false);
+
+  const catalog = JSON.parse(
+    await readFile(path.join(root, "profiles", "core000", "catalog.json"), "utf8"),
+  ) as { codes: Array<{ code: string; severity: string }> };
+  const expectedCounts: Record<string, number> = Object.fromEntries(
+    catalog.codes.map((entry) => [entry.code, 0]),
+  );
+  expectedCounts["core000.independent-verification.missing"] = 62;
+  expectedCounts["core000.surface.claim-missing"] = 6;
+  const observedCounts: Record<string, number> = Object.fromEntries(
+    catalog.codes.map((entry) => [
+      entry.code,
+      first.result.diagnostics.filter((diagnostic) => diagnostic.code === entry.code).length,
+    ]),
+  );
+  assert.deepEqual(observedCounts, expectedCounts);
+  const knownCodes = new Set(catalog.codes.map((entry) => entry.code));
+  assert.deepEqual(
+    [...new Set(first.result.diagnostics.map((diagnostic) => diagnostic.code))]
+      .filter((code) => !knownCodes.has(code))
+      .sort(),
+    [],
+  );
+  for (const diagnostic of first.result.diagnostics) {
+    assert.equal(
+      diagnostic.severity,
+      catalog.codes.find((entry) => entry.code === diagnostic.code)?.severity,
+      `unexpected severity for ${diagnostic.code}`,
+    );
+  }
+
+  const diagnosticId = (diagnostic: { message: string }): string => {
+    const match = /"([^"]+)"/.exec(diagnostic.message);
+    assert.ok(match, `diagnostic has no quoted id: ${diagnostic.message}`);
+    return match[1]!;
+  };
+  assert.deepEqual(
+    first.result.diagnostics
+      .filter((diagnostic) => diagnostic.code === "core000.independent-verification.missing")
+      .map(diagnosticId)
+      .sort(),
+    MISSING_REVIEW_IDS,
+  );
+  assert.deepEqual(
+    first.result.diagnostics
+      .filter((diagnostic) => diagnostic.code === "core000.surface.claim-missing")
+      .map(diagnosticId)
+      .sort(),
+    SURFACE_WARNING_IDS,
+  );
+
+  const model = await buildModel(projectDir);
+  const claims = model.byKind.get("claim") ?? [];
+  assert.equal(claims.length, 78);
+  assert.equal((model.byKind.get("evidence") ?? []).length, 34);
+  assert.equal((model.byKind.get("decision") ?? []).length, 15);
+  assert.equal((model.byKind.get("source_statement") ?? []).length, 3);
+
+  const design = await readFile(
+    path.join(root, "docs", "architecture", "core-000-self-contract.md"),
+    "utf8",
+  );
+  const register = design.split("### 4.2 Register")[1]?.split("### 4.3")[0] ?? "";
+  const designRows = register
+    .split("\n")
+    .filter((line) => /^\|\s*C000-[A-Z]+-\d{3}\s*\|/.test(line))
+    .map((line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim()))
+    .map((cells) => ({
+      id: cells[0]!,
+      statement: cells[1]!,
+      className: cells[2]!,
+      decision: cells[3]!,
+      implementation: cells[4]!,
+      tests: cells[5]!,
+    }));
+  assert.equal(designRows.length, 78);
+  const s1 = new Set(["C000-TR-001", "C000-TR-003", "C000-CT-025", "C000-CT-026", "C000-IM-004"]);
+  const byId = new Map(claims.map((claim) => [claim.id, claim]));
+  const none = (value: string): string => (value === "—" ? "none" : value);
+  for (const row of designRows) {
+    const claim = byId.get(row.id);
+    assert.ok(claim, `missing claim ${row.id}`);
+    if (s1.has(row.id)) continue;
+    assert.equal(claim.fields.statement, row.statement, `${row.id} statement`);
+    assert.equal(claim.fields.class, row.className, `${row.id} class`);
+    const status = claim.fields.status as Record<string, unknown>;
+    assert.equal(status.decision, none(row.decision), `${row.id} decision`);
+    assert.equal(status.implementation, none(row.implementation), `${row.id} implementation`);
+    assert.equal(status.tests, none(row.tests), `${row.id} tests`);
+    assert.equal(status.verification, "none", `${row.id} verification`);
+  }
+
+  const statuses = claims.map((claim) => claim.fields.status as Record<string, unknown>);
+  assert.equal(statuses.filter((status) => status.decision === "accepted").length, 37);
+  assert.equal(statuses.filter((status) => status.decision === "proposed").length, 25);
+  assert.equal(statuses.filter((status) => status.decision === "deferred").length, 2);
+  assert.equal(statuses.filter((status) => status.decision === "none").length, 14);
+  assert.equal(statuses.filter((status) => status.implementation === "implemented").length, 27);
+  assert.equal(statuses.filter((status) => status.tests === "tested").length, 27);
+  assert.equal(
+    statuses.filter((status) => status.verification === "independently_verified").length,
+    0,
+  );
+
+  const authorities = claims.map((claim) => String(claim.fields.authority));
+  assert.equal(authorities.filter((authority) => authority === "engine").length, 16);
+  assert.equal(authorities.filter((authority) => authority === "external").length, 23);
+  assert.equal(authorities.filter((authority) => authority === "human").length, 39);
+
+  const subjects = (id: string): string[] => (model.byId.get(id)?.relations.subject ?? []).sort();
+  assert.equal(subjects("C000-ST-001").length, 29);
+  assert.equal(subjects("C000-ST-002").length, 45);
+  assert.equal(subjects("C000-ST-004").length, 6);
+  assert.equal(subjects("C000-SV-006").length, 62);
+  for (const id of [
+    "C000-ST-003",
+    "C000-SV-003",
+    "C000-SV-005",
+    "C000-LM-001",
+    "C000-LM-002",
+    "C000-LM-003",
+    "C000-LM-006",
+    "C000-LM-007",
+    "C000-CT-020",
+  ]) {
+    assert.deepEqual(subjects(id), ["COMP-PROJECT"], `${id} proxy`);
+  }
+  assert.deepEqual(subjects("C000-SC-001"), ["COMP-PROJECT"]);
+  assert.deepEqual(subjects("C000-SV-004"), ["COMP-PROJECT"]);
+  assert.deepEqual(subjects("C000-SC-005"), ["DEC-TASK-C1-C14"]);
+  assert.deepEqual(subjects("C000-IM-008"), ["TB-CONSUMER-EXTENSION"]);
+  assert.deepEqual(subjects("C000-GAP-007"), ["DEC-D24"]);
+  for (const id of [
+    "C000-SC-004",
+    "C000-EV-002",
+    "C000-EV-003",
+    "C000-VF-001",
+    "C000-VF-002",
+    "C000-VF-003",
+    "C000-VF-004",
+    "C000-LM-004",
+  ]) {
+    assert.deepEqual(subjects(id), ["DEC-D13"], `${id} D13`);
+  }
+  for (const id of ["C000-CT-021", "C000-CT-024", "C000-GAP-003", "C000-LM-008"]) {
+    assert.deepEqual(subjects(id), ["SRC-PROVENANCE-001"], `${id} source`);
+  }
+  assert.equal(subjects("C000-EV-001").length, 15);
+  assert.equal(subjects("C000-GAP-001").length, 34);
+  assert.deepEqual(subjects("C000-TR-001"), ["TB-PROFILE-EXEC"]);
+  assert.deepEqual(subjects("C000-TR-003"), ["TB-PROFILE-EXEC"]);
+  assert.deepEqual(subjects("C000-CT-025"), ["IF-MANIFEST"]);
+  assert.deepEqual(subjects("C000-CT-026"), ["COMP-CORE"]);
+  assert.deepEqual(subjects("C000-IM-004"), ["IF-PROFILE-VALIDATOR"]);
+
+  const decisions = model.byKind.get("decision") ?? [];
+  assert.equal(decisions.length, 15);
+  assert.equal(
+    decisions.filter((decision) => decision.fields.status === "accepted").length,
+    12,
+  );
+  assert.equal(
+    decisions.filter((decision) => decision.fields.status === "proposed").length,
+    1,
+  );
+  assert.deepEqual(
+    decisions
+      .filter((decision) => decision.fields.status === "deferred")
+      .map((decision) => decision.id)
+      .sort(),
+    ["DEC-DEFER-019", "DEC-DEFER-023"],
+  );
+  const decidedBy = claims.flatMap((claim) => claim.relations.decidedBy ?? []);
+  assert.equal(decidedBy.length, 39);
+  assert.equal(
+    decisions.find((decision) => decision.id === "DEC-DESIGN-51")?.relations.decides?.length,
+    21,
+  );
+
+  assert.ok(
+    String(byId.get("C000-CT-011")?.fields.conditions).includes(
+      "Given a project whose canonical manifest declares its inputs and sources",
+    ),
+  );
+  assert.ok(
+    String(byId.get("C000-CT-012")?.fields.conditions).includes("Same engine version"),
+  );
+
+  const mutated = await runHarness({
+    mutation: "claim",
+    run: "S2.2-artifact-verification-stale",
+  });
+  assert.equal(mutated.result.exitCode, 0, failure(mutated.result));
+  assert.notEqual(mutated.result.markdown, committedText);
+  assert.notEqual(mutated.result.markdown, first.result.markdown);
+  assert.notEqual(mutated.evidence.artifactSha256, first.evidence.artifactSha256);
 });

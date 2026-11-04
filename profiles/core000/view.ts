@@ -70,6 +70,19 @@ const DEPENDENCY_KINDS: ReadonlySet<string> = new Set([
 
 const CONFORMANCE_CASE_KINDS: ReadonlySet<string> = new Set(["positive", "negative"]);
 
+export const CLAIM_CLASS_ORDER = [
+  "requirement",
+  "guarantee",
+  "assumption",
+  "constraint",
+  "implementation_fact",
+  "trust_boundary",
+  "proposal",
+  "limitation",
+  "non_goal",
+  "deferred",
+] as const;
+
 export type DependencyKind = "runtime" | "toolchain" | "pipeline" | "decision" | "product";
 export type ConformanceCaseKind = "positive" | "negative";
 
@@ -303,10 +316,29 @@ export interface ClaimView {
   readonly lifecycle: string;
   readonly verificationMethod: string;
   readonly scope: string;
+  readonly conditions: string;
+  readonly consequence: string;
+  readonly baseline: string;
+  readonly notes: string;
   readonly subjects: readonly SubjectView[];
   readonly evidence: readonly EvidenceLinkView[];
   readonly decisions: readonly DecisionLinkView[];
   readonly citations: readonly CitationView[];
+}
+
+export interface ClaimClassGroupView {
+  readonly className: string;
+  readonly claims: readonly ClaimView[];
+}
+
+export interface ClaimStatusCountsView {
+  readonly accepted: number;
+  readonly proposed: number;
+  readonly deferred: number;
+  readonly noneCount: number;
+  readonly implemented: number;
+  readonly tested: number;
+  readonly independentlyVerified: number;
 }
 
 export interface SourceStatementView {
@@ -366,6 +398,8 @@ export interface Core000View {
   readonly independentVerificationCount: number;
   readonly independentVerificationNote: string;
   readonly diagnostics: readonly DiagnosticView[];
+  readonly claimGroups: readonly ClaimClassGroupView[];
+  readonly claimStatusCounts: ClaimStatusCountsView;
   readonly counts: Readonly<Record<string, number>>;
 }
 
@@ -389,6 +423,23 @@ export function buildView(model: ProjectModel): Core000View {
     conformanceCaseView(model, entity),
   );
   const independentVerificationCount = (model.byKind.get("independent_verification") ?? []).length;
+  const claimGroups = CLAIM_CLASS_ORDER.map((className) => ({
+    className,
+    claims: claims.filter((claim) => claim.className === className),
+  })).filter((group) => group.claims.length > 0);
+  const countDecision = (value: string): number =>
+    claims.filter((claim) => claim.status.decision === value).length;
+  const claimStatusCounts = {
+    accepted: countDecision("accepted"),
+    proposed: countDecision("proposed"),
+    deferred: countDecision("deferred"),
+    noneCount: countDecision("none"),
+    implemented: claims.filter((claim) => claim.status.implementation === "implemented").length,
+    tested: claims.filter((claim) => claim.status.tests === "tested").length,
+    independentlyVerified: claims.filter(
+      (claim) => claim.status.verification === "independently_verified",
+    ).length,
+  };
 
   return {
     title: model.manifest.project.title ?? model.manifest.project.id,
@@ -413,6 +464,8 @@ export function buildView(model: ProjectModel): Core000View {
         ? "No independent verification record exists. The engine cannot establish independent verification."
         : `${independentVerificationCount} independent verification record(s) are declared; the engine can check their shape, not their truth.`,
     diagnostics: [],
+    claimGroups,
+    claimStatusCounts,
     counts: {
       components: components.length,
       interfaces: interfaces.length,
@@ -566,6 +619,10 @@ function claimView(model: ProjectModel, entity: Entity): ClaimView {
     lifecycle: text(entity.fields.lifecycle),
     verificationMethod: text(entity.fields.verification_method),
     scope: text(entity.fields.scope),
+    conditions: text(entity.fields.conditions),
+    consequence: text(entity.fields.consequence),
+    baseline: text(entity.fields.baseline),
+    notes: text(entity.fields.notes),
     subjects,
     evidence,
     decisions,

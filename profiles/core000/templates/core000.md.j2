@@ -2,6 +2,7 @@
 
 **Mode:** {{modeLabel}}
 **Counts:** components={{counts.components}} · interfaces={{counts.interfaces}} · phases={{counts.phases}} · transitions={{counts.transitions}} · extension points={{counts.extensionPoints}} · dependencies={{counts.dependencies}} · diagnostics={{counts.diagnostics}} · claims={{counts.claims}} · source statements={{counts.sourceStatements}} · evidence={{counts.evidence}} · decisions={{counts.decisions}} · conformance cases={{counts.conformanceCases}}
+**Claim status:** accepted={{claimStatusCounts.accepted}} · proposed={{claimStatusCounts.proposed}} · deferred={{claimStatusCounts.deferred}} · none={{claimStatusCounts.noneCount}} · implemented={{claimStatusCounts.implemented}} · tested={{claimStatusCounts.tested}} · independently verified={{claimStatusCounts.independentlyVerified}}
 
 ## Components
 
@@ -120,8 +121,11 @@ _None declared._
 {% endif %}
 ## Claims
 
-{% for claim in claims %}
-### {{claim.id}}
+{% for group in claimGroups %}
+### {{group.className}}
+
+{% for claim in group.claims %}
+#### {{claim.id}}
 
 - Class: `{{claim.className}}`
 - Status: decision=`{{claim.status.decision}}`, implementation=`{{claim.status.implementation}}`, tests=`{{claim.status.tests}}`, verification=`{{claim.status.verification}}`
@@ -130,6 +134,18 @@ _None declared._
 - Statement: {{claim.statement}}
 - Scope: {{claim.scope}}
 - Verification method: {{claim.verificationMethod}}
+{% if claim.conditions %}
+- Conditions: {{claim.conditions}}
+{% endif %}
+{% if claim.consequence %}
+- Consequence: {{claim.consequence}}
+{% endif %}
+{% if claim.baseline %}
+- Baseline: {{claim.baseline}}
+{% endif %}
+{% if claim.notes %}
+- Notes: {{claim.notes}}
+{% endif %}
 {% if claim.subjects.length > 0 %}
 - Subjects: {% for subject in claim.subjects %}{% if not loop.first %}, {% endif %}`{{subject.id}}` ({{subject.kind}}){% endfor %}
 {% endif %}
@@ -143,6 +159,7 @@ _None declared._
 - Decisions: {% for decision in claim.decisions %}{% if not loop.first %}, {% endif %}`{{decision.id}}` ({{decision.status}}){% endfor %}
 {% endif %}
 
+{% endfor %}
 {% endfor %}
 ## Source statements and provenance verification
 
