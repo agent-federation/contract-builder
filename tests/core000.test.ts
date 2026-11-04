@@ -5,7 +5,6 @@ import { access, lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:f
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml } from "yaml";
 import { runBuild, type BuildResult } from "../spec/lib/build.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { loadProject } from "../spec/lib/load.js";
@@ -18,7 +17,13 @@ import {
   REPO_ROOT,
   type Workspace,
 } from "../contracts/core000/run.js";
-import { EVIDENCE_KINDS, evidenceKind } from "../profiles/core000/view.js";
+import {
+  EVIDENCE_KINDS,
+  buildView,
+  conformanceCaseKind,
+  dependencyKind,
+  evidenceKind,
+} from "../profiles/core000/view.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const projectDir = path.join(root, "contracts", "core000");
@@ -60,17 +65,6 @@ function withClaims(model: ProjectModel, claims: unknown): ProjectModel {
   return { ...model, documents: { ...model.documents, claims } };
 }
 
-async function externalHumanClaimCount(): Promise<number> {
-  const document = parseYaml(await readFile(claimsPath, "utf8")) as {
-    claims: Array<{ lifecycle?: string; authority?: string }>;
-  };
-  return document.claims.filter(
-    (claim) =>
-      claim.lifecycle === "active" &&
-      (claim.authority === "external" || claim.authority === "human"),
-  ).length;
-}
-
 async function prepareN14Workspace(): Promise<{ workspace: Workspace; profileDir: string }> {
   const workspace = await prepareWorkspace();
   const profileDir = path.join(workspace.root, "profiles", "core000");
@@ -95,7 +89,7 @@ async function prepareN14Workspace(): Promise<{ workspace: Workspace; profileDir
   return { workspace, profileDir };
 }
 
-test("S1-POS-01: the positive draft builds through runBuild with only the missing-review finding", async () => {
+test("S1-POS-01: the positive draft builds with the exact 19-diagnostic S2.1 set", async () => {
   const run = await runHarness({ run: "S1-POS-01" });
   const result = run.result;
 
@@ -104,9 +98,41 @@ test("S1-POS-01: the positive draft builds through runBuild with only the missin
   assert.equal(result.written, false);
   assert.ok(result.identity !== null, "identity must be non-null");
   assert.ok(result.markdown !== null, "markdown must be non-null");
-  assert.deepEqual([...new Set(codes(result))], ["core000.independent-verification.missing"]);
-  assert.equal(result.diagnostics.length, await externalHumanClaimCount());
-  assert.equal(result.diagnostics.every((diagnostic) => diagnostic.severity === "review"), true);
+  assert.equal(result.diagnostics.length, 19);
+
+  const idOf = (diagnostic: { message: string }): string => {
+    const match = /"([^"]+)"/.exec(diagnostic.message);
+    assert.ok(match, `diagnostic has no quoted id: ${diagnostic.message}`);
+    return match[1]!;
+  };
+
+  const reviews = result.diagnostics.filter((diagnostic) => diagnostic.severity === "review");
+  const warnings = result.diagnostics.filter((diagnostic) => diagnostic.severity === "warning");
+  const errors = result.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  assert.equal(reviews.length, 3);
+  assert.equal(warnings.length, 16);
+  assert.equal(errors.length, 0);
+  assert.equal(reviews.every((diagnostic) => diagnostic.code === "core000.independent-verification.missing"), true);
+  assert.deepEqual(reviews.map(idOf).sort(), ["C000-IM-004", "C000-TR-001", "C000-TR-003"]);
+  assert.equal(warnings.every((diagnostic) => diagnostic.code === "core000.surface.claim-missing"), true);
+  assert.deepEqual(warnings.map(idOf).sort(), [
+    "COMP-ADAPTER",
+    "COMP-CLI",
+    "COMP-PROFILE",
+    "COMP-PROJECT",
+    "COMP-RENDERER",
+    "COMP-REVIEWER",
+    "IF-ADAPTER",
+    "IF-BUILD-IDENTITY",
+    "IF-BUILD-RESULT",
+    "IF-CLI",
+    "IF-CONFORMANCE",
+    "IF-CONSENT-CLI-FLAG",
+    "IF-CONSENT-OPTION",
+    "IF-DIAGNOSTIC",
+    "IF-PROJECT-MODEL",
+    "IF-RENDERER",
+  ]);
 });
 
 test("S1-POS-02: two separate processes produce the same identity, artifact hash and diagnostic order", () => {
@@ -552,7 +578,7 @@ test("S2.1 Slice 1 profile declaration surface", async () => {
   );
   assert.equal(Object.keys(profile.schemas).length, 16);
   assert.equal(profile.relations.length, 29);
-  assert.equal(profile.files.length, 25);
+  assert.equal(profile.files.length, 28);
 
   const byKey = new Map(
     profile.relations.map((relation) => [`${relation.from}.${relation.name}`, relation]),
@@ -668,7 +694,7 @@ test("S2.1 Slice 2 document pointers and structure inventory", async () => {
 
   assert.equal(Object.keys(model.profile.entityKinds).length, 14);
   assert.equal(model.profile.relations?.length, 29);
-  assert.equal(model.profile.files?.length, 25);
+  assert.equal(model.profile.files?.length, 28);
 
   assert.deepEqual(ids("component"), [
     "COMP-ADAPTER",
@@ -932,4 +958,166 @@ test("S2.1 trust consent facts apply only to the executable-profile boundary", a
     { id: "TB-CONSUMER-EXTENSION", policy_status: "settled", enforcement: "none" },
   ]);
   assert.deepEqual(trustPolicyFindings(unrelatedBoundary), []);
+});
+
+test("S2.1 view and template render the full model", async () => {
+  const model = await buildModel(projectDir);
+  const view = buildView(model);
+
+  assert.deepEqual(view.counts, {
+    components: 7,
+    interfaces: 12,
+    phases: 9,
+    transitions: 0,
+    extensionPoints: 4,
+    trustBoundaries: 2,
+    dependencies: 7,
+    diagnostics: 25,
+    claims: 5,
+    sourceStatements: 3,
+    evidence: 8,
+    decisions: 3,
+    conformanceCases: 0,
+    independentVerifications: 0,
+  });
+  assert.equal(view.phases.length, 9);
+  assert.equal(
+    view.phases.reduce((count, phase) => count + phase.prerequisites.length, 0),
+    8,
+  );
+  assert.deepEqual(
+    view.phases.find((phase) => phase.id === "PH-VERIFICATION")?.prerequisites,
+    ["PH-STRUCTURE", "PH-PROVENANCE"],
+  );
+  assert.equal(view.dependencies.find((dependency) => dependency.id === "ajv")?.kind, "runtime");
+  assert.equal(view.diagnosticCatalog.length, 25);
+  assert.deepEqual(view.diagnostics, []);
+
+  const run = await runHarness({ run: "S2.1-T15" });
+  const markdown = run.result.markdown;
+  assert.ok(markdown !== null);
+  for (const section of [
+    "## Phases",
+    "## Transitions",
+    "## Extension points",
+    "## Dependencies",
+    "## Diagnostic catalog",
+    "## Conformance cases",
+  ]) {
+    assert.ok(markdown.includes(section), `artifact is missing ${section}`);
+  }
+  assert.ok(markdown.includes("PH-VERIFICATION"));
+  assert.ok(markdown.includes("COMP-RENDERER"));
+  assert.ok(markdown.includes("core000.surface.claim-missing"));
+  assert.ok(markdown.includes(view.transitionNote));
+  assert.ok(markdown.includes("_None declared._"));
+  assert.ok(markdown.includes("- Prerequisites: `PH-STRUCTURE`, `PH-PROVENANCE`"));
+  assert.ok(markdown.includes("- Kind: `runtime`"));
+  assert.ok(markdown.includes("- Kind: `toolchain`"));
+
+  const catalogSection =
+    markdown.split("## Diagnostic catalog")[1]?.split("## Conformance cases")[0] ?? "";
+  assert.equal((catalogSection.match(/^- `/gm) ?? []).length, 25);
+  assert.ok(catalogSection.includes("core.profile.consent-required"));
+  assert.equal(markdown.includes(REPO_ROOT), false);
+});
+
+test("S2.1 Q5 domain-kind accessors are bounded and fail closed", async () => {
+  const model = await buildModel(projectDir);
+
+  assert.deepEqual(dependencyKind(model, "ajv"), { ok: true, kind: "runtime" });
+  assert.deepEqual(dependencyKind(model, "typescript"), { ok: true, kind: "toolchain" });
+  assert.deepEqual(dependencyKind(model, "COMP-CORE"), { ok: false, reason: "not-dependency" });
+  assert.deepEqual(dependencyKind(model, "DEP-MISSING"), { ok: false, reason: "missing" });
+
+  const structureDocument = model.documents.structure as {
+    dependencies: Array<Record<string, unknown>>;
+  };
+  const withDuplicate = {
+    ...model,
+    documents: {
+      ...model.documents,
+      structure: {
+        ...structureDocument,
+        dependencies: [...structureDocument.dependencies, { id: "ajv", kind: "runtime" }],
+      },
+    },
+  } as ProjectModel;
+  assert.deepEqual(dependencyKind(withDuplicate, "ajv"), { ok: false, reason: "duplicate" });
+
+  const withMalformed = {
+    ...model,
+    documents: {
+      ...model.documents,
+      structure: {
+        ...structureDocument,
+        dependencies: [{ id: "ajv", kind: "unknown-domain-kind" }],
+      },
+    },
+  } as ProjectModel;
+  assert.deepEqual(dependencyKind(withMalformed, "ajv"), { ok: false, reason: "malformed" });
+
+  const withoutStructure = { ...model, documents: {} } as ProjectModel;
+  assert.deepEqual(dependencyKind(withoutStructure, "ajv"), {
+    ok: false,
+    reason: "document-unavailable",
+  });
+
+  const claimsDocument = model.documents.claims as Record<string, unknown>;
+  const caseEntity = {
+    id: "CC-TEST",
+    kind: "conformance_case",
+    fields: {},
+    relations: {},
+  };
+  const withCase = {
+    ...model,
+    documents: {
+      ...model.documents,
+      claims: {
+        ...claimsDocument,
+        conformanceCases: [{ id: "CC-TEST", kind: "positive" }],
+      },
+    },
+    byId: new Map(model.byId).set("CC-TEST", caseEntity),
+  } as ProjectModel;
+  assert.deepEqual(conformanceCaseKind(withCase, "CC-TEST"), { ok: true, kind: "positive" });
+  assert.deepEqual(conformanceCaseKind(withCase, "COMP-CORE"), {
+    ok: false,
+    reason: "not-conformance-case",
+  });
+  assert.deepEqual(conformanceCaseKind(withCase, "CC-MISSING"), { ok: false, reason: "missing" });
+
+  const withDuplicateCase = {
+    ...withCase,
+    documents: {
+      ...withCase.documents,
+      claims: {
+        ...(withCase.documents.claims as Record<string, unknown>),
+        conformanceCases: [
+          { id: "CC-TEST", kind: "positive" },
+          { id: "CC-TEST", kind: "negative" },
+        ],
+      },
+    },
+  } as ProjectModel;
+  assert.deepEqual(conformanceCaseKind(withDuplicateCase, "CC-TEST"), {
+    ok: false,
+    reason: "duplicate",
+  });
+
+  const withMalformedCase = {
+    ...withCase,
+    documents: {
+      ...withCase.documents,
+      claims: {
+        ...(withCase.documents.claims as Record<string, unknown>),
+        conformanceCases: [{ id: "CC-TEST", kind: "unknown-domain-kind" }],
+      },
+    },
+  } as ProjectModel;
+  assert.deepEqual(conformanceCaseKind(withMalformedCase, "CC-TEST"), {
+    ok: false,
+    reason: "malformed",
+  });
 });

@@ -36,6 +36,55 @@ export function provenanceVerificationFindings(model: ProjectModel): ValidatorFi
     }
   }
 
+  for (const record of model.byKind.get("independent_verification") ?? []) {
+    const fields = record.fields;
+    const coveredClaims = (record.relations.verifies ?? []).flatMap((id) => {
+      const claim = model.byId.get(id);
+      return claim !== undefined && claim.kind === "claim" ? [claim] : [];
+    });
+    const claimResults = Array.isArray(fields.claim_results) ? fields.claim_results : [];
+    const resultsByClaim = new Set(
+      claimResults
+        .filter((entry): entry is Record<string, unknown> => isObject(entry))
+        .map((entry) => text(entry.claim)),
+    );
+    const complete =
+      nonEmpty(fields.method) &&
+      nonEmpty(fields.verifier) &&
+      nonEmpty(fields.independence) &&
+      nonEmpty(fields.independence_basis) &&
+      typeof fields.performed === "boolean" &&
+      nonEmpty(fields.result) &&
+      nonEmpty(fields.scope) &&
+      nonEmpty(fields.revision) &&
+      claimResults.length > 0 &&
+      nonEmpty(fields.limitations) &&
+      (fields.method !== "command_run" && fields.method !== "external_harness"
+        ? true
+        : Array.isArray(fields.commands) && fields.commands.length > 0) &&
+      (fields.performed !== true || nonEmpty(fields.date)) &&
+      coveredClaims.every((claim) => resultsByClaim.has(claim.id));
+    if (!complete) {
+      findings.push(finding("core000.independent-verification.incomplete", record, "claims.yml"));
+    }
+
+    const verifier = text(fields.verifier).trim();
+    if (
+      verifier.length > 0 &&
+      coveredClaims.some((claim) => text(claim.fields.author).trim() === verifier)
+    ) {
+      findings.push(finding("core000.independent-verification.self", record, "claims.yml"));
+    }
+
+    if (fields.performed === true && text(fields.result) !== "not_run") {
+      if (!isExternalRecordLocator(fields.record_locator)) {
+        findings.push(
+          finding("core000.independent-verification.record-missing", record, "claims.yml"),
+        );
+      }
+    }
+  }
+
   // Presence, not truth: an external/human-authority claim without a record is visible and
   // blocks release, but the absence is not an error in the self-description.
   for (const claim of model.byKind.get("claim") ?? []) {
@@ -63,8 +112,7 @@ export function hasValidIndependentVerification(model: ProjectModel, claim: Enti
     if (text(fields.independence) !== "independent") continue;
     if (fields.performed !== true) continue;
     if (text(fields.result) !== "confirmed") continue;
-    const locator = text(fields.record_locator);
-    if (locator.length === 0 || locator.startsWith("contracts/core000/")) continue;
+    if (!isExternalRecordLocator(fields.record_locator)) continue;
     const claimResults = Array.isArray(fields.claim_results) ? fields.claim_results : [];
     if (
       claimResults.some(
@@ -82,6 +130,17 @@ export function hasValidIndependentVerification(model: ProjectModel, claim: Enti
 
 function finding(code: string, statement: Entity, file: string): ValidatorFinding {
   return { code, entityId: statement.id, location: { file, pointer: "" } };
+}
+
+function isExternalRecordLocator(value: unknown): boolean {
+  let locator = text(value).trim().replace(/\\/g, "/");
+  if (locator.length === 0) return false;
+  locator = locator.replace(/^(?:\.\/)+/, "").replace(/\/{2,}/g, "/");
+  return !locator.startsWith("contracts/core000/");
+}
+
+function nonEmpty(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function text(value: unknown): string {

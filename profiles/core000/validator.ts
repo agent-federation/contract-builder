@@ -7,6 +7,9 @@ import type {
 import type { ProjectModel } from "../../spec/lib/ir.js";
 import type { ProvenanceVerificationClaim } from "../../spec/lib/provenance.js";
 import { claimEvidenceFindings } from "./checks/claim-evidence.js";
+import { conformanceFindings } from "./checks/conformance.js";
+import { evidenceFindings } from "./checks/evidence.js";
+import { modelStructureFindings } from "./checks/model-structure.js";
 import { provenanceVerificationFindings } from "./checks/provenance-verification.js";
 import { trustPolicyFindings } from "./checks/trust-policy.js";
 
@@ -19,6 +22,9 @@ export const validate = async (
     ...claimEvidenceFindings(model),
     ...trustPolicyFindings(model),
     ...provenanceVerificationFindings(model),
+    ...modelStructureFindings(model),
+    ...evidenceFindings(model),
+    ...conformanceFindings(model),
   ];
 };
 
