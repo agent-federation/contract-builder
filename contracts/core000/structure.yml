@@ -1,38 +1,492 @@
 components:
-  - id: COMP-CORE
-    name: "Contract Builder core"
-    responsibility: "Generic loading, structure, identity, relations, provenance binding, diagnostics, rendering and build identity."
-    boundary: engine
-    public: true
-    relations:
-      provides: [IF-MANIFEST, IF-BUILD-IDENTITY, IF-PROFILE-VALIDATOR]
-
+- id: COMP-CORE
+  name: Contract Builder core
+  responsibility: Generic loading, structure, identity, relations, provenance binding, diagnostics, rendering and build identity.
+  boundary: engine
+  public: true
+  relations:
+    provides:
+    - IF-MANIFEST
+    - IF-PROJECT-MODEL
+    - IF-BUILD-IDENTITY
+    - IF-DIAGNOSTIC
+    - IF-BUILD-RESULT
+    - IF-PROFILE-VALIDATOR
+    - IF-CONFORMANCE
+    - IF-CONSENT-OPTION
+    requires:
+    - ajv
+    - yaml
+- id: COMP-PROFILE
+  name: CORE-000 profile
+  responsibility: 'The CORE-000 executable profile: view, validator, checks, renderer and schemas.'
+  boundary: profile
+  public: true
+- id: COMP-PROJECT
+  name: CORE-000 project
+  responsibility: 'The CORE-000 project inputs: manifest, structure, claims and evidence references.'
+  boundary: project
+  public: true
+- id: COMP-ADAPTER
+  name: Source adapter
+  responsibility: Source adapters expose document bytes and locators to the engine.
+  boundary: consumer
+  public: true
+  relations:
+    provides:
+    - IF-ADAPTER
+- id: COMP-RENDERER
+  name: Artifact renderer
+  responsibility: Artifact renderers project the model into an output format.
+  boundary: consumer
+  public: true
+  relations:
+    provides:
+    - IF-RENDERER
+    requires:
+    - nunjucks
+- id: COMP-CLI
+  name: Consumer CLI
+  responsibility: Consumer CLI that selects the project and profile and gates executable-profile loading.
+  boundary: consumer
+  public: true
+  relations:
+    provides:
+    - IF-CLI
+    - IF-CONSENT-CLI-FLAG
+- id: COMP-REVIEWER
+  name: External reviewer
+  responsibility: External reviewer role that produces independent-verification records.
+  boundary: external
+  public: true
 interfaces:
-  - id: IF-MANIFEST
-    name: "Project manifest"
-    surface: file
-    stability: accepted
-    description: "contract-builder.json: project, profile, inputs, sources, render, output."
-    owner: COMP-CORE
-  - id: IF-BUILD-IDENTITY
-    name: "Build identity"
-    surface: data
-    stability: accepted
-    description: "BuildResult.identity: projectId, engineVersion, manifestVersion, inputDigest and the extensions list."
-    owner: COMP-CORE
-  - id: IF-PROFILE-VALIDATOR
-    name: "Profile validator hook"
-    surface: api
-    stability: accepted
-    description: "Profile validate(model, ctx) and optional verifyProvenance(model, ctx) exports, loaded only after explicit caller consent."
-    owner: COMP-CORE
-
+- id: IF-MANIFEST
+  name: Project manifest
+  surface: file
+  stability: accepted
+  description: 'contract-builder.json: project, profile, inputs, sources, render, output.'
+  owner: COMP-CORE
+- id: IF-BUILD-IDENTITY
+  name: Build identity
+  surface: data
+  stability: accepted
+  description: 'BuildResult.identity: projectId, engineVersion, manifestVersion, inputDigest and the extensions list.'
+  owner: COMP-CORE
+- id: IF-PROFILE-VALIDATOR
+  name: Profile validator hook
+  surface: api
+  stability: accepted
+  description: Profile validate(model, ctx) and optional verifyProvenance(model, ctx) exports, loaded only after explicit caller consent.
+  owner: COMP-CORE
+- id: IF-PROJECT-MODEL
+  name: Project model
+  surface: data
+  stability: accepted
+  description: 'ProjectModel: documents, typed collections, relation index and provenance index produced from the loaded project.'
+  owner: COMP-CORE
+- id: IF-DIAGNOSTIC
+  name: Diagnostic record
+  surface: data
+  stability: accepted
+  description: 'Diagnostic record: code, severity, phase, message and status used by build results and the catalog.'
+  owner: COMP-CORE
+- id: IF-BUILD-RESULT
+  name: Build result
+  surface: data
+  stability: accepted
+  description: 'BuildResult: model, diagnostics, identity and rendered output.'
+  owner: COMP-CORE
+- id: IF-CONFORMANCE
+  name: Declarative conformance surface
+  surface: data
+  stability: accepted
+  description: 'Declarative conformance surface: conformance cases and their claim coverage.'
+  owner: COMP-CORE
+- id: IF-ADAPTER
+  name: Source adapter interface
+  surface: api
+  stability: accepted
+  description: 'Source adapter contract: read document bytes and resolve locators for a declared source.'
+  owner: COMP-ADAPTER
+- id: IF-RENDERER
+  name: Renderer interface
+  surface: api
+  stability: accepted
+  description: 'Renderer contract: project the model into an output format.'
+  owner: COMP-RENDERER
+- id: IF-CLI
+  name: Consumer CLI
+  surface: cli
+  stability: deferred
+  description: Consumer CLI surface; accepted but deferred (C000-CT-016/017).
+  owner: COMP-CLI
+- id: IF-CONSENT-OPTION
+  name: Executable-profile consent option (allowExecutableProfile)
+  surface: api
+  stability: accepted
+  description: 'BuildOptions.allowExecutableProfile: explicit consent for executable profile loading.'
+  owner: COMP-CORE
+- id: IF-CONSENT-CLI-FLAG
+  name: Executable-profile consent CLI flag (--allow-executable-profile)
+  surface: cli
+  stability: accepted
+  description: '--allow-executable-profile: CLI flag carrying explicit consent for executable profile loading.'
+  owner: COMP-CLI
 trustBoundaries:
-  - id: TB-PROFILE-EXEC
-    name: "Executable profile loading"
-    inside: "Profile view/validator modules and their declared closure run with builder privileges."
-    outside: "No sandbox, capability restriction or process isolation exists."
-    enforcement: explicit_consent
-    statement: "Loading a profile is a trust decision equivalent to installing a dependency; executable profile modules require explicit caller consent, are not sandboxed, and remain in-process with builder privileges."
-    policy_status: settled
-    policy_ref: "#35 (closed; PR #50 merged)"
+- id: TB-PROFILE-EXEC
+  name: Executable profile loading
+  inside: Profile view/validator modules and their declared closure run with builder privileges.
+  outside: No sandbox, capability restriction or process isolation exists.
+  enforcement: explicit_consent
+  statement: Loading a profile is a trust decision equivalent to installing a dependency; executable profile modules require explicit caller consent, are not sandboxed, and remain in-process with builder privileges.
+  policy_status: settled
+  policy_ref: '#35 (closed; PR #50 merged)'
+  relations:
+    concerns:
+    - EXT-PROFILE-VIEW
+    - EXT-PROFILE-VALIDATOR
+- id: TB-CONSUMER-EXTENSION
+  name: Consumer-supplied extension import
+  inside: Consumer-supplied adapter/renderer code imported by the consumer into the builder process
+  outside: The engine's executable-profile consent gate; allowExecutableProfile does not cover this import
+  enforcement: none
+  statement: Importing a consumer-supplied adapter or renderer is the consumer's own trust decision; the engine does not gate, sandbox or isolate that import.
+  policy_status: settled
+  policy_ref: 'Q2 decision (Issue #84, 2026-11-04)'
+  relations:
+    concerns:
+    - EXT-RENDERER
+    - EXT-ADAPTER
+phases:
+- id: PH-LOAD
+  name: load
+  guarantee: bytes read, manifest parsed, profile resolved
+  not_guaranteed: content correctness
+- id: PH-STRUCTURE
+  name: structure
+  guarantee: documents match input schemas; extracted entities match kind schemas
+  not_guaranteed: semantic meaning
+  relations:
+    hasPrerequisite:
+    - PH-LOAD
+- id: PH-REFERENCE
+  name: reference
+  guarantee: IDs unique, relations resolvable
+  not_guaranteed: that references are appropriate
+  relations:
+    hasPrerequisite:
+    - PH-STRUCTURE
+- id: PH-PROVENANCE
+  name: provenance
+  guarantee: binding shape and declared source; a ProvenanceVerification result is stored separately with its own status and record
+  not_guaranteed: that the quote is in the source; that a binding is verified evidence
+  relations:
+    hasPrerequisite:
+    - PH-STRUCTURE
+- id: PH-VERIFICATION
+  name: verification
+  guarantee: the profile verifier's recorded result is well formed and tied to the loaded source digest
+  not_guaranteed: that the verifier is honest, independent or correct; that the quote was well chosen
+  relations:
+    hasPrerequisite:
+    - PH-STRUCTURE
+    - PH-PROVENANCE
+- id: PH-CONSISTENCY
+  name: consistency
+  guarantee: declared fields do not contradict profile rules
+  not_guaranteed: normative truth
+  relations:
+    hasPrerequisite:
+    - PH-STRUCTURE
+- id: PH-REVIEW
+  name: review
+  guarantee: unconfirmed content is marked and gated
+  not_guaranteed: that the reviewer is right
+  relations:
+    hasPrerequisite:
+    - PH-STRUCTURE
+- id: PH-CONFORMANCE
+  name: conformance
+  guarantee: vectors are structurally and referentially consistent
+  not_guaranteed: execution
+  relations:
+    hasPrerequisite:
+    - PH-STRUCTURE
+- id: PH-ARTIFACT
+  name: artifact
+  guarantee: output is deterministic and matches the checked artifact
+  not_guaranteed: that the document is meaningful
+transitions: []
+extensionPoints:
+- id: EXT-PROFILE-VIEW
+  name: Profile view module
+  mechanism: dynamic_import
+  trust: trusted_in_process
+  status: implemented
+  relations:
+    loadedBy: COMP-CORE
+- id: EXT-PROFILE-VALIDATOR
+  name: Profile validator hook
+  mechanism: dynamic_import
+  trust: trusted_in_process
+  status: implemented
+  relations:
+    loadedBy: COMP-CORE
+    exposes:
+    - IF-PROFILE-VALIDATOR
+- id: EXT-RENDERER
+  name: Renderer registry entry
+  mechanism: consumer_registry
+  trust: trusted_consumer_supplied
+  status: implemented
+  relations:
+    loadedBy: COMP-CORE
+    exposes:
+    - IF-RENDERER
+- id: EXT-ADAPTER
+  name: Source adapter registry entry
+  mechanism: static_import
+  trust: trusted_in_process
+  status: implemented
+  relations:
+    loadedBy: COMP-CORE
+    exposes:
+    - IF-ADAPTER
+diagnostics:
+- id: core000.claim.implemented-without-evidence
+  code: core000.claim.implemented-without-evidence
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" is marked implemented but has no code, test or CI evidence.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.tested-without-test
+  code: core000.claim.tested-without-test
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" is marked tested but has no test/CI evidence or a verification method.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.decision-required
+  code: core000.claim.decision-required
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" has decision "{{status.decision}}" but its decidedBy relation does not agree with that status.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.decision.unresolved
+  code: core000.decision.unresolved
+  severity: review
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" is linked to unresolved decision "{{decisionId}}".
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.missing-subject
+  code: core000.claim.missing-subject
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" has no subject relation.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.subject-kind-mismatch
+  code: core000.claim.subject-kind-mismatch
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" subject "{{subjectId}}" has kind "{{subjectKind}}", expected "{{subject_kind}}".
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.source.verification-missing
+  code: core000.source.verification-missing
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Source statement "{{id}}" has no stored provenance verification record.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.source.verification-failed
+  code: core000.source.verification-failed
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Source statement "{{id}}" failed provenance verification with outcome "{{outcome}}".
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.source.verification-unavailable
+  code: core000.source.verification-unavailable
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Source statement "{{id}}" has an unavailable provenance verification record.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.verification-not-independent
+  code: core000.claim.verification-not-independent
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" is marked independently_verified without a valid independent-verification record.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.independent-verification.missing
+  code: core000.independent-verification.missing
+  severity: review
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" (authority "{{authority}}") has no independent verification record.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.policy-mismatch
+  code: core000.claim.policy-mismatch
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" contradicts the settled executable-profile consent policy.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.trust.consent-facts
+  code: core000.trust.consent-facts
+  severity: review
+  phase: PH-CONSISTENCY
+  message: Trust boundary "{{id}}" must be policy_status settled with enforcement explicit_consent; found "{{policy_status}}" and "{{enforcement}}".
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.invalid-status
+  code: core000.claim.invalid-status
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" carries an invalid status value.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.unsupported-guarantee
+  code: core000.claim.unsupported-guarantee
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" asserts a guarantee with no supporting evidence.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.claim.status-class-conflict
+  code: core000.claim.status-class-conflict
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Claim "{{id}}" has a class/status combination the profile does not accept.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.independent-verification.incomplete
+  code: core000.independent-verification.incomplete
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Independent verification "{{id}}" is incomplete.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.independent-verification.self
+  code: core000.independent-verification.self
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Independent verification "{{id}}" is not produced by a distinct verifier.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.independent-verification.record-missing
+  code: core000.independent-verification.record-missing
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Independent-verification record "{{id}}" is missing.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.model.interface-owner-mismatch
+  code: core000.model.interface-owner-mismatch
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Interface "{{id}}" has owner "{{owner}}", which does not match its providing component.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.evidence.locator
+  code: core000.evidence.locator
+  severity: error
+  phase: PH-CONSISTENCY
+  message: Evidence "{{id}}" has an empty locator or revision after trimming.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.evidence.orphan
+  code: core000.evidence.orphan
+  severity: warning
+  phase: PH-CONSISTENCY
+  message: Evidence "{{id}}" supports no claim.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.surface.claim-missing
+  code: core000.surface.claim-missing
+  severity: warning
+  phase: PH-CONSISTENCY
+  message: Public surface "{{id}}" has no covering claim.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core000.conformance.case-uncovered
+  code: core000.conformance.case-uncovered
+  severity: warning
+  phase: PH-CONSISTENCY
+  message: Conformance case "{{id}}" is not covered by a claim.
+  status: declared
+  relations:
+    raisedIn: PH-CONSISTENCY
+- id: core.profile.consent-required
+  code: core.profile.consent-required
+  severity: error
+  phase: PH-LOAD
+  message: Executable profile loading requires explicit caller consent.
+  status: declared
+  relations:
+    raisedIn: PH-LOAD
+dependencies:
+- id: bun
+  name: Bun runtime
+  kind: runtime
+  status: declared
+  version: '>=1.4.0'
+  consequence: packageManager pins bun@1.4.2; the runtime range is >=1.4.0.
+- id: ajv
+  name: JSON Schema validator
+  kind: runtime
+  status: resolved
+  version: 8.20.0
+- id: nunjucks
+  name: Template engine
+  kind: runtime
+  status: resolved
+  version: 3.2.4
+- id: yaml
+  name: YAML parser
+  kind: runtime
+  status: resolved
+  version: 2.9.1
+- id: typescript
+  name: TypeScript compiler
+  kind: toolchain
+  status: resolved
+  version: 5.9.3
+- id: '@types/node'
+  name: Node type definitions
+  kind: toolchain
+  status: resolved
+  version: 22.20.5
+- id: '@types/nunjucks'
+  name: Nunjucks type definitions
+  kind: toolchain
+  status: resolved
+  version: 3.2.6
