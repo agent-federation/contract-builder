@@ -798,3 +798,63 @@ R-PAP-2 adds a diagnostic code permitted by Appendix C's existing pattern. R-PAP
 change: it adds an optional Appendix B property and a matching Appendix C `effectiveLimits` enum
 entry; both are optional if the maintainer prefers a fixed, non-lowerable default, in which case
 the report schema is unchanged.
+
+---
+
+## Proposed decision-record entries (draft text, not a record)
+
+The following is draft text for the canonical PAP decision record if the maintainer accepts a
+recommendation. It is **not** a decision record and records no owner decision; the maintainer may
+accept, amend or reject any entry. Each entry names the evidence and the normative changes it would
+authorize. Accepted entries would be recorded by `it-start` in the established proposal flow (#84).
+
+### R-PAP-1 entry
+
+- **Proposed decision:** B. A `PACKAGE` that is a symbolic link to a directory is permitted; the
+  verifier resolves it once and applies §4.3.2 containment to the resolved root. A link that does
+  not resolve is `pap.package.not-found`/74; a resolved non-directory is `pap.cli.usage`/64.
+  Symbolic links at or below a declared payload path remain rejected.
+- **Normative changes:** §4.3.2, §9.2, §9.10 and Appendix J `pap.package.not-found`.
+- **Evidence:** RFC §4.3.2/§9.2/§9.7/§9.10/§10.5; reference `pap/src/paths.ts:79–109`; probes P2–P4;
+  Issue #95 FS-01.
+- **Consequences:** no new diagnostic; FS-01 expectation changes from `FAIL/1` to `PASS/0`;
+  go/rust/python need root resolution if FS-01 is retained.
+
+### R-PAP-2 entry
+
+- **Proposed decision:** A. A traversal error during the undeclared-file scan yields
+  `pap.package.undeclared-scan-incomplete` (warning), a limitation, `coverage.full: false` and a
+  verdict at most `INCOMPLETE`; it is never `FAIL` by itself. Declared-file I/O remains
+  `pap.package.io`/`declared-file-missing`/`FAIL`.
+- **Normative changes:** §4.3.3, §7.5, Appendix J, §13.8.
+- **Evidence:** RFC §4.3.3/§7.3/§7.5/Appendix J; reference `pap/src/verify.ts:1347–1353` and
+  `:307–308`; probe P7.
+- **Consequences:** the reference changes from `pap.package.io`/`FAIL`/`coverage.full:true` to the
+  new code/`INCOMPLETE`/`coverage.full:false`; no dimension changes; no portable static §12 case.
+
+### R-PAP-3 entry
+
+- **Proposed decision:** A. Add a normative `scanEntries` limit (default 8 192) on entries visited by
+  the undeclared-file scan. Exceeding it is `pap.package.limit-exceeded`, the scan is incomplete,
+  `coverage.full: false`, verdict at most `INCOMPLETE`. The limit is policy-lowerable through
+  `limits.scanEntries` and reported in `effectiveLimits` (or fixed and non-lowerable if the
+  maintainer prefers the narrower variant).
+- **Normative changes:** §4.3.4, §10.5, §7.5, Appendix B and Appendix C (only for the lowerable
+  variant), §13.8.
+- **Evidence:** RFC §4.3.4/§10.5/T17; reference `pap/src/paths.ts:316`,
+  `pap/src/verify.ts:1348–1350`, `pap/tests/hostile.test.ts:239–255`; probes P8/P8b.
+- **Consequences:** the reference's hidden 8 192-entry cap becomes normative; a package above the
+  cap changes from `PASS` to `INCOMPLETE`; the external directory-count test becomes
+  conformance-eligible or is reclassified under B.
+
+### R-PAP-4 entry
+
+- **Proposed decision:** A. The duplicate and case-fold rules apply to all declared payload paths as
+  one set. A well-formed package cannot contain one package-relative path in two classes because
+  the class roots are disjoint; no separate cross-class collision rule or diagnostic is added.
+  F24 remains the exact within-class case-only expectation.
+- **Normative changes:** §4.3.1 wording only.
+- **Evidence:** RFC §4.3.1/§4.3.3/T4/Appendix J; `pap/src/manifest.ts:720–750`; F24; probes
+  P9–P11.
+- **Consequences:** no code change; verify that implementations use a global duplicate set; no
+  §12 corpus change.
