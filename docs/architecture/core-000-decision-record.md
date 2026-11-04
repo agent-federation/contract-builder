@@ -207,10 +207,10 @@ decisions, including:
 
 **Still gated.** S2.2, S2.3 and S3 each require their own separate, explicit maintainer
 authorization. This authorization does not extend to generic-core changes, new normative semantics,
-artifact/evidence creation, claim promotion or independent-verification records. The planning
-decisions above remain historical planning decisions; this section is the canonical record of the
-S2.1 implementation authorization and supersedes only the earlier “S2.1 not authorized” current-status
-statements.
+CORE-000 draft or durable producer-evidence creation, claim promotion or independent-verification
+records. The planning decisions above remain historical planning decisions; this section is the
+canonical record of the S2.1 implementation authorization and supersedes only the earlier “S2.1 not
+authorized” current-status statements.
 
 ---
 
