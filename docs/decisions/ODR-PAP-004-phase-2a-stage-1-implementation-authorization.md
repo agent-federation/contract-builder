@@ -1,6 +1,6 @@
 # ODR-PAP-004 — Owner Decision Record: Phase 2a Stage 1 Implementation Authorization
 
-**Status:** APPROVED — owner approved the Stage 1 scope and the A1–A4 erratum approach on 2026-11-04; this PR publishes the exact authorization text for merge.
+**Status:** APPROVED — owner approved the Stage 1 scope and the A1–A4 errata approach on 2026-11-04; this PR publishes the exact authorization text for merge.
 **Date:** 2026-11-04
 **Decision scope:** Stage 1 of the Phase 2a implementation: normative text, experiment brief/case set, bundle v2 and reference alignment. Stage 2 (lab harness, external contract, new blind run) is excluded.
 **Baseline:** `contract-builder` main `5249aab` (ODR-PAP-003 merged); RFC `a171fdcf…`; `cases.json` `8ae2693b…`; bundle `contract-builder-independent` `c568051`; proposal heads `b76e9a7` (#98) / `a39a066` (#99, content identical to the reviewed `ae8f383`).
@@ -132,7 +132,7 @@ Stop and escalate if any of the following occurs:
 
 **Proposed decision:** authorize Stage 1 as described, including the A1–A4 errata/clarifications.
 
-**Owner decision:** APPROVED on 2026-11-04 (Stage 1 scope and A1–A4 erratum approach). The exact text above is published for the record; the owner may amend before merge if it differs from the approved scope.
+**Owner decision:** APPROVED on 2026-11-04 (Stage 1 scope and A1–A4 errata approach). The exact text above is published for the record; the owner may amend before merge if it differs from the approved scope.
 
 **Owner approval reference:** session approval, 2026-11-04; merge of this record completes the authorization. If desired, the owner may add an issue comment link for the canonical approval reference.
 
