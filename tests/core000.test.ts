@@ -687,18 +687,20 @@ test("S2.1 trust consent facts apply only to the executable-profile boundary", a
   ) =>
     ({
       ...model,
-      byKind: new Map(model.byKind).set(
-        "trust_boundary",
-        boundaries.map((boundary) => ({
-          id: boundary.id,
-          kind: "trust_boundary",
-          fields: {
-            policy_status: boundary.policy_status,
-            enforcement: boundary.enforcement,
-          },
-          relations: {},
-        })),
-      ),
+      byKind: new Map(model.byKind)
+        .set("claim", [])
+        .set(
+          "trust_boundary",
+          boundaries.map((boundary) => ({
+            id: boundary.id,
+            kind: "trust_boundary",
+            fields: {
+              policy_status: boundary.policy_status,
+              enforcement: boundary.enforcement,
+            },
+            relations: {},
+          })),
+        ),
     }) as ProjectModel;
 
   const invalidProfile = withBoundaries([
