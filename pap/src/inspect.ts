@@ -358,11 +358,24 @@ async function reportUndeclared(
     if (ref !== undefined) declared.add(ref.path.toLowerCase());
   }
   const walk = await walkPackageFiles(root, limits);
+  // R-PAP-2/R-PAP-3: the same scan-incomplete code covers enumeration
+  // failures and private entry/depth budget stops; inspect is not a
+  // verification report, so the code is only a warning plus a limitation.
   if (walk.limitHit) {
-    diag("pap.package.limit-exceeded", "error", "package", "directory enumeration exceeded the verifier budget");
+    diag(
+      "pap.package.undeclared-scan-incomplete",
+      "warning",
+      "package",
+      "the undeclared-file scan stopped at the verifier entry or depth budget",
+    );
   }
   if (walk.error !== null) {
-    diag("pap.package.io", "error", "package", walk.error);
+    diag(
+      "pap.package.undeclared-scan-incomplete",
+      "warning",
+      "package",
+      `${walk.error}; the absence of undeclared files was not established`,
+    );
   }
   let nestedManifest = false;
   for (const file of walk.files) {
