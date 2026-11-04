@@ -44,6 +44,9 @@ export function trustPolicyFindings(model: ProjectModel): ValidatorFinding[] {
   }
 
   for (const boundary of model.byKind.get("trust_boundary") ?? []) {
+    // `core000.trust.consent-facts` describes the executable-profile consent gate only.
+    // Other trust boundaries carry their own accepted policy and must not be judged by it.
+    if (boundary.id !== CONSENT_BOUNDARY) continue;
     const policyStatus = text(boundary.fields.policy_status);
     const enforcement = text(boundary.fields.enforcement);
     if (policyStatus === "settled" && enforcement === "explicit_consent") continue;
