@@ -19,7 +19,12 @@
       "entities": [
         { "kind": "component", "pointer": "/components" },
         { "kind": "interface", "pointer": "/interfaces" },
-        { "kind": "trust_boundary", "pointer": "/trustBoundaries" }
+        { "kind": "trust_boundary", "pointer": "/trustBoundaries" },
+        { "kind": "phase", "pointer": "/phases" },
+        { "kind": "transition", "pointer": "/transitions" },
+        { "kind": "extension_point", "pointer": "/extensionPoints" },
+        { "kind": "diagnostic", "pointer": "/diagnostics" },
+        { "kind": "dependency", "pointer": "/dependencies" }
       ]
     },
     {
@@ -31,7 +36,8 @@
         { "kind": "claim", "pointer": "/claims" },
         { "kind": "evidence", "pointer": "/evidence" },
         { "kind": "independent_verification", "pointer": "/independentVerifications" },
-        { "kind": "decision", "pointer": "/decisions" }
+        { "kind": "decision", "pointer": "/decisions" },
+        { "kind": "conformance_case", "pointer": "/conformanceCases" }
       ]
     }
   ],
