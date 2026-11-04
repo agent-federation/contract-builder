@@ -10,6 +10,12 @@ defensive checks with stated guarantees. Q7: machine-decidable class/status subs
 dependency rows with exact versions and three import-grounded edges. Q9: no S2.1 artifacts; draft
 planned for S2.2, evidence for S2.3. Q10: all 7 components and 12 interfaces public, 16 uncovered
 IDs. No planning question remains open.
+
+**Reconciliation status:** questions resolved and this planning package reconciled; upstream
+sources (accepted design, S2 package, Issue #84) are **not yet synchronized** (28→29 relations, Q9
+stage allocation, and missing canonical Q1/Q3/Q5/Q10 detail). See
+[`S2.1-implementation-plan.md`](S2.1-implementation-plan.md) §4.4 for the exact deltas and owner
+actions.
 **Prepared for:** [Issue #84](https://github.com/agent-federation/contract-builder/issues/84).
 **Baseline:** `8d881d410c9945f7f5925fbf5772b06be2e9cc120` (`main`, 2026-11-02).
 **Accepted sources:** [`core-000-self-contract.md`](../../core-000-self-contract.md) (design),
