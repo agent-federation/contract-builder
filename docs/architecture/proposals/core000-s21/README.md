@@ -1,7 +1,9 @@
 # CORE-000 S2.1 implementation proposal — model surface and structure
 
-**Status:** planning-only proposal package for maintainer review. It authorizes no implementation and
-changes no code, schema, fixture, test, evidence or generated artifact. **All ten planning
+**Status:** planning proposal package for maintainer review. It changes no code, schema, fixture,
+test, evidence or generated artifact. **S2.1 implementation was authorized by the project owner on
+2026-11-04** (Issue #84 comment 6623307799) and is not yet performed; S2.2 and S2.3 remain separately
+gated. **All ten planning
 questions (Q1–Q10) are resolved by owner decisions (2026-11-03/04).** Q1: 9 phases, 8
 `hasPrerequisite` edges, zero transition instances, 29 relations. Q2: a second consumer-extension
 trust boundary and a scoped consent-facts check. Q3: 25 diagnostics (24 profile-owned + 1 core-owned).
@@ -17,7 +19,8 @@ Q1/Q3/Q5/Q10 decisions, the 29-relation inventory, the Q9 stage allocation and t
 description; PR #92 completed the three current/forward-looking 23→24 policy-check count corrections
 while preserving historical S1 references, and Issue #91 is closed. See
 [`S2.1-implementation-plan.md`](S2.1-implementation-plan.md) §4.4 for the reconciliation record. S2.1
-implementation remains **not authorized and not performed**.
+implementation was **authorized on 2026-11-04** and is **not yet performed**; S2.2 and S2.3 remain
+separately gated.
 **Prepared for:** [Issue #84](https://github.com/agent-federation/contract-builder/issues/84).
 **Baseline:** `8d881d410c9945f7f5925fbf5772b06be2e9cc120` (`main`, 2026-11-02).
 **Accepted sources:** [`core-000-self-contract.md`](../../core-000-self-contract.md) (design),
@@ -39,7 +42,7 @@ requiring maintainer review, or unresolved.
 | [`S2.1-change-inventory.md`](S2.1-change-inventory.md) | Path-by-path inventory with current state, change, rationale, dependency, risk and status (required / conditional / no change; no S2.1 row is conditional now). |
 | [`S2.1-test-plan.md`](S2.1-test-plan.md) | S2.1 test matrix, exact expected diagnostic set, and the S2.1 / S2.3 / S3 boundary. |
 | [`S2.1-open-questions.md`](S2.1-open-questions.md) | Maintainer decisions with resolution status, evidence, options, recommendation, consequence and blocking status. |
-| [`S2.1-maintainer-summary.md`](S2.1-maintainer-summary.md) | Verified facts, proposed implementation, recommendations, open decisions, blockers and the exact authorization requested. |
+| [`S2.1-maintainer-summary.md`](S2.1-maintainer-summary.md) | Verified facts, proposed implementation, recommendations, blockers and the authorization status. |
 
 ## What this package does not do
 
