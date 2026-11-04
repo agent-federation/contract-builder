@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { access, lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -491,5 +491,186 @@ test("S1 evidence kind: the profile-local accessor covers every permitted kind a
     );
   } finally {
     await workspace.cleanup();
+  }
+});
+
+interface ProfileDeclaration {
+  entityKinds: Record<string, unknown>;
+  schemas: Record<string, string>;
+  relations: Array<{
+    name: string;
+    from: string;
+    to: string;
+    cardinality?: string;
+    inverse?: string;
+  }>;
+  files: string[];
+}
+
+const profilePath = path.join(root, "profiles", "core000", "profile.json");
+
+async function readProfileDeclaration(): Promise<ProfileDeclaration> {
+  return JSON.parse(await readFile(profilePath, "utf8")) as ProfileDeclaration;
+}
+
+async function profileDirectoryFiles(): Promise<string[]> {
+  const profileDir = path.join(root, "profiles", "core000");
+  const entries = await readdir(profileDir, { recursive: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(profileDir, entry);
+    if ((await lstat(full)).isFile()) files.push(entry.split(path.sep).join("/"));
+  }
+  return files.sort();
+}
+
+test("S2.1 Slice 1 profile declaration surface", async () => {
+  const profile = await readProfileDeclaration();
+
+  assert.deepEqual(
+    Object.keys(profile.entityKinds).sort(),
+    [
+      "claim",
+      "component",
+      "conformance_case",
+      "decision",
+      "dependency",
+      "diagnostic",
+      "evidence",
+      "extension_point",
+      "independent_verification",
+      "interface",
+      "phase",
+      "source_statement",
+      "transition",
+      "trust_boundary",
+    ].sort(),
+  );
+  assert.equal(Object.keys(profile.schemas).length, 16);
+  assert.equal(profile.relations.length, 29);
+  assert.equal(profile.files.length, 25);
+
+  const byKey = new Map(
+    profile.relations.map((relation) => [`${relation.from}.${relation.name}`, relation]),
+  );
+  for (const relation of profile.relations) {
+    if (relation.inverse === undefined) continue;
+    const inverse = byKey.get(`${relation.to}.${relation.inverse}`);
+    assert.ok(inverse, `missing inverse ${relation.inverse} for ${relation.name}`);
+    assert.equal(inverse.from, relation.to);
+    assert.equal(inverse.to, relation.from);
+    assert.equal(inverse.inverse, relation.name);
+  }
+
+  assert.equal(
+    profile.relations.find((relation) => relation.name === "subject")?.inverse,
+    undefined,
+  );
+  for (const name of ["startsAt", "endsAt", "raisedIn", "hasPrerequisite"]) {
+    assert.equal(profile.relations.find((relation) => relation.name === name)?.inverse, undefined);
+  }
+
+  assert.deepEqual(
+    profile.relations
+      .filter((relation) => relation.cardinality === "one")
+      .map((relation) => relation.name)
+      .sort(),
+    ["endsAt", "loadedBy", "raisedIn", "startsAt"],
+  );
+  assert.deepEqual(
+    profile.relations.filter((relation) => relation.to === "*").map((relation) => relation.name),
+    ["subject"],
+  );
+  assert.deepEqual(
+    profile.relations.find((relation) => relation.name === "hasPrerequisite"),
+    { name: "hasPrerequisite", from: "phase", to: "phase", cardinality: "many" },
+  );
+
+  assert.deepEqual(await profileDirectoryFiles(), [...profile.files].sort());
+});
+
+test("S2.1 Slice 1 schemas load and validate each new kind", async () => {
+  const profile = await readProfileDeclaration();
+  const diagnostics = new Diagnostics();
+  const loaded = await loadProject(projectDir, diagnostics);
+  assert.ok(loaded !== null, diagnostics.report());
+  const schemas = await loadSchemas(loaded.project, diagnostics);
+  assert.ok(schemas !== null, diagnostics.report());
+
+  const ids = new Set<string>();
+  for (const relative of Object.values(profile.schemas)) {
+    const schema = JSON.parse(
+      await readFile(path.join(root, "profiles", "core000", relative), "utf8"),
+    ) as { $id?: unknown };
+    assert.equal(typeof schema.$id, "string", `${relative} must declare $id`);
+    ids.add(schema.$id as string);
+  }
+  assert.equal(ids.size, 16);
+
+  const examples: Record<string, { valid: Record<string, unknown>; missing: string }> = {
+    "core000:phase": {
+      valid: { id: "PH-T", name: "t", guarantee: "g", not_guaranteed: "n" },
+      missing: "guarantee",
+    },
+    "core000:transition": {
+      valid: { id: "TR-T", condition: "c", description: "d" },
+      missing: "condition",
+    },
+    "core000:dependency": {
+      valid: { id: "bun", name: "Bun", kind: "runtime", status: "declared" },
+      missing: "status",
+    },
+    "core000:extension-point": {
+      valid: {
+        id: "EXT-T",
+        name: "x",
+        mechanism: "dynamic_import",
+        trust: "trusted_in_process",
+        status: "implemented",
+      },
+      missing: "trust",
+    },
+    "core000:diagnostic": {
+      valid: {
+        id: "core000.test",
+        code: "core000.test",
+        severity: "error",
+        phase: "PH-LOAD",
+        message: "m",
+        status: "declared",
+      },
+      missing: "phase",
+    },
+    "core000:conformance-case": {
+      valid: { id: "CC-T", kind: "positive", input: "i", expected: "e", status: "planned" },
+      missing: "expected",
+    },
+  };
+
+  for (const [schemaId, example] of Object.entries(examples)) {
+    const validate = schemas.get(schemaId);
+    assert.ok(validate, `missing schema ${schemaId}`);
+    assert.equal(validate(example.valid), true, JSON.stringify(validate.errors));
+    const invalid = { ...example.valid };
+    delete invalid[example.missing];
+    assert.equal(validate(invalid), false, `${schemaId} must reject a missing ${example.missing}`);
+  }
+});
+
+test("S2.1 Slice 1 project still builds with the S1 data", async () => {
+  const model = await buildModel(projectDir);
+
+  assert.equal(Object.keys(model.profile.entityKinds).length, 14);
+  assert.equal(model.profile.relations?.length, 29);
+  assert.equal(model.profile.files?.length, 25);
+  for (const kind of [
+    "phase",
+    "transition",
+    "dependency",
+    "extension_point",
+    "diagnostic",
+    "conformance_case",
+  ]) {
+    assert.equal((model.byKind.get(kind) ?? []).length, 0, `${kind} must have no S1 data`);
   }
 });
