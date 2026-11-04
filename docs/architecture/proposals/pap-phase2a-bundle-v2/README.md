@@ -48,7 +48,7 @@ audit tooling and the three implementation repositories are not premises for any
 | [`decisions.md`](decisions.md) | D-P2A-1/2/3: preliminary position, repository evidence, options, consequences, recommendation, exact proposed wording/changes, affected files and the points of disagreement. |
 | [`verification.md`](verification.md) | Executable checks for each decision: E.3 vector reproduction, a reproducible closure self-check, the proposed case-set checker, snapshot verification, F25 metadata/provenance/probe, and the scope check that no normative file changes. |
 | [`cases-phase2a.proposed.json`](cases-phase2a.proposed.json) | The exact proposed classification (61 cases; default 19/36/6, F58 pending; alternate 20/35/6). Proposal artifact only, not a bundle file. |
-| [`verify_cases.py`](verify_cases.py) | Repository-grounded verifier for the proposed classification: ids, counts, F46/F59, F58 pending, applicable codes and packageIdentity expectations. |
+| [`verify_cases.py`](verify_cases.py) | Repository-grounded verifier for the proposed classification: ids, counts, F46/F59, F58 pending, applicable codes and packageIdentity expectations, with a strict canonical-JSON precheck (F29 is null). |
 
 ## Adversarial findings
 
@@ -102,10 +102,10 @@ audit tooling and the three implementation repositories are not premises for any
 ## Open questions and boundaries
 
 - **Open question (D-P2A-2):** is claim-file schema/cross-field validation (F58) Phase 2a? The
-  proposal's default excludes it from full, and the proposed artifact marks it **pending**; a
-  maintainer decision to include it changes the set to 20/35/6 and adds one sentence to
-  `AGENT_BRIEF.md` §4.4. This is the only substantive open question; it does not block the rest of
-  the proposal.
+  proposal's default excludes it from full, and the proposed artifact marks it **pending**; the
+  architect review recommends keeping that default, but the owner decision remains. Including it
+  changes the set to 20/35/6 and adds one sentence to `AGENT_BRIEF.md` §4.4. This is the only
+  substantive open question; it does not block the rest of the proposal.
 - **Boundary (D-P2A-2):** `cases-phase2a.json` is recommended as **experiment-scope** metadata,
   not a normative amendment to RFC §12. If the maintainer intends it to be normative PAP
   conformance material, an RFC amendment is required and the proposal must stop at that point.
@@ -131,6 +131,9 @@ audit tooling and the three implementation repositories are not premises for any
 - The Appendix E.3 vector and the base package identity were reproduced with standalone Python
   (see [`verification.md`](verification.md)); the closure self-check mutated one included byte and
   left a non-included file unchanged; the proposed case set was verified by `verify_cases.py`.
+- F29 is `null`: its manifest repeats `package.id`, so RFC §5.3.1 forbids canonicalization. The
+  verifier rejects duplicate member names, BOM and non-integer number spellings before computing
+  any identity, so a last-value-wins parser cannot silently pass it.
 - The snapshot update for D-P2A-3 was reproduced in a scratch copy and verified as 434 files; the
   F25 metadata/provenance and the probe against the restored scratch bundle returned exit 64, no
   report, `pap.cli.usage`.

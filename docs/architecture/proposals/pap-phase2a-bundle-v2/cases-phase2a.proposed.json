@@ -35,7 +35,8 @@
         "identities.verificationRecordIdentity",
         "evaluatedAt",
         "text output"
-      ]
+      ],
+      "diagnosticCodePolicy": "check-family codes (pap.check.*) are not compared in 2a; applicableDiagnosticCodes is the expected subset, not the complete cases.json set"
     },
     "identityOnly": {
       "compare": [
@@ -202,7 +203,7 @@
       "applicableDiagnosticCodes": [
         "pap.package.duplicate-key"
       ],
-      "packageIdentity": "sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020"
+      "packageIdentity": null
     },
     "F30-unknown-field": {
       "profile": "full",

@@ -10,8 +10,10 @@ checks that the proposal is internally consistent:
 - F46/F59 are not outcome-comparable (they need the Phase 2b RC check);
 - F58 is visibly pending the owner decision, with the 20/35/6 alternate;
 - the applicable diagnostic codes are a subset of cases.json;
-- every packageIdentity is recomputed from the frozen manifest bytes, using
-  cases.json's `identityRelations` for equals-base/null.
+- every packageIdentity is recomputed from the frozen manifest bytes after a strict
+  canonical-JSON precheck (BOM, duplicate member names and non-integer number spellings
+  yield null), using cases.json's `identityRelations` for equals-base/null;
+- F29 is null (its manifest repeats `package.id`) and is asserted as such.
 
 Usage:
     python3 verify_cases.py --repo <contract-builder checkout> \
@@ -59,12 +61,60 @@ def jcs(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
+class StrictJSONError(ValueError):
+    pass
+
+
+def _reject_duplicate_pairs(pairs):
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            raise StrictJSONError(f"duplicate member name: {key}")
+        obj[key] = value
+    return obj
+
+
+def _parse_int(token: str) -> int:
+    if token == "-0":
+        raise StrictJSONError("negative zero is not an integer spelling")
+    value = int(token)
+    if abs(value) > 2**53 - 1:
+        raise StrictJSONError(f"integer outside the I-JSON range: {token}")
+    return value
+
+
+def _reject_constant(token: str):
+    raise StrictJSONError(f"invalid JSON constant: {token}")
+
+
+def _parse_float(token: str):
+    raise StrictJSONError(f"non-integer number token: {token}")
+
+
+def strict_canonical_object(raw: bytes):
+    """Parse only the I-JSON subset that RFC 8785 can canonicalize.
+
+    RFC §5.3.1: BOM, duplicate member names and non-integer number spellings
+    are invalid and must be rejected rather than silently coerced.
+    """
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise StrictJSONError("UTF-8 BOM")
+    text = raw.decode("utf-8")
+    return json.loads(
+        text,
+        object_pairs_hook=_reject_duplicate_pairs,
+        parse_int=_parse_int,
+        parse_float=_parse_float,
+        parse_constant=_reject_constant,
+    )
+
+
 def package_identity(base: Path, package_dir: str):
     path = base / package_dir / "assurance-package.json"
     if not path.exists():
         return None
     try:
-        obj = json.loads(path.read_text(encoding="utf-8"))
+        obj = strict_canonical_object(path.read_bytes())
     except Exception:
         return None
     return "sha256:" + hashlib.sha256(b"pap.package.v1\x00" + jcs(obj)).hexdigest()
@@ -145,11 +195,21 @@ def main() -> int:
     assert pending["alternateProfile"] == "full", pending
     assert pending["alternateSummary"] == {"full": 20, "identityOnly": 35, "excluded": 6}, pending
 
+    # F29's manifest has a duplicate package.id; RFC §5.3.1 forbids coercion.
+    f29 = case_set["cases"]["F29-duplicate-key"]
+    assert f29["profile"] == "full", f29
+    assert f29["packageIdentity"] is None, f29
+    assert package_identity(base, "F29-duplicate-key") is None, "F29 must not canonicalize"
+
+    full_profile = case_set["profiles"]["full"]
+    assert "pap.check.*" in full_profile.get("diagnosticCodePolicy", ""), full_profile
+
     assert package_identity(base, "base") == BASE_ID
     print("OK: 61 cases; %d full / %d identityOnly / %d excluded" % (
         counts["full"], counts["identityOnly"], counts["excluded"]))
     print("OK: case ids, profile membership, applicable codes and packageIdentity expectations")
     print("OK: F46/F59 are identity-only; F58 is pending D-P2A-2 (default 19/36/6, alternate 20/35/6)")
+    print("OK: F29 identity is null (strict duplicate-key rejection); pap.check.* codes are not compared")
     return 0
 
 

@@ -128,19 +128,26 @@ checkerIdentity      = H("pap.checker.identity.v1",
   and generated files that are not build inputs. Normalize text per RFC §5.2 (UTF-8;
   CRLF/CR → LF); a binary file in the closure is an error.
 - `dependencies` is the complete pinned third-party dependency closure declared by the
-  implementation's lockfile/build manifest: one `(name, version, integrity)` record per
-  dependency, sorted by name then version, with `integrity` copied verbatim from the lockfile
-  (for example a Cargo checksum or a Go `h1:` value). The language runtime and standard library
-  are not dependency records; record the compiler/runtime name and version in the experiment
-  record.
+  implementation's lockfile/build manifest: one `(name, version, integrity)` record per package,
+  sorted by name then version, with `integrity` copied verbatim from the lockfile for the artifact
+  the build actually consumes (for example a Cargo checksum, a Go module `h1:` value, or the
+  selected wheel/sdist hash). A lockfile may carry several integrity values for one package
+  (`uv.lock` per-wheel/sdist hashes; `go.sum` module and `/go.mod` lines); the record is one per
+  package, generated metadata such as `/go.mod` lines and unselected wheels are not separate
+  dependencies, and the selected artifact is recorded in the experiment record's `artifact` field
+  (outside the hash). The selection rule
+  must be deterministic for the implementation. The language runtime and standard library are
+  not dependency records; record the compiler/runtime name and version in the experiment record.
 - Compute the closure at build or run time from the bytes present in the implementation
   checkout. Never copy a digest from package data, a previous run, another implementation or
   the reference verifier.
 - Appendix E.3 is the normative checker-identity vector. Reproduce both its
   `implementationDigest` and `checkerIdentity` values exactly.
 - Self-check, both directions, with the commands and before/after digests recorded:
-  (a) change one byte of one included file, rebuild and recompute — the digest MUST change;
-  (b) change a file outside the closure, rebuild and recompute — the digest MUST NOT change.
+  (a) change one byte of one included file; rebuild if the implementation has a build step,
+  otherwise re-run, and recompute — the digest MUST change;
+  (b) change a file outside the closure; rebuild/re-run and recompute — the digest MUST NOT
+  change.
 ````
 
 #### Exact proposed text — add to `AGENT_BRIEF.md` §4.5
@@ -171,7 +178,8 @@ existing records remain valid for their bundle commits):
 | `implementation.implementationDigest` | `sha256:<64 lowercase hex>` from the closure |
 | `implementation.checkerIdentity` | `sha256:<64 lowercase hex>` from the JCS object |
 | `implementation.closure.files[]` | `{path, sha256}` for every included file, in the declared sort order |
-| `implementation.closure.dependencies[]` | `{name, version, integrity}` for every pinned dependency |
+| `implementation.closure.dependencies[]` | `{name, version, integrity, artifact}` for every pinned package; `artifact` identifies the selected wheel/sdist/module zip |
+| `implementation.closure.dependencySelection` | the deterministic rule used to select the artifact hash for multi-artifact lockfiles (`uv.lock`, `go.sum`, `Cargo.lock`) |
 | `implementation.closure.listSha256` | optional; `sha256` of the UTF-8 bytes of `"\n".join(f"{path}\t{sha256}" for each file in declared sort order)` (no trailing newline), which makes the list tamper-evident |
 | `implementation.selfCheck.includedFile` | `{path, beforeDigest, afterDigest, changed: true, command}` |
 | `implementation.selfCheck.excludedFile` | `{path, beforeDigest, afterDigest, changed: false, command}` |
@@ -211,8 +219,11 @@ insufficient.
 
 ### Open questions / blockers
 
-None for option A. The dependency representation is settled as "lockfile records; runtime/compiler
-outside the closure", which is consistent with RFC §5.2 and E.3. If the maintainer wants the
+None for option A. The dependency representation is settled as lockfile records, one per package,
+using the integrity of the artifact the build consumes; multi-artifact lockfiles (`uv.lock`,
+`go.sum`, `Cargo.lock`) are reduced by a deterministic rule recorded in `dependencySelection`, and
+the selected artifact is recorded in each dependency record. The runtime/compiler stays outside
+the closure. This is consistent with RFC §5.2 and E.3. If the maintainer wants the
 compiler/runtime inside the checker closure, RFC §5.2 has no field for it and that would be a
 broader RFC change; it is not required for comparability and is not proposed.
 
@@ -318,7 +329,7 @@ verifier can emit; check-family codes are not included.
 | F23-symlink | 1/FAIL | symlink rejection | `pap.package.symlink` | `sha256:48049594c1f084fa6693e1e07148b21a4842502f75ceb9b8040b1b30da2008e5` |
 | F24-case-duplicate | 1/FAIL | duplicate/case-colliding path detection | `pap.package.path-duplicate` | `sha256:602ef24f955e7285982356f9445ab800e22504c0ba264f2475a054ba56aa7778` |
 | F26-missing-artifact | 1/FAIL | missing declared payload | `pap.package.declared-file-missing` | `sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020` |
-| F29-duplicate-key | 1/FAIL | duplicate JSON key rejection | `pap.package.duplicate-key` | `sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020` |
+| F29-duplicate-key | 1/FAIL | duplicate JSON key rejection | `pap.package.duplicate-key` | `null` |
 | F30-unknown-field | 1/FAIL | closed schema | `pap.package.unknown-field` | `sha256:b95246443fbece8489b9cd46b1c382a0895b61bbb7a03a65ad6610c92af7a465` |
 | F33-required-feature | 4/UNSUPPORTED | required feature parse | `pap.feature.unsupported` | `sha256:e64a5844cca90fa1d2cd5c96fe1188da75e1d1f1d63bb5b1ac68c9283a13c206` |
 | F35-manifest-limit | 1/FAIL | manifest resource limit | `pap.package.limit-exceeded` | `null` |
@@ -331,7 +342,13 @@ verifier can emit; check-family codes are not included.
 
 F07/F09's only expected diagnostic is `pap.check.unsupported`, which is check-family and therefore
 not required from a Phase 2a verifier; the exit/verdict comparison is sufficient. F10/F57 also
-expect `pap.check.not-evaluated`; it is likewise not in the applicable set.
+expect `pap.check.not-evaluated`; it is likewise not in the applicable set. The `full` profile's
+`diagnosticCodePolicy` states this explicitly: check-family codes (`pap.check.*`) are not compared
+in 2a; `applicableDiagnosticCodes` is the expected subset, not the complete `cases.json` set.
+
+F29's identity is `null`: its manifest repeats `package.id`, so RFC §5.3.1 forbids canonicalization.
+The verifier rejects duplicate member names, BOM and non-integer number spellings before computing
+any identity; a last-value-wins `json.loads` implementation cannot silently pass F29.
 
 #### Identity-only cases (36)
 
@@ -414,6 +431,7 @@ Expected:
 OK: 61 cases; 19 full / 36 identityOnly / 6 excluded
 OK: case ids, profile membership, applicable codes and packageIdentity expectations
 OK: F46/F59 are identity-only; F58 is pending D-P2A-2 (default 19/36/6, alternate 20/35/6)
+OK: F29 identity is null (strict duplicate-key rejection); pap.check.* codes are not compared
 ```
 
 The verifier re-derives each `packageIdentity` from the frozen manifest bytes and checks it
@@ -453,6 +471,7 @@ in `cases.json`, so the two files cannot drift independently.
         "dimensions: integrity.package, integrity.artifacts",
         "packageIdentity: exact or relation"
       ],
+      "diagnosticCodePolicy": "check-family codes (pap.check.*) are not compared in 2a; applicableDiagnosticCodes is the expected subset",
       "doNotCompare": [
         "checks",
         "coverage.full",
@@ -489,7 +508,9 @@ in `cases.json`, so the two files cannot drift independently.
 }
 ```
 
-The full file contains all 61 entries from the tables above. `applicableDiagnosticCodes` is the
+The full file contains all 61 entries from the tables above. F29-duplicate-key is `null` because its
+manifest has a duplicate member name (RFC §5.3.1); the strict precheck rejects duplicate keys, BOM
+and non-integer number spellings before any identity is computed. `applicableDiagnosticCodes` is the
 exact expected subset (not a prefix filter); `packageIdentity` is a digest, `equals-base`,
 `differs-from-base`, or `null`. For `identityOnly` the harness compares only `packageIdentity`; for
 `excluded` it compares nothing and counts the case under `owningPhase`.
@@ -505,9 +526,10 @@ exact expected subset (not a prefix filter); `packageIdentity` is a digest, `equ
    `integrity.package`/`integrity.artifacts` dimension statuses that `cases.json` constrains, and
    checks the `packageIdentity` exactly (or as `null`/relation).
 3. For identity-only cases, the harness checks only `packageIdentity`.
-4. The identity literals are generated and re-checked by the standalone JCS/SHA-256 script in
-   [`verification.md`](verification.md), which is validated against Appendix E.1 and E.3; no
-   verifier's report is used as the oracle.
+4. The identity literals are generated and re-checked by `verify_cases.py` (validated against
+   Appendix E.1 and E.3), after a strict canonical-JSON precheck: BOM, duplicate member names and
+   non-integer number spellings yield `null` (RFC §5.3.1). F29 is asserted `null`. No verifier's
+   report is used as the oracle.
 5. The comparison excludes checker identity, `verificationRecordIdentity`, `evaluatedAt` and text
    output per RFC §13.6; it also excludes check outcomes because Phase 2a does not implement the
    checks.
@@ -594,7 +616,8 @@ Exact proposed text — add to `AGENT_BRIEF.md` §7.4 after the paragraph at lin
   failure) Phase 2a? Default: no → identity-only. If yes: add one sentence to `AGENT_BRIEF.md`
   §4.4/§4.2, move F58 to full (20/35/6), add `pap.package.claim-invalid` to its applicable codes,
   and update the identity table. This is a maintainer decision; it is not a blocker for the rest
-  of the proposal.
+  of the proposal. The architect review recommends keeping this default (identity-only, 19/36/6);
+  that is input to the owner decision, not a recorded decision.
 - **Normative status (boundary):** the case set is experiment-scope. If the maintainer wants it
   normative, an RFC amendment is required.
 - **Provenance (implementation choice):** source-first is recommended; the bundle-local
@@ -749,6 +772,12 @@ F25 executable and is not recommended here.
 | D-P2A-1 | A, with the complete §4.4.1 recipe and record fields | No | None |
 | D-P2A-2 | A, separate `cases-phase2a.json`, proposed default 19/36/6 (20/35/6 if F58 is Phase 2a), experiment-scope, source-first provenance; F58 is pending | No for experiment scope; yes if it is made normative | F58 scope |
 | D-P2A-3 | A, restore the 38-byte source sentinel and update manifest/checksums | No | None |
+
+**D-P2A-2 provenance is part of the decision.** The recommended source-first option adds
+`cases-phase2a.json` to `contract-builder` and regenerates the bundle from a new source commit;
+`snapshot/manifest.json` `source.commit` moves from `c6ee644` to that new commit. The bundle-local
+alternative keeps `c6ee644` but requires a `bundle_local` manifest extension and a verifier change.
+The owner should record which provenance model is accepted as part of D-P2A-2.
 
 The maintainer remains the decision owner. This proposal records no accepted decision and starts
 no implementation.

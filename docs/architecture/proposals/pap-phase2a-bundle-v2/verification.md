@@ -269,10 +269,10 @@ checks the before/after values; the check is not reproducible from the report al
 ```bash
 cd <implementation checkout>
 # Record the closure identity and closure list (implementation-specific command).
-# (a) Positive direction: append a comment to an included source file, rebuild, recompute.
-#     The implementationDigest MUST change; the closure list MUST show the same file with a new hash.
-# (b) Negative direction: modify a test/fixture/document outside the closure, rebuild, recompute.
-#     The implementationDigest MUST NOT change; the closure list MUST NOT change.
+# (a) Positive direction: append a comment to an included source file; rebuild if the implementation
+#     has a build step, otherwise re-run; recompute. The implementationDigest MUST change.
+# (b) Negative direction: modify a test/fixture/document outside the closure; rebuild/re-run and
+#     recompute. The implementationDigest MUST NOT change; the closure list MUST NOT change.
 python3 - <<'PY'
 import json, sys
 rec = json.load(open("path/to/experiment-record.json", encoding="utf-8"))
@@ -285,6 +285,9 @@ assert sc["includedFile"]["beforeDigest"] != sc["includedFile"]["afterDigest"]
 assert sc["excludedFile"]["changed"] is False
 assert sc["excludedFile"]["beforeDigest"] == sc["excludedFile"]["afterDigest"]
 assert impl["closure"]["files"], "closure list must be non-empty"
+assert impl["closure"].get("dependencySelection"), "multi-artifact lockfile reduction must be recorded"
+for dep in impl["closure"]["dependencies"]:
+    assert {"name", "version", "integrity", "artifact"} <= set(dep), dep
 assert impl["closure"]["listSha256"] == __import__("hashlib").sha256(
     "\n".join(f'{f["path"]}\t{f["sha256"]}' for f in impl["closure"]["files"]).encode()
 ).hexdigest(), "listSha256 must bind the closure list"
@@ -354,10 +357,14 @@ Expected:
 OK: 61 cases; 19 full / 36 identityOnly / 6 excluded
 OK: case ids, profile membership, applicable codes and packageIdentity expectations
 OK: F46/F59 are identity-only; F58 is pending D-P2A-2 (default 19/36/6, alternate 20/35/6)
+OK: F29 identity is null (strict duplicate-key rejection); pap.check.* codes are not compared
 ```
 
 The verifier reads only `cases.json`, the fixtures and the proposed case set; it does not read any
-verifier report. `cases-phase2a.proposed.json` is a proposal artifact, not the bundle file. The
+verifier report. It parses each manifest with a strict canonical-JSON precheck before computing an
+identity: BOM, duplicate member names and non-integer number spellings yield `null` (RFC §5.3.1).
+F29 is therefore `null` and is asserted as such; `profiles.full.diagnosticCodePolicy` records that
+`pap.check.*` codes are not compared. `cases-phase2a.proposed.json` is a proposal artifact, not the bundle file. The
 final bundle file uses the shape in [`decisions.md`](decisions.md) and the `caseSetOrigin` /
 `caseSetCommit` provenance fields.
 
@@ -648,7 +655,8 @@ decision being implemented; the proposal package itself must not be changed to m
 | Appendix E.3 vector (§1.1) | Passed: `implementationDigest = sha256:73f738…`, `checkerIdentity = sha256:15a0b0…` |
 | Appendix E.1 base identity (§1.2) | Passed: `sha256:77a8d1d0…` |
 | Reproducible closure self-check (§1.4) | Passed: baseline E.3 digests; mutating one included byte gave `sha256:960b89…` / `sha256:401ff6…`; a non-included file left the baseline unchanged |
-| Proposed case-set verifier (§2.1) | Passed: `verify_cases.py` reports 61 cases, 19/36/6, F46/F59 identity-only, F58 pending (default 19/36/6, alternate 20/35/6) |
+| Proposed case-set verifier (§2.1) | Passed: `verify_cases.py` reports 61 cases, 19/36/6, F46/F59 identity-only, F58 pending (default 19/36/6, alternate 20/35/6), F29 null under the strict precheck, and `pap.check.*` not compared |
+| F29 reference probe | Passed: reference exits 1 with `package.identity: null` and `identities.packageIdentity: null`, matching the corrected expectation |
 | D-P2A-3 scratch snapshot update (§3.2) | Passed: 434 files, manifest hash `b19a710e059b4629021dcbeb9f60a965945ab6d8c2e9cd8873283116af57b169`, manifest/sums entries for `archive.tar`, owner-side verifier OK |
 | F25 metadata and provenance (§3.1) | Passed: case command `verify ../archive.tar`, `noReport`, `pap.cli.usage`; source blob `81f5…` at `c6ee644` |
 | F25 scratch-bundle probe (§3.3) | Passed: exit 64, empty stdout, `pap.cli.usage` against the restored scratch bundle |
