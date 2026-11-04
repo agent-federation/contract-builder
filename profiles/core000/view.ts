@@ -303,11 +303,66 @@ export interface ClaimView {
   readonly lifecycle: string;
   readonly verificationMethod: string;
   readonly scope: string;
+  /** Class-specific fields; empty strings when the accepted source grounds no value (S2.2-D). */
+  readonly conditions: string;
+  readonly consequence: string;
+  readonly baseline: string;
+  readonly notes: string;
   readonly subjects: readonly SubjectView[];
   readonly evidence: readonly EvidenceLinkView[];
   readonly decisions: readonly DecisionLinkView[];
   readonly citations: readonly CitationView[];
 }
+
+/** Decision-status tally for one claim class group. */
+export interface ClaimGroupCounts {
+  readonly accepted: number;
+  readonly proposed: number;
+  readonly deferred: number;
+  readonly none: number;
+}
+
+/** One class-grouped claim section of the register; empty classes produce no group. */
+export interface ClaimGroupView {
+  readonly className: string;
+  readonly label: string;
+  readonly claims: readonly ClaimView[];
+  readonly counts: ClaimGroupCounts;
+}
+
+/**
+ * Deterministic class order for the grouped claim register (S2.2-D, design §7.6). The eight
+ * classes the accepted S2.2 register uses come first, in the owner-approved order; the two
+ * remaining closed-enum classes are appended so no schema-valid claim can be dropped. Labels
+ * are static strings, never locale-derived.
+ */
+const CLAIM_CLASS_ORDER = [
+  "requirement",
+  "guarantee",
+  "assumption",
+  "constraint",
+  "implementation_fact",
+  "proposal",
+  "limitation",
+  "trust_boundary",
+  "deferred",
+  "non_goal",
+] as const;
+
+const CLAIM_CLASS_LABELS: Readonly<Record<string, string>> = {
+  requirement: "Requirements",
+  guarantee: "Guarantees",
+  assumption: "Assumptions",
+  constraint: "Constraints",
+  implementation_fact: "Implementation facts",
+  proposal: "Proposals",
+  limitation: "Limitations",
+  // The structural trust-boundary section already owns the plural label; a claim group needs a
+  // distinct heading so the artifact keeps one unique H2 per section.
+  trust_boundary: "Trust boundary claims",
+  deferred: "Deferred",
+  non_goal: "Non-goals",
+};
 
 export interface SourceStatementView {
   readonly id: string;
@@ -353,6 +408,7 @@ export interface Core000View {
   readonly interfaces: readonly InterfaceView[];
   readonly trustBoundaries: readonly TrustBoundaryView[];
   readonly claims: readonly ClaimView[];
+  readonly claimGroups: readonly ClaimGroupView[];
   readonly sourceStatements: readonly SourceStatementView[];
   readonly evidence: readonly EvidenceView[];
   readonly decisions: readonly DecisionView[];
@@ -375,6 +431,7 @@ export function buildView(model: ProjectModel): Core000View {
   const interfaces = (model.byKind.get("interface") ?? []).map(interfaceView);
   const trustBoundaries = (model.byKind.get("trust_boundary") ?? []).map(trustBoundaryView);
   const claims = (model.byKind.get("claim") ?? []).map((entity) => claimView(model, entity));
+  const claimGroups = groupClaims(claims);
   const sourceStatements = (model.byKind.get("source_statement") ?? []).map(sourceStatementView);
   const evidence = (model.byKind.get("evidence") ?? []).map((entity) => evidenceView(model, entity));
   const decisions = (model.byKind.get("decision") ?? []).map(decisionView);
@@ -396,6 +453,7 @@ export function buildView(model: ProjectModel): Core000View {
     interfaces,
     trustBoundaries,
     claims,
+    claimGroups,
     sourceStatements,
     evidence,
     decisions,
@@ -566,11 +624,75 @@ function claimView(model: ProjectModel, entity: Entity): ClaimView {
     lifecycle: text(entity.fields.lifecycle),
     verificationMethod: text(entity.fields.verification_method),
     scope: text(entity.fields.scope),
+    conditions: text(entity.fields.conditions),
+    consequence: text(entity.fields.consequence),
+    baseline: text(entity.fields.baseline),
+    notes: text(entity.fields.notes),
     subjects,
     evidence,
     decisions,
     citations,
   };
+}
+
+/**
+ * Groups the flat claim list by class in the frozen class order and tallies decision statuses.
+ * Claims keep document order inside a group; no locale-sensitive sorting is used anywhere.
+ */
+function groupClaims(claims: readonly ClaimView[]): readonly ClaimGroupView[] {
+  const byClass = new Map<string, ClaimView[]>();
+  for (const claim of claims) {
+    const list = byClass.get(claim.className);
+    if (list === undefined) byClass.set(claim.className, [claim]);
+    else list.push(claim);
+  }
+
+  const groups: ClaimGroupView[] = [];
+  const seen = new Set<string>();
+  for (const className of CLAIM_CLASS_ORDER) {
+    const members = byClass.get(className);
+    if (members === undefined || members.length === 0) continue;
+    seen.add(className);
+    groups.push(claimGroupView(className, members));
+  }
+  // The claim schema closes the class enum, but a view must not silently drop a claim whose
+  // class is out of policy: append the remaining classes in first-seen document order.
+  for (const claim of claims) {
+    if (seen.has(claim.className)) continue;
+    seen.add(claim.className);
+    groups.push(claimGroupView(claim.className, byClass.get(claim.className) ?? []));
+  }
+  return groups;
+}
+
+function claimGroupView(className: string, claims: readonly ClaimView[]): ClaimGroupView {
+  return {
+    className,
+    label: CLAIM_CLASS_LABELS[className] ?? className,
+    claims,
+    counts: claimGroupCounts(claims),
+  };
+}
+
+function claimGroupCounts(claims: readonly ClaimView[]): ClaimGroupCounts {
+  const counts = { accepted: 0, proposed: 0, deferred: 0, none: 0 };
+  for (const claim of claims) {
+    switch (claim.status.decision) {
+      case "accepted":
+        counts.accepted += 1;
+        break;
+      case "proposed":
+        counts.proposed += 1;
+        break;
+      case "deferred":
+        counts.deferred += 1;
+        break;
+      default:
+        counts.none += 1;
+        break;
+    }
+  }
+  return counts;
 }
 
 function evidenceLinkView(model: ProjectModel, entity: Entity): EvidenceLinkView {
