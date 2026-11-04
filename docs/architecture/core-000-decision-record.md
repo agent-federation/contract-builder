@@ -415,10 +415,14 @@ checked per claim.
 
 - `conditions` is mandatory for `C000-CT-011` and `C000-CT-012` (`CT-012` takes them from its
   statement).
-- Approved `C000-CT-011` conditions: "Given a project whose canonical manifest declares its inputs
-  and sources, and whose profile and renderer closures are loaded from the declared paths,
-  `inputDigest` covers those declared inputs and closures; clock, locale, environment, mtimes and
-  absolute paths are excluded."
+- **Approved `C000-CT-011` conditions (corrected 2026-11-04).** The first approved wording omitted
+  adapter closures, while the claim statement and `spec/lib/identity.ts` include them (the build
+  identity hashes profile, adapter and renderer closures). The owner-approved corrected text is:
+  "Given a project whose canonical manifest declares its inputs and sources, and whose profile,
+  source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the
+  canonical manifest, declared input bytes, source bytes, and those closures; clock, locale,
+  environment, mtimes and absolute paths are excluded." Correction source: [Issue #119 comment
+  6639847281](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6639847281).
 - `consequence`, `baseline` and `notes` are encoded and rendered only where the accepted source
   grounds the value; otherwise they are explicitly deferred and listed in the S2.2 PR. The §7.6
   class-grouped artifact shape is within the S2.2 `view.ts`/template boundary.
