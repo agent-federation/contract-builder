@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/diagnostic.schema.json",
+  "title": "Entity: diagnostic",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "code", "severity", "phase", "message", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^(core000|core)\\.[a-z0-9.-]+$" },
+        "code": { "type": "string", "pattern": "^(core000|core)\\.[a-z0-9.-]+$" },
+        "severity": { "enum": ["error", "warning", "review"] },
+        "phase": { "type": "string", "pattern": "^PH-[A-Z0-9-]+$" },
+        "message": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+        "disposition": { "type": "string", "minLength": 1 },
+        "blocking": { "type": "boolean" },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

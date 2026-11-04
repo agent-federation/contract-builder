@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/phase.schema.json",
+  "title": "Entity: phase",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "name", "guarantee", "not_guaranteed"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^PH-[A-Z0-9-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "guarantee": { "type": "string", "minLength": 1 },
+        "not_guaranteed": { "type": "string", "minLength": 1 },
+        "public": { "type": "boolean" },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/conformance-case.schema.json",
+  "title": "Entity: conformance_case",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "kind", "input", "expected", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^CC-[A-Z0-9-]+$" },
+        "kind": { "enum": ["positive", "negative"] },
+        "input": { "type": "string", "minLength": 1 },
+        "expected": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["planned", "implemented", "verified"] },
+        "notes": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}
