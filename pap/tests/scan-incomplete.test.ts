@@ -9,6 +9,12 @@ const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
 const scanIncompleteCode = "pap.package.undeclared-scan-incomplete";
 const runningAsRoot = typeof process.getuid === "function" && process.getuid() === 0;
+const skipPermissionTest =
+  runningAsRoot
+    ? "permission bits do not bind a root process"
+    : process.platform === "win32"
+      ? "permission bits are not enforced on Windows"
+      : false;
 
 function tempPackage(source = base): string {
   const dir = mkdtempSync(path.join(tmpdir(), "pap-scan-incomplete-"));
@@ -41,7 +47,7 @@ function assertScanIncompleteReport(report: any, result: { status: number }): vo
 
 test(
   "an unlistable package root with a readable manifest is scan-incomplete, not a package FAIL",
-  { skip: runningAsRoot ? "permission bits do not bind a root process" : false },
+  { skip: skipPermissionTest },
   () => {
     const dir = tempPackage();
     try {
@@ -57,7 +63,7 @@ test(
 
 test(
   "an unreadable undeclared directory is scan-incomplete, not a package FAIL",
-  { skip: runningAsRoot ? "permission bits do not bind a root process" : false },
+  { skip: skipPermissionTest },
   () => {
     const dir = tempPackage();
     const notes = path.join(dir, "notes");
@@ -91,28 +97,32 @@ test("the private traversal-depth budget is scan-incomplete, never a limit viola
   }
 });
 
-test("an independently established FAIL stays FAIL under scan-incomplete coverage", () => {
-  const dir = tempPackage(path.join(fixtures, "F02-artifact-byte"));
-  const notes = path.join(dir, "notes");
-  mkdirSync(notes);
-  writeFileSync(path.join(notes, "extra.txt"), "extra\n");
-  try {
-    chmodSync(notes, 0o000);
-    const result = verify(dir);
-    assert.equal(result.status, 1);
-    const report = JSON.parse(result.stdout);
-    assert.equal(report.verdict, "FAIL");
-    assert.equal(report.coverage.full, false);
-    assert.equal(report.dimensions.integrity.artifacts, "FAIL");
-    assert.equal(report.dimensions.integrity.package, "PASS");
-    assert.ok(codes(report).includes("pap.integrity.artifact-mismatch"));
-    assert.ok(codes(report).includes(scanIncompleteCode));
-    assert.ok(!codes(report).includes("pap.package.io"));
-  } finally {
-    chmodSync(notes, 0o755);
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
+test(
+  "an independently established FAIL stays FAIL under scan-incomplete coverage",
+  { skip: skipPermissionTest },
+  () => {
+    const dir = tempPackage(path.join(fixtures, "F02-artifact-byte"));
+    const notes = path.join(dir, "notes");
+    mkdirSync(notes);
+    writeFileSync(path.join(notes, "extra.txt"), "extra\n");
+    try {
+      chmodSync(notes, 0o000);
+      const result = verify(dir);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.verdict, "FAIL");
+      assert.equal(report.coverage.full, false);
+      assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+      assert.equal(report.dimensions.integrity.package, "PASS");
+      assert.ok(codes(report).includes("pap.integrity.artifact-mismatch"));
+      assert.ok(codes(report).includes(scanIncompleteCode));
+      assert.ok(!codes(report).includes("pap.package.io"));
+    } finally {
+      chmodSync(notes, 0o755);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 test("a missing declared payload remains a package FAIL, not scan-incomplete", () => {
   const dir = tempPackage();
@@ -133,7 +143,7 @@ test("a missing declared payload remains a package FAIL, not scan-incomplete", (
 
 test(
   "inspect reports the same scan-incomplete code without a limit violation",
-  { skip: runningAsRoot ? "permission bits do not bind a root process" : false },
+  { skip: skipPermissionTest },
   () => {
     const dir = tempPackage();
     const notes = path.join(dir, "notes");
