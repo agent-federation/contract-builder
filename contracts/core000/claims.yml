@@ -188,3 +188,5 @@ decisions:
     owner: maintainer
     source: "Issue #38; PR #56"
     consequence: "Zero or multiple manifest.render declarations are rejected before rendering or writing."
+
+conformanceCases: []

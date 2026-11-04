@@ -661,22 +661,235 @@ test("S2.1 Slice 1 schemas load and validate each new kind", async () => {
   }
 });
 
-test("S2.1 Slice 1 project still builds with the S1 data", async () => {
+test("S2.1 Slice 2 document pointers and structure inventory", async () => {
   const model = await buildModel(projectDir);
+  const ids = (kind: string): string[] =>
+    (model.byKind.get(kind) ?? []).map((entity) => entity.id).sort();
 
   assert.equal(Object.keys(model.profile.entityKinds).length, 14);
   assert.equal(model.profile.relations?.length, 29);
   assert.equal(model.profile.files?.length, 25);
-  for (const kind of [
-    "phase",
-    "transition",
-    "dependency",
-    "extension_point",
-    "diagnostic",
-    "conformance_case",
-  ]) {
-    assert.equal((model.byKind.get(kind) ?? []).length, 0, `${kind} must have no S1 data`);
+
+  assert.deepEqual(ids("component"), [
+    "COMP-ADAPTER",
+    "COMP-CLI",
+    "COMP-CORE",
+    "COMP-PROFILE",
+    "COMP-PROJECT",
+    "COMP-RENDERER",
+    "COMP-REVIEWER",
+  ]);
+  assert.equal((model.byKind.get("component") ?? []).every((entity) => entity.fields.public === true), true);
+
+  assert.deepEqual(ids("interface"), [
+    "IF-ADAPTER",
+    "IF-BUILD-IDENTITY",
+    "IF-BUILD-RESULT",
+    "IF-CLI",
+    "IF-CONFORMANCE",
+    "IF-CONSENT-CLI-FLAG",
+    "IF-CONSENT-OPTION",
+    "IF-DIAGNOSTIC",
+    "IF-MANIFEST",
+    "IF-PROFILE-VALIDATOR",
+    "IF-PROJECT-MODEL",
+    "IF-RENDERER",
+  ]);
+  const componentProvides = new Map(
+    (model.byKind.get("component") ?? []).map((entity) => [
+      entity.id,
+      new Set(entity.relations.provides ?? []),
+    ]),
+  );
+  for (const iface of model.byKind.get("interface") ?? []) {
+    const owner = String(iface.fields.owner);
+    const provides = componentProvides.get(owner);
+    assert.ok(provides, `${iface.id} owner ${owner} is a declared component`);
+    assert.equal(provides.has(iface.id), true, `${iface.id} owner provides it`);
   }
+
+  assert.deepEqual(ids("trust_boundary"), ["TB-CONSUMER-EXTENSION", "TB-PROFILE-EXEC"]);
+  const trustBoundaries = new Map(
+    (model.byKind.get("trust_boundary") ?? []).map((entity) => [entity.id, entity.fields]),
+  );
+  assert.equal(trustBoundaries.get("TB-PROFILE-EXEC")?.policy_status, "settled");
+  assert.equal(trustBoundaries.get("TB-PROFILE-EXEC")?.enforcement, "explicit_consent");
+  assert.equal(trustBoundaries.get("TB-CONSUMER-EXTENSION")?.policy_status, "settled");
+  assert.equal(trustBoundaries.get("TB-CONSUMER-EXTENSION")?.enforcement, "none");
+
+  assert.deepEqual(ids("phase"), [
+    "PH-ARTIFACT",
+    "PH-CONFORMANCE",
+    "PH-CONSISTENCY",
+    "PH-LOAD",
+    "PH-PROVENANCE",
+    "PH-REFERENCE",
+    "PH-REVIEW",
+    "PH-STRUCTURE",
+    "PH-VERIFICATION",
+  ]);
+  const prerequisites: Record<string, string[]> = Object.fromEntries(
+    (model.byKind.get("phase") ?? []).map((phase) => [
+      phase.id,
+      phase.relations.hasPrerequisite ?? [],
+    ]),
+  );
+  assert.deepEqual(prerequisites, {
+    "PH-LOAD": [],
+    "PH-STRUCTURE": ["PH-LOAD"],
+    "PH-REFERENCE": ["PH-STRUCTURE"],
+    "PH-PROVENANCE": ["PH-STRUCTURE"],
+    "PH-VERIFICATION": ["PH-STRUCTURE", "PH-PROVENANCE"],
+    "PH-CONSISTENCY": ["PH-STRUCTURE"],
+    "PH-REVIEW": ["PH-STRUCTURE"],
+    "PH-CONFORMANCE": ["PH-STRUCTURE"],
+    "PH-ARTIFACT": [],
+  });
+
+  const graph: Record<string, string[]> = prerequisites;
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (phase: string): void => {
+    assert.ok(phase in graph, `prerequisite phase ${phase} is declared`);
+    if (visited.has(phase)) return;
+    assert.equal(visiting.has(phase), false, `prerequisite cycle at ${phase}`);
+    visiting.add(phase);
+    for (const prerequisite of graph[phase] ?? []) visit(prerequisite);
+    visiting.delete(phase);
+    visited.add(phase);
+  };
+  for (const phase of Object.keys(prerequisites)) visit(phase);
+
+  assert.deepEqual(ids("transition"), []);
+  assert.deepEqual(ids("extension_point"), [
+    "EXT-ADAPTER",
+    "EXT-PROFILE-VALIDATOR",
+    "EXT-PROFILE-VIEW",
+    "EXT-RENDERER",
+  ]);
+  assert.equal((model.byKind.get("claim") ?? []).length, 5);
+  assert.deepEqual(
+    (model.documents.claims as { conformanceCases?: unknown }).conformanceCases,
+    [],
+  );
+  assert.deepEqual(ids("conformance_case"), []);
+});
+
+test("S2.1 Slice 2 document schemas require the new arrays", async () => {
+  const diagnostics = new Diagnostics();
+  const loaded = await loadProject(projectDir, diagnostics);
+  assert.ok(loaded !== null, diagnostics.report());
+  const schemas = await loadSchemas(loaded.project, diagnostics);
+  assert.ok(schemas !== null, diagnostics.report());
+
+  const structureSchema = schemas.get("core000:structure");
+  const claimsSchema = schemas.get("core000:claims");
+  assert.ok(structureSchema && claimsSchema);
+
+  const structure = { ...(loaded.byKey.structure as Record<string, unknown>) };
+  assert.equal(structureSchema(structure), true, JSON.stringify(structureSchema.errors));
+  delete structure.phases;
+  assert.equal(structureSchema(structure), false);
+
+  const claims = { ...(loaded.byKey.claims as Record<string, unknown>) };
+  assert.equal(claimsSchema(claims), true, JSON.stringify(claimsSchema.errors));
+  delete claims.conformanceCases;
+  assert.equal(claimsSchema(claims), false);
+});
+
+test("S2.1 Slice 2 diagnostic inventory matches the catalog", async () => {
+  const model = await buildModel(projectDir);
+  const catalog = JSON.parse(
+    await readFile(path.join(root, "profiles", "core000", "catalog.json"), "utf8"),
+  ) as { codes: Array<{ code: string; severity: string; message: string }> };
+
+  const severities = catalog.codes.reduce<Record<string, number>>((counts, entry) => {
+    counts[entry.severity] = (counts[entry.severity] ?? 0) + 1;
+    return counts;
+  }, {});
+  assert.equal(catalog.codes.length, 24);
+  assert.deepEqual(severities, { error: 18, review: 3, warning: 3 });
+
+  const diagnostics = model.byKind.get("diagnostic") ?? [];
+  assert.equal(diagnostics.length, 25);
+  const catalogByCode = new Map(catalog.codes.map((entry) => [entry.code, entry]));
+  const profileOwned = diagnostics.filter((entity) => catalogByCode.has(entity.id));
+  const coreOwned = diagnostics.filter((entity) => !catalogByCode.has(entity.id));
+  assert.equal(profileOwned.length, 24);
+  assert.deepEqual(coreOwned.map((entity) => entity.id), ["core.profile.consent-required"]);
+
+  for (const diagnostic of diagnostics) {
+    assert.equal(diagnostic.fields.id, undefined);
+    assert.equal(diagnostic.id, diagnostic.fields.code);
+    assert.equal(diagnostic.fields.status, "declared");
+    assert.match(String(diagnostic.fields.status), /^[a-z][a-z0-9_-]*$/);
+    assert.equal(diagnostic.relations.raisedIn?.[0], diagnostic.fields.phase);
+    if (catalogByCode.has(diagnostic.id)) {
+      const entry = catalogByCode.get(diagnostic.id)!;
+      assert.equal(diagnostic.fields.severity, entry.severity);
+      assert.equal(diagnostic.fields.message, entry.message);
+      assert.equal(diagnostic.fields.phase, "PH-CONSISTENCY");
+    } else {
+      assert.equal(diagnostic.fields.severity, "error");
+      assert.equal(diagnostic.fields.phase, "PH-LOAD");
+    }
+  }
+});
+
+test("S2.1 Slice 2 dependency inventory and import edges", async () => {
+  const model = await buildModel(projectDir);
+  const dependencies = new Map(
+    (model.byKind.get("dependency") ?? []).map((entity) => [entity.id, entity.fields]),
+  );
+  // `kind` is the reserved generic-IR field, so the domain kind is read from the raw document;
+  // Q5 typed accessors are a later slice.
+  const rawDependencies = new Map(
+    (
+      model.documents.structure as {
+        dependencies: Array<{ id: string; kind: string }>;
+      }
+    ).dependencies.map((dependency) => [dependency.id, dependency]),
+  );
+  assert.deepEqual([...dependencies.keys()].sort(), [
+    "@types/node",
+    "@types/nunjucks",
+    "ajv",
+    "bun",
+    "nunjucks",
+    "typescript",
+    "yaml",
+  ]);
+  assert.equal(rawDependencies.get("bun")?.kind, "runtime");
+  assert.equal(dependencies.get("bun")?.status, "declared");
+  assert.equal(dependencies.get("bun")?.version, ">=1.4.0");
+  assert.match(String(dependencies.get("bun")?.consequence), /bun@1\.4\.2/);
+
+  const versions: Array<[string, string]> = [
+    ["ajv", "8.20.0"],
+    ["nunjucks", "3.2.4"],
+    ["yaml", "2.9.1"],
+    ["typescript", "5.9.3"],
+    ["@types/node", "22.20.5"],
+    ["@types/nunjucks", "3.2.6"],
+  ];
+  for (const [id, version] of versions) {
+    assert.equal(dependencies.get(id)?.status, "resolved");
+    assert.equal(dependencies.get(id)?.version, version);
+  }
+  for (const id of ["ajv", "nunjucks", "yaml"]) {
+    assert.equal(rawDependencies.get(id)?.kind, "runtime");
+  }
+  for (const id of ["typescript", "@types/node", "@types/nunjucks"]) {
+    assert.equal(rawDependencies.get(id)?.kind, "toolchain");
+  }
+
+  const edges: string[] = [];
+  for (const component of model.byKind.get("component") ?? []) {
+    for (const target of component.relations.requires ?? []) {
+      edges.push(`${component.id}->${target}`);
+    }
+  }
+  assert.deepEqual(edges.sort(), ["COMP-CORE->ajv", "COMP-CORE->yaml", "COMP-RENDERER->nunjucks"]);
 });
 
 test("S2.1 trust consent facts apply only to the executable-profile boundary", async () => {
