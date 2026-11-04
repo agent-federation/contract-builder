@@ -4,9 +4,11 @@
 2026-11-02; D14, P-2, P-3 and P-6 were deferred for S1 at that time and were subsequently accepted
 for the full-model planning scope on 2026-11-03. S2-D1–S2-D4 were also accepted on 2026-11-03.
 Q1, Q3, Q5 and Q10 were accepted on 2026-11-03/04; Q2, Q4, Q6, Q7, Q8 and Q9 were accepted on
-2026-11-04. None of these later decisions authorize S2.1, S2.2 or S2.3 implementation. This document does not
-implement CORE-000 and does not change code, tests, schemas, fixtures, evidence or generic-core
-behaviour.
+2026-11-04. None of these later planning decisions authorize S2.1, S2.2 or S2.3 implementation.
+S2.1 implementation was separately authorized by the project owner on 2026-11-04 (see
+[Maintainer authorization — S2.1 implementation](#maintainer-authorization--s21-implementation-2026-11-04)
+below); S2.2 and S2.3 remain separately gated. This document does not implement CORE-000 and does
+not change code, tests, schemas, fixtures, evidence or generic-core behaviour.
 **Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47), refreshed by
 [#72](https://github.com/agent-federation/contract-builder/issues/72).
 **Original S1 decision recorded:** 2026-11-02, after PR #74 merged as
@@ -108,7 +110,9 @@ never be represented as independent.
 **Authorization boundary.** This decision-record update records planning decisions only. It does
 not authorize S2.1, S2.2 or S2.3. Each stage requires its own separate, explicit maintainer
 authorization after review of that stage's exact scope. Approval or merge of this documentation PR,
-or creation/linking of an implementation issue, is not implementation authorization.
+or creation/linking of an implementation issue, is not implementation authorization. For S2.1
+specifically, the separate authorization was given on 2026-11-04 (see the authorization section
+below); this historical boundary is unchanged for S2.2 and S2.3.
 
 ---
 
@@ -170,9 +174,43 @@ accepted normative rules, these owner decisions and any implementation proposal 
 no accepted source was rewritten and no new semantics was inferred.
 
 **Authorization boundary.** This section records planning decisions and the Q9 staged direction
-only. It does not authorize S2.1, S2.2 or S2.3 implementation, code, schema, fixture, test, evidence
-or generated-artifact changes. Each stage still requires its own separate, explicit maintainer
+only. It does not itself authorize S2.1, S2.2 or S2.3 implementation, code, schema, fixture, test,
+evidence or generated-artifact changes. S2.1 was authorized separately on 2026-11-04 (see the
+authorization section below); S2.2 and S2.3 still require their own separate, explicit maintainer
 authorization.
+
+---
+
+## Maintainer authorization — S2.1 implementation (2026-11-04)
+
+**Source:** [Issue #84 comment
+6623307799](https://github.com/agent-federation/contract-builder/issues/84#issuecomment-6623307799)
+(project owner, 2026-11-04).
+
+**Status:** S2.1 implementation is **authorized** and, at the time of this record, **not yet
+performed**. Implementation baseline: `main` `8c3a5faf388cac97e357073204de39f82a3737d6`.
+
+**Scope of the authorization.** The exact accepted S2.1 scope in the proposal and its Q1–Q10
+decisions, including:
+
+- preserve the five existing S1 claims, their statuses and existing S1 behavior;
+- implement the accepted model surface and 29 relation declarations, including the eight Q1
+  `hasPrerequisite` edges and zero transition instances;
+- preserve the Q1 distinction between repository facts, owner-approved formalization/policies and
+  deferred runtime behavior; add no scheduler, execution-order, causal state-production,
+  admission-event or fourth phase-state semantics;
+- no generic-core changes, no new dependencies, no CORE-001 changes, no H2/H3 or
+  independent-verification claims;
+- no full 78-claim register (S2.2), no focused S2.3 tests/evidence, no S3 N1–N18 matrix;
+- no committed CORE-000 draft or durable producer evidence in S2.1 (Q9: draft S2.2, durable
+  evidence/human summary S2.3).
+
+**Still gated.** S2.2, S2.3 and S3 each require their own separate, explicit maintainer
+authorization. This authorization does not extend to generic-core changes, new normative semantics,
+CORE-000 draft or durable producer-evidence creation, claim promotion or independent-verification
+records. The planning decisions above remain historical planning decisions; this section is the
+canonical record of the S2.1 implementation authorization and supersedes only the earlier “S2.1 not
+authorized” current-status statements.
 
 ---
 
