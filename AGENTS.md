@@ -48,6 +48,27 @@ changing any input under `spec/` (including the template or
 byte-deterministic (no timestamps or absolute paths), so rebuilding an unchanged
 specification leaves the working tree clean.
 
+### CORE-000 (the engine self-contract)
+
+`contracts/core000/output/CORE-000.draft.md` is generated; never edit it by
+hand. After changing any declared input under `contracts/core000/` or the
+CORE-000 profile under `profiles/core000/`, regenerate it with the Q9
+copy-from-temporary-workspace procedure and commit the regenerated file:
+
+1. `prepareWorkspace()`, then `runHarness({ mode: "draft", write: true,
+   specDir: ws.projectDir, workspaceRoot: ws.root })`; assert `result.written ===
+   true` and `workspace.writeCheck === "only_declared_outputs"`.
+2. Copy `ws.root/contracts/core000/output/CORE-000.draft.md` to
+   `contracts/core000/output/CORE-000.draft.md`, then run
+   `bun test tests/core000.test.ts -t "S2.2 artifact verification"`; remove the
+   copy if the test fails.
+3. Always `ws.cleanup()`.
+
+`bun run check` validates CORE-001 only and is not a CORE-000 check. The
+`S2.2 artifact verification` test is the machine check and runs in CI
+(`bun test`). The procedure is recorded in
+`docs/architecture/core-000-decision-record.md` (S2.2 scope approvals and Q9).
+
 ## Layout
 
 - `spec/` — declared inputs (`contract-builder.json`, `sources.yml`,
