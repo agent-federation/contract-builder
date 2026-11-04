@@ -238,12 +238,11 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   const policyChecks = loadedPolicy?.policy.requiredChecks ?? [];
 
   const payloads = await loadPayloads(root, limits, manifest, structuralFailure, artifactPathFailure, diagnostics, diag);
-  let enumerationFailure = false;
+  let scanIncomplete = false;
   let nestedManifestFailure = false;
   if (manifest !== null && !structuralFailure) {
     const scan = await reportUndeclaredFiles(root, manifest, limits, diag);
-    if (scan.limitHit) payloads.limitHit = true;
-    enumerationFailure = scan.error !== null;
+    scanIncomplete = scan.incomplete;
     nestedManifestFailure = scan.nestedManifest;
   }
   if (
@@ -304,7 +303,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
         : "PASS";
 
   let integrityPackage: VerificationReport["dimensions"]["integrity"]["package"] = "PASS";
-  if (structuralFailure || artifactPathFailure || enumerationFailure || nestedManifestFailure) {
+  if (structuralFailure || artifactPathFailure || nestedManifestFailure) {
     integrityPackage = "FAIL";
   } else if (
     payloads.artifacts.some((artifact) => artifact.status === "missing") ||
@@ -502,7 +501,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   };
 
   const limitStopped = payloads.limitHit || signatureEvaluation.envelopeLimitHit;
-  report.coverage = computeCoverage(report, requiredChecks, requiredDimensions, limitStopped);
+  report.coverage = computeCoverage(report, requiredChecks, requiredDimensions, limitStopped, scanIncomplete);
   report.verdict = computeVerdict(report, {
     requiredChecks,
     requiredDimensions,
@@ -1321,8 +1320,7 @@ function buildLimitations(diagnostics: Diagnostic[]): Limitation[] {
 }
 
 interface UndeclaredScan {
-  limitHit: boolean;
-  error: string | null;
+  incomplete: boolean;
   nestedManifest: boolean;
 }
 
@@ -1345,11 +1343,25 @@ async function reportUndeclaredFiles(
     if (ref !== undefined) add(ref.path);
   }
   const walk = await walkPackageFiles(root, limits);
+  // RFC §4.3.3/R-PAP-2 and R-PAP-3: an enumeration failure or a private
+  // entry/depth budget stop leaves the absence of undeclared files
+  // unestablished. It is a scan-incomplete warning, never a package I/O
+  // failure and never a §4.3.4 limit violation.
   if (walk.limitHit) {
-    diag("pap.package.limit-exceeded", "error", "package", "directory enumeration exceeded the verifier budget");
+    diag(
+      "pap.package.undeclared-scan-incomplete",
+      "warning",
+      "package",
+      "the undeclared-file scan stopped at the verifier entry or depth budget",
+    );
   }
   if (walk.error !== null) {
-    diag("pap.package.io", "error", "package", walk.error);
+    diag(
+      "pap.package.undeclared-scan-incomplete",
+      "warning",
+      "package",
+      `${walk.error}; the absence of undeclared files was not established`,
+    );
   }
   let nestedManifest = false;
   for (const file of walk.files) {
@@ -1368,7 +1380,7 @@ async function reportUndeclaredFiles(
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) continue;
     diag("pap.package.undeclared-file", "warning", file, "undeclared file is present and was not read");
   }
-  return { limitHit: walk.limitHit, error: walk.error, nestedManifest };
+  return { incomplete: walk.limitHit || walk.error !== null, nestedManifest };
 }
 
 function duplicateDeclaredPaths(manifest: Manifest): Set<string> {

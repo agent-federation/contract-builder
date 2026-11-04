@@ -244,14 +244,24 @@ test("directory enumeration has a bounded entry budget", () => {
   }
   const policy = unsignedPolicy();
   policy.id = "policy-traversal-budget";
-  policy.limits = { payloadFiles: 1 };
+  policy.limits = { payloadFiles: 100 };
   const file = writePolicy("policy.json", policy);
   const result = verify(dir, ["--trust-policy", file]);
   assert.equal(result.status, 2);
   const report = JSON.parse(result.stdout);
   assert.equal(report.verdict, "INCOMPLETE");
   assert.equal(report.coverage.full, false);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.equal(report.dimensions.integrity.package, "PASS");
+  const scan = report.diagnostics.filter(
+    (diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete",
+  );
+  assert.deepEqual(scan.map((diagnostic: any) => diagnostic.severity), ["warning"]);
+  assert.ok(scan.every((diagnostic: any) => diagnostic.scope === "package"));
+  assert.ok(
+    report.limitations.some((limitation: any) => limitation.code === "pap.package.undeclared-scan-incomplete"),
+  );
+  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.io"));
 });
 
 test("an unreadable signature directory fails the package", () => {

@@ -159,6 +159,7 @@ export function computeCoverage(
   requiredChecks: string[],
   requiredDimensions: DimensionName[],
   limitStopped: boolean,
+  scanIncomplete = false,
 ): VerificationReport["coverage"] {
   const results = new Map(report.dimensions.checks.results.map((result) => [result.checkId, result.outcome]));
   const outcomes = requiredChecks.map((checkId) => results.get(checkId) ?? "NOT_EVALUATED");
@@ -172,6 +173,7 @@ export function computeCoverage(
   const emptyRequiredSet = requiredChecks.length === 0 && requiredDimensions.length === 0;
   const full =
     !limitStopped &&
+    !scanIncomplete &&
     !emptyRequiredSet &&
     unsupported === 0 &&
     notEvaluated === 0 &&
