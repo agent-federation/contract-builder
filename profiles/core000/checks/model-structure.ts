@@ -11,6 +11,8 @@ export function modelStructureFindings(model: ProjectModel): ValidatorFinding[] 
 
   for (const iface of model.byKind.get("interface") ?? []) {
     const owner = text(iface.fields.owner);
+    // `owner` is optional in the accepted interface model; the rule applies only when named.
+    if (owner.trim().length === 0) continue;
     const component = model.byId.get(owner);
     const provides = component?.relations.provides ?? [];
     if (component === undefined || component.kind !== "component" || !provides.includes(iface.id)) {

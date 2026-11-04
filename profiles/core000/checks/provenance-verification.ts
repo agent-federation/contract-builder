@@ -68,17 +68,16 @@ export function provenanceVerificationFindings(model: ProjectModel): ValidatorFi
       findings.push(finding("core000.independent-verification.incomplete", record, "claims.yml"));
     }
 
-    const verifier = text(fields.verifier);
+    const verifier = text(fields.verifier).trim();
     if (
-      verifier.trim().length > 0 &&
-      coveredClaims.some((claim) => text(claim.fields.author) === verifier)
+      verifier.length > 0 &&
+      coveredClaims.some((claim) => text(claim.fields.author).trim() === verifier)
     ) {
       findings.push(finding("core000.independent-verification.self", record, "claims.yml"));
     }
 
     if (fields.performed === true && text(fields.result) !== "not_run") {
-      const locator = text(fields.record_locator);
-      if (locator.trim().length === 0 || locator.startsWith("contracts/core000/")) {
+      if (!isExternalRecordLocator(fields.record_locator)) {
         findings.push(
           finding("core000.independent-verification.record-missing", record, "claims.yml"),
         );
@@ -113,8 +112,7 @@ export function hasValidIndependentVerification(model: ProjectModel, claim: Enti
     if (text(fields.independence) !== "independent") continue;
     if (fields.performed !== true) continue;
     if (text(fields.result) !== "confirmed") continue;
-    const locator = text(fields.record_locator);
-    if (locator.length === 0 || locator.startsWith("contracts/core000/")) continue;
+    if (!isExternalRecordLocator(fields.record_locator)) continue;
     const claimResults = Array.isArray(fields.claim_results) ? fields.claim_results : [];
     if (
       claimResults.some(
@@ -132,6 +130,13 @@ export function hasValidIndependentVerification(model: ProjectModel, claim: Enti
 
 function finding(code: string, statement: Entity, file: string): ValidatorFinding {
   return { code, entityId: statement.id, location: { file, pointer: "" } };
+}
+
+function isExternalRecordLocator(value: unknown): boolean {
+  let locator = text(value).trim().replace(/\\/g, "/");
+  if (locator.length === 0) return false;
+  locator = locator.replace(/^(?:\.\/)+/, "").replace(/\/{2,}/g, "/");
+  return !locator.startsWith("contracts/core000/");
 }
 
 function nonEmpty(value: unknown): boolean {

@@ -222,7 +222,6 @@ export interface PhaseView {
 
 export interface TransitionView {
   readonly id: string;
-  readonly name: string;
   readonly condition: string;
   readonly description: string;
 }
@@ -481,7 +480,6 @@ function phaseView(entity: Entity): PhaseView {
 function transitionView(entity: Entity): TransitionView {
   return {
     id: entity.id,
-    name: text(entity.fields.name),
     condition: text(entity.fields.condition),
     description: text(entity.fields.description),
   };

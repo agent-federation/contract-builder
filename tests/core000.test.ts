@@ -1009,6 +1009,16 @@ test("S2.1 view and template render the full model", async () => {
   assert.ok(markdown.includes("PH-VERIFICATION"));
   assert.ok(markdown.includes("COMP-RENDERER"));
   assert.ok(markdown.includes("core000.surface.claim-missing"));
+  assert.ok(markdown.includes(view.transitionNote));
+  assert.ok(markdown.includes("_None declared._"));
+  assert.ok(markdown.includes("- Prerequisites: `PH-STRUCTURE`, `PH-PROVENANCE`"));
+  assert.ok(markdown.includes("- Kind: `runtime`"));
+  assert.ok(markdown.includes("- Kind: `toolchain`"));
+
+  const catalogSection =
+    markdown.split("## Diagnostic catalog")[1]?.split("## Conformance cases")[0] ?? "";
+  assert.equal((catalogSection.match(/^- `/gm) ?? []).length, 25);
+  assert.ok(catalogSection.includes("core.profile.consent-required"));
   assert.equal(markdown.includes(REPO_ROOT), false);
 });
 
