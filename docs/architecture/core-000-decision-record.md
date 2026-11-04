@@ -214,6 +214,61 @@ authorized” current-status statements.
 
 ---
 
+## Maintainer decision — S2.2 owner rulings (2026-11-04)
+
+**Source:** owner review of the S2.2 owner-decision sheet, [Issue #119 comment
+6631326400](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6631326400)
+(maintainer, 2026-11-04), based on the second adversarial review and the follow-up maintainer review
+in that issue. This section records S2.2 planning decisions and one staged model decision. It does
+not authorize S2.2 implementation.
+
+**Status:** the S2.2 scope remains **not authorized**. It is re-frozen only after the S2.2a
+subject-model decision below and a fresh independent scope review.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| S2.2-A | **Accepted — direction A2 + A1a, staged** | The S2.2 register maps structural claims to the existing eight `subject_kind` values with a per-claim rationale (A2). Meta-claims — claims about claims, decisions, evidence, source statements, the register or process — are intended to receive honest non-structural subjects (A1a). A1a changes model semantics (design §5.3.1/§5.4: the allowed subject kind is policy, all subjects of a claim share one kind, and a claim needing two kinds is split), so it requires a separate **S2.2a** decision and scope that align schema, design and checks. S2.2a review and scope preparation are authorized as planning only. S2.2 **must not implement A1a**: no new `subject_kind` value and no missing-subject exemption is authorized by this section. |
+| S2.2-B | **Accepted — B1 + B4** | Per-claim decision-source table `claim → source → decision status → decision entity`. Source hierarchy: (1) `core-000-decision-record.md` entries; (2) task constraints C1–C15 as decision entities per design §5.3.1; (3) `engine-public-contract.md` entries only where that document's own legend makes them accepted or maintainer-directed — the document is `Status: proposed for maintainer review`, not a canonical accepted list; (4) design acceptance (PR #51) only with an explicit per-claim owner ruling, never blanket. One decision entity per distinct decision, not per claim. No umbrella decision for claims with no per-claim source; such a claim needs an explicit owner ruling or deferral. Status agreement (`accepted`/`proposed`/`deferred`/`unresolved`) is checked per claim. |
+| S2.2-C | **Accepted — C1** | Explicit, owner-approved per-claim `authority` table. The five S1 values are fixed: `C000-TR-001` human, `C000-TR-003` external, `C000-CT-025` engine, `C000-CT-026` engine, `C000-IM-004` external. No class/subject rule and no implementer inference; every `engine` assignment must be justified by an actually core-enforceable check. The table fixes `M` in `core000.independent-verification.missing = 3 + M`. |
+| S2.2-D | **Accepted — D1 with a grounding rule** | Encode and render class-specific fields (`conditions`, `consequence`, `baseline`, `notes`) only where an accepted source supports the actual value. `conditions` is required for the two guarantee claims (otherwise `core000.claim.unsupported-guarantee` errors): `C000-CT-012`'s conditions come from its claim statement, while **`C000-CT-011`'s condition text requires a separate owner-approved formulation** and must not be authored by the implementer to make a check pass. Ungrounded fields are explicitly deferred, not invented. The §7.6 class grouping and status counts may be applied within the existing `view.ts`/template boundary. |
+| S2.2-E | **Accepted — E1′** | New evidence rows use the base revision whose behaviour was inspected (`96ff22f` or the PR's base), not the as-yet-unknown S2.2 merge SHA. The S1 rows remain byte-verbatim at `dffdaa2`; no S1 refresh (E2 rejected). The two C4 locator refinements are re-checked at scope preparation: `C000-IM-003` → the build-result exit-code assertions in `tests/build.test.ts`; `C000-IM-009` → `spec/lib/identity.ts:604/753` plus `tests/identity.test.ts:555`. Evidence **rows** are part of `claims.yml` and therefore participate in `inputDigest`; evidence **files** remain outside it (G1); the artifact is built after the final evidence inputs are fixed. |
+| S2.2-F | **Accepted — literal multiset + entity IDs** | The S2.2 verification test asserts the literal `{code, severity, occurrence count}` multiset **and** the exact finding `entityId` values, at a named revision, labelled a reviewed snapshot of the accepted mappings — not a prediction from design §7.7. This is recorded as an explicit S2.2 acceptance criterion. |
+| S2.2-H | **Accepted — explicit authoring policy** | The six schema-required fields (`author`, `authority`, `scope`, `verification_method`, `lifecycle`, `subject_kind`) receive an owner-approved policy/table; no silent defaults. `authority` is S2.2-C; `subject_kind`/`subject` is S2.2-A; `author` attribution, `scope` and `verification_method` text, and the `lifecycle` rule are explicitly decided, with a per-claim table where the accepted register is ambiguous. |
+| S2.2-U | **Conditional — default U = 0** | An unresolved-decision link is recorded only if a claim has a confirmed semantic dependency on a canonically recorded unresolved decision. Verification found the only source for `C000-CT-022`'s `D20`/`D29` dependency is the proposed `engine-public-contract.md`, whose `D20` rationale references issue #10 — a closed LICENSE decision — and no open or accepted source records packaging/publication as unresolved today. No unresolved link is therefore created in the S2.2 register: `core000.decision.unresolved` is not demonstrated by the clean build and remains covered by the S2.3 synthetic test. If an unresolved decision source is canonically recorded later, linking it (U = 1) is the expected representation; the register is not adjusted to manufacture a diagnostic count. |
+| S2.2-SC | **Accepted — honest surface coverage** | The subject mapping determines `core000.surface.claim-missing`; do not invent claims to reach zero. The S2.2 PR lists the final uncovered component/interface IDs and states that the accepted register does not cover them. |
+| S2.2-G | **Accepted — mechanical constraints** | Every existing assertion the register breaks is updated in the same PR without weakening the S2.2 test (repo-draft absence, the 5-claim count, the counts object, evidence-accessor ordering, S1-POS-01's exact 19-diagnostic set, artifact-substring assertions). The five S1 claim/evidence/decision blocks stay byte-verbatim, the five mutation anchors stay unique (`mutations.ts` throws on duplicates), and the S1 evidence rows stay leading. The CORE-000 generated-artifact maintenance rule is a separate follow-up tail: `AGENTS.md` documents the CORE-001 rule only and is outside the S2.2 boundary. |
+
+**Staged model decision — S2.2a.** The A1a direction is accepted, but its implementation is not. A
+separate S2.2a step may review and prepare a scope for the subject-model change (schema, design and
+check alignment), and must demonstrate that the new subject kinds work with design §5.3.1/§5.4
+before any implementation is authorized. S2.2 cannot start the register work on the assumption that
+A1a will land.
+
+**U condition.** U = 1 is not pre-authorized. It becomes the correct representation only after a
+canonical unresolved-decision source for `C000-CT-022` is recorded; until then U = 0 and the S2.3
+synthetic test is the coverage of `core000.decision.unresolved`. This keeps the register data honest
+and prevents the diagnostic multiset from driving the data.
+
+**Verified basis for these rulings.** The second adversarial review and the follow-up maintainer
+review in Issue #119 agree on the diagnosis. Verified against merged `main` `96ff22f`:
+`engine-public-contract.md` is marked proposed for maintainer review; design §5.4 makes
+`subject_kind` policy with one kind per claim and a split for multi-kind claims; design §5.3.1 makes
+task constraints C1–C15 decision entities; the D-table marks `D17`/`D18`/`D25` proposed,
+`D20`/`D29` unresolved, `D32` deferred and `D33` accepted (#37); `C000-CT-012` states its conditions
+while `C000-CT-011` does not; the S1 authority precedents are as listed in S2.2-C; evidence rows are
+inside `inputDigest` while evidence files are outside it (G1); `git log dffdaa2..HEAD -- spec/lib` is
+empty, so the S1 evidence at `dffdaa2` remains valid.
+
+**Authorization boundary.** This section records planning decisions and one staged model direction
+only. It does not authorize S2.2 implementation, code, schema, claim data, test, evidence or
+generated-artifact changes, and it does not authorize S2.2a implementation. After the S2.2a decision
+and these rulings are recorded and reviewed, the S2.2 scope in Issue #119 is re-frozen with the
+rulings and the S2.2-G constraints as explicit acceptance criteria, a fresh independent scope review
+is performed, and only then may a separate explicit S2.2 authorization be granted. S2.3 and S3
+remain separately gated; no generic-core, CORE-001 or PAP change is implied.
+
+---
+
 ## 0. How to answer the open items
 
 For each item, one of the following is enough:
