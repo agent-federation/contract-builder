@@ -667,6 +667,9 @@ decision being implemented; the proposal package itself must not be changed to m
 - F58 is pending, not settled. The verifier asserts the default (identity-only) and the alternate
   (full, 20/35/6); it does not choose between them. The owner decision is required before the
   case set is final.
+- The base and snapshot are pinned (`0a5132e` / `c6ee644`). If the PR base advances, update
+  `basis.baseCommit`, `BASE` in §0 and `BASE_COMMIT` in `verify_cases.py` in the same commit and
+  re-run the verifier; the RFC and `cases.json` content must remain unchanged.
 - The implementation-record self-check in §1.5 depends on implementation-specific build commands;
   the record must contain the exact commands and before/after values. It is not run here because
   no implementation is authorized; the reproducible §1.4 vector self-check is run instead.
