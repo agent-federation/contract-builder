@@ -5,7 +5,10 @@ import { hasValidIndependentVerification } from "./provenance-verification.js";
 
 const EVIDENCE_KINDS = new Set(["code", "test", "ci"]);
 
-const STATUS_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
+const STATUS_VALUES: Record<
+  "decision" | "implementation" | "tests" | "verification",
+  ReadonlySet<string>
+> = {
   decision: new Set(["accepted", "proposed", "deferred", "none"]),
   implementation: new Set(["implemented", "none"]),
   tests: new Set(["tested", "none"]),
@@ -27,10 +30,10 @@ export function claimEvidenceFindings(model: ProjectModel): ValidatorFinding[] {
 
     // Defensive unit-level assertion: schema validation normally rejects an invalid enum first.
     if (
-      !STATUS_VALUES.decision!.has(decision) ||
-      !STATUS_VALUES.implementation!.has(implementation) ||
-      !STATUS_VALUES.tests!.has(tests) ||
-      !STATUS_VALUES.verification!.has(verification)
+      !STATUS_VALUES.decision.has(decision) ||
+      !STATUS_VALUES.implementation.has(implementation) ||
+      !STATUS_VALUES.tests.has(tests) ||
+      !STATUS_VALUES.verification.has(verification)
     ) {
       findings.push(finding("core000.claim.invalid-status", claim));
     }

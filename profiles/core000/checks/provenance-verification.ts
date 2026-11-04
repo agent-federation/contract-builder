@@ -69,7 +69,10 @@ export function provenanceVerificationFindings(model: ProjectModel): ValidatorFi
     }
 
     const verifier = text(fields.verifier);
-    if (coveredClaims.some((claim) => text(claim.fields.author) === verifier)) {
+    if (
+      verifier.trim().length > 0 &&
+      coveredClaims.some((claim) => text(claim.fields.author) === verifier)
+    ) {
       findings.push(finding("core000.independent-verification.self", record, "claims.yml"));
     }
 

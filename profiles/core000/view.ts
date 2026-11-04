@@ -171,10 +171,12 @@ function domainKind(
   if (!isObject(document) || !Array.isArray(document[listKey])) {
     return { ok: false, reason: "document-unavailable" };
   }
-  const matches = document[listKey].filter((entry) => isObject(entry) && entry.id === id);
+  const matches = document[listKey].filter(
+    (entry): entry is Record<string, unknown> => isObject(entry) && entry.id === id,
+  );
   if (matches.length === 0) return { ok: false, reason: "missing" };
   if (matches.length > 1) return { ok: false, reason: "duplicate" };
-  const kind = matches[0]!.kind;
+  const kind = matches[0]?.kind;
   if (typeof kind !== "string" || !allowed.has(kind)) {
     return { ok: false, reason: "malformed" };
   }
