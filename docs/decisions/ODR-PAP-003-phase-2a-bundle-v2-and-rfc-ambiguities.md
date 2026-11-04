@@ -174,7 +174,7 @@ A separate implementation authorization is required before any of the above. No 
 
 **Owner decision:** APPROVED on 2026-11-04: D-P2A-1 A; D-P2A-2 A (19/36/6, F58 identity-only, source-first provenance); D-P2A-3 A; R-PAP-1 B; R-PAP-2 A; R-PAP-3 B; R-PAP-4 A.
 
-**Owner approval reference:** owner approval comments on [#94](https://github.com/agent-federation/contract-builder/issues/94) and [#95](https://github.com/agent-federation/contract-builder/issues/95); exact comment links are recorded in the ODR PR body and added to this record after posting.
+**Owner approval reference:** [#94 approval comment](https://github.com/agent-federation/contract-builder/issues/94#issuecomment-6625216848) and [#95 approval comment](https://github.com/agent-federation/contract-builder/issues/95#issuecomment-6625218700). The two comments cross-reference each other and [PR #103](https://github.com/agent-federation/contract-builder/pull/103).
 
 **Date:** 2026-11-04
 
