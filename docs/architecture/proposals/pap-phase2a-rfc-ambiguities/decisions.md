@@ -316,12 +316,12 @@ Replace the sentence at lines 1758–1763 with:
 
 ```markdown
   `full` is then `checksNotEvaluated == 0`, `checksUnsupported == 0`,
-  `dimensionsEvaluated == len(requiredDimensions)`, and the undeclared-file scan completed. It is
-  `false` when the required set is empty (no required check and no required dimension): the
-  empty-required-set case is `INCOMPLETE` by §7.4 rule 4, never a vacuously full coverage. It is
-  also `false` whenever a `pap.package.limit-exceeded` stopped evaluation of any declared payload,
-  required check or signature envelope, even if the affected dimension is not in
-  `requiredDimensions`, and whenever the undeclared-file scan is incomplete.
+  `dimensionsEvaluated == len(requiredDimensions)`, the undeclared-file scan completed, and the
+  required set is not empty. It is `false` when the required set is empty (no required check and
+  no required dimension): the empty-required-set case is `INCOMPLETE` by §7.4 rule 4, never a
+  vacuously full coverage. It is also `false` whenever a `pap.package.limit-exceeded` stopped
+  evaluation of any declared payload, required check or signature envelope, even if the affected
+  dimension is not in `requiredDimensions`, and whenever the undeclared-file scan is incomplete.
 ```
 
 #### Exact proposed wording — Appendix J, J.1
@@ -500,11 +500,13 @@ Add a bullet after the payload-count bullet (after line 561):
 - The undeclared-file scan is bounded by `scanEntries`. The count includes every directory entry
   visited under the package root (regular files, directories and symbolic links); the package root
   itself is not counted. Exceeding the limit stops the scan, emits
-  `pap.package.limit-exceeded` with the limit name `scanEntries`, records the scan as incomplete
-  (the diagnostic and a limitation, with no dimension status change), sets `coverage.full: false`,
-  and makes the verdict at most `INCOMPLETE` (exit 2). No dimension becomes `NOT_EVALUATED` solely
-  because of this limit, and no `PASS` may be reported. Entries observed before the stop MAY still
-  be reported as undeclared-file warnings, but the scan is not claimed complete.
+  `pap.package.limit-exceeded` with the limit name `scanEntries` in the diagnostic message (the
+  diagnostic shape has no separate limit-name field; §9.11's “with the limit name and observed
+  value” is message content), records the scan as incomplete (the diagnostic and a limitation, with
+  no dimension status change), sets `coverage.full: false`, and makes the verdict at most
+  `INCOMPLETE` (exit 2). No dimension becomes `NOT_EVALUATED` solely because of this limit, and no
+  `PASS` may be reported. Entries observed before the stop MAY still be reported as undeclared-file
+  warnings, but the scan is not claimed complete.
 ```
 
 Add a row to the limit-interaction summary table (after the signature-envelopes row, line 580):
