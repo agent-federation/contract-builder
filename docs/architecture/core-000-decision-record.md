@@ -112,6 +112,39 @@ or creation/linking of an implementation issue, is not implementation authorizat
 
 ---
 
+## Maintainer decision — Q1, Q3, Q5 and Q10 (2026-11-03/04)
+
+**Source:** the project owner's [PR #87 Q1 confirmation comment
+6607056794](https://github.com/agent-federation/contract-builder/pull/87#issuecomment-6607056794)
+(2026-11-03) and [PR #87 Q3/Q5/Q10 decision comment
+6621046448](https://github.com/agent-federation/contract-builder/pull/87#issuecomment-6621046448)
+(2026-11-04). The full question, evidence, options and consequence records for Q1, Q3, Q5 and Q10
+are in [`S2.1-open-questions.md`](proposals/core000-s21/S2.1-open-questions.md). This section is the
+canonical cross-reference to those durable owner decisions; it does not reinterpret, broaden or
+reopen any of them.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| Q1 | **Accepted — 2026-11-03** | One `hasPrerequisite` relation (the 29th declaration, phase → phase, many, no inverse) carries the eight contract §6.2 phase-dependency edges; the `transition` kind/schema is retained with zero S2.1 instances. The post-run invariant is the maintainer-approved formalization of `requires`; “all prerequisites `passed`” establishes eligibility only and admission is not an event. The §6.2 failure→skip sentence is read directly (direct dependents), and the completeness rule is a separate approved policy. Acyclic `hasPrerequisite` is an explicit well-formedness policy enforced by the S2.1 test only. No causal, execution-order, timing, scheduler, admission-event or state-production semantics are encoded. |
+| Q3 | **Accepted — 2026-11-04** | Consent surface: `IF-CONSENT-OPTION` for `BuildOptions.allowExecutableProfile`, `IF-CONSENT-CLI-FLAG` for `--allow-executable-profile`, and the core-owned diagnostic `core.profile.consent-required`. `TB-PROFILE-EXEC` stays settled with `enforcement: explicit_consent`. One `/diagnostics` inventory: 24 profile-owned `core000.*` entries matching the catalog plus one core-owned entry (25 total). Model-level `diagnostic.phase` remains required; the consent diagnostic is associated with `PH-LOAD`, and any `raisedIn` must agree with `phase`. Ownership is catalog membership, never ID-prefix inference. |
+| Q5 | **Accepted — 2026-11-04** | The generic IR's reserved `Entity.kind` semantics are preserved, as are the domain fields `dependency.kind` and `conformance_case.kind`; neither is renamed and generic IR extraction is unchanged. Profile-level bounded typed accessors `dependencyKind(model, id)` and `conformanceCaseKind(model, id)` are provided, fail closed, and never fall back to `Entity.kind` or a default. No unrestricted raw-document accessor is exposed to renderers or templates. |
+| Q10 | **Accepted — 2026-11-04** | All seven declared components are public responsibility units and all twelve declared interface entities are public surfaces; interfaces are public by definition, so no redundant `public` field is added. Component `public` describes a public responsibility unit, not external accessibility; `stability` is independent of public status. Expected coverage remains 19 public surfaces (3 covered, 16 uncovered); tests assert the exact uncovered IDs, and the warnings remain visible. |
+
+**Cross-question effect.** Q1 is the source of the 29th relation and the 18th S2.1 relation
+declaration; Q3's inventory remains 25 model-level diagnostic rows and does not change Q4's
+`id = code` vocabulary; Q5's accessors and Q10's public-surface semantics are unchanged from the
+owner decisions. The affected relation counts are synchronized in
+[`core-000-s2-package.md`](core-000-s2-package.md), the accepted design
+([`core-000-self-contract.md`](core-000-self-contract.md)) and the
+[`core-000-execution-plan.md`](core-000-execution-plan.md). The Q9 stage allocation remains recorded
+in the 2026-11-04 section below and is synchronized in the S2 package.
+
+**Authorization boundary.** This section is a canonical documentation record only. It does not
+authorize S2.1, S2.2 or S2.3 implementation, code, schema, fixture, test, evidence or
+generated-artifact changes.
+
+---
+
 ## Maintainer decision — 2026-11-04
 
 **Source:** [Issue #84 comment
