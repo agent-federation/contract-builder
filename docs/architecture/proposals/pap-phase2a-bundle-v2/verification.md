@@ -45,8 +45,8 @@ The bundle's `snapshot/manifest.json` must still name the same source commit:
 ```bash
 cd "$BUNDLE"
 git rev-parse HEAD
-python3 -c 'import json; m=json.load(open("snapshot/manifest.json")); print(m["source"])'
-python3 -c 'import json; m=json.load(open("snapshot/manifest.json")); print(len(m["files"]), "files")'
+python3 -c 'import json; m=json.load(open("snapshot/manifest.json", encoding="utf-8")); print(m["source"])'
+python3 -c 'import json; m=json.load(open("snapshot/manifest.json", encoding="utf-8")); print(len(m["files"]), "files")'
 ```
 
 Expected before the two bundle changes: bundle HEAD `c568051…`; source commit `c6ee644…`; 433
@@ -147,7 +147,7 @@ cd "$REPO"
   --format json --now 2026-11-02T00:00:00Z > /tmp/report.json
 python3 - <<'PY'
 import json
-r = json.load(open("/tmp/report.json"))
+r = json.load(open("/tmp/report.json", encoding="utf-8"))
 v = r["verifier"]
 assert v["id"].startswith("pap.verifier."), v["id"]
 assert v["id"] != "pap.verifier.reference", "independent verifier must not use the reference id"
@@ -178,7 +178,7 @@ cd <implementation checkout>
 #     The implementationDigest MUST NOT change; the closure list MUST NOT change.
 python3 - <<'PY'
 import json, sys
-rec = json.load(open("path/to/experiment-record.json"))
+rec = json.load(open("path/to/experiment-record.json", encoding="utf-8"))
 impl = rec["implementation"]
 sc = impl["selfCheck"]
 assert impl["implementationDigest"].startswith("sha256:") and len(impl["implementationDigest"]) == 71
@@ -209,7 +209,7 @@ cd <implementation checkout>
 python3 - <<'PY'
 import json, re
 from pathlib import Path
-rec = json.load(open("path/to/experiment-record.json"))
+rec = json.load(open("path/to/experiment-record.json", encoding="utf-8"))
 digest = rec["implementation"]["implementationDigest"]
 hexdigest = digest.removeprefix("sha256:")
 assert rec["implementation"]["id"] != "pap.verifier.reference", "independent verifier must not use the reference id"
@@ -469,6 +469,8 @@ manifest_path.write_text(new_manifest, encoding="utf-8")
 sums_path = root / "snapshot/SHA256SUMS"
 entries = {}
 for line in sums_path.read_text(encoding="utf-8").splitlines():
+    if not line.strip():
+        continue
     digest, path = line.split("  ", 1)
     entries[path] = digest
 entries[entry["path"]] = entry["sha256"]
