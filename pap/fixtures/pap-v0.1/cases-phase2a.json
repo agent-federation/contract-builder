@@ -8,6 +8,7 @@
     "sourceCommit": "c6ee64416c91ab56f9d8270114c8f8a8b9d2f608",
     "caseSetOrigin": "source",
     "caseSetCommit": "26b99826205ad0d29b4a0cb91f87d0718f4fdd6e",
+    "caseSetCommitNote": "authoring base; the bundle manifest records the containing source commit",
     "casesJson": {
       "path": "pap/fixtures/pap-v0.1/cases.json",
       "sha256": "8ae2693b34a31f1a49fdee0e5e5e235419e8d510d2a9b6f84e809b0c1ef154df"
