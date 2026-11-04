@@ -6,6 +6,9 @@ project data, tests, evidence, fixtures or generated artifacts.
 **Revision 1.2 (maintainer decisions recorded, 2026-11-03):** records the accepted D14/P-2/P-3/P-6
 and S2-D1–S2-D4 planning decisions; applies the 24-code decision and clarifies historical S1 gates.
 The underlying S1 snapshots remain unchanged.
+**Revision 1.3 (accepted S2.1 decisions synchronized, 2026-11-04):** reconciles the Q1 29-relation
+model (including the `hasPrerequisite` declaration) and the Q9 stage-scoped artifact/evidence
+allocation. P-2/P-3/P-6 remain accepted unchanged, and nothing here authorizes implementation.
 **Source of authority:** [Issue #72 maintainer comment 6586047089](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6586047089)
 (zaebee, 2026-11-02) authorized preparation of a bounded S2 package only. The subsequent
 2026-11-03 decisions accepting D14/P-2/P-3/P-6 and S2-D1–S2-D4 are recorded in the canonical
@@ -22,7 +25,7 @@ or profile behaviour.
 D14, P-2, P-3, P-6 and S2-D1–S2-D4 were accepted on 2026-11-03 for planning scope only.
 
 > **What this is.** A bounded decision and task package for the next milestone: turning the S1
-> five-claim slice into the accepted 14-kind / 28-relation / full-78-claim CORE-000 model, with
+> five-claim slice into the accepted 14-kind / 29-relation / full-78-claim CORE-000 model, with
 > exact files, commands, tests, expected outputs, exclusions, stop conditions and acceptance
 > criteria.
 >
@@ -36,8 +39,8 @@ D14, P-2, P-3, P-6 and S2-D1–S2-D4 were accepted on 2026-11-03 for planning sc
 
 | Part | Content |
 |---|---|
-| **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes, each creating its own fresh workspace (same-environment, fresh-workspace repeatability; not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 28 relations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
-| **Accepted planning decisions** | Stage S2 as **S2.1 model surface**, **S2.2 full claim register**, and **S2.3 focused check coverage/evidence**. The full N1–N18 matrix remains in S3 (S2-D4 A). D14/P-2/P-3 are A; P-6 is A for producer run evidence only, with zero independent records in S2. S2-D1 selects all **24 enumerated codes**; S2-D2 selects all **78 accepted claims** with original statuses; S2-D3 selects the `conformance_case` kind/schema with an empty data list. |
+| **Facts** | S1 is merged at `07cbf5b`: H1 `SELF_BUILD_COMPLETED` for the five-claim slice; S1-POS-02 passed for two processes, each creating its own fresh workspace (same-environment, fresh-workspace repeatability; not H2); H2 `NOT_TESTED`; H3 `NOT_PERFORMED`; no CORE-000 claim is independently verified; a temporary workspace is not a security sandbox. The S1 model has 8 kinds, 11 relations, 13 catalog codes, 5 claims, 3 source statements, 8 evidence rows, 3 decisions and 0 independent verifications. The full accepted design has 14 kinds, 29 relation declarations, 78 claims and a table of 24 policy-check codes (the design prose says 23). |
+| **Accepted planning decisions** | Stage S2 as **S2.1 model surface**, **S2.2 full claim register**, and **S2.3 focused check coverage/evidence**. Q9 allocates no S2.1 draft or durable evidence, the draft to S2.2, and durable evidence plus the human summary to S2.3. The full N1–N18 matrix remains in S3 (S2-D4 A). D14/P-2/P-3 are A; P-6 is A for producer run evidence only, with zero independent records in S2. S2-D1 selects all **24 enumerated codes**; S2-D2 selects all **78 accepted claims** with original statuses; S2-D3 selects the `conformance_case` kind/schema with an empty data list. |
 | **Decision status** | D14, P-2, P-3, P-6 and S2-D1–S2-D4 are accepted for planning scope by the 2026-11-03 maintainer decision. No S2 implementation is authorized. H2 and H3 are not in S2 scope. |
 | **Remaining maintainer actions** | The planning package and eight decisions are accepted. Before S2.1, issue a separate explicit authorization after review of its exact scope. S2.2 and S2.3 each require their own separate explicit authorization; approval of S2.1 does not authorize them. Creating/linking an implementation task is not authorization. H2, H3, security isolation and semantic truth remain out of scope. |
 
@@ -70,7 +73,7 @@ The counts below come from the accepted design and the S1 profile, not from a ne
 | Area | S1 | Accepted full model | S2 adds |
 |---|---:|---:|---|
 | Entity kinds | 8 | 14 | `phase`, `transition`, `dependency`, `extension_point`, `diagnostic`, `conformance_case` |
-| Relation declarations | 11 | 28 | 17 declarations: `requires`/`requiredBy`, `startsAt`, `endsAt`, `dependsOn`/`dependedOnBy`, `covers`/`coveredBy`, `concerns`/`guardedBy`, `exposes`/`exposedBy`, `loadedBy`/`loads`, `supersedes`/`supersededBy`, `raisedIn` |
+| Relation declarations | 11 | 29 | 18 declarations: `requires`/`requiredBy`, `startsAt`, `endsAt`, `dependsOn`/`dependedOnBy`, `covers`/`coveredBy`, `concerns`/`guardedBy`, `exposes`/`exposedBy`, `loadedBy`/`loads`, `supersedes`/`supersededBy`, `raisedIn`, `hasPrerequisite` |
 | Policy-check codes | 13 | 24 enumerated (design prose says 23) | 11: invalid-status, unsupported-guarantee, status-class-conflict, independent-verification.incomplete/self/record-missing, model.interface-owner-mismatch, evidence.locator/orphan, surface.claim-missing, conformance.case-uncovered |
 | Claims | 5 | 78 | 73 additional accepted claims; no new claims |
 | Structure data | 1 component, 3 interfaces, 1 trust boundary | Full public components, interfaces, phases, transitions, extension points, trust boundaries, diagnostics and dependencies | Full structure document |
@@ -122,12 +125,12 @@ requirements and must not be mechanically rewritten.
 
 Extend the S1 slice to the accepted full model without changing generic-core behaviour:
 
-- 14 entity kinds and 28 relation declarations in `profiles/core000/profile.json`;
+- 14 entity kinds and 29 relation declarations in `profiles/core000/profile.json`;
 - the full public structure in `contracts/core000/structure.yml`;
 - all 78 accepted claims in `contracts/core000/claims.yml`, with source statements, evidence rows,
   decision entities and an empty independent-verification list;
 - the enumerated policy checks, the view/template sections and focused check coverage;
-- artifact/evidence handling according to P-2/P-3/P-6.
+- artifact/evidence handling according to P-2/P-3/P-6 and Q9's stage allocation.
 
 ### 2.2 Explicit non-goals
 
@@ -198,12 +201,14 @@ S1 already has `component`, `interface`, `source_statement`, `claim`, `evidence`
 | `diagnostic` | `id`, `code`, `severity`, `phase`, `message`, `status` | A catalog entry for a public diagnostic |
 | `conformance_case` | `id`, `kind`, `input`, `expected`, `status` | A planned case; S2 data list is empty unless S2-D3 chooses B |
 
-### 4.2 Relations (28)
+### 4.2 Relations (29)
 
-S2 keeps the S1 declarations and adds the 17 listed in §1.2. The two `one` cardinalities
+S2 keeps the S1 declarations and adds the 18 listed in §1.2. The two `one` cardinalities
 (`startsAt`, `endsAt`) and the `loadedBy` `one` cardinality follow the design; the reciprocal halves
 are declared explicitly to pass the reciprocal-declaration contract. `subject` remains the only
-S2 wildcard.
+S2 wildcard. The owner-approved `hasPrerequisite` declaration (phase → phase, many, no inverse)
+carries the eight phase-dependency edges from contract §6.2 (Q1 decision, 2026-11-03); it is not a
+design §5.4 declaration and encodes no execution-order semantics.
 
 ### 4.3 Policy checks (24; S2-D1 A accepted)
 
@@ -319,6 +324,7 @@ introduced.
 | `loadedBy` / `loads` | design §5.4 #24–25 | structural | C000-TR-006; C000-IM-006; consent/trust checks | directly represented |
 | `supersedes` / `supersededBy` | design §5.4 #26–27 | structural | C000-ST-001..004; claim lifecycle checks | directly represented |
 | `raisedIn` | design §5.4 #28 | structural | C000-IM-002/003; diagnostic catalog/phase checks | directly represented |
+| `hasPrerequisite` | Q1 owner decision (2026-11-03); contract §6.2 phase-dependency graph | structural | C000-IM-001; C000-SV-002; relation checks; S2.1 cycle test | new (owner-approved) |
 
 #### 4.6.3 New policy checks
 
@@ -377,7 +383,7 @@ review before it is treated as accepted.
 
 ### 5.1 S2.1 — model surface and structure
 
-**Goal:** expand the profile from 8 to 14 kinds, from 11 to 28 relations, from 13 to all 24
+**Goal:** expand the profile from 8 to 14 kinds, from 11 to 29 relations, from 13 to all 24
 policy checks selected by S2-D1 A, and from the S1 structure excerpt to the full structure, while
 the existing five claims still build.
 
@@ -386,7 +392,7 @@ the existing five claims still build.
 | `contracts/core000/contract-builder.json` | Add entity pointers for phase, transition, dependency, extension_point, diagnostic, conformance_case. |
 | `contracts/core000/structure.yml` | Add full components/interfaces/phases/transitions/extension points/trust boundaries/diagnostics/dependencies; keep the S1 rows. |
 | `contracts/core000/claims.yml` | Keep the S1 claims and add an empty `conformanceCases` list while the pointer is introduced; the full register replaces this in S2.2. |
-| `profiles/core000/profile.json` | Add the 6 kinds, 17 relations, new schema IDs, files and view/validator wiring. |
+| `profiles/core000/profile.json` | Add the 6 kinds, 18 relations, new schema IDs, files and view/validator wiring. |
 | `profiles/core000/catalog.json` | Add the 11 missing codes, for 24 total under accepted S2-D1 A. |
 | `profiles/core000/view.ts` | Add phase, transition, extension-point, diagnostic, dependency and conformance-case views/counts. |
 | `profiles/core000/validator.ts` | Wire the new checks. |
@@ -417,6 +423,13 @@ model surface. It does not claim the full model is complete. The full public sur
 S1 claims; warnings do not block a draft, and the S2.1 test records the exact code set rather than
 treating it as an error. S2.2’s full register must reduce or account for them explicitly.
 
+**Artifacts and evidence (Q9).** S2.1 commits no CORE-000 draft and no durable producer evidence;
+harness output stays transient. `contracts/core000/output/CORE-000.draft.md` is planned for S2.2
+after the full register, and `evidence/core000/<run>/result.json` plus
+`docs/architecture/core-000-execution-evidence.md` are planned for S2.3 after the focused checks
+(see §5.2–§5.3). P-2/P-3/P-6 remain accepted for the S2 program; Q9 is a stage-scoped allocation
+refinement, not their repeal or relaxation.
+
 ### 5.2 S2.2 — full 78-claim register
 
 **Goal:** replace the five-claim data with the full accepted register and make the full positive
@@ -427,9 +440,9 @@ draft reviewable.
 | `contracts/core000/claims.yml` | 78 claims, source statements, evidence rows, decision entities and empty independent verifications. |
 | `profiles/core000/view.ts` | Any projection fields needed for the larger register; no new semantics. |
 | `profiles/core000/templates/core000.md.j2` | Any section needed for the larger register; no new semantics. |
-| `contracts/core000/output/CORE-000.draft.md` | Generated draft, committed only if P-3 A. |
-| `evidence/core000/<run>/result.json` | Durable evidence only if P-2/P-6 A; otherwise the transient record stays in the harness. |
-| `docs/architecture/core-000-execution-evidence.md` | Human summary only if P-2 A. |
+| `contracts/core000/output/CORE-000.draft.md` | Generated draft, produced and committed in S2.2 after the full register and a successful reviewed run (P-3 A; Q9). |
+| `evidence/core000/<run>/result.json` | Not produced in S2.2; durable evidence is S2.3 work under Q9 (transient harness output only during S2.2). |
+| `docs/architecture/core-000-execution-evidence.md` | Not produced in S2.2; the human summary is S2.3 work under Q9. |
 | `tests/core000.test.ts` | Full-register positive/release assertions; no claim-status guesses. |
 
 No claim is added, removed or promoted without evidence. The full register must not treat the
@@ -445,8 +458,15 @@ N1–N18 matrix remains S3 under S2-D4 A; S2.3 does not re-implement it.
 | `contracts/core000/mutations.ts` | Named one-field mutations only for the focused S2 cases that need a harness run; no full N1–N18 table. |
 | `contracts/core000/run.ts` | Focused mutation list/expected-outcome wiring only; no bypass of `runBuild`. |
 | `tests/core000.test.ts` | Focused tests for each of the 11 new checks, plus S2 positive/release assertions. The three independent-verification checks use synthetic in-memory/temp fixtures, not project records; no claim that S3’s matrix is complete. |
-| `evidence/core000/<run>/result.json` | S2 run evidence if P-2/P-6 A. |
-| `docs/architecture/core-000-execution-evidence.md` | S2 human summary if P-2 A. |
+| `evidence/core000/<run>/result.json` | S2 run evidence if P-2/P-6 A (Q9: S2.3 stage owner). |
+| `docs/architecture/core-000-execution-evidence.md` | S2 human summary if P-2 A (Q9: S2.3 stage owner). |
+
+**Later-stage prerequisites (Q9).** Before S2.2 commits a draft or S2.3 publishes durable evidence,
+the plan must specify (a) a reproducible copy-from-temporary-workspace procedure (the harness
+intentionally refuses repository writes) and (b) a CORE-000-specific artifact verification
+command/check. `bun run check` validates CORE-001 only and must not be relied on for CORE-000.
+Satisfying these prerequisites is required before those artifacts are produced; it does not
+authorize S2.2/S2.3.
 
 S2 is accepted only after S2.3 passes. S2.1 or S2.2 alone is not the full model. The full N1–N18
 acceptance remains S3.
@@ -541,12 +561,13 @@ gate. S2 does not silently absorb it.
 
 - The transient JSON evidence record is required in every run regardless of P-2/P-6. It uses the
   execution plan §6.2 base shape plus the S1/S2 additions.
-- If P-2/P-6 A: durable `evidence/core000/<run>/result.json` and
+- If P-2/P-6 A (Q9: S2.3 stage): durable `evidence/core000/<run>/result.json` and
   `docs/architecture/core-000-execution-evidence.md`; no absolute paths, secrets or private material.
   S2 creates **zero** independent-verification records; no engine-generated record counts as
   independent, and `verification/core000/` is not populated in S2.
-- If P-3 A: commit `contracts/core000/output/CORE-000.draft.md` after a reviewed successful run;
-  `bun run check` must pass.
+- If P-3 A (Q9: S2.2 stage): commit `contracts/core000/output/CORE-000.draft.md` after a reviewed
+  successful run, using the CORE-000-specific artifact verification command/check required by Q9.
+  `bun run check` validates CORE-001 only and is not CORE-000 artifact verification.
 - If P-2/P-3/P-6 are deferred: no durable evidence or draft is committed; the transient record is
   still produced and asserted.
 - H2 and H3 are not run. The evidence records `H2_reproducibility: NOT_TESTED` and
@@ -574,7 +595,7 @@ gate. S2 does not silently absorb it.
 - No new claims are introduced by this planning package. The accepted decisions are recorded in
   the canonical decision record; they do not authorize implementation or resolve unrelated open
   design questions.
-- No evidence/draft commit unless P-2/P-3/P-6 say so.
+- No evidence/draft commit unless P-2/P-3/P-6 and Q9's stage allocation say so.
 - Reconcile forward-looking 23-count references to 24 under accepted S2-D1 A; preserve historical S1 snapshots.
 
 ### 7.3 Stop conditions
@@ -609,7 +630,7 @@ S2 is ready for maintainer review only when:
 2. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are implemented in accordance with their accepted planning
    decisions recorded in the canonical decision record;
 3. S2.1, S2.2 and S2.3 are merged as separate focused PRs;
-4. the profile declares 14 kinds, 28 relation declarations and all **24 enumerated policy-check
+4. the profile declares 14 kinds, 29 relation declarations and all **24 enumerated policy-check
    codes**, as required by accepted S2-D1 A;
 5. `claims.yml` has 78 accepted claim IDs, no invented IDs and no `independently_verified` claim;
 6. the full positive run and release block pass exactly; the S1 cases and the 11 focused new-check
@@ -618,8 +639,8 @@ S2 is ready for maintainer review only when:
 7. `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` and `bun run check` are green;
 8. CORE-001 artifact and lockfile are unchanged; `spec/lib/`, `profiles/core001/` and `pap/` are
    unchanged;
-9. the evidence/artifact paths match P-2/P-3/P-6, and the transient record is present even when
-   those are deferred;
+9. the evidence/artifact paths match P-2/P-3/P-6 and Q9's stage allocation, and the transient
+   record is present even when those are deferred;
 10. H2 is `NOT_TESTED`, H3 is `NOT_PERFORMED`, and the temporary workspace is not described as a
     sandbox.
 
@@ -652,9 +673,11 @@ Evidence for review: per-stage PR diffs, test output, evidence JSON (if publishe
 ## 10. Maintainer decision recorded
 
 The maintainer accepted **D14 = A, P-2 = A, P-3 = A, P-6 = A for producer run evidence only,
-S2-D1 = A, S2-D2 = A, S2-D3 = A and S2-D4 = A** on 2026-11-03. The exact effects and mandatory
-evidence-separation invariant are recorded in
-[`core-000-decision-record.md`](core-000-decision-record.md). This package remains planning-only.
+S2-D1 = A, S2-D2 = A, S2-D3 = A and S2-D4 = A** on 2026-11-03. The S2.1 owner decisions Q1–Q10 are
+also recorded canonically in [`core-000-decision-record.md`](core-000-decision-record.md); Q1 adds
+the 29th `hasPrerequisite` declaration, and Q9 refines artifact/evidence timing by stage (S2.1 none,
+S2.2 draft, S2.3 durable evidence and summary) without amending P-2/P-3/P-6. The exact effects and
+mandatory evidence-separation invariant are recorded there. This package remains planning-only.
 
 **Approval boundary.** Approval or merge of this package accepts the planning package only. It does
 **not** authorize S2.1. S2.1 starts only after a separate, explicit maintainer authorization issued

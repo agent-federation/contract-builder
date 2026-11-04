@@ -798,12 +798,12 @@ decision when it is awaiting an outcome.
 
 ### 5.4 Relations
 
-The model declares **28 relation declarations**: 12 reciprocal pairs (24 declarations) plus four
-declarations without an inverse (`startsAt`, `endsAt`, `subject`, `raisedIn`). The inverse is not
-an unvalidated hint: under the merged #36 contract, each inverse is itself a declared relation
-from the forward declaration's `to` kind, points back at the forward relation and reverses the
-endpoints; a forward relation whose `to` is `*` cannot declare an inverse. The table lists both
-halves so the proposed profile passes the reciprocal-declaration check.
+The model declares **29 relation declarations**: 12 reciprocal pairs (24 declarations) plus five
+declarations without an inverse (`startsAt`, `endsAt`, `subject`, `raisedIn`, `hasPrerequisite`).
+The inverse is not an unvalidated hint: under the merged #36 contract, each inverse is itself a
+declared relation from the forward declaration's `to` kind, points back at the forward relation and
+reverses the endpoints; a forward relation whose `to` is `*` cannot declare an inverse. The table
+lists both halves so the proposed profile passes the reciprocal-declaration check.
 
 | # | Relation | From → To | Cardinality | Inverse | Purpose |
 |---|---|---|---|---|---|
@@ -835,6 +835,7 @@ halves so the proposed profile passes the reciprocal-declaration check.
 | 26 | `supersedes` | claim → claim | many | `supersededBy` | A replacement claim; the old ID stays. |
 | 27 | `supersededBy` | claim → claim | many | `supersedes` | Reciprocal half of `supersedes`. |
 | 28 | `raisedIn` | diagnostic → phase | one | — | The phase that emits the diagnostic. |
+| 29 | `hasPrerequisite` | phase → phase | many | — | The prerequisite phase of a dependent phase; carries the contract §6.2 dependency edges (owner-approved Q1 relation, 2026-11-03). |
 
 **Why the inverse is a full declaration.** A one-sided `inverse` hint is exactly the shape #36
 removed: the resolver could synthesize a relation the profile never declared. Declaring both
@@ -967,8 +968,8 @@ validation and storage, diagnostic catalog resolution, single render-declaration
 renderer registry and artifact normalization, path containment, build orchestration,
 `inputDigest`.
 
-**CORE-000 profile (new, proposed):** the 14 kinds and their schemas, the 28 relation declarations
-(12 reciprocal pairs plus four without an inverse), the source_statement provenance mapping and
+**CORE-000 profile (new, proposed):** the 14 kinds and their schemas, the 29 relation declarations
+(12 reciprocal pairs plus five without an inverse), the source_statement provenance mapping and
 `verifyProvenance` claims, the
 claim/evidence/decision vocabulary and the policy checks below, the diagnostic catalog, the view
 and the renderer/template.
@@ -2012,7 +2013,7 @@ not claim that it does today.
 
 A future CORE-000 implementation PR is acceptable when:
 
-1. **Model conformance.** The 14 kinds, 28 relation declarations (12 reciprocal pairs plus four
+1. **Model conformance.** The 14 kinds, 29 relation declarations (12 reciprocal pairs plus five
    without an inverse), schemas, provenance binding and `verifyProvenance` hook in §5 are
    implemented or the deviations are documented and accepted.
    The model does not use CORE-001 vocabulary.
@@ -2437,8 +2438,8 @@ CORE-000 profile.
    per-invocation; executable profile code still runs in-process with builder privileges. No
    sandbox/isolation exists (D32 deferred), per-module consent and declarative-only builds remain
    open, and consumer-imported adapters/renderers are outside the engine gate.
-6. **Model and schemas are proposals.** The 14 kinds, 28 relation declarations (12 reciprocal
-   pairs plus four without an inverse), field names, status enums and policy checks may change
+6. **Model and schemas are proposals.** The 14 kinds, 29 relation declarations (12 reciprocal
+   pairs plus five without an inverse), field names, status enums and policy checks may change
    during implementation. The document does not create the
    schema files, `verifyProvenance` hook, independent-verification schema or renderer.
 7. **Provenance is coarse.** Binding and verification are separate (#37), but locators are
