@@ -483,7 +483,14 @@ Additional rules:
   segment for non-payload uses;
 - the path is the identity of a payload file. Two declarations with the same path, or paths that
   differ only by case, are `INVALID` even on a case-sensitive filesystem, so a package behaves
-  identically when copied to a case-insensitive one.
+  identically when copied to a case-insensitive one. The duplicate and case-fold rules apply to all
+  declared payload paths as one set, not per class. Because the declared root is fixed per class, a
+  well-formed package cannot contain one package-relative path in two classes. No separate
+  cross-class collision rule is required; a verifier that already applies the global duplicate set
+  is conformant. A declaration whose path does not start with its class root is
+  `pap.package.path-invalid`; the duplicate rule is still evaluated over the same declaration set,
+  so a malformed declaration may additionally produce `pap.package.path-duplicate` when it equals
+  another declaration.
 
 A declared path is validated against this grammar before the Appendix A schema pattern is applied.
 A grammar violation is reported as `pap.package.path-invalid` (and a duplicate or case collision as
@@ -496,6 +503,13 @@ rule.
 - Every payload path MUST resolve to a regular file inside the package directory. Symbolic links
   and non-regular files (directories where a file is declared, sockets, FIFOs, devices) are
   rejected. Hard links cannot be detected portably and are outside the v0.1 guarantee.
+- The package root is the directory named by the `PACKAGE` argument after operating-system path
+  resolution. A `PACKAGE` that is a symbolic link to a directory is permitted: the verifier
+  resolves it once and uses the resolved directory as the root for every containment check in this
+  section. A `PACKAGE` that does not resolve is `pap.package.not-found` (exit 74, no report); a
+  `PACKAGE` that resolves to something other than a directory is a usage error
+  (`pap.cli.usage`, exit 64, no report). Symbolic links at or below a declared payload path remain
+  rejected by the first bullet; resolving the operator-supplied root is not a payload read.
 - The verifier opens each path without following symlinks where the platform supports it, reads
   the bytes once, and hashes exactly the bytes read. It MUST NOT resolve a path outside the
   package root.
@@ -512,6 +526,37 @@ rule.
   (`pap.package.undeclared-file`), is never opened, and does not affect identities. A file may be
   declared at most once; two declarations of one path (or a case-folded duplicate) are
   `pap.package.path-duplicate`.
+- The verifier enumerates the package tree to report undeclared files. It MUST NOT open an
+  undeclared file. If the package root itself, or any directory under it, cannot be enumerated,
+  the verifier MUST emit `pap.package.undeclared-scan-incomplete` (warning) with scope `package`,
+  add the same code to `limitations[]`, and set `coverage.full: false`; the verdict is at most
+  `INCOMPLETE` and MUST NOT be `PASS`. This includes a root that is readable through a known
+  manifest path but cannot be listed; it does not include a root that cannot be resolved
+  (`pap.package.not-found`/74) or a manifest that cannot be read (`pap.package.io` with a `FAIL`
+  report). The affected scope is the undeclared-file scan, whose status is `NOT_EVALUATED`.
+  Because the report has no separate per-scope status field for that scan, the report represents
+  that status with the diagnostic, the limitation and `coverage.full: false`; no dimension is
+  changed to `NOT_EVALUATED` solely by this condition. A `PASS` is impossible because §7.4 rule 6
+  requires `coverage.full: true`, and this rule sets it false. An independently established
+  `FAIL` (for example an artifact digest mismatch) remains `FAIL` under §7.4 rule 1: this rule
+  contributes only the coverage condition of rule 4 and cannot downgrade a higher-precedence
+  verdict. This is a report-level outcome for a package that was otherwise evaluated, not the
+  exit-74 CLI I/O failure of §9.7: resolving the root still uses `pap.package.not-found` (74) when
+  the `PACKAGE` does not exist, and an unreadable or missing manifest still uses `pap.package.io`
+  with a `FAIL` report (§7.7). This rule does not apply to a declared payload: a missing,
+  unreadable or non-regular declared payload remains
+  `pap.package.declared-file-missing`/`pap.package.io` and `FAIL` (the declared-payload bullet;
+  §7.3).
+- v0.1 does not define a limit on the number of filesystem entries visited by the undeclared-file
+  scan. A verifier MAY use an internal robustness budget to bound its own scan. If that budget
+  stops the scan on entry count, traversal depth or any other private bound, the verifier MUST
+  report the scan as incomplete under this section (`pap.package.undeclared-scan-incomplete`,
+  `coverage.full: false`, verdict at most `INCOMPLETE`) and MUST NOT report it as
+  `pap.package.limit-exceeded`, which is reserved for the §4.3.4 limits. The same code therefore
+  covers both an I/O enumeration failure and a private scan stop; it never means a declared
+  payload failed. No conformance case may assert a specific internal budget, and no `PASS` may be
+  reported when the scan did not complete. An implementation that chooses not to bound its scan
+  accepts the no-wall-clock residual of §10.5.
 - A declared file that is missing, unreadable, or not a regular file is an error
   (`pap.package.declared-file-missing`, `pap.package.io`). A package with a missing declared
   payload cannot be verified for integrity.
@@ -1741,8 +1786,8 @@ verification:
 }
 ```
 
-- `full` is `true` only when every required check was evaluated and every required dimension was
-  evaluated; `PASS` requires `full: true`.
+- `full` is `true` only when every required check was evaluated, every required dimension was
+  evaluated, and the undeclared-file scan completed; `PASS` requires `full: true`.
 - The check counters partition the required check set and are computed from the required set, not
   from optional checks: `checksPassed` (`PASS`), `checksFailed` (`FAIL`), `checksUnsupported`
   (`UNSUPPORTED`) and `checksNotEvaluated` (`NOT_EVALUATED`). `checksEvaluated` is
@@ -1755,12 +1800,13 @@ verification:
   (`integrity`, `sources`, `signature`, `trust`, `checks`, `humanReview`) is decided only when every
   sub-status the report carries for it is decided; `PASS` and `FAIL` count for `integrity`,
   `sources` and `checks`, and the navigable 4-field `trust` object counts as decided only when all
-  four fields are decided. `full` is then `checksNotEvaluated == 0`, `checksUnsupported == 0` and
-  `dimensionsEvaluated == len(requiredDimensions)`, and it is `false` when the required set is
-  empty (no required check and no required dimension): the empty-required-set case is `INCOMPLETE`
-  by §7.4 rule 4, never a vacuously full coverage. `full` is also `false` whenever a
-  `pap.package.limit-exceeded` stopped evaluation of any declared payload, required check or
-  signature envelope, even if the affected dimension is not in `requiredDimensions`.
+  four fields are decided. `full` is then `checksNotEvaluated == 0`, `checksUnsupported == 0`,
+  `dimensionsEvaluated == len(requiredDimensions)`, the undeclared-file scan completed, and the
+  required set is not empty. It is `false` when the required set is empty (no required check and
+  no required dimension): the empty-required-set case is `INCOMPLETE` by §7.4 rule 4, never a
+  vacuously full coverage. It is also `false` whenever a `pap.package.limit-exceeded` stopped
+  evaluation of any declared payload, required check or signature envelope, even if the affected
+  dimension is not in `requiredDimensions`, and whenever the undeclared-file scan is incomplete.
 - `requiredChecks` follows `checkSpecs` order for declared checks and appends policy-only required
   checks in ascending `checkId` order. `requiredDimensions` follows the Appendix B enumerable order
   (`integrity`, `integrity.package`, `integrity.artifacts`, `sources`, `sources.integrity`,
@@ -2160,8 +2206,10 @@ pap --version
 pap --help
 ```
 
-- `PACKAGE` is exactly one positional argument naming an existing directory. v0.1 is
-  directory-only (D1): archive files, OCI references, URLs and `-` are not packages.
+- `PACKAGE` is exactly one positional argument naming an existing directory. A symbolic link to a
+  directory names an existing directory and is permitted after resolution (§4.3.2); a link that
+  does not resolve is `pap.package.not-found` (exit 74). v0.1 is directory-only (D1): archive
+  files, OCI references, URLs and `-` are not packages.
 - Options follow the command in any order; `--flag value` and `--flag=value` are both accepted;
   `--` ends option parsing so a path may start with `-`. `--format` accepts exactly `text`
   (default) or `json`, for all three commands.
@@ -2313,13 +2361,20 @@ verification result.
 | verdict `UNSUPPORTED` | 4 | yes |
 | usage error, including invalid/unreadable trust policy, a `PACKAGE` that is not a directory, or `explain` without/with an undeclared `--check` | 64 | no |
 | internal verifier failure | 70 | no |
-| I/O failure: `PACKAGE` missing/unreadable, output unwritable | 74 | no |
+| `PACKAGE` missing or unresolvable, or an I/O failure such as output unwritable | 74 | no |
 
 - `NOT_EVALUATED` is a §7.4 aggregate verdict, not a check outcome, and has no dedicated code; it
   maps to 2 (neither pass nor package failure). Consumers needing the distinction read `verdict`.
-  64, 70 and 74 produce **no** report; their codes are `pap.cli.usage`, `pap.internal.error` and
-  `pap.io.error` (plus `pap.trust.policy-invalid` or `pap.cli.unknown-check` where they apply),
-  written to stderr as `pap: <code>: <message>` and MUST NOT be parsed as a report.
+  64, 70 and 74 produce **no** report. Exit 74 uses `pap.package.not-found` when the `PACKAGE` is
+  missing or does not resolve, and `pap.io.error` for any other I/O failure such as an unwritable
+  output; the remaining codes are `pap.cli.usage` and `pap.internal.error` (plus
+  `pap.trust.policy-invalid` or `pap.cli.unknown-check` where they apply), written to stderr as
+  `pap: <code>: <message>` and MUST NOT be parsed as a report.
+- A resolved `PACKAGE` whose manifest is readable but whose root, or a directory under it, cannot
+  be listed is not an exit-74 I/O failure: it is the §4.3.3 undeclared-file scan-incomplete
+  condition (`pap.package.undeclared-scan-incomplete`, `coverage.full: false`, verdict at most
+  `INCOMPLETE`), and a report is produced. A manifest that cannot be read is likewise a
+  report-level `pap.package.io` failure with verdict `FAIL` (§7.7), not exit 74.
 - **The report is authoritative; the exit code is a gate.** The exit code summarises the verdict
   and collapses multiple causes by §7.4 precedence: a failed check plus an untrusted signer exits
   1 and the report carries both. A consumer MUST NOT infer "package invalid" from a non-zero exit;
@@ -2396,7 +2451,10 @@ During any command the verifier:
    opaque bytes. MUST NOT create subprocesses or load native extensions from the package: file
    reads are limited to the package tree, the explicitly named policy file and process resources;
    no configuration discovery from environment, home or current directory; no writes outside
-   stdout/stderr; no path outside the package root is followed (§4.3.2).
+   stdout/stderr; no path outside the package root is followed (§4.3.2). Resolving the
+   operator-supplied `PACKAGE` argument to its real path (§4.3.2) is not “following a path outside
+   the package root” for this rule; after resolution, no declared payload path may leave the
+   resolved root.
 
 Conformance case F40 checks this with a producer-free environment, sentinel `PATH` shims and
 network denial; a verifier needing network, a producer import or package-supplied code is
@@ -2675,6 +2733,10 @@ Additional safe defaults, normative:
   producer-supplied command, and imports nothing from the package (§4.1 rule 4).
 - **No archive parsing, no wall-clock timeout.** Directory-only v0.1 (§10.7); CPU is bounded by the
   JSON and collection limits, and a wall-clock budget is deferred and recorded as a limitation.
+- **No normative scan-entry limit.** The undeclared-file scan has no §4.3.4 entry-count limit in
+  v0.1. A verifier may bound its own scan; that bound is an implementation robustness measure, not
+  a producer-facing limit, and a stop is reported as an incomplete scan (§4.3.3), never as
+  `pap.package.limit-exceeded`.
 
 ### 10.6 Scope boundary and residual risk
 
@@ -3479,6 +3541,7 @@ table leaves deferred.
 | Error-message wording | **Deferred by design**: messages may differ and only codes are normative (§7.7, §9.6); text layout beyond the required lines is not compared (§13.6). | code-set assertions only; no message text is asserted |
 | JSON parser strictness | **Resolved** by §4.10, §5.3.1 and the document-type mapping below: UTF-8 without BOM, duplicate keys invalid, integer-literal number tokens only, and a fixed diagnostic per document type. Parse failure of the manifest is never `INCOMPLETE`; a claim file fails the package while a limit stops the affected scope. | F29, F35, F50, F51, F58; F21 for truncated JSON |
 | Resource-limit defaults and enforcement points | **Resolved** by §4.3.4 and §9.11: the manifest limit yields `FAIL`; every other limit yields `NOT_EVALUATED`/`INCOMPLETE` with `coverage.full: false` and is reported in `effectiveLimits`; limits may only be lowered, and the policy `limits` maximum equals the default. | F35, F52 |
+| Undeclared-file scan completeness | **Resolved** by §4.3.3/§7.5: an enumeration failure yields `pap.package.undeclared-scan-incomplete`, `coverage.full: false` and `INCOMPLETE`; a declared-file failure remains `FAIL`. | a unit/hostile test; no portable static case (see below) |
 | Human-review evidence semantics | **Resolved for v0.1** by §6.7: binding, freshness, reviewer recognition, single-approval sufficiency and rejection precedence are pinned. Signed approvals remain deferred because v0.1 has no policy field to require one (§14.1, §16.1(1)). | F28 (negative), F55 (positive) |
 | Signature adapter details | **Resolved** by §11.2: DSSE profile, payload type, Ed25519 and canonical-`S` verification, canonical base64, envelope discovery/order/limit, and the exact policy key binding are fixed. The in-toto mapping stays optional and outside the conformance tiers (§11.3, §13.1). | Tier B: F11–F13, F15–F18, F56 |
 | Multi-envelope aggregation | **Resolved** by §6.5: the aggregate covers every present envelope, an unknown/untrusted/invalid envelope blocks `PASS` in `optional` and `required` modes, and duplicate signers are counted once. | F18, F56 |
@@ -5584,7 +5647,7 @@ required consequence so an implementation cannot downgrade an error to a warning
 
 | Code | Severity | Effect / limitation |
 |---|---|---|
-| `pap.package.not-found` | error | The package path does not exist; no report, exit 74. A path that exists but is not a directory (including an archive file) is a usage error (`pap.cli.usage`, exit 64) |
+| `pap.package.not-found` | error | The package path does not exist, or a symbolic link used as `PACKAGE` does not resolve; no report, exit 74. A path that exists or resolves to something that is not a directory (including an archive file) is a usage error (`pap.cli.usage`, exit 64). A symbolic link to a directory is resolved and is not this condition |
 | `pap.package.io` | error | A declared file or the manifest cannot be read; integrity `FAIL` (an unreadable manifest also reports `package.identity: null`, verdict `FAIL`, exit 1; a missing package *directory* is `pap.package.not-found`, exit 74) |
 | `pap.package.manifest-json` | error | Manifest is not valid UTF-8 JSON, has a BOM, trailing data or a non-I-JSON number; integrity `FAIL` |
 | `pap.package.duplicate-key` | error | A JSON object repeats a member name; duplicate keys are invalid, not last-wins; integrity `FAIL` |
@@ -5598,6 +5661,7 @@ required consequence so an implementation cannot downgrade an error to a warning
 | `pap.package.declared-file-missing` | error | A manifest-declared payload file is absent or unreadable; integrity `FAIL` |
 | `pap.package.manifest-self-reference` | error | The manifest declares itself as a payload; integrity `FAIL` |
 | `pap.package.undeclared-file` | warning | A regular file is present but not declared; it is not read and does not affect identities |
+| `pap.package.undeclared-scan-incomplete` | warning | The verifier could not complete the undeclared-file scan: an I/O error while enumerating the package root or a directory under it, or a private implementation scan budget (entry count or traversal depth) stopped it. The absence of undeclared files was not established; the scan is `NOT_EVALUATED`, `coverage.full: false`, verdict at most `INCOMPLETE`, and a limitation with the same code. Declared payload integrity is unaffected; a declared payload failure remains `pap.package.io`/`declared-file-missing`/`FAIL` |
 | `pap.package.limit-exceeded` | error | A §4.3.4 resource limit was exceeded; affected check(s) `NOT_EVALUATED`, verdict `INCOMPLETE` — except a limit that prevents reading/parsing the manifest, which yields `package.identity: null`, `integrity.package: FAIL`, verdict `FAIL` |
 | `pap.package.duplicate-id` | error | Duplicate artifact/source/input/check/claim id, or duplicate check specification; integrity `FAIL` |
 | `pap.package.empty-check-specs` | warning | No required check remains after the union with policy; the verifier evaluates the declared checks, then reports `INCOMPLETE` with `coverage.full: false` (§4.4.3, §7.4 rule 4); never a vacuous `PASS` |
