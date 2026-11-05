@@ -4,6 +4,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writ
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
+import { jcs, parseJsonStrict } from "../src/json.js";
 import { fixtures, runPap } from "./support.js";
 
 const NOW = "2026-11-02T00:00:00Z";
@@ -307,4 +308,78 @@ test("verify never reads stdin and does not require HOME or a producer runtime",
   const result = runPap(["verify", ".", "--format", "json", "--now", NOW], base);
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
+});
+
+test("the strict parser treats __proto__ as an own member", () => {
+  const bytes = new TextEncoder().encode('{"__proto__":{"smuggled":1},"a":1}');
+  const value = parseJsonStrict(bytes, { nesting: 8, stringBytes: 1024 });
+  assert.equal(Object.getPrototypeOf(value), null);
+  assert.deepEqual(Object.keys(value as object).sort(), ["__proto__", "a"]);
+  assert.equal(jcs(value), '{"__proto__":{"smuggled":1},"a":1}');
+  assert.equal(({} as { smuggled?: number }).smuggled, undefined);
+});
+
+function manifestWithMember(dir: string, member: string, value: unknown): void {
+  const manifestObj = manifest(dir);
+  const text = JSON.stringify(manifestObj, null, 2);
+  const body = text.slice(0, text.lastIndexOf("}")).trimEnd();
+  writeFileSync(
+    path.join(dir, "assurance-package.json"),
+    `${body},\n  ${JSON.stringify(member)}: ${JSON.stringify(value)}\n}\n`,
+  );
+}
+
+test("a __proto__ manifest member cannot collide with the package identity", () => {
+  const dir = tempPackage();
+  const baseline = JSON.parse(runPap(["inspect", ".", "--format", "json"], base).stdout);
+  manifestWithMember(dir, "__proto__", { papVersion: "0.1" });
+  const inspection = JSON.parse(runPap(["inspect", ".", "--format", "json"], dir).stdout);
+  assert.notEqual(inspection.package.identity, baseline.package.identity);
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.unknown-field"));
+});
+
+test("a required field present only under __proto__ is not accepted", () => {
+  const dir = tempPackage();
+  const value = manifest(dir);
+  const papVersion = value.papVersion;
+  delete value.papVersion;
+  const text = JSON.stringify(value, null, 2);
+  const body = text.slice(0, text.lastIndexOf("}")).trimEnd();
+  writeFileSync(
+    path.join(dir, "assurance-package.json"),
+    `${body},\n  "__proto__": ${JSON.stringify({ papVersion })}\n}\n`,
+  );
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.package.schema" && diagnostic.scope === "$.papVersion",
+    ),
+  );
+  assert.equal(report.package.papVersion, null);
+});
+
+test("claim data under __proto__ cannot change a check outcome", () => {
+  const dir = tempPackage();
+  const provenance = JSON.parse(readFileSync(path.join(dir, "claims", "provenance.json"), "utf8"));
+  const bindings = provenance.bindings;
+  delete provenance.bindings;
+  const text = JSON.stringify(provenance);
+  const raw = `${text.slice(0, -1)},"__proto__":{"bindings":${JSON.stringify(bindings)}}}`;
+  const bytes = Buffer.from(raw);
+  writeFileSync(path.join(dir, "claims", "provenance.json"), bytes);
+  const value = manifest(dir);
+  value.claims.provenance.digest = domainHash("pap.claims.v1", bytes);
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.notEqual(report.verdict, "PASS");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
 });
