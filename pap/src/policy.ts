@@ -225,7 +225,10 @@ function validatePolicy(value: JsonObject, defaults: Limits): TrustPolicy {
       throw new PolicyInvalid(`unknown signature field ${key}`);
     }
   }
-  if (!["disabled", "optional", "required"].includes(String(value.signature.mode))) {
+  if (
+    typeof value.signature.mode !== "string" ||
+    !["disabled", "optional", "required"].includes(value.signature.mode)
+  ) {
     throw new PolicyInvalid("signature.mode is invalid");
   }
   const mode = value.signature.mode as "disabled" | "optional" | "required";

@@ -311,3 +311,13 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
   assert.equal(metReport.verdict, "PASS");
   assert.equal(metReport.dimensions.trust.policyDecision, "ACCEPTED");
 });
+
+test("human review: an array-valued decision is a claim-invalid, not an approval", () => {
+  const dir = tempPackage();
+  setReviews(dir, [approval({ decision: ["approved"] })]);
+  const result = verify(dir, writePolicy(reviewPolicy()));
+  const report = JSON.parse(result.stdout);
+  assert.notEqual(report.verdict, "PASS");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
+  assert.notEqual(report.dimensions.humanReview.status, "PASS");
+});

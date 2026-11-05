@@ -311,7 +311,8 @@ export function validateManifest(value: JsonValue, limits: Limits): ManifestVali
               }
             }
             if (
-              !["profile", "adapter", "renderer", "checker"].includes(String(entry.kind)) ||
+              typeof entry.kind !== "string" ||
+              !["profile", "adapter", "renderer", "checker"].includes(entry.kind) ||
               typeof entry.id !== "string" ||
               entry.id.length === 0 ||
               entry.id.length > 256 ||
@@ -322,7 +323,7 @@ export function validateManifest(value: JsonValue, limits: Limits): ManifestVali
               schema(scope, "build extension must be a kind/id/version record");
               continue;
             }
-            extensions.push({ kind: String(entry.kind), id: entry.id, version: entry.version });
+            extensions.push({ kind: entry.kind, id: entry.id, version: entry.version });
           }
           build.extensions = extensions;
         }
