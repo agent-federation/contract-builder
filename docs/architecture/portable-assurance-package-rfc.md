@@ -3747,6 +3747,44 @@ These are recorded as blockers, not assumptions:
 ---
 
 
+## 17. Errata (2026-11-05)
+
+These clarifications are normative. They resolve ambiguities exposed by the 2026-11-05 audit and
+are accepted by [ODR-PAP-006](../decisions/ODR-PAP-006-pap-verdict-model.md); they do not renumber
+sections or change the package format.
+
+**E1 — Resource limits never produce `FAIL` (§4.3.4, §7.4).** A limit hit at any stage —
+including a JSON nesting/string limit or a file-size limit while reading a signature envelope — is
+reported as `pap.package.limit-exceeded`, leaves the affected dimension `NOT_EVALUATED`, sets
+`coverage.full: false`, and caps the verdict at `INCOMPLETE`. Structural parse errors remain
+`INVALID`; the verifier must distinguish "the document is malformed" from "the verifier stopped for
+safety".
+
+**E2 — Required dimensions are derived; `requiredDimensions` is additive (§6.3, §7.4).**
+`signature.mode: "required"` requires `signature` and `trust`; `humanReview.required: true`
+requires `humanReview`; the required checks require their implied dimensions. A policy's
+`requiredDimensions` may add to that set but cannot remove a derived requirement; a policy that
+would remove one is `pap.trust.policy-invalid` (exit 64, no report).
+
+**E3 — An unmet signature quorum is `INCOMPLETE` (§6.5, §7.4).** Under
+`signature.mode: "required"`, a policy decision other than `ACCEPTED` — including fewer valid
+authorized signers than `minimumValidSigners` — yields `INCOMPLETE`, not `PASS` or `FAIL`; the
+verifier emits `pap.signature.absent` and a limitation naming the quorum.
+
+**E4 — `coverage.full` follows required-dimension evaluation (§7.5).** `full` is `true` only when
+every required dimension (derived as in E2) was evaluated and the undeclared-file scan completed.
+It is `false` for every `INCOMPLETE`, including an unmet quorum and a stale policy.
+
+**E5 — Enum fields are strings; no coercion (§6.3.2, Appendix B).** A policy, manifest or claim
+value that is not the defined string type is invalid input. The verifier must not coerce arrays,
+objects or numbers to strings: an invalid trust policy fails closed (exit 64, no report), and
+invalid package input fails integrity.
+
+**E6 — `__proto__` is an ordinary JSON member (§4.9, §5.3.1).** Per RFC 8785/JCS, a member named
+`__proto__` is hashed, sorted and validated like any other own property and must not become a
+prototype. An implementation that rejects the name instead must document that deviation.
+
+
 ## Appendix A — Manifest JSON Schema (normative)
 
 ```json
