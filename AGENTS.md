@@ -111,10 +111,16 @@ changes the register.
 - Body is in English and states what changed and which command proved it
   (for example `bun run check`).
 - Never push directly to `main` and never force-push to `main`. `main` is
-  protected: the `check` job must pass and the branch must be up to date.
+  protected: the `check` job must pass, the branch must be up to date, and the
+  pull request needs one approving Code Owner review
+  (`.github/CODEOWNERS`) and resolved conversations. Pushes and merges to
+  `main` are restricted to the maintainer; admin bypass stays available to the
+  maintainer only (see `docs/decisions/ODR-PROC-001-branch-protection-and-agent-merge.md`).
 - This project is also worked on by an automated agent (GitHub account
   `it-start`). An agent never merges and never enables auto-merge; a human
-  merges every pull request.
+  merges every pull request. Branch protection makes this technical: the agent
+  can push branches and open pull requests, but it cannot merge, and its
+  approval cannot satisfy the Code Owner review requirement.
 - Keep the change focused; do not mix refactors or reformatting into a
   documentation or fix pull request.
 
