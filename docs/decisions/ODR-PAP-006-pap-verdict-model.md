@@ -1,6 +1,6 @@
 # ODR-PAP-006 — Owner Decision Record: PAP verdict and decision model
 
-**Status:** APPROVED — maintainer directive in the 2026-11-05 audit follow-up; implementation is sliced in the design note and the resulting issues.
+**Status:** APPROVED — maintainer directive in the 2026-11-05 audit follow-up; implementation is sliced in the design note and the resulting issues. The earlier #151 proposal framed A2 as "`coverage.full` is false for every `INCOMPLETE`"; that rule was superseded by this record after the maintainer's independent audit review ([PR #162 review comment](https://github.com/agent-federation/contract-builder/pull/162#issuecomment-6670989689)).
 **Date:** 2026-11-05 (UTC)
 **Decision scope:** PAP v0.1 verifier semantics — how required dimensions are derived, how the verdict is computed, how invalid input classes map to outcomes, and what conformance cases must assert.
 **Related:** audit umbrella [#137](https://github.com/agent-federation/contract-builder/issues/137), architecture stream #151, audit findings #138-#144, RFC [portable-assurance-package-rfc.md](../architecture/portable-assurance-package-rfc.md).
@@ -13,6 +13,8 @@ The 2026-11-05 audit reproduced three P0 defects in the verifier whose root caus
 1. `signature.mode: required` with an unmet `minimumValidSigners` quorum returned `PASS` unless the operator also repeated `signature`/`trust` in `requiredDimensions` (finding #139, fixed in PR #154 as a targeted patch).
 2. `String()` enum coercion accepted an invalid policy `"mode": ["required"]` and silently weakened it to `optional` (finding #140, fixed in PR #156).
 3. A resource limit inside a signature envelope became `envelope-invalid`/`FAIL` instead of `NOT_EVALUATED`/`INCOMPLETE` (finding #142, still open).
+
+4. `coverage.full` stayed `true` for an `INCOMPLETE` caused by an unmet quorum even once policy-derived requirements were considered, while RFC §7.5 defines coverage as evaluation completeness, not a verdict alias. The earlier #151 proposal recorded A2 as "false for every `INCOMPLETE`"; the maintainer's audit review required reconciling that with §7.5, and §2 A2 below records the accepted rule.
 
 The targeted fixes close the reproductions but not the class: the verdict depends on operator duplication, coercion, and ad-hoc special cases. The conformance corpus does not assert the absence of unexpected diagnostics, so this class can regress silently.
 
