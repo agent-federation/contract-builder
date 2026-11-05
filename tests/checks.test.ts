@@ -238,3 +238,78 @@ test("checks/source: treats unsupported verification as a failure", async () => 
   const findings = await source(context(modelWith([fragment()]), "unsupported"));
   assert.deepEqual(codes(findings), ["ERR_SOURCE_LOCATOR_UNSUPPORTED"]);
 });
+
+// Negative tests for the eight CORE-001 codes that the real spec never triggers (issue #146).
+// Each asserts the exact code set, so a dropped or inverted check fails the test.
+
+test("checks/source: reports an unknown locator from the adapter", async () => {
+  const findings = await source(context(modelWith([fragment()]), "unknown-locator"));
+  assert.deepEqual(codes(findings), ["ERR_SOURCE_LOCATOR_UNKNOWN"]);
+});
+
+test("checks/source: rejects a source revision that does not match the loaded document", async () => {
+  const ctx = context(modelWith([fragment()]));
+  const findings = await source({ ...ctx, legacyText: "DOC (Rev 2)\nMUST do" });
+  assert.deepEqual(codes(findings), ["ERR_SOURCE_REVISION_MISMATCH"]);
+});
+
+test("checks/source: reports a fragment outside the declared slice", async () => {
+  const outside = entity("F1", "fragment", {
+    source: "SRC",
+    source_ref: "SRC#2",
+    quote: "MUST do",
+    in_scope: true,
+  });
+
+  const findings = await source(context(modelWith([outside])));
+  assert.deepEqual(codes(findings), ["ERR_OUT_OF_SLICE_CONTENT"]);
+});
+
+test("checks/ontology: reports a term whose source_ref differs from its fragment", async () => {
+  const term = entity(
+    "T1",
+    "term",
+    { name: "t", definition: "MUST do", source_ref: "SRC#2" },
+    { fragment: ["F1"] },
+  );
+
+  const findings = await ontology(context(modelWith([fragment(), term])));
+  assert.deepEqual(codes(findings), ["ERR_SOURCE_REF_MISMATCH"]);
+});
+
+test("checks/provision: rejects a claim quote outside its source quote", async () => {
+  const bad = provisionEntity({ claim_quote: "MUST определить другой момент" });
+  const findings = await provision(context(modelWith([fragment(), bad])));
+  assert.deepEqual(codes(findings), ["ERR_CLAIM_NOT_IN_SOURCE"]);
+});
+
+test("checks/provision: rejects a classification basis absent from the claim", async () => {
+  const bad = provisionEntity({
+    classification_basis: { kind: "explicit", quote: "OTHER", text: "t" },
+  });
+  const findings = await provision(context(modelWith([fragment(), bad])));
+  assert.deepEqual(codes(findings), ["ERR_CLASSIFICATION_BASIS"]);
+});
+
+test("checks/provision: rejects a clause quote absent from the source quote", async () => {
+  const bad = provisionEntity({
+    precondition: {
+      quote: "ABSENT",
+      text: "t",
+      source_modality: "DECLARATIVE",
+      modality_marker: null,
+      condition_kind: "necessary",
+    },
+  });
+  const findings = await provision(context(modelWith([fragment(), bad])));
+  assert.deepEqual(codes(findings), ["ERR_CLAUSE_NOT_IN_SOURCE"]);
+});
+
+test("checks/provision: rejects an explication absent from the normalized statement", async () => {
+  const bad = provisionEntity({
+    normalized_statement: "MUST do in another way",
+    explications: [{ kind: "modal_explication", text: "ABSENT", rationale: "r" }],
+  });
+  const findings = await provision(context(modelWith([fragment(), bad])));
+  assert.deepEqual(codes(findings), ["ERR_EXPLICATION_NOT_IN_STATEMENT"]);
+});

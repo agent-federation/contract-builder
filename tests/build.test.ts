@@ -238,6 +238,169 @@ test("вывод не содержит абсолютных путей и вре
   assert.equal(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(result.markdown), false);
 });
 
+// Negative end-to-end tests for the eight CORE-001 codes the real spec never emits
+// (issue #146). Each mutates one declared input and asserts the build blocks with it.
+
+interface RawSemantics {
+  provisions: Array<{
+    id: string;
+    source_ref: string;
+    claim_quote: string;
+    normalized_statement: string;
+    classification_basis: { quote: string };
+    explications: Array<{ kind: string; text: string; rationale: string }>;
+    precondition: {
+      quote: string;
+      text: string;
+      source_modality: string;
+      modality_marker: string | null;
+      condition_kind: string | null;
+    } | null;
+  }>;
+}
+
+const errCodes = (result: Awaited<ReturnType<typeof runBuild>>): string[] => [
+  ...new Set(codes(result).filter((code) => code.startsWith("ERR_"))),
+];
+
+async function readJson<T>(file: string): Promise<T> {
+  return JSON.parse(await readFile(file, "utf8")) as T;
+}
+
+async function writeJson(file: string, value: unknown): Promise<void> {
+  await writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+test("claim: claim_quote вне source_quote — ERR_CLAIM_NOT_IN_SOURCE", async () => {
+  const dir = await copySpec("claim-not-in-source");
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = await readJson<RawSemantics>(semanticsPath);
+  const provision = semantics.provisions.find((p) => p.id === "REQ-TEMPORAL-MOMENT-DEFINED");
+  assert.ok(provision);
+  provision.claim_quote = "MUST определить другой временной момент";
+  await writeJson(semanticsPath, semantics);
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_CLAIM_NOT_IN_SOURCE"]);
+});
+
+test("классификация: основание вне claim_quote — ERR_CLASSIFICATION_BASIS", async () => {
+  const dir = await copySpec("classification-basis");
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = await readJson<RawSemantics>(semanticsPath);
+  const provision = semantics.provisions.find((p) => p.id === "REQ-TEMPORAL-MOMENT-DEFINED");
+  assert.ok(provision);
+  provision.classification_basis.quote = "MUST определить, какой именно момент выбрать";
+  await writeJson(semanticsPath, semantics);
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_CLASSIFICATION_BASIS"]);
+});
+
+test("условие: цитата условия вне source_quote — ERR_CLAUSE_NOT_IN_SOURCE", async () => {
+  const dir = await copySpec("clause-not-in-source");
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = await readJson<RawSemantics>(semanticsPath);
+  const provision = semantics.provisions.find((p) => p.id === "REQ-REVOCATION-NOT-AUTO-INVALID");
+  assert.ok(provision);
+  assert.ok(provision.precondition);
+  provision.precondition.quote = "до подписания";
+  await writeJson(semanticsPath, semantics);
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_CLAUSE_NOT_IN_SOURCE"]);
+});
+
+test("экспликация: текст вне нормализованного утверждения — ERR_EXPLICATION_NOT_IN_STATEMENT", async () => {
+  const dir = await copySpec("explication-not-in-statement");
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = await readJson<RawSemantics>(semanticsPath);
+  const provision = semantics.provisions.find((p) => p.id === "REQ-REVOCATION-NOT-AUTO-INVALID");
+  assert.ok(provision);
+  const explication = provision.explications[0];
+  assert.ok(explication);
+  explication.text = "экспликация, которой нет в нормализованном утверждении";
+  await writeJson(semanticsPath, semantics);
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_EXPLICATION_NOT_IN_STATEMENT"]);
+});
+
+test("ревизия источника: заголовок legacy не совпадает — ERR_SOURCE_REVISION_MISMATCH", async () => {
+  const dir = await copySpec("revision-mismatch", (text) =>
+    text.replace("UIA-CORE-001 (Rev 0.3.3)", "UIA-CORE-001 (Rev 0.3.4)"),
+  );
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_SOURCE_REVISION_MISMATCH"]);
+});
+
+test("локатор: неизвестный раздел — ERR_SOURCE_LOCATOR_UNKNOWN", async () => {
+  const dir = await copySpec("locator-unknown");
+  const sourcesPath = path.join(dir, "sources.yml");
+  const sources = parseYaml(await readFile(sourcesPath, "utf8")) as {
+    fragments: Array<{ id: string; source_ref: string }>;
+  };
+  const fragment = sources.fragments.find((f) => f.id === "FRAG-10.2-P1-MOMENT-DEFINED");
+  assert.ok(fragment);
+  fragment.source_ref = "SRC-CORE001#10.9";
+  await writeFile(sourcesPath, stringifyYaml(sources), "utf8");
+
+  const semanticsPath = path.join(dir, "semantics.json");
+  const semantics = await readJson<RawSemantics>(semanticsPath);
+  const provision = semantics.provisions.find((p) => p.id === "REQ-TEMPORAL-MOMENT-DEFINED");
+  assert.ok(provision);
+  provision.source_ref = "SRC-CORE001#10.9";
+  await writeJson(semanticsPath, semantics);
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_SOURCE_LOCATOR_UNKNOWN"]);
+});
+
+test("срез: фрагмент вне объявленного среза — ERR_OUT_OF_SLICE_CONTENT", async () => {
+  const dir = await copySpec("slice-excludes");
+  const sourcesPath = path.join(dir, "sources.yml");
+  const sources = parseYaml(await readFile(sourcesPath, "utf8")) as {
+    slice: { excludes: string[] };
+  };
+  sources.slice.excludes.push("#10.2");
+  await writeFile(sourcesPath, stringifyYaml(sources), "utf8");
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_OUT_OF_SLICE_CONTENT"]);
+});
+
+test("онтология: source_ref термина расходится с фрагментом — ERR_SOURCE_REF_MISMATCH", async () => {
+  const dir = await copySpec("term-ref-mismatch");
+  const ontologyPath = path.join(dir, "ontology.yml");
+  const ontology = parseYaml(await readFile(ontologyPath, "utf8")) as {
+    terms: Array<{ id: string; source_ref: string }>;
+  };
+  const term = ontology.terms.find((t) => t.id === "TERM-ASSERTED-AT");
+  assert.ok(term);
+  term.source_ref = "SRC-CORE001#10.1";
+  await writeFile(ontologyPath, stringifyYaml(ontology), "utf8");
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_SOURCE_REF_MISMATCH"]);
+});
+
 async function copySpec(
   name: string,
   mutateLegacy?: (text: string) => string,
