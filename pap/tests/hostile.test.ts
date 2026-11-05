@@ -118,6 +118,75 @@ test("signature envelope count limit reads none and leaves trust unevaluated", (
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
 });
 
+test("a deep-nesting signature envelope is a limit, not envelope-invalid", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  const trusted = readFileSync(path.join(fixtures, "signatures", "trusted.dsse.json"), "utf8");
+  let nested = trusted;
+  for (let index = 0; index < 70; index += 1) nested = `{"a":${nested}}`;
+  writeFileSync(path.join(dir, "signatures", "deep.dsse.json"), nested);
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+  const file = writePolicy("policy.json", policy);
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 2, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.integrity.package, "PASS");
+  assert.equal(report.dimensions.signature.validity, "NOT_EVALUATED");
+  assert.equal(report.dimensions.trust.signerIdentity, "NOT_EVALUATED");
+  assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+  assert.equal(report.coverage.full, false);
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
+  assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.package.limit-exceeded"));
+});
+
+test("an oversized signature envelope is a limit, not envelope-invalid", () => {
+  const dir = tempPackage();
+  cpSync(path.join(fixtures, "signatures"), path.join(dir, "signatures"), { recursive: true });
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+  policy.id = "policy-envelope-bytes";
+  policy.limits = { fileBytes: 1_024 };
+  const file = writePolicy("policy.json", policy);
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 2, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.integrity.package, "PASS");
+  assert.equal(report.dimensions.signature.validity, "NOT_EVALUATED");
+  assert.equal(report.dimensions.trust.signerIdentity, "NOT_EVALUATED");
+  assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+  assert.equal(report.coverage.full, false);
+  assert.equal(report.effectiveLimits.fileBytes, 1_024);
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
+});
+
+test("a structurally malformed envelope keeps the INVALID path", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  const trusted = JSON.parse(
+    readFileSync(path.join(fixtures, "signatures", "trusted.dsse.json"), "utf8"),
+  );
+  trusted.signatures[0].sig = "AAAA";
+  writeFileSync(path.join(dir, "signatures", "malformed.dsse.json"), JSON.stringify(trusted));
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+  const file = writePolicy("policy.json", policy);
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "FAIL");
+  assert.equal(report.dimensions.signature.validity, "INVALID");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
+  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+});
+
 test("a policy limit above the verifier default fails closed", () => {
   const dir = tempPackage();
   const policy = unsignedPolicy();
