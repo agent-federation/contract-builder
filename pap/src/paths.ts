@@ -108,19 +108,21 @@ export async function resolvePackageRoot(supplied: string): Promise<
   return { ok: true, root: { supplied, real } };
 }
 
-interface ResolvedFile {
+interface ResolvedPath {
   absolute: string;
   size: number;
 }
 
-async function resolvePackageFile(
+async function resolvePackagePath(
   root: PackageRoot,
   relative: string,
+  finalKind: "file" | "directory",
   cap: number,
 ): Promise<
-  | { ok: true; file: ResolvedFile }
+  | { ok: true; resolved: ResolvedPath }
   | { ok: false; failure: ReadFailure; message: string }
 > {
+  const noun = finalKind === "file" ? "declared file" : "package directory";
   const segments = relative.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     return { ok: false, failure: "path-escape", message: `declared path is not root-confined: ${relative}` };
@@ -135,40 +137,70 @@ async function resolvePackageFile(
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code === "ENOENT") {
-        return { ok: false, failure: "missing", message: `declared file is missing: ${relative}` };
+        return { ok: false, failure: "missing", message: `${noun} is missing: ${relative}` };
       }
-      return { ok: false, failure: "io", message: `cannot stat declared path component: ${relative}` };
+      return { ok: false, failure: "io", message: `cannot stat package path component: ${relative}` };
     }
     if (stats.isSymbolicLink()) {
       return {
         ok: false,
         failure: "symlink",
-        message: `declared path contains a symlink component: ${relative}`,
+        message: `package path contains a symlink component: ${relative}`,
       };
     }
     const final = index === segments.length - 1;
-    if (final) {
+    if (final && finalKind === "file") {
       if (!stats.isFile()) {
-        return { ok: false, failure: "non-regular", message: `declared file is not a regular file: ${relative}` };
+        return { ok: false, failure: "non-regular", message: `${noun} is not a regular file: ${relative}` };
       }
       finalSize = stats.size;
+    } else if (final) {
+      if (!stats.isDirectory()) {
+        return { ok: false, failure: "non-regular", message: `${noun} is not a directory: ${relative}` };
+      }
     } else if (!stats.isDirectory()) {
-      return { ok: false, failure: "non-regular", message: `declared path component is not a directory: ${relative}` };
+      return { ok: false, failure: "non-regular", message: `package path component is not a directory: ${relative}` };
     }
   }
   let resolved: string;
   try {
     resolved = await realpath(current);
   } catch {
-    return { ok: false, failure: "io", message: `cannot resolve declared file: ${relative}` };
+    return { ok: false, failure: "io", message: `cannot resolve ${noun}: ${relative}` };
   }
   if (resolved !== root.real && !resolved.startsWith(`${root.real}${path.sep}`)) {
-    return { ok: false, failure: "path-escape", message: `declared file resolves outside the package: ${relative}` };
+    return { ok: false, failure: "path-escape", message: `${noun} resolves outside the package: ${relative}` };
   }
   if (finalSize > cap) {
-    return { ok: false, failure: "limit", message: `declared file exceeds the byte limit: ${relative}` };
+    return { ok: false, failure: "limit", message: `${noun} exceeds the byte limit: ${relative}` };
   }
-  return { ok: true, file: { absolute: current, size: finalSize } };
+  return { ok: true, resolved: { absolute: current, size: finalSize } };
+}
+
+async function resolvePackageFile(
+  root: PackageRoot,
+  relative: string,
+  cap: number,
+): Promise<
+  | { ok: true; file: ResolvedPath }
+  | { ok: false; failure: ReadFailure; message: string }
+> {
+  const outcome = await resolvePackagePath(root, relative, "file", cap);
+  if (!outcome.ok) return outcome;
+  return { ok: true, file: outcome.resolved };
+}
+
+/**
+ * Resolve a package directory through the same component-wise `lstat` and
+ * containment rules used for payload files. No symlink component is followed.
+ */
+export async function resolvePackageDirectory(
+  root: PackageRoot,
+  relative: string,
+): Promise<{ ok: true; absolute: string } | { ok: false; failure: ReadFailure; message: string }> {
+  const outcome = await resolvePackagePath(root, relative, "directory", Number.POSITIVE_INFINITY);
+  if (!outcome.ok) return outcome;
+  return { ok: true, absolute: outcome.resolved.absolute };
 }
 
 /**
