@@ -51,7 +51,11 @@ test("documentation freshness: CORE-000 claim count matches claims.yml", async (
 
   const register = parseYaml(
     await readFile(path.join(root, "contracts", "core000", "claims.yml"), "utf8"),
-  ) as ClaimsRegister;
+  ) as ClaimsRegister | null;
+  assert.ok(
+    register && typeof register === "object",
+    "claims.yml must parse to a valid YAML object",
+  );
   assert.ok(Array.isArray(register.claims), "claims.yml must declare a claims array");
 
   assert.equal(
