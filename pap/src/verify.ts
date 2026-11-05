@@ -388,8 +388,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     }
   }
   if (
-    loadedPolicy !== undefined &&
-    loadedPolicy.policy.signature.mode === "required" &&
+    loadedPolicy?.policy.signature.mode === "required" &&
     signatureEvaluation.entries.length > 0 &&
     signatureEvaluation.validity !== "INVALID" &&
     signatureEvaluation.policyDecision === "NOT_EVALUATED" &&
