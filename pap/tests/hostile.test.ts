@@ -383,3 +383,46 @@ test("claim data under __proto__ cannot change a check outcome", () => {
   assert.notEqual(report.verdict, "PASS");
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
 });
+
+test("an array-valued policy enum fails closed with exit 64 and no report", () => {
+  const dir = tempPackage();
+  const policy = unsignedPolicy();
+  policy.id = "policy-coerced-mode";
+  policy.signature = { mode: ["required"], minimumValidSigners: 1 };
+  const file = writePolicy("policy.json", policy);
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 64, result.stdout);
+  assert.equal(result.stdout, "");
+  assert.ok(result.stderr.includes("pap.trust.policy-invalid"));
+  assert.ok(result.stderr.includes("signature.mode"));
+});
+
+test("an array-valued manifest extension kind is a structural schema defect", () => {
+  const dir = tempPackage();
+  const value = manifest(dir);
+  value.build.extensions = [{ kind: ["profile"], id: "extension:evil", version: "1" }];
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) =>
+        diagnostic.code === "pap.package.schema" && diagnostic.scope === "$.build.extensions[0]",
+    ),
+  );
+});
+
+test("an array-valued claim outcome is rejected, not coerced", () => {
+  const dir = tempPackage();
+  const claim = JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8"));
+  claim.claims[0].claimedOutcome = ["PASS"];
+  setClaim(dir, "producerReport", "producer-report.json", claim);
+  const result = verify(dir);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.notEqual(report.verdict, "PASS");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
+  assert.equal(report.dimensions.claims === undefined ? undefined : report.dimensions.claims, undefined);
+});

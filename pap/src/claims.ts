@@ -350,7 +350,8 @@ function parseProducerReport(value: JsonObject): ClaimParseResult {
       !CHECK_ID.test(raw.checkId) ||
       typeof raw.checkVersion !== "string" ||
       !VERSION.test(raw.checkVersion) ||
-      !["PASS", "FAIL", "UNSUPPORTED", "NOT_EVALUATED"].includes(String(raw.claimedOutcome))
+      typeof raw.claimedOutcome !== "string" ||
+      !["PASS", "FAIL", "UNSUPPORTED", "NOT_EVALUATED"].includes(raw.claimedOutcome)
     ) {
       return fail(`${scope} is invalid`);
     }
@@ -421,7 +422,8 @@ function parseReviews(value: JsonObject): ClaimParseResult {
       raw.id.length === 0 ||
       raw.id.length > 256 ||
       !isObject(raw.reviewer) ||
-      !["approved", "rejected"].includes(String(raw.decision)) ||
+      typeof raw.decision !== "string" ||
+      !["approved", "rejected"].includes(raw.decision) ||
       typeof raw.decidedAt !== "string" ||
       parseRfc3339(raw.decidedAt) === null
     ) {
