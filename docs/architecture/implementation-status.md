@@ -32,6 +32,26 @@ the full 78-claim CORE-000 model, cross-environment reproducibility (H2) and ind
 verification (H3) remain uncompleted. The PR's maintainer review is linked as evidence for the
 specific implementation behaviors inspected; it is not H3 and does not verify claim truth.
 
+**Snapshot update for CORE-000 S2.1/S2.2.** `main` at
+[`f89a53f`](https://github.com/agent-federation/contract-builder/commit/f89a53f113deb2df3df795387a9045f53fca92b0)
+(2026-11-05), 34 commits after `07cbf5b`, carries the CORE-000 S2 delta: the remaining S2.1
+check/view/template wiring ([#105](https://github.com/agent-federation/contract-builder/pull/105)),
+the S2.2a non-structural claim subject kinds
+([#123](https://github.com/agent-federation/contract-builder/pull/123)), the full accepted S2.2
+register and its regenerated artifact
+([#127](https://github.com/agent-federation/contract-builder/pull/127)), the `C000-CT-011`
+conditions correction ([#129](https://github.com/agent-federation/contract-builder/pull/129)) and
+the CORE-000 artifact rule in `AGENTS.md`
+([#131](https://github.com/agent-federation/contract-builder/pull/131)). §4.2 records the delta
+item by item. This update supersedes the S1 sentence above, which says that "the full 78-claim
+CORE-000 model" remains uncompleted, **for the register data only**: the accepted register and
+structure are now encoded, but encoding promotes no claim status, and no implementation, test or
+independence capability is re-audited here. Rows keep their `07cbf5b` meaning unless §4.2 says
+otherwise; full self-hosting (X3) still closes only through M5.
+
+**CORE-000 register freshness.** `contracts/core000/claims.yml` declares
+**78 claims**; `tests/docs-freshness.test.ts` fails when this number and the register disagree.
+
 **What this is.** The audit deliverable requested by
 [#39](https://github.com/agent-federation/contract-builder/issues/39): a source-backed status
 matrix for the engine architecture and public contract. It separates design intent, accepted
@@ -211,7 +231,7 @@ carries it.
 | X1 | Package split into core / CLI / renderer / adapter / profile packages | `proposed` | `—` | `—` | `—` | D14 `proposed` (future target, contract [§18](engine-public-contract.md)); [package.json](../../package.json) stays one private package with no `exports` |
 | X2 | Publication and distribution scope | `proposed` | `—` | `—` | `—` | D20 unresolved (blocked by #10, contract [§18](engine-public-contract.md)); D29 unresolved with a local-directory default; M5 |
 | X3 | Full self-hosting: the complete engine contract represented and maintained through the public model | `deferred` | `—` | `—` | `—` | D26 `deferred`, M5 (plan [§17](m1-implementation-plan.md); contract [§14](engine-public-contract.md)); bounded S1 is tracked separately in X3a and does not close this row |
-| X3a | Bounded CORE-000 S1 self-build: a five-claim project is loaded, validated, related, provenance-checked, policy-checked, rendered and identified through the existing generic pipeline; draft succeeds and release is blocked by the expected review findings | `accepted` | `implemented` | `tested` | `—` | Maintainer authorization: [#72 approval](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746), canonical decision [#75](https://github.com/agent-federation/contract-builder/pull/75), implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76); code [contracts/core000/run.ts](../../contracts/core000/run.ts), [profiles/core000/](../../profiles/core000/); tests [core000.test.ts](../../tests/core000.test.ts), `bun test`; merged [PR #77](https://github.com/agent-federation/contract-builder/pull/77), [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507). H2 is `NOT_TESTED`; H3 is `NOT_PERFORMED` (PR evidence record). |
+| X3a | Bounded CORE-000 S1 self-build: a five-claim project is loaded, validated, related, provenance-checked, policy-checked, rendered and identified through the existing generic pipeline; draft succeeds and release is blocked by the expected review findings | `accepted` | `implemented` | `tested` | `—` | Maintainer authorization: [#72 approval](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746), canonical decision [#75](https://github.com/agent-federation/contract-builder/pull/75), implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76); code [contracts/core000/run.ts](../../contracts/core000/run.ts), [profiles/core000/](../../profiles/core000/); tests [core000.test.ts](../../tests/core000.test.ts), `bun test`; merged [PR #77](https://github.com/agent-federation/contract-builder/pull/77), [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507). H2 is `NOT_TESTED`; H3 is `NOT_PERFORMED` (PR evidence record). S2.1/S2.2 later extended the project to the full 78-claim register; this row keeps its bounded-S1 meaning — see §4.2. |
 | X3b | S1 ephemeral workspace copy and undeclared-write detection: profile/source inputs are copied rather than symlinked into the checkout; workspace snapshot detects undeclared writes | `accepted` | `implemented` | `tested` | `—` | S1 boundary approved in [#72](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); implementation [contracts/core000/run.ts](../../contracts/core000/run.ts); regression assertions [tests/core000.test.ts](../../tests/core000.test.ts); [maintainer review #5739321136](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) independently reviewed these bounded implementation behaviors (real copies, no-symlink condition, whole-workspace write detection and regression test). This is maintainer code review, not independent verification under this matrix's verification axis, not H3, sandboxing or a second verifier implementation. |
 | X4 | Declared runtime matrix (Node 20+ library, Bun development/CI) | `proposed` | `—` | `—` | `—` | D19 `proposed` (contract [§18](engine-public-contract.md)); CI runs Bun only ([ci.yml](../../.github/workflows/ci.yml)) |
 | X5 | Remaining M2–M5 milestones (public API, three-axis diagnostics, code namespacing, rule primitives, multi-source, review dimensions, provenance hardening, packaging, self-hosting) | `deferred` | `—` | `—` | `—` | Plan [§17](m1-implementation-plan.md) "Deferred capabilities"; each has its own row above where material |
@@ -265,9 +285,11 @@ positive and negative mutations exercise only the cases named in PR #77. The imp
 records a transient run-evidence object.
 
 **What S1 does not establish.** The complete 78-claim / 14-kind / 28-relation / 23-policy-check
-model named at the S1 milestone is not implemented. That count is the historical S1 snapshot: the
-accepted design prose says 23, its check table enumerates 24, and S2-D1 resolves the full-model
-count. Same-environment, fresh-workspace repeatability (two processes, each
+model named at the S1 milestone was not implemented at `07cbf5b`. That count is the historical S1
+snapshot: the accepted design prose says 23, its check table enumerates 24, and S2-D1 resolves
+the full-model count. The S2.2 register and structure were later encoded (78 claims, 14 kinds,
+29 relation declarations, 24 policy-check codes — see §4.2); that is register data, not
+capability. Same-environment, fresh-workspace repeatability (two processes, each
 creating its own fresh workspace) was tested, but H2 cross-environment reproducibility was
 explicitly recorded as `NOT_TESTED`. H3 independent verification was recorded as `NOT_PERFORMED`. No claim is
 `independently_verified`; the review status above applies to selected implementation behaviors,
@@ -275,8 +297,33 @@ not the truth or completeness of CORE-000 claims. The temporary workspace is not
 sandbox. D14, P-2, P-3 and P-6 remain deferred for S1.
 
 **Next milestone.** S2 — structure and full model — is the next proposed milestone: complete the
-full model before the later S3 negative/provenance matrix and S4 H2/H3 work. S2 is not authorized
-by this status update; it requires its own bounded implementation task and maintainer approval.
+full model before the later S3 negative/provenance matrix and S4 H2/H3 work. At `07cbf5b` S2 was
+not authorized by this status update; it required its own bounded implementation task and
+maintainer approval.
+
+**Later status.** S2.1 and S2.2 were subsequently authorized and merged (#105, #123, #127);
+§4.2 records what they delivered. S2.3 (focused tests and evidence), S3 and S4 remain not
+started.
+
+---
+
+## 4.2 CORE-000 S2.1/S2.2 delta (PRs #105, #123, #127, #129, #131)
+
+This is a delta against the `07cbf5b` snapshot, not a re-audit of the engine. It records only
+what merged after that commit, with the limit of what each item proves. Files are relative to the
+repository root.
+
+| Item | Merged as | Delivered | What it proves | What it does not prove |
+|---|---|---|---|---|
+| #105 remaining S2.1 wiring | `dbc93de` | `profiles/core000/checks/{model-structure,evidence,conformance}.ts` added; `claim-evidence.ts` and `provenance-verification.ts` extended; validator, view, profile closure (28) and template wired | The S2.1 check family runs end to end through the existing generic pipeline | The checks' correctness or completeness; it changes no kind, schema or relation |
+| #123 S2.2a subject kinds | `2497ed9` | `claim`, `decision`, `evidence`, `source_statement` added to the `subject_kind` enum in `profiles/core000/schemas/claim.schema.json`; [core-000-self-contract.md](core-000-self-contract.md) §5.3.1 documents "about" semantics | The register can name non-structural subjects without a new kind per claim | That each mapping is the right semantic subject; the decision record carries that ruling |
+| #127 S2.2 full register | `95f1bfd` | `contracts/core000/claims.yml` holds the accepted 78 claims, 15 decisions, 33 evidence rows and 3 source statements (0 conformance cases, 0 independent verifications); `contracts/core000/output/CORE-000.draft.md` regenerated with `claims=78`, `evidence=33`, `decisions=15` | The accepted register and its artifact are encoded and the CORE-000 project builds them | Claim truth, capability completeness or independence: encoding changes no status; `S2.2 artifact verification` is the machine check |
+| #129 C000-CT-011 correction | `fbe1e3f` | The S2.2-approved conditions wording now names adapter closures as part of `inputDigest`, matching the claim statement and `spec/lib/identity.ts` | The approved wording matches the claim and the code | Any new implementation or status change; drafting correction only |
+| #131 CORE-000 artifact rule | `b569dc5` | `AGENTS.md` documents that `contracts/core000/output/CORE-000.draft.md` is generated, the Q9 regeneration procedure and that `bun run check` covers CORE-001 only | The maintenance rule is discoverable next to the CORE-001 rule | A machine check of the CORE-000 artifact; the `S2.2 artifact verification` test is that check |
+
+**Not delivered by this delta.** S2.3 focused tests/evidence, the S3 N1–N18 negative matrix and
+S4 H2/H3 work remain not started. No row in §3 moves to `independently_verified`; X3a keeps its
+bounded-S1 wording, and X3 (full self-hosting) stays `deferred`.
 
 ---
 
@@ -292,10 +339,10 @@ of it. These are different kinds of claim and are not interchangeable:
 - **Proposed but not implemented:** `BuildStatus` and exit code 2 (D18), code namespacing (D17),
   rule primitives (D15; R4), multi-source (D21; A2), typed review dimensions (D24; R5), packaging
   and publication (D14, D20, D29; X1–X2), runtime matrix (D19; X4).
-- **A code comment is staler than the contract:** `RenderOptions.diagnostics` exists and is
-  required by contract [§11](engine-public-contract.md), but
-  [render.ts:27](../../spec/lib/render.ts#L27) still calls it a "proposed contract extension"
-  (see [§8](#8-documentation-drift-and-smallest-corrections)).
+- **A code comment is no longer staler than the contract (fixed).** `RenderOptions.diagnostics`
+  is required by contract [§11](engine-public-contract.md), and
+  [render.ts:23](../../spec/lib/render.ts#L23) now says so instead of calling it a "proposed
+  contract extension" (Issue #149; see [§8](#8-documentation-drift-and-smallest-corrections)).
 - **Deferred:** isolated hook execution (D32; B4), conformance execution (D27; N2), self-hosting
   (D26; X3) and the M2–M5 milestone program (X5).
 - **M1 narrowings that are deliberate, not accidental:** one renderer and one artifact per build
@@ -346,10 +393,11 @@ Each item is a limitation of this commit, not a task list. Evidence is linked.
     "packages" are local modules (X1, X2).
 11. **Conformance is declarative only.** Vectors are stored and cross-checked; no scenario is
     executed and no implementation is evaluated (N1, N2).
-12. **M1 decisions narrowed the contract and the contract text still says "not started."** The
-    narrowing is recorded in the plan, but the stale status lines remain in the contract and the
-    plan headers, alongside a stale test count in the README and design record
-    ([§8](#8-documentation-drift-and-smallest-corrections)).
+12. **M1 decisions narrowed the contract and the contract text still said "not started."** The
+    narrowing is recorded in the plan, but at `07cbf5b` the stale status lines remained in the
+    contract and the plan headers, alongside a stale test count in the README and design record.
+    The #149 documentation update labels the status lines historical and scopes the test count to
+    a snapshot (see [§8](#8-documentation-drift-and-smallest-corrections)).
 
 ---
 
@@ -412,6 +460,15 @@ The status lines and the two test counts are factual records, not architecture d
 correcting them would not violate the "do not re-decide" constraint; they are deferred here to
 keep this PR audit-only. The header annotations added by this PR already point at the current
 status, so no reader is misled in the meantime.
+
+**Corrections applied (Issue #149).** The rows above remain the original audit record. The
+documentation-drift corrections were applied in the snapshot-update series that this section
+announces: the design-record test count, the README and `AGENTS.md` layout lists, the `render.ts`
+comment, the `check` M1 code mapping (`core.artifact.drift` → `ERR_OUTPUT_STALE`) and the status
+lines. The historical "Implementation status: not started (pre-M1 record)" lines stay in the
+contract and the plan, relabelled as historical next to an explicit current-state pointer; no
+historical RFC/ODR text was rewritten. The CORE-000 claim count is now machine-checked by
+`tests/docs-freshness.test.ts`.
 
 ---
 

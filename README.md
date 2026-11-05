@@ -65,11 +65,14 @@ spec/
     relations.ts                объявления и разрешение связей
     provenance.ts               привязки и записи проверки происхождения
     hook.ts                     контракт хука и разрешение находок
+    extension.ts                extension closure: объявление, lockfile и импорт-скан
+    identity.ts                 идентичность сборки: inputDigest и profileDigest
     render.ts                   граница рендерера и нормализация артефакта
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
     guards.ts                   общие проверки типов
     source.ts                   SourceDocument и SourceAdapter
     adapters/markdown.ts        локаторы markdown и адаптер источника
+    adapters/index.ts           реестр встроенных адаптеров
   sources.yml                   границы среза и дословные фрагменты
   ontology.yml                  документ и термины
   semantics.json                нормативные положения
@@ -79,6 +82,9 @@ spec/
 profiles/core001/
   profile.json                  виды, связи, происхождение, привязки документов
   view.ts                       представление CORE-001 и производные значения
+  context.ts                    CheckContext: то, что видит проверка профиля
+  slice.ts                      проверки границ среза
+  text.ts                       текстовые нормализации для проверок
   validator.ts                  агрегатор проверок профиля
   checks/*.ts                   проверки CORE-001 по семействам
   checks/verification.ts        проверка происхождения CORE-001
@@ -87,6 +93,15 @@ profiles/core001/
   labels.ru.json                метки представления
   templates/core001.md.j2       шаблон
   schemas/*.schema.json         схемы документов и схемы видов сущностей
+profiles/core000/               профиль самоконтракта CORE-000: view, validator, checks, renderer, schemas
+profiles/example/               синтетический не-CORE-001 профиль для проверки общности ядра
+contracts/core000/
+  contract-builder.json         проект самоконтракта CORE-000
+  claims.yml                    реестр 78 claims, evidence и decisions
+  structure.yml                 компоненты, интерфейсы, фазы и границы доверия
+  run.ts                        harness: временное рабочее пространство и сборка
+  mutations.ts                  именованные мутации для негативных тестов
+  output/CORE-000.draft.md      сгенерированный артефакт (только через harness)
 tests/build.test.ts
 tests/manifest.test.ts          манифест и границы проекта
 tests/ir.test.ts                IR, связи и происхождение
@@ -96,11 +111,17 @@ tests/provenance.test.ts        привязка ≠ проверка, стат�
 tests/genericity.test.ts        защита ядра от лексики CORE-001
 tests/renderer.test.ts          выбор рендерера и нормализация
 tests/golden.test.ts            эталонная сборка CORE-001
+tests/identity.test.ts          идентичность сборки и extension closure
+tests/example-profile.test.ts   синтетический профиль end-to-end
+tests/consent.test.ts           согласие на исполняемый профиль
+tests/core000.test.ts           самоконтракт CORE-000 (S1, S2.1, S2.2)
+tests/docs-freshness.test.ts    свежесть документации: число claims против claims.yml
 fixtures/
   broken-modality/              violated выведен из permission
   broken-source-drift/          цитата не найдена в legacy
   open-decision/                положение зависит от открытого решения
 docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md
+docs/architecture/implementation-status.md
 ```
 
 ## Модель в одном экране
@@ -204,7 +225,7 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 
 Детерминированная идентичность сборки: [docs/architecture/build-identity.md](docs/architecture/build-identity.md).
 
-Статус реализации архитектуры и публичного контракта (снимок на `f1ddcf7`, 2026-11-02): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
+Статус реализации архитектуры и публичного контракта (снимок на `07cbf5b`, 2026-11-02; дельта CORE-000 S2 до `f89a53f`, 2026-11-05): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
 
 ## Лицензия
 

@@ -25,10 +25,9 @@ export interface RenderOptions {
   templates: TemplateSet;
   labels?: Record<string, string>;
   /**
-   * Proposed contract extension. The accepted contract lists `mode`, `templates` and
-   * `labels` only, but the rendered artifact embeds the build diagnostics, so the
-   * renderer cannot produce it without them. See the PR for the proposal; this field is
-   * the smallest change that keeps the artifact byte-identical.
+   * Required by the accepted contract (§11): the engine passes the deterministic diagnostics
+   * snapshot produced up to the render phase, so a renderer that embeds the report keeps the
+   * artifact a pure function of the model, the options and the template.
    */
   diagnostics: readonly Diagnostic[];
 }
