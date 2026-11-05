@@ -3753,12 +3753,15 @@ These clarifications are normative. They resolve ambiguities exposed by the 2026
 are accepted by [ODR-PAP-006](../decisions/ODR-PAP-006-pap-verdict-model.md); they do not renumber
 sections or change the package format.
 
-**E1 — Resource limits never produce `FAIL` (§4.3.4, §7.4).** A limit hit at any stage —
-including a JSON nesting/string limit or a file-size limit while reading a signature envelope — is
-reported as `pap.package.limit-exceeded`, leaves the affected dimension `NOT_EVALUATED`, sets
-`coverage.full: false`, and caps the verdict at `INCOMPLETE`. Structural parse errors remain
-`INVALID`; the verifier must distinguish "the document is malformed" from "the verifier stopped for
-safety".
+**E1 — Resource limits never produce `FAIL` (§4.3.4, §7.4), except an unreadable manifest.** A
+limit hit at any stage — including a JSON nesting/string limit or a file-size limit while reading a
+signature envelope — is reported as `pap.package.limit-exceeded`, leaves the affected dimension
+`NOT_EVALUATED`, sets `coverage.full: false`, and caps the verdict at `INCOMPLETE`. The exception
+is a limit hit on the manifest itself: when `assurance-package.json` cannot be read or parsed within
+the limits, the verifier cannot compute the package identity or the required check set, so it emits
+`pap.package.limit-exceeded` and returns `FAIL` (the same fail-closed report as an unreadable
+manifest). Structural parse errors remain `INVALID`; the verifier must distinguish "the document
+is malformed" from "the verifier stopped for safety".
 
 **E2 — Required dimensions are derived; `requiredDimensions` is additive (§6.3, §7.4).**
 `signature.mode: "required"` requires `signature` and `trust`; `humanReview.required: true`

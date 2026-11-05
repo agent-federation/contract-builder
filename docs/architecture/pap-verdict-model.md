@@ -35,7 +35,7 @@ A policy that omits a derived dimension is valid (it is derived); a policy that 
 - invalid **package input** → report emitted, `integrity.package: FAIL`, verdict `FAIL`;
 - safety **limit** → dimension `NOT_EVALUATED`, `coverage.full: false`, verdict `INCOMPLETE`, never `FAIL`.
 
-**I3 — Verdict is a pure fold over required dimension states.** Precedence, applied once and documented in code: `FAIL` → `UNSUPPORTED` → `UNTRUSTED` → `INCOMPLETE` → `NOT_EVALUATED` (no required dimension) → `PASS`. Any required dimension in `FAIL` yields `FAIL`; in `NOT_EVALUATED`/`UNKNOWN`/`UNAVAILABLE`/`STALE`/`INCOMPLETE` yields at least `INCOMPLETE`. `PASS` requires every required dimension `PASS` and no limit hit.
+**I3 — Verdict is a pure fold over required dimension states.** Precedence, applied once and documented in code: `FAIL` → `UNTRUSTED` → `UNSUPPORTED` → `INCOMPLETE` → `NOT_EVALUATED` (no required dimension) → `PASS`. Any required dimension in `FAIL` yields `FAIL`; in `NOT_EVALUATED`/`UNKNOWN`/`UNAVAILABLE`/`STALE`/`INCOMPLETE` yields at least `INCOMPLETE`. `PASS` requires every required dimension `PASS` and no limit hit.
 
 **I4 — Coverage is derived from the verdict inputs.** `coverage.full = false` for every non-`PASS` outcome that is not a clean `UNTRUSTED`/`FAIL` from a fully evaluated dimension set. In particular, it is `false` for `INCOMPLETE` (quorum unmet, stale policy, unfinished scan, human review incomplete). `coverage.requiredDimensions` is the derived set from I1, sorted.
 
@@ -78,7 +78,7 @@ A policy that omits a derived dimension is valid (it is derived); a policy that 
 
 | Slice | Deliverable | Acceptance |
 |---|---|---|
-| S1 | `pap/src/state.ts`: dimension state type, `deriveRequiredDimensions`, pure `computeVerdict(states, options)` | property tests for I3/I4; no I/O; existing verdicts reproduced for all 61 cases |
+| S1 | `pap/src/report.ts` → new `pap/src/state.ts`: dimension state type, `deriveRequiredDimensions`, pure `computeVerdict(states, options)` (extracted from `report.ts`) | property tests for I3/I4; no I/O; existing verdicts reproduced for all 61 cases |
 | S2 | `pap/src/decode.ts`: strict decoders for policy/manifest/claims/envelope; all `String()` enums removed | every enum field has a non-string rejection test; invalid policy = exit 64; report validates against Appendix C |
 | S3 | `verify.ts`/`report.ts` wired to S1/S2; coverage from I4; verdict cause from I5 | audit reproductions #138/#139/#140/#142 become regression tests; F13 unchanged; F47-F49 unchanged |
 | S4 | corpus: `requirements.json`, `diagnosticCodesExact`, exact noReport assertions, meta-tests | every code/requirement covered; unexpected diagnostics fail PASS cases |
