@@ -261,3 +261,53 @@ test("signature: missing keyId leaves the entry unknown and rejects the policy d
   assert.equal(report.verdict, "UNTRUSTED");
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.keyid-missing"));
 });
+
+test("signature quorum: required mode with an unmet minimumValidSigners is INCOMPLETE", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"), { recursive: true });
+  writeFileSync(
+    path.join(dir, "signatures", "trusted.dsse.json"),
+    readFileSync(path.join(fixtures, "signatures", "trusted.dsse.json")),
+  );
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+  // The operator's `mode: required` is the trust requirement; a second,
+  // unrelated field must not decide whether it is evaluated.
+  policy.id = "policy-quorum-unmet";
+  policy.requiredDimensions = ["integrity", "sources", "checks"];
+  // A second configured signer the package does not sign with: the quorum is
+  // representable in the policy but not met by the package.
+  const second = generateKeyPairSync("ed25519");
+  const secondPublicKey = second.publicKey.export({ format: "der", type: "spki" }).subarray(-32);
+  policy.keys.push({
+    keyId: "key-acme-second",
+    algorithm: "ed25519",
+    publicKey: secondPublicKey.toString("base64url"),
+  });
+  policy.signers.push({
+    keyIds: ["key-acme-second"],
+    identity: "acme-second",
+    allowedRoles: ["producer"],
+  });
+
+  policy.signature.minimumValidSigners = 2;
+  const unmet = verify(dir, writePolicy(policy));
+  assert.equal(unmet.status, 2, unmet.stdout);
+  const report = JSON.parse(unmet.stdout);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.signature.validity, "VALID");
+  assert.equal(report.dimensions.trust.signerIdentity, "TRUSTED");
+  assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"));
+  assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.signature.absent"));
+
+  // A met quorum with the same required dimensions still passes.
+  policy.id = "policy-quorum-met";
+  policy.signature.minimumValidSigners = 1;
+  const met = verify(dir, writePolicy(policy));
+  assert.equal(met.status, 0, met.stdout);
+  const metReport = JSON.parse(met.stdout);
+  assert.equal(metReport.verdict, "PASS");
+  assert.equal(metReport.dimensions.trust.policyDecision, "ACCEPTED");
+});
