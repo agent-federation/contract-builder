@@ -387,6 +387,20 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
       diag("pap.signature.absent", "warning", "signatures", "a signature is required but no envelope is present");
     }
   }
+  if (
+    loadedPolicy?.policy.signature.mode === "required" &&
+    signatureEvaluation.entries.length > 0 &&
+    signatureEvaluation.validity !== "INVALID" &&
+    signatureEvaluation.policyDecision === "NOT_EVALUATED" &&
+    !signatureEvaluation.envelopeLimitHit
+  ) {
+    diag(
+      "pap.signature.absent",
+      "warning",
+      "signatures",
+      "the required signature quorum is not met",
+    );
+  }
   if (signatureEvaluation.envelopeLimitHit) {
     // `evaluateSignatures` already emitted the limit diagnostic.
   }
