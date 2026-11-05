@@ -4,8 +4,8 @@
 **Document version:** 0.4
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
-**Implementation status:** not started (pre-M1 record)
-**Current implementation status:** M1 implemented and tested as of `f1ddcf7`; see the [implementation-status matrix](implementation-status.md) for the as-of audit and per-row evidence.
+**Implementation status (historical, pre-M1 record):** not started at this document's baseline; see the current-status pointer below.
+**Current implementation status:** M1 implemented and tested as of `f1ddcf7`; the [implementation-status matrix](implementation-status.md) pins the audit at `07cbf5b` and records the CORE-000 S2 delta after it.
 
 > **Reading statuses.** `accepted` in this document means *explicitly directed by the
 > maintainer* — in the iteration brief (§1.1–1.9) or in the final revision brief (§1–§4).
@@ -975,7 +975,10 @@ because a build may use several.
 - artifacts are UTF-8 with LF line endings and exactly one trailing newline;
 - no timestamps, hostnames, absolute paths, or environment data in artifacts;
 - renderers are pure functions of the model, options and template;
-- `check` compares bytes, and reports `core.artifact.drift` with the differing file.
+- `check` compares bytes and reports the differing file. The M1 implementation reports it as the
+  legacy code `ERR_OUTPUT_STALE`; `core.artifact.drift` is its namespaced M2 name. §7.1 keeps M1
+  code strings verbatim and the M1 plan records that policy (§9.2), so this is a recorded mapping,
+  not a contract change.
 
 ### 8.3 Boundary
 

@@ -51,8 +51,10 @@ specification leaves the working tree clean.
 ### CORE-000 (the engine self-contract)
 
 `contracts/core000/output/CORE-000.draft.md` is generated; never edit it by
-hand. After changing any declared input under `contracts/core000/` or the
-CORE-000 profile under `profiles/core000/`, regenerate it with the Q9
+hand. After changing any declared input under `contracts/core000/`, the
+CORE-000 profile under `profiles/core000/`, or the declared source
+`docs/architecture/engine-public-contract.md` (its digest is embedded in the
+artifact's provenance records), regenerate it with the Q9
 copy-from-temporary-workspace procedure and commit the regenerated file:
 
 1. `prepareWorkspace()`, then `runHarness({ mode: "draft", write: true,
@@ -74,20 +76,33 @@ copy-from-temporary-workspace procedure and commit the regenerated file:
 - `spec/` — declared inputs (`contract-builder.json`, `sources.yml`,
   `ontology.yml`, `semantics.json`, `decisions.yml`, `conformance/cases.yml`),
   the builder (`build.ts`, `lib/`) and the generated `output/`.
-- `profiles/` — `core001/profile.json`, `core001/view.ts`, the validator
-  (`validator.ts`, `checks/`, `catalog.json`), the renderer (`renderer.ts`,
-  `labels.ru.json`, `templates/`) and document plus entity-kind JSON Schemas
-  under `core001/schemas/`.
+- `profiles/` — `core001/`: the view and check support (`view.ts`, `context.ts`,
+  `slice.ts`, `text.ts`), the validator (`validator.ts`, `checks/`, `catalog.json`),
+  the renderer (`renderer.ts`, `labels.ru.json`, `templates/`) and document plus
+  entity-kind JSON Schemas under `schemas/`; `core000/`: the CORE-000
+  self-contract profile; `example/`: the synthetic non-CORE-001 profile.
+- `contracts/` — the CORE-000 self-contract: declared inputs (`claims.yml`,
+  `structure.yml`, `contract-builder.json`), the harness (`run.ts`, `mutations.ts`)
+  and the generated `core000/output/CORE-000.draft.md`; its artifact rule is above.
 - `fixtures/` — intentionally broken specs (`broken-modality`,
   `broken-source-drift`, `open-decision`) used by tests and examples.
 - `tests/` — `build.test.ts`, `golden.test.ts`, `ir.test.ts`,
   `manifest.test.ts`, `checks.test.ts`, `hook.test.ts`, `renderer.test.ts`,
-  `genericity.test.ts`, `provenance.test.ts`, with golden baselines under `tests/golden/`.
-- `docs/` — architecture contract, M1 implementation plan and the design record.
+  `genericity.test.ts`, `provenance.test.ts`, `identity.test.ts`,
+  `example-profile.test.ts`, `consent.test.ts`, `core000.test.ts` and
+  `docs-freshness.test.ts`, with golden baselines under `tests/golden/`.
+- `docs/` — architecture contract, M1 implementation plan, the
+  implementation-status matrix with its snapshot-update convention, the CORE-000
+  decision/execution records and the design record.
 - `pap/` — the independent PAP v0.1 verifier (`src/`, `bin/`, `schemas/`,
   `fixtures/pap-v0.1/`, `tests/`); its README holds the verifier commands and
   conformance notes.
 - `CORE-001.legacy.md` — the read-only source document.
+
+`tests/docs-freshness.test.ts` is a machine check for this documentation: it fails when the
+CORE-000 claim count stated in `docs/architecture/implementation-status.md` disagrees with
+`contracts/core000/claims.yml`. Update the snapshot sentence in the same pull request that
+changes the register.
 
 ## Pull request rules
 
