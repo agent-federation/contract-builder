@@ -135,9 +135,7 @@ class Parser {
     // through the prototype. Parsed objects therefore have no prototype at all:
     // every member is an own property, and no member name can reach an
     // inherited value.
-    const result: { [key: string]: JsonValue } = Object.create(null) as {
-      [key: string]: JsonValue;
-    };
+    const result = Object.create(null) as Record<string, JsonValue>;
     const seen = new Set<string>();
     this.skipWhitespace();
     if (this.text[this.pos] === "}") {

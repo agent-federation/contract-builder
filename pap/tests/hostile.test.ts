@@ -320,8 +320,8 @@ test("the strict parser treats __proto__ as an own member", () => {
 });
 
 function manifestWithMember(dir: string, member: string, value: unknown): void {
-  const base = manifest(dir);
-  const text = JSON.stringify(base, null, 2);
+  const manifestObj = manifest(dir);
+  const text = JSON.stringify(manifestObj, null, 2);
   const body = text.slice(0, text.lastIndexOf("}")).trimEnd();
   writeFileSync(
     path.join(dir, "assurance-package.json"),
