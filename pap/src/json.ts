@@ -128,7 +128,16 @@ class Parser {
   private parseObject(depth: number): JsonValue {
     this.enter(depth);
     this.pos += 1; // {
-    const result: { [key: string]: JsonValue } = {};
+    // RFC 8785 treats `__proto__` as an ordinary member name, but on a normal
+    // object literal `result["__proto__"] = value` would invoke the prototype
+    // setter: the member never becomes an own property, so it is invisible to
+    // `Object.keys` (unknown-field checks) and to JCS while reads still see it
+    // through the prototype. Parsed objects therefore have no prototype at all:
+    // every member is an own property, and no member name can reach an
+    // inherited value.
+    const result: { [key: string]: JsonValue } = Object.create(null) as {
+      [key: string]: JsonValue;
+    };
     const seen = new Set<string>();
     this.skipWhitespace();
     if (this.text[this.pos] === "}") {
