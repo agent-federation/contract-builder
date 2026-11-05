@@ -301,6 +301,40 @@ export async function resolveExtensionClosure(
   });
 }
 
+/** Profiles may declare render inputs with a `profile:` prefix; the closure uses bare paths. */
+function stripProfilePrefix(value: string): string {
+  return value.startsWith("profile:") ? value.slice("profile:".length) : value;
+}
+
+/**
+ * Files the engine executes or consumes beyond the profile's declared closure entries: the
+ * view and validator modules, the diagnostic catalog, every schema, and the render template
+ * and labels declared by the manifest. They must be part of `profile.files`, otherwise the
+ * closure digest and the import scan would not cover them.
+ */
+function requiredProfileFiles(
+  project: ResolvedProject,
+): Array<{ path: string; origin: string }> {
+  const { profile, manifest } = project;
+  const required: Array<{ path: string; origin: string }> = [];
+  const add = (value: string | undefined, origin: string, prefixed = false): void => {
+    if (isNonEmptyString(value)) {
+      required.push({ path: prefixed ? stripProfilePrefix(value) : value, origin });
+    }
+  };
+
+  add(profile.view, "view");
+  add(profile.validator, "validator");
+  add(profile.diagnostics, "diagnostics");
+  for (const [id, schema] of Object.entries(profile.schemas)) {
+    add(schema, `schemas[${JSON.stringify(id)}]`);
+  }
+  const render = manifest.render[0];
+  add(render?.template, "render.template", true);
+  add(render?.labels, "render.labels", true);
+  return required;
+}
+
 /** Resolves the profile extension closure declared by `profile.json`. */
 export async function resolveProfileClosure(
   project: ResolvedProject,
@@ -317,6 +351,31 @@ export async function resolveProfileClosure(
     );
     return null;
   }
+
+  const declaredPaths = new Set<string>();
+  for (const value of declared) {
+    const normalized = normalizeRelativePath(value);
+    if (normalized !== null) declaredPaths.add(normalized);
+  }
+
+  const reported = new Set<string>();
+  let covered = true;
+  for (const required of requiredProfileFiles(project)) {
+    const normalized = normalizeRelativePath(required.path);
+    const entry = normalized ?? required.path.replace(/\\/g, "/");
+    if (reported.has(entry)) continue;
+    reported.add(entry);
+    if (normalized !== null && declaredPaths.has(normalized)) continue;
+
+    diagnostics.error(
+      "core.extension.unpinned-dependency",
+      "profile.json",
+      "/files",
+      `Файл профиля "${entry}" (${required.origin}) не объявлен в profile.files: добавьте его в files, чтобы замыкание профиля и скан импортов покрывали этот файл`,
+    );
+    covered = false;
+  }
+  if (!covered) return null;
 
   return resolveClosure({
     kind: "profile",
