@@ -10,10 +10,20 @@ import type { InspectionDocument } from "./inspect.js";
 import type { ExplanationDocument } from "./explain.js";
 import type { VerificationReport } from "./types.js";
 
-const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
+// Cc (C0, DEL and C1) and Cf (format characters, including bidi marks) are
+// escaped so package-controlled text cannot start a line or move the cursor.
+const CONTROL = /[\p{Cc}\p{Cf}]/gu;
+const SHORT = new Map<string, string>([
+  ["\t", "\\t"],
+  ["\n", "\\n"],
+  ["\r", "\\r"],
+]);
 
 function safe(value: string): string {
-  return value.replace(CONTROL, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  return value.replace(CONTROL, (char) => {
+    const short = SHORT.get(char);
+    return short ?? `\\u${(char.codePointAt(0) as number).toString(16).padStart(4, "0")}`;
+  });
 }
 
 export function renderVerifyText(report: VerificationReport): string {
@@ -23,10 +33,10 @@ export function renderVerifyText(report: VerificationReport): string {
     lines.push(`NOT A PASS — ${verdictReason(report)}`);
   }
   lines.push(
-    `package: ${report.package.identity ?? "null"} (papVersion ${report.package.papVersion ?? "unknown"})`,
+    `package: ${safe(report.package.identity ?? "null")} (papVersion ${safe(report.package.papVersion ?? "unknown")})`,
   );
   lines.push(
-    `verifier: pap ${report.verifier.version}  policy: ${report.policy.id ?? "none"} state: ${report.policy.state}  evaluatedAt: ${report.evaluatedAt}`,
+    `verifier: pap ${report.verifier.version}  policy: ${safe(report.policy.id ?? "none")} state: ${report.policy.state}  evaluatedAt: ${report.evaluatedAt}`,
   );
   if (report.effectiveLimits !== undefined) {
     lines.push(
@@ -55,27 +65,27 @@ export function renderVerifyText(report: VerificationReport): string {
   }
   lines.push("checks");
   for (const result of report.dimensions.checks.results) {
-    lines.push(`  ${result.checkId} ${result.outcome}`);
+    lines.push(`  ${safe(result.checkId)} ${result.outcome}`);
   }
   const coverage = report.coverage;
   lines.push(
     `coverage: checksEvaluated ${coverage.checksEvaluated}, checksPassed ${coverage.checksPassed}, checksFailed ${coverage.checksFailed}, checksUnsupported ${coverage.checksUnsupported}, checksNotEvaluated ${coverage.checksNotEvaluated}, dimensionsEvaluated ${coverage.dimensionsEvaluated}, full: ${coverage.full}`,
   );
-  lines.push(`requiredChecks: ${coverage.requiredChecks.join(", ") || "none"}`);
+  lines.push(`requiredChecks: ${coverage.requiredChecks.map((checkId) => safe(checkId)).join(", ") || "none"}`);
   lines.push(`requiredDimensions: ${coverage.requiredDimensions.join(", ") || "none"}`);
   lines.push("limitations");
   if (report.limitations.length === 0) {
     lines.push("  none");
   } else {
     for (const limitation of report.limitations) {
-      lines.push(`  ${limitation.code} — ${safe(limitation.detail)}`);
+      lines.push(`  ${safe(limitation.code)} — ${safe(limitation.detail)}`);
     }
   }
   if (report.producerClaims !== undefined) {
     lines.push("PRODUCER CLAIMS (UNTRUSTED — NOT VERIFICATION RESULTS)");
     for (const comparison of report.producerClaims.comparison ?? []) {
       lines.push(
-        `  ${comparison.checkId} claimed ${comparison.claimed ?? "null"} independent ${comparison.independentOutcome ?? "null"} ${comparison.relation}`,
+        `  ${safe(comparison.checkId)} claimed ${safe(comparison.claimed ?? "null")} independent ${comparison.independentOutcome ?? "null"} ${comparison.relation}`,
       );
     }
   }
@@ -116,30 +126,30 @@ export function renderInspectionText(document: InspectionDocument): string {
   lines.push(`INSPECTION: ${document.inspection}`);
   lines.push("NOT A VERIFICATION");
   lines.push(
-    `package: ${document.package.identity ?? "null"} (papVersion ${document.package.papVersion ?? "unknown"})`,
+    `package: ${safe(document.package.identity ?? "null")} (papVersion ${safe(document.package.papVersion ?? "unknown")})`,
   );
   lines.push("declared");
   if (document.declared.length === 0) {
     lines.push("  none");
   } else {
     for (const entry of document.declared) {
-      const id = entry.id === undefined ? "" : ` ${entry.id}`;
+      const id = entry.id === undefined ? "" : ` ${safe(entry.id)}`;
       lines.push(
-        `  ${entry.kind}${id} ${safe(entry.path)} declared ${entry.declared ?? "none"} computed ${entry.computed ?? "null"}`,
+        `  ${entry.kind}${id} ${safe(entry.path)} declared ${safe(entry.declared ?? "none")} computed ${safe(entry.computed ?? "null")}`,
       );
     }
   }
   lines.push("identities");
-  lines.push(`  packageIdentity ${document.identities.packageIdentity ?? "null"}`);
-  lines.push(`  normalizedInputDigest ${document.identities.normalizedInputDigest ?? "null"}`);
-  lines.push(`  extensionClosureDigest ${document.identities.extensionClosureDigest ?? "null"}`);
-  lines.push(`  checkerIdentity ${document.identities.checkerIdentity}`);
+  lines.push(`  packageIdentity ${safe(document.identities.packageIdentity ?? "null")}`);
+  lines.push(`  normalizedInputDigest ${safe(document.identities.normalizedInputDigest ?? "null")}`);
+  lines.push(`  extensionClosureDigest ${safe(document.identities.extensionClosureDigest ?? "null")}`);
+  lines.push(`  checkerIdentity ${safe(document.identities.checkerIdentity)}`);
   lines.push("limitations");
   if (document.limitations.length === 0) {
     lines.push("  none");
   } else {
     for (const limitation of document.limitations) {
-      lines.push(`  ${limitation.code} — ${safe(limitation.detail)}`);
+      lines.push(`  ${safe(limitation.code)} — ${safe(limitation.detail)}`);
     }
   }
   return `${lines.join("\n")}\n`;
@@ -149,20 +159,20 @@ export function renderExplanationText(document: ExplanationDocument, requestedCh
   const record = document.checkRecord;
   const lines: string[] = [];
   lines.push("NOT A PACKAGE VERDICT");
-  lines.push(`CHECK: ${record?.checkId ?? requestedCheckId ?? "unknown"}`);
+  lines.push(`CHECK: ${safe(record?.checkId ?? requestedCheckId ?? "unknown")}`);
   lines.push(`OUTCOME: ${record?.outcome ?? "UNSUPPORTED"}`);
   if (record !== null) {
     lines.push("subjectDigests");
     for (const [kind, value] of Object.entries(record.subjectDigests)) {
       if (Array.isArray(value)) {
-        lines.push(`  ${kind} ${JSON.stringify(value)}`);
+        lines.push(`  ${kind} ${safe(JSON.stringify(value))}`);
       } else if (typeof value === "string") {
-        lines.push(`  ${kind} ${value}`);
+        lines.push(`  ${kind} ${safe(value)}`);
       }
     }
-    lines.push(`scope: ${JSON.stringify(record.scope)}`);
+    lines.push(`scope: ${safe(JSON.stringify(record.scope))}`);
     lines.push(
-      `checker: ${record.checker.id} ${record.checker.version} ${record.checker.implementationDigest}`,
+      `checker: ${safe(record.checker.id)} ${safe(record.checker.version)} ${safe(record.checker.implementationDigest)}`,
     );
     lines.push("witnesses");
     if (record.witnesses.length === 0) {
@@ -186,7 +196,7 @@ export function renderExplanationText(document: ExplanationDocument, requestedCh
     lines.push("  none");
   } else {
     for (const limitation of document.limitations) {
-      lines.push(`  ${limitation.code} — ${safe(limitation.detail)}`);
+      lines.push(`  ${safe(limitation.code)} — ${safe(limitation.detail)}`);
     }
   }
   return `${lines.join("\n")}\n`;
