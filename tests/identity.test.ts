@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -155,6 +156,67 @@ test("identity: a profile file change moves profileDigest and inputDigest", asyn
   const afterBuild = (await identityOf(dir)).inputDigest;
   assert.notEqual(afterProfile, beforeProfile);
   assert.notEqual(afterBuild, beforeBuild);
+});
+
+test("identity: an undeclared executable profile file fails closed before execution", async () => {
+  const dir = await copyLocalProject("identity-undeclared-executable");
+  const marker = path.join(dir, "view-evaluated.marker");
+  const viewPath = path.join(dir, "profile", "view.ts");
+  await writeFile(
+    viewPath,
+    `import { writeFileSync } from "node:fs";\n${await readFile(viewPath, "utf8")}\n` +
+      `writeFileSync(${JSON.stringify(marker)}, "evaluated");\n`,
+    "utf8",
+  );
+
+  const profilePath = path.join(dir, "profile", "profile.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files: string[] };
+  profile.files = profile.files.filter((entry) => entry !== "view.ts");
+  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.identity, null);
+  assert.equal(existsSync(marker), false, "profile code was evaluated before the closure check");
+
+  const diagnostic = result.diagnostics.find(
+    (item) => item.code === "core.extension.unpinned-dependency",
+  );
+  assert.ok(diagnostic !== undefined, "undeclared executable did not report unpinned-dependency");
+  assert.match(diagnostic.message, /view\.ts/);
+});
+
+test("identity: every consumed profile file must be declared in profile.files", async () => {
+  const entries = [
+    ["validator.ts", "validator"],
+    ["catalog.json", "diagnostics"],
+    ["schemas/sources.schema.json", "schema"],
+    ["templates/core001.md.j2", "render.template"],
+    ["labels.ru.json", "render.labels"],
+  ] as const;
+
+  for (const [index, [entry, label]] of entries.entries()) {
+    const dir = await copyLocalProject(`identity-undeclared-consumed-${index}`);
+    const profilePath = path.join(dir, "profile", "profile.json");
+    const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files: string[] };
+    profile.files = profile.files.filter((item) => item !== entry);
+    await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+
+    const result = await runBuild(base(dir));
+    assert.equal(result.exitCode, 1, `${label} was not required in profile.files`);
+    assert.equal(result.identity, null, `${label} still produced an identity`);
+    const diagnostic = result.diagnostics.find(
+      (item) => item.code === "core.extension.unpinned-dependency",
+    );
+    assert.ok(
+      diagnostic !== undefined,
+      `${label} did not fail with core.extension.unpinned-dependency`,
+    );
+    assert.ok(
+      diagnostic.message.includes(entry),
+      `${label} diagnostic does not name ${entry}: ${diagnostic.message}`,
+    );
+  }
 });
 
 test("identity: a declared source-adapter file change moves its closure and the digest", async () => {
