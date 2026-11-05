@@ -272,6 +272,12 @@ export function computeVerdict(
     requiredOutcomes.some((outcome) => outcome === "FAIL") ||
     (options.signatureMode === "required" &&
       report.dimensions.signature.validity === "NOT_EVALUATED") ||
+    // `signature.mode: required` is the operator's trust requirement on its own:
+    // a valid envelope that does not meet `minimumValidSigners` leaves the
+    // policy decision unevaluated, and the verdict must not depend on the
+    // unrelated `requiredDimensions` list also naming signature/trust.
+    (options.signatureMode === "required" &&
+      report.dimensions.trust.policyDecision !== "ACCEPTED") ||
     (options.humanReviewRequired && report.dimensions.humanReview.status !== "PASS") ||
     options.requiredDimensions.some((dimension) =>
       incompleteStatuses.has(statusForDimension(report, dimension)),
