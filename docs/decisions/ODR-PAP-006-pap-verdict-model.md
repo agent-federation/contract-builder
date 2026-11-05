@@ -18,9 +18,9 @@ The targeted fixes close the reproductions but not the class: the verdict depend
 
 ## 2. Decisions
 
-**A1 — Unmet signature quorum is `INCOMPLETE`, not `FAIL`/`UNTRUSTED`.** Under `signature.mode: required`, a policy decision other than `ACCEPTED` (including an unmet `minimumValidSigners`) yields `INCOMPLETE`, a `pap.signature.absent` diagnostic and a limitation. Evidence: RFC §6.5; audit reproduction with F13 and a two-signer policy.
+**A1 — An unmet signature quorum is `INCOMPLETE`.** The quorum case is specifically `signature.validity: VALID` with `trust.policyDecision: NOT_EVALUATED`, because fewer distinct authorized valid signers than `minimumValidSigners` were presented; it yields `INCOMPLETE`, a `pap.signature.absent` diagnostic and a limitation. This is **not** a redefinition of explicit rejection: an evaluated `policyDecision: REJECTED` remains `UNTRUSTED` (RFC §7.4 rule 2), and a stale policy remains `INCOMPLETE` (RFC §7.4 rule 4). Evidence: RFC §6.5, §7.4; audit reproduction with F13 and a two-signer policy.
 
-**A2 — `coverage.full` means "every required dimension was evaluated".** It is `false` for every `INCOMPLETE`, including an unmet quorum, stale policy and unfinished scans. Coverage is derived from the required dimension states, not from a separate limit/scan flag. Evidence: RFC §7.5 already defines `full` this way for required dimensions; the implementation left it true when the operator omitted signature/trust from `requiredDimensions`.
+**A2 — `coverage.full` means "every required dimension was evaluated", not "the verdict is PASS".** Per RFC §7.5 it is `false` when a required dimension is not decided (an unmet quorum leaves `trust` `NOT_EVALUATED`, so `full` is false once `signature`/`trust` are derived as required), when a limit stopped evaluation, when the undeclared-file scan is incomplete, and when the required set is empty. It is **not** automatically false for every `INCOMPLETE`: `STALE` is a decided state (§7.5), so a stale policy can yield `INCOMPLETE` with `coverage.full: true` when all required work was evaluated. Evidence: RFC §7.5; the implementation left `full` true when the operator omitted signature/trust from `requiredDimensions`.
 
 **A3 — Required dimensions are derived; `requiredDimensions` only adds.** The policy's requirements and the required checks derive dimensions (`signature.mode: required` ⇒ `signature`, `trust`; `humanReview.required` ⇒ `humanReview`; required checks ⇒ their implied dimensions). A policy that tries to remove a derived requirement is `pap.trust.policy-invalid` (exit 64, no report). This tightens the meaning of a published field and is recorded as an RFC errata (E2) in this change.
 
@@ -50,7 +50,8 @@ Each slice is a separate pull request with its own tests; S1/S2 do not change an
 ## 5. Verification
 
 - Each slice runs `bun run typecheck`, `bun test pap/tests`, `bun run pap:test`, full `bun test`, `bun run check`.
-- S1 property tests assert: a required `FAIL` implies `FAIL`; a required not-evaluated dimension implies at least `INCOMPLETE`; `PASS` only when every required dimension is `PASS` and no limit was hit; `NOT_EVALUATED` only when the required set is empty.
+- S1 property tests assert: a required `FAIL` implies `FAIL`; a required not-evaluated dimension implies at least `INCOMPLETE`; `PASS` only when every required dimension is in its applicable positive state (`PASS`, `VALID`, `TRUSTED`, `ACCEPTED`, or `NOT_APPLICABLE` where allowed) and no limit was hit; an empty required set yields `INCOMPLETE` with `pap.package.empty-check-specs`; `NOT_EVALUATED` is reserved for the degenerate parsed-package report where no required check could be evaluated.
+- S3 boundary tests: quorum unmet ⇒ `INCOMPLETE` + `coverage.full: false`; explicit `REJECTED` ⇒ `UNTRUSTED`; stale policy with all required work evaluated ⇒ `INCOMPLETE` + `coverage.full: true`; empty required set ⇒ `INCOMPLETE` + `pap.package.empty-check-specs`; manifest-level limit ⇒ `FAIL`; post-manifest limit ⇒ `INCOMPLETE`.
 - S4 meta-tests assert that every emitted code and every R1-R12 requirement has a case.
 
 ## 6. Follow-ups

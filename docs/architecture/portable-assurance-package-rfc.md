@@ -3770,13 +3770,21 @@ requires `humanReview`; the required checks require their implied dimensions. A 
 would remove one is `pap.trust.policy-invalid` (exit 64, no report).
 
 **E3 — An unmet signature quorum is `INCOMPLETE` (§6.5, §7.4).** Under
-`signature.mode: "required"`, a policy decision other than `ACCEPTED` — including fewer valid
-authorized signers than `minimumValidSigners` — yields `INCOMPLETE`, not `PASS` or `FAIL`; the
-verifier emits `pap.signature.absent` and a limitation naming the quorum.
+`signature.mode: "required"`, when fewer distinct authorized valid signers than
+`minimumValidSigners` are presented, `signature.validity` is `VALID` but
+`trust.policyDecision` is `NOT_EVALUATED`; the verdict is `INCOMPLETE`, not `PASS` or `FAIL`, and
+the verifier emits `pap.signature.absent` and a limitation naming the quorum. This does not
+redefine the other trust outcomes: an evaluated `policyDecision: REJECTED` remains `UNTRUSTED`
+(§7.4 rule 2), and `policy.state: STALE` remains `INCOMPLETE` (§7.4 rule 4).
 
-**E4 — `coverage.full` follows required-dimension evaluation (§7.5).** `full` is `true` only when
-every required dimension (derived as in E2) was evaluated and the undeclared-file scan completed.
-It is `false` for every `INCOMPLETE`, including an unmet quorum and a stale policy.
+**E4 — `coverage.full` follows required-dimension evaluation, not the verdict (§7.5).** `full` is
+`true` only when every required dimension (derived as in E2) was decided and the undeclared-file
+scan completed. It is `false` when a required dimension is not decided (an unmet quorum leaves
+`trust` `NOT_EVALUATED`, so `full` is false once `signature`/`trust` are derived as required),
+when a `pap.package.limit-exceeded` stopped evaluation, when the scan is incomplete, and when the
+required set is empty. It is **not** automatically false for every `INCOMPLETE`: `STALE` is a
+decided state (§7.5), so a stale policy can yield `INCOMPLETE` with `coverage.full: true` when all
+required work was evaluated.
 
 **E5 — Enum fields are strings; no coercion (§6.3.2, Appendix B).** A policy, manifest or claim
 value that is not the defined string type is invalid input. The verifier must not coerce arrays,
