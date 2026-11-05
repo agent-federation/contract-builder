@@ -336,7 +336,7 @@ test("экспликация: текст вне нормализованного
 
 test("ревизия источника: заголовок legacy не совпадает — ERR_SOURCE_REVISION_MISMATCH", async () => {
   const dir = await copySpec("revision-mismatch", (text) =>
-    text.replace("UIA-CORE-001 (Rev 0.3.3)", "UIA-CORE-001 (Rev 0.3.4)"),
+    text.replace(/UIA-CORE-001 \(Rev \d+\.\d+\.\d+\)/, "UIA-CORE-001 (Rev 9.9.9)"),
   );
 
   const result = await runBuild(base({ specDir: dir }));
@@ -373,9 +373,10 @@ test("срез: фрагмент вне объявленного среза — 
   const dir = await copySpec("slice-excludes");
   const sourcesPath = path.join(dir, "sources.yml");
   const sources = parseYaml(await readFile(sourcesPath, "utf8")) as {
-    slice: { excludes: string[] };
+    slice?: { excludes?: string[] };
   };
-  sources.slice.excludes.push("#10.2");
+  sources.slice = sources.slice ?? {};
+  sources.slice.excludes = [...(sources.slice.excludes ?? []), "#10.2"];
   await writeFile(sourcesPath, stringifyYaml(sources), "utf8");
 
   const result = await runBuild(base({ specDir: dir }));
