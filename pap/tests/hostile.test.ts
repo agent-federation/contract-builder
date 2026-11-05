@@ -426,3 +426,39 @@ test("an array-valued claim outcome is rejected, not coerced", () => {
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
   assert.equal(report.dimensions.claims === undefined ? undefined : report.dimensions.claims, undefined);
 });
+
+test("a duplicate declared source path fails package integrity", () => {
+  const dir = tempPackage();
+  const value = manifest(dir);
+  value.sources.push({ ...value.sources[0], id: "SRC-ACME-POLICY-DUPLICATE" });
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"));
+});
+
+test("a duplicate declared input path fails package integrity", () => {
+  const dir = tempPackage();
+  const value = manifest(dir);
+  value.inputs.push({ ...value.inputs[0], id: "input:project-duplicate" });
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"));
+});
+
+test("a duplicate declared claim path across kinds fails package integrity", () => {
+  const dir = tempPackage();
+  const value = manifest(dir);
+  value.claims.relations = { ...value.claims.provenance };
+  writeManifest(dir, value);
+  const result = verify(dir);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"));
+});

@@ -205,6 +205,13 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     validation.defects.some((defect) => defect.structural) ||
     !validation.payloadsUsable;
   const artifactPathFailure = validation.defects.some((defect) => defect.artifactLevel);
+  // RFC §4.3.1 / Appendix J.1: a duplicate or grammar-invalid declared path is
+  // an integrity failure regardless of which payload class it belongs to; the
+  // artifact-level flag only decides the artifacts dimension.
+  const declaredPathFailure = validation.defects.some(
+    (defect) =>
+      defect.code === "pap.package.path-duplicate" || defect.code === "pap.package.path-invalid",
+  );
 
   for (const defect of validation.defects) {
     diag(defect.code, "error", defect.scope, defect.message);
@@ -303,7 +310,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
         : "PASS";
 
   let integrityPackage: VerificationReport["dimensions"]["integrity"]["package"] = "PASS";
-  if (structuralFailure || artifactPathFailure || nestedManifestFailure) {
+  if (structuralFailure || artifactPathFailure || declaredPathFailure || nestedManifestFailure) {
     integrityPackage = "FAIL";
   } else if (
     payloads.artifacts.some((artifact) => artifact.status === "missing") ||
