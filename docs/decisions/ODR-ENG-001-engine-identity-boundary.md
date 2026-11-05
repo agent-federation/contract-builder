@@ -2,7 +2,7 @@
 
 **Status:** APPROVED — maintainer directive in the 2026-11-06 stream-B planning session (plan accepted with the recommended options); the decision record is published for implementation.
 **Date:** 2026-11-06 (UTC)
-**Decision scope:** the contract that ties a build's identity (`inputDigest`, extension identities, `closureDigest`) to the code the engine executes and consumes — profile closure completeness, engine portability, data-only profiles and multiple sources.
+**Decision scope:** the contract that ties a build's identity (`engineVersion` + `inputDigest` + extension identities/`closureDigest`) to the code the engine executes and consumes — profile closure completeness, engine portability, data-only profiles and multiple sources.
 **Related:** audit umbrella [#137](https://github.com/agent-federation/contract-builder/issues/137), architecture streams B–D [#170](https://github.com/agent-federation/contract-builder/issues/170), minimal executable-closure fix #145 (PR #158), `engine-public-contract.md` §8, `spec/lib/identity.ts`, `spec/lib/build.ts`.
 **Design note:** [engine-identity-boundary.md](../architecture/engine-identity-boundary.md).
 
@@ -20,13 +20,20 @@ A fourth question is contractual: the consumed set is a hard-coded enumeration (
 
 ## 2. Decisions
 
-**B1 — The consumed set is part of the profile contract.** The engine enumerates, per profile schema version, every profile artifact it executes or consumes (modules, catalogs, schemas, templates, label maps, and any future field the engine reads). Each entry must be declared in `profile.files`; otherwise the build fails closed with `core.extension.unpinned-dependency` naming the file and its origin. Adding a consumed artifact requires a contract update and a test; the engine never silently ignores an undeclared consumed artifact. The enumeration stays explicit in code for M1; a contract test must fail when a new consumed profile field is introduced without an entry.
+**B1 — The consumed set is part of the profile contract.** The engine enumerates every profile artifact it executes or consumes for the profile-document schema shipped with the engine (the JSON Schema under `profiles/<id>/`; this is not the profile's own `version` field, which names the profile version): modules, catalogs, schemas, templates, label maps and any future field the engine reads. Each entry must be declared in `profile.files`; otherwise the build fails closed with `core.extension.unpinned-dependency` naming the file and its origin. Adding a consumed artifact requires a contract/schema update and a test. Detection is testable: the enumeration is an explicit `CONSUMED_PROFILE_FIELDS` list and an `IGNORED_PROFILE_FIELDS` list (each ignored entry carries a reason); a contract test reads the profile schema and fails when a declared property appears in neither list. The engine never silently ignores an undeclared consumed artifact.
 
-**B2 — Portability is a contract, not a workaround.** `runBuild` and the CLI accept an explicit engine root (`engineRoot` option / `--engine-root` flag); the default remains the running engine's own root. Extension imports that resolve inside that root are engine-owned; any other relative import must stay inside the extension's declared files. The CORE-000 harness passes the root instead of rewriting imports. The same declared project must produce the same artifact bytes and `inputDigest` regardless of where the engine is launched from.
+**B2 — Portability is a contract, not a workaround.** `engineRoot` is the directory containing the engine's `spec/` and `package.json`; `runBuild` and the CLI accept it explicitly (`engineRoot` option / `--engine-root` flag), defaulting to the running engine's root.
 
-**B3 — M1 requires an executable profile.** `view` and `validator` remain required. A profile without them is rejected with an explicit diagnostic that names the M1 requirement (not a generic "profile does not declare view"), and the README/contract statement about declarative profiles is corrected. Implementing data-only profiles is deferred to a separate decision.
+- **Resolution:** for each static relative import in an extension file that escapes the extension root, the engine computes the subpath under the lexical `spec/lib/` segment and resolves it against `engineRoot/spec/lib/<subpath>`, loading that module by an absolute `file://` URL from the supplied root. Merely classifying a specifier as engine-owned is not sufficient: the module that executes must come from `engineRoot`.
+- **Containment:** after `realpath`, the resolved module must live under `engineRoot/spec/lib`; a symlink escape is rejected (`core.path.outside-root` / `core.extension.unpinned-dependency`).
+- **Version correspondence:** the `engineVersion` reported in `BuildIdentity` and used by the determinism condition is read from `engineRoot/package.json`, not from the running process; if the loaded module root does not correspond to the reported version, the build fails closed with a dedicated engine-version diagnostic rather than reporting a false identity.
+- **Equality:** the same declared project + the same `engineVersion` + the same extension identities must produce the same artifact bytes and `inputDigest` regardless of where the engine was launched from; `inputDigest` alone is not the equality key.
 
-**B4 — M1 supports exactly one source.** A manifest with `sources.length !== 1` is `core.manifest.invalid`. Silent first-source behaviour is removed. A sources map (registry, per-source verification/render semantics) is a future design tracked separately, not implied by an accepted array.
+The CORE-000 harness passes the root instead of rewriting imports.
+
+**B3 — M1 requires an executable profile; data-only profiles are explicitly unsupported.** `view` and `validator` remain required. A profile without them is rejected with an explicit diagnostic that names the M1 requirement (not a generic "profile does not declare view"), and the README/contract statement that suggests declarative profiles are supported is corrected to say they are not supported by M1. Implementing data-only profiles is deferred to a separate decision.
+
+**B4 — M1 supports exactly one source.** A manifest with `sources.length !== 1` is `core.manifest.invalid`. The current implementation is mixed — the M1 hook consumes the first source while other build/provenance paths index all `model.sources` by ID — so multi-source M1 behaviour is not established and must not be inferred from the accepted array. A sources map (registry, per-source verification/render semantics) is a future design tracked separately.
 
 ## 3. Consequences
 
@@ -38,7 +45,7 @@ A fourth question is contractual: the consumed set is a hard-coded enumeration (
 
 ## 4. Implementation slices
 
-1. **E1 — portability.** `engineRoot` in `runBuild`/CLI; identity/import scan resolves engine-owned code against it; `contracts/core000/run.ts` passes the root instead of rewriting imports; copy-and-build test (project copy + engine from another checkout → identical artifact bytes and `inputDigest`); negative case for a wrong root.
+1. **E1 — portability.** `engineRoot` in `runBuild`/CLI; engine-owned imports resolved against and **loaded from** `engineRoot/spec/lib` (absolute URL, realpath-contained); reported `engineVersion` read from `engineRoot/package.json` with a version-correspondence check; `contracts/core000/run.ts` passes the root instead of rewriting imports; copy-and-build test proving the executed module came from the supplied root (sentinel/version assertion); negative cases for a wrong root, version mismatch and a symlink escape.
 2. **E2 — explicit rejection.** Clear diagnostic for a profile without `view`/`validator`; `sources.length !== 1` ⇒ `core.manifest.invalid`; tests; existing projects build unchanged.
 3. **E3 — documents.** `engine-public-contract.md` (§5.7, §8.1, §8.2), README, `implementation-status.md` snapshot update, regenerated CORE-000 artifact.
 4. **E4 (optional).** Import-scan hardening (`import()` expressions, `require`, template/partial references) with documented static-analysis limits.
