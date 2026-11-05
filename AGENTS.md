@@ -112,7 +112,7 @@ changes the register.
   (for example `bun run check`).
 - Never push directly to `main` and never force-push to `main`. `main` is
   protected: the `check` job must pass, the branch must be up to date, and the
-  pull request needs one approving review, a Code Owner review
+  pull request needs one approving Code Owner review
   (`.github/CODEOWNERS`) and resolved conversations. Pushes and merges to
   `main` are restricted to the maintainer; admin bypass stays available to the
   maintainer only (see `docs/decisions/ODR-PROC-001-branch-protection-and-agent-merge.md`).

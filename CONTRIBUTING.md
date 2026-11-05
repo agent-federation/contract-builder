@@ -34,7 +34,7 @@ CI (`.github/workflows/ci.yml`) runs the same sequence. All four steps must be g
 
 - **Title**: [Conventional Commits](https://www.conventionalcommits.org/) — `feat:`, `fix:`, `docs:`, `test:`, `chore:`, etc.
 - **Body**: English; state what changed and which command verified it (e.g. `bun run check`).
-- **Never** push directly to `main` or force-push to `main`. `main` is protected: one approving review, a Code Owner review (`.github/CODEOWNERS`), the strict `check` status, resolved conversations, and merge restricted to the maintainer. The sole bypass is the maintainer's documented admin bypass.
+- **Never** push directly to `main` or force-push to `main`. `main` is protected: one approving Code Owner review (`.github/CODEOWNERS`), the strict `check` status, resolved conversations, and merge restricted to the maintainer. The sole bypass is the maintainer's documented admin bypass.
 - An automated agent (`it-start`) may open PRs; **only a human merges**. Agents must not enable auto-merge. The platform enforces this: the agent cannot merge, and its approval cannot satisfy the Code Owner review requirement.
 
 ### Artifact rule

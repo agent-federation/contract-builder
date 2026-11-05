@@ -3,7 +3,7 @@
 **Status:** APPROVED — maintainer directive in the 2026-11-05 audit session; enforcement applied the same day.
 **Date:** 2026-11-05 (UTC)
 **Decision scope:** repository governance for `agent-federation/contract-builder` — who may merge to `main`, what a required review means, and how the automated agent's permissions are bounded.
-**Related:** audit umbrella [#137](https://github.com/agent-federation/contract-builder/issues/137), finding #150, incident PR [#120](https://github.com/agent-federation/contract-builder/pull/120), review-independence example PR [#153](https://github.com/agent-federation/contract-builder/pull/153).
+**Related:** audit umbrella [#137](https://github.com/agent-federation/contract-builder/issues/137), finding [#150](https://github.com/agent-federation/contract-builder/issues/150), incident PR [#120](https://github.com/agent-federation/contract-builder/pull/120), review-independence example PR [#153](https://github.com/agent-federation/contract-builder/pull/153).
 **Evidence:** GitHub branch-protection API responses recorded below; `AGENTS.md` / `CONTRIBUTING.md` rules; PR bodies and review objects linked inline.
 
 ## 1. Context
@@ -55,7 +55,7 @@ Before the change, the same endpoint returned `required_pull_request_reviews: nu
 
 ## 5. Verification
 
-- Settings are visible through `GET …/branches/main/protection` and match the table in §3 (recorded in the pull request that publishes this record).
+- Settings are visible through `GET /repos/agent-federation/contract-builder/branches/main/protection` and match the table in §3 (recorded in the pull request that publishes this record).
 - The maintainer can still merge (admin bypass); an agent merge attempt is rejected by the restriction. The agent-side negative test requires the automation account's credentials and is tracked as the remaining acceptance check in #150; it does not weaken the platform guarantee recorded here.
 - The prior behaviour is reproducible from the public history: `gh pr view 120 --json author,mergedBy,mergedAt` and `gh pr view 153 --json reviews`.
 
