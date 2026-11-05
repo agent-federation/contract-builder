@@ -41,7 +41,7 @@ The targeted fixes close the reproductions but not the class: the verdict depend
 
 ## 4. Implementation slices (design note §6)
 
-1. **S1** — new `pap/src/state.ts` (extracted from `pap/src/report.ts`): dimension state type, required-dimension derivation, pure `computeVerdict` over states, property tests for the lattice and coverage invariants.
+1. **S1** — new `pap/src/state.ts` (extracted from `pap/src/report.ts`): dimension state type, required-dimension derivation, pure `computeVerdict(states, context: VerdictContext)` over states (the caller builds the normalized typed context), property tests for the lattice and coverage invariants.
 2. **S2** — `pap/src/decode.ts`: strict typed decoders for policy/manifest/claims/envelope; remove remaining `String()` coercion; table-driven tests for every enum field.
 3. **S3** — coverage derivation and an explicit verdict cause; update `report.ts`/`verify.ts`; the quorum patch (#154) becomes an instance of the general rule.
 4. **S4** — corpus: `requirements.json`, `diagnosticCodesExact` rollout, meta-test "every emitted code covered", exact noReport assertions.
