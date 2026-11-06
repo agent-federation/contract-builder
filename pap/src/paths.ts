@@ -168,7 +168,8 @@ async function resolvePackagePath(
   } catch {
     return { ok: false, failure: "io", message: `cannot resolve ${noun}: ${relative}` };
   }
-  if (resolved !== root.real && !resolved.startsWith(`${root.real}${path.sep}`)) {
+  const prefix = root.real.endsWith(path.sep) ? root.real : `${root.real}${path.sep}`;
+  if (resolved !== root.real && !resolved.startsWith(prefix)) {
     return { ok: false, failure: "path-escape", message: `${noun} resolves outside the package: ${relative}` };
   }
   if (finalSize > cap) {
