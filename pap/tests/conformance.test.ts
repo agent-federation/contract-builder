@@ -5,7 +5,7 @@ import path from "node:path";
 import Ajv2020Module from "ajv/dist/2020.js";
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
 import { jcs } from "../src/json.js";
-import { isDimensionPositive } from "../src/state.js";
+import { DIMENSION_ORDER, isDimensionPositive } from "../src/state.js";
 import type { DimensionName } from "../src/types.js";
 import {
   BASE_IDENTITY,
@@ -84,6 +84,36 @@ function reportStates(document: any): Parameters<typeof isDimensionPositive>[1] 
 }
 
 /**
+ * A cause dimension covers a required dimension when they are equal, when the
+ * cause maps to the required dimension's root (e.g. `integrity` covers
+ * `integrity.package`), or when the cause maps to one of its sub-dimensions
+ * (e.g. `integrity.artifacts` covers `integrity`).
+ */
+function causeNamesDimension(dimension: string, named: Set<string>): boolean {
+  if (named.has(dimension)) return true;
+  const root = dimension.split(".")[0];
+  if (root !== undefined && named.has(root)) return true;
+  return [...named].some((candidate) => candidate.startsWith(`${dimension}.`));
+}
+
+/**
+ * A mapped cause dimension is non-positive when the dimension itself is not
+ * positive, or when one of its sub-dimensions is not. Both directions matter:
+ * the map may name a root while the report decides a sub-dimension, or the
+ * other way around.
+ */
+function isCauseDimensionNonPositive(
+  dimension: string,
+  states: Parameters<typeof isDimensionPositive>[1],
+): boolean {
+  if (!isDimensionPositive(dimension as DimensionName, states)) return true;
+  return DIMENSION_ORDER.some(
+    (candidate) =>
+      candidate.startsWith(`${dimension}.`) && !isDimensionPositive(candidate, states),
+  );
+}
+
+/**
  * I5: every non-PASS verdict names its cause. (a) at least one diagnostic or
  * limitation code is in the map; (b) one of its dimensions is not positive in
  * the report; (c) every required dimension that is not positive is named. The
@@ -106,12 +136,13 @@ function assertVerdictCause(caseId: string, document: any): void {
   const states = reportStates(document);
   const dimensions = new Set(mapped.flatMap((code) => dimensionNames(code)));
   assert.ok(
-    [...dimensions].some((dimension) => !isDimensionPositive(dimension as DimensionName, states)),
+    [...dimensions].some((dimension) => isCauseDimensionNonPositive(dimension, states)),
     `${caseId}: (b) no mapped cause dimension is non-positive`,
   );
 
   const unnamed = (document.coverage.requiredDimensions as DimensionName[]).filter(
-    (dimension) => !isDimensionPositive(dimension, states) && !dimensions.has(dimension),
+    (dimension) =>
+      !isDimensionPositive(dimension, states) && !causeNamesDimension(dimension, dimensions),
   );
   assert.deepEqual(unnamed, [], `${caseId}: (c) required dimensions without a named cause`);
 }
@@ -353,4 +384,34 @@ test("every PASS case asserts an exact diagnostic set", () => {
     .filter((entry) => entry.expect?.diagnosticCodesExact !== true)
     .map((entry) => entry.caseId);
   assert.deepEqual(missing, [], `PASS cases without diagnosticCodesExact: ${missing.join(", ")}`);
+});
+
+test("I5: a root cause dimension names a dotted required sub-dimension", () => {
+  // A cause mapped to `integrity` must name a required `integrity.artifacts`
+  // instead of being reported as unnamed (GLM pre-review of #196, P2 finding).
+  assertVerdictCause("synthetic-dotted", {
+    verdict: "FAIL",
+    diagnostics: [{ code: "pap.integrity.artifact-mismatch" }],
+    limitations: [],
+    coverage: { requiredDimensions: ["integrity.artifacts"] },
+    dimensions: {
+      integrity: { package: "PASS", artifacts: "FAIL" },
+      sources: { integrity: "PASS", availability: "PASS" },
+      signature: { validity: "NOT_APPLICABLE" },
+      trust: {
+        signerIdentity: "NOT_APPLICABLE",
+        policyDecision: "NOT_EVALUATED",
+        checkerRecognition: "NOT_APPLICABLE",
+        profileRecognition: "NOT_APPLICABLE",
+      },
+      checks: { results: [] },
+      humanReview: { status: "NOT_APPLICABLE" },
+    },
+  });
+});
+
+test("I5: cause dimensions cover sub-dimensions in both directions", () => {
+  assert.equal(causeNamesDimension("integrity.artifacts", new Set(["integrity"])), true);
+  assert.equal(causeNamesDimension("integrity", new Set(["integrity.artifacts"])), true);
+  assert.equal(causeNamesDimension("sources", new Set(["integrity"])), false);
 });
