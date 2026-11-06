@@ -399,10 +399,69 @@ test("gate rejects limit-stopped scope even when other fields claim PASS", async
 
 test("gate copies evaluatedAt from the report and never reads the clock", async () => {
   const report = cloneReport();
-  const copied = "2031-02-03T04:05:06Z";
+  const copied = "2027-06-01T00:00:00Z";
   report.evaluatedAt = copied;
   const decision = await expectAccepted("evaluated-at", report);
   assert.equal(decision.evaluatedAt, copied);
+});
+
+test("gate re-derives the policy validity window from the report timestamp", async () => {
+  await expectRejected(
+    "window-before-issued",
+    (() => {
+      const report = cloneReport();
+      report.evaluatedAt = "2026-10-31T23:59:59Z";
+      return report;
+    })(),
+    /before the trust policy issuedAt/,
+  );
+
+  await expectRejected(
+    "window-after-expiry",
+    (() => {
+      const report = cloneReport();
+      report.evaluatedAt = "2027-11-01T00:00:01Z";
+      return report;
+    })(),
+    /after the trust policy expiresAt/,
+  );
+
+  for (const [name, evaluatedAt] of [
+    ["window-issued-boundary", "2026-11-01T00:00:00Z"],
+    ["window-expiry-boundary", "2027-11-01T00:00:00Z"],
+    ["window-inside", "2027-06-01T00:00:00Z"],
+    ["window-offset-issued-boundary", "2026-11-01T01:00:00+01:00"],
+  ] as const) {
+    const report = cloneReport();
+    report.evaluatedAt = evaluatedAt;
+    const decision = await expectAccepted(name, report);
+    assert.equal(decision.evaluatedAt, evaluatedAt, name);
+  }
+});
+
+test("gate rejects duplicate JSON member names instead of trusting the last value", async () => {
+  assert.ok(tempRoot !== null);
+  const baselineText = await readFile(baselineReportPath, "utf8");
+  const forged = baselineText.replace(
+    '"verdict":"PASS"',
+    '"verdict":"FAIL","verdict":"PASS"',
+  );
+  assert.notEqual(forged, baselineText, "the baseline report has a verdict member");
+  assert.equal(
+    (JSON.parse(forged) as Record<string, unknown>).verdict,
+    "PASS",
+    "JSON.parse alone would accept the forged shadow",
+  );
+
+  const forgedPath = path.join(tempRoot, "duplicate-verdict.json");
+  await writeFile(forgedPath, forged, "utf8");
+  const result = await decide(forgedPath);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.decision.decision, "NOT_ACCEPTED");
+  assert.match(
+    result.decision.reasons.join(" | "),
+    /duplicate JSON object member "verdict"/,
+  );
 });
 
 test("gate decision bytes are deterministic for a fixed report and policy", async () => {

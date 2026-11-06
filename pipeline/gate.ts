@@ -156,15 +156,179 @@ async function readJsonFile(file: string, label: string): Promise<FileRead> {
   }
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    return { bytes, value: JSON.parse(text), ok: true, error: null };
+    const value = JSON.parse(text);
+    // `JSON.parse` keeps the last duplicate member, so a forged report could
+    // hide a FAIL behind a later PASS. Reject duplicates before trusting it.
+    assertNoDuplicateMembers(text);
+    return { bytes, value, ok: true, error: null };
   } catch (error) {
     return {
       bytes,
       value: null,
       ok: false,
-      error: `${label} is not valid UTF-8 JSON: ${messageOf(error)}`,
+      error:
+        error instanceof DuplicateMemberError
+          ? `${label} contains ${error.message}`
+          : `${label} is not valid UTF-8 JSON: ${messageOf(error)}`,
     };
   }
+}
+
+class DuplicateMemberError extends Error {
+  constructor(readonly member: string) {
+    super(`duplicate JSON object member ${JSON.stringify(member)}`);
+    this.name = "DuplicateMemberError";
+  }
+}
+
+/**
+ * Reject duplicate object member names in an already-parsed JSON document.
+ * `JSON.parse` silently keeps the last value, which would let a forged report
+ * shadow `"verdict": "FAIL"` with `"verdict": "PASS"`. Keys are compared after
+ * decoding escapes, so `"\u0076erdict"` and `"verdict"` collide too.
+ */
+function assertNoDuplicateMembers(text: string): void {
+  let index = 0;
+
+  function skipWhitespace(): void {
+    while (index < text.length) {
+      const code = text.charCodeAt(index);
+      if (code !== 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) {
+        return;
+      }
+      index += 1;
+    }
+  }
+
+  function expectLiteral(literal: string): void {
+    if (text.slice(index, index + literal.length) !== literal) {
+      throw new Error(`expected ${literal}`);
+    }
+    index += literal.length;
+  }
+
+  function skipString(): { readonly start: number; readonly end: number } {
+    const start = index;
+    if (text[index] !== '"') throw new Error("expected a JSON string");
+    index += 1;
+    while (index < text.length) {
+      const char = text[index];
+      if (char === '"') {
+        index += 1;
+        return { start, end: index };
+      }
+      if (char === "\\") {
+        index += 2;
+        continue;
+      }
+      index += 1;
+    }
+    throw new Error("unterminated JSON string");
+  }
+
+  function skipNumber(): void {
+    while (index < text.length) {
+      const code = text.charCodeAt(index);
+      const partOfNumber =
+        (code >= 0x30 && code <= 0x39) ||
+        code === 0x2b || // +
+        code === 0x2d || // -
+        code === 0x2e || // .
+        code === 0x45 || // E
+        code === 0x65; // e
+      if (!partOfNumber) return;
+      index += 1;
+    }
+  }
+
+  function skipObject(): void {
+    index += 1; // {
+    skipWhitespace();
+    if (text[index] === "}") {
+      index += 1;
+      return;
+    }
+    const names = new Set<string>();
+    while (true) {
+      skipWhitespace();
+      const raw = skipString();
+      const name = JSON.parse(text.slice(raw.start, raw.end)) as string;
+      if (names.has(name)) throw new DuplicateMemberError(name);
+      names.add(name);
+      skipWhitespace();
+      if (text[index] !== ":") throw new Error("expected ':'");
+      index += 1;
+      skipValue();
+      skipWhitespace();
+      if (text[index] === ",") {
+        index += 1;
+        continue;
+      }
+      if (text[index] === "}") {
+        index += 1;
+        return;
+      }
+      throw new Error("expected ',' or '}'");
+    }
+  }
+
+  function skipArray(): void {
+    index += 1; // [
+    skipWhitespace();
+    if (text[index] === "]") {
+      index += 1;
+      return;
+    }
+    while (true) {
+      skipValue();
+      skipWhitespace();
+      if (text[index] === ",") {
+        index += 1;
+        skipWhitespace();
+        continue;
+      }
+      if (text[index] === "]") {
+        index += 1;
+        return;
+      }
+      throw new Error("expected ',' or ']'");
+    }
+  }
+
+  function skipValue(): void {
+    skipWhitespace();
+    const char = text[index];
+    if (char === "{") {
+      skipObject();
+      return;
+    }
+    if (char === "[") {
+      skipArray();
+      return;
+    }
+    if (char === '"') {
+      skipString();
+      return;
+    }
+    if (char === "t") {
+      expectLiteral("true");
+      return;
+    }
+    if (char === "f") {
+      expectLiteral("false");
+      return;
+    }
+    if (char === "n") {
+      expectLiteral("null");
+      return;
+    }
+    skipNumber();
+  }
+
+  skipWhitespace();
+  skipValue();
+  skipWhitespace();
+  if (index !== text.length) throw new Error("trailing JSON content");
 }
 
 interface CheckResult {
@@ -393,6 +557,24 @@ function evaluateReport(
     reasons.add(
       `policy digest mismatch: report ${quote(report.policy.digest)} != policy ${policyDigest}`,
     );
+  }
+
+  // `report.policy.state` is a verifier label; re-derive freshness from the
+  // copied report timestamp with PAP's inclusive interval semantics and no
+  // clock access. A forged FRESH label must not accept an out-of-window report.
+  const evaluatedAt = parseInstant(report.evaluatedAt);
+  const issuedAt = parseInstant(policy.issuedAt);
+  const expiresAt = parseInstant(policy.expiresAt);
+  if (evaluatedAt !== null && issuedAt !== null && expiresAt !== null) {
+    if (evaluatedAt < issuedAt) {
+      reasons.add(
+        `report evaluatedAt ${quote(report.evaluatedAt)} is before the trust policy issuedAt ${quote(policy.issuedAt)}`,
+      );
+    } else if (evaluatedAt > expiresAt) {
+      reasons.add(
+        `report evaluatedAt ${quote(report.evaluatedAt)} is after the trust policy expiresAt ${quote(policy.expiresAt)}`,
+      );
+    }
   }
 
   evaluateNegativeStates(report, reasons);
@@ -733,11 +915,72 @@ function sha256Digest(bytes: Uint8Array): string {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 
-const RFC3339 =
-  /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/;
+const RFC3339_INSTANT =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+
+const NS_PER_SECOND = 1_000_000_000n;
+
+/**
+ * RFC 3339 instant at PAP's nanosecond precision. The gate deliberately
+ * re-derives freshness from `report.evaluatedAt`; it must not trust the
+ * report's `policy.state` label or consult the clock. The calendar check also
+ * rejects impossible dates such as `2026-02-30`, which `Date.parse` would roll
+ * over.
+ */
+function parseInstant(value: string): bigint | null {
+  const match = RFC3339_INSTANT.exec(value);
+  if (match === null) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const fraction = match[7] ?? "";
+  const offsetSign = match[9];
+  const offsetHour = match[10] === undefined ? 0 : Number(match[10]);
+  const offsetMinute = match[11] === undefined ? 0 : Number(match[11]);
+
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  if (offsetHour > 23 || offsetMinute > 59) return null;
+
+  let offsetSeconds = 0;
+  if (offsetSign === "+" || offsetSign === "-") {
+    offsetSeconds = (offsetHour * 60 + offsetMinute) * 60;
+    if (offsetSign === "-") offsetSeconds = -offsetSeconds;
+  }
+
+  const days = daysFromCivil(year, month, day);
+  const epochSeconds =
+    days * 86_400n +
+    BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
+  const nanoseconds = fraction === "" ? 0n : BigInt(fraction.padEnd(9, "0"));
+  return epochSeconds * NS_PER_SECOND + nanoseconds;
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    return leap ? 29 : 28;
+  }
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] as number;
+}
+
+/** Days since 1970-01-01 for a proleptic Gregorian date. */
+function daysFromCivil(year: number, month: number, day: number): bigint {
+  const y = month <= 2 ? year - 1 : year;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const mp = (month + 9) % 12;
+  const doy = Math.floor((153 * mp + 2) / 5) + day - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return BigInt(era * 146097 + doe - 719468);
+}
 
 function isRfc3339(value: string): boolean {
-  return RFC3339.test(value) && Number.isFinite(Date.parse(value));
+  return parseInstant(value) !== null;
 }
 
 function quote(value: string | null | undefined): string {
