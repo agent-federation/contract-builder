@@ -1030,10 +1030,12 @@ interface Artifact {
 > byte-identical artifacts, **provided every extension honours its deterministic contract**.
 
 The complete equality key is the triple **`engineVersion` + `inputDigest` + every executable
-extension identity** `{ id, version, closureDigest }`. `inputDigest` alone is not the equality
-key: it carries neither the engine version nor the extension identities as separately comparable
-values, and the engine version selects the code that executes. `engineVersion` is read from the
-explicit engine root (§5.7), not from the directory the process happens to run in.
+extension identity** `{ id, version, closureDigest }`. Each extension's `closureDigest` is folded
+into `inputDigest`; the result's `identity.extensions` publishes only `{ kind, id, version }`.
+`inputDigest` alone is not the equality key: it carries neither the engine version nor the
+extension identities as separately comparable values, and the engine version selects the code
+that executes. `engineVersion` is read from the explicit engine root (§5.7), not from the
+directory the process happens to run in.
 
 `inputDigest` covers:
 
@@ -1072,10 +1074,11 @@ mtimes, user identity, network state.
 
 `inputDigest` is the authoritative digest of the declared project and its extension closures,
 not the whole equality key. `identity.extensions` lists every profile, adapter and renderer
-used, so a consumer can inspect what produced the artifact without the closure hashes being
-duplicated; the singular `renderer` field of earlier drafts is removed because a build may use
-several. `identity.extensions` carries the third part and `engineVersion` the first, so a
-consumer must not compare `inputDigest` alone.
+used as `{ kind, id, version }`, so a consumer can identify what produced the artifact; the
+per-extension `closureDigest` values are not repeated there because each one is folded into
+`inputDigest`. The singular `renderer` field of earlier drafts is removed because a build may
+use several. A consumer comparing builds must compare `engineVersion` and `inputDigest`, never
+`inputDigest` alone.
 
 ### 8.2 Controls
 
