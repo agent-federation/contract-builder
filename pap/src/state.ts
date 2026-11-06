@@ -553,20 +553,13 @@ export function computeVerdict(states: DimensionStates, context: VerdictContext)
     return "UNSUPPORTED";
   }
 
-  // 4. INCOMPLETE — a required input was not evaluated (or was decided but is
-  // not positive), coverage is partial, or the context records an incomplete
-  // evaluation. There is no per-policy special case here: signature quorum,
-  // stale policy and required human review all arrive as required dimensions or
-  // as the I4 coverage flag.
-  if (
-    context.policyState === "STALE" ||
-    context.limitStopped ||
-    context.emptyRequiredSet ||
-    !context.coverageFull ||
-    requiredOutcomes.includes("NOT_EVALUATED") ||
-    requiredOutcomes.includes("UNSUPPORTED") ||
-    context.requiredDimensions.some((dimension) => !isDimensionDecided(dimension, states))
-  ) {
+  // 4. INCOMPLETE — the evaluation was incomplete. `coverageFull` is the I4
+  // completeness result over the same derived requirement set, so it already
+  // covers limit stops, the empty required set, non-evaluated/unsupported
+  // required checks and undecided required dimensions; re-testing those here
+  // would duplicate the coverage rule. A stale policy never supports PASS,
+  // whether or not the policy requires `trust` (RFC §7.4).
+  if (context.policyState === "STALE" || !context.coverageFull) {
     return "INCOMPLETE";
   }
 
