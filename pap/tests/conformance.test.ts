@@ -371,3 +371,11 @@ test("every diagnostic code emitted by pap/src is expected by a case or unit tes
   const unknown = [...expected].filter((code) => !emitted.includes(code));
   assert.deepEqual(unknown, [], `cases expect codes pap/src does not emit: ${unknown.join(", ")}`);
 });
+
+test("every PASS case asserts an exact diagnostic set", () => {
+  const missing = suite.cases
+    .filter((entry) => entry.expect?.verdict === "PASS")
+    .filter((entry) => entry.expect?.diagnosticCodesExact !== true)
+    .map((entry) => entry.caseId);
+  assert.deepEqual(missing, [], `PASS cases without diagnosticCodesExact: ${missing.join(", ")}`);
+});
