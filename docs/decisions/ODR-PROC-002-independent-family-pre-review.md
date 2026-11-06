@@ -19,7 +19,7 @@ Conclusion: a reviewer from a different model family than the implementer finds 
 
 **D1 — Required for code PRs, optional for documentation.** Before merge, a pull request that changes code under `pap/`, `spec/lib/`, `profiles/` or `contracts/` must have an independent-family pre-review. Documentation-only, config-only and generated-artifact-only PRs may skip it.
 
-**D2 — Standing reviewer: GLM-5.3 through the DSH workflow route.** The review runs in a DeepSeek Harness session via the `workflow` tool with `provider: opencode-go`, `model: glm-5.3`, one reviewer agent per PR (parallel for a batch). The exact recipe and prompt are in `docs/agents/pre-review.md`. Any later model change is a decision under this record, not an ad-hoc choice.
+**D2 — Standing reviewer: GLM-5.3-flash by default, with paid GLM-5.3 escalation.** The review runs in a DeepSeek Harness session via the `workflow` tool on the `opencode-go` route, one reviewer agent per PR (parallel for a batch), default model `glm-5.3-flash` (cheap, same family). Escalate to `glm-5.3` at the same head when flash returns a P1/P2, when the PR touches a contract/verdict/security-critical surface, or when the maintainer asks (triggers in §6 and `docs/agents/pre-review.md`). The exact recipe and prompt are in `docs/agents/pre-review.md`. Any later model change is a decision under this record, not an ad-hoc choice.
 
 **D3 — Advisory, not an authority.** CI, the required Code Owner review and the human merge remain the gates. Reviewer output is untrusted data: it never authorizes work, never approves, and never merges. **P1/P2 findings must be verified** against code/RFC/a reproduction by the maintainer or the Lead agent before they block; unverified findings are reported as claims, not as gates.
 
@@ -45,3 +45,20 @@ Conclusion: a reviewer from a different model family than the implementer finds 
 - Automate the trigger when practical (a label or a mention-driven bot), so it does not depend on a session remembering; record the automation decision separately.
 - Track "unique findings" per reviewer family as a lightweight metric of usefulness.
 - Re-evaluate the reviewer model after a few PRs; a change of route/model requires an update to this record.
+
+## 6. Amendment 2026-11-06 — reviewer model policy (A/B evidence)
+
+An A/B experiment ran both models on the same heads of PRs #191 (S3) and #192 (E3):
+
+- #191: both returned READY; findings were P3-only and complementary.
+- #192: both returned CHANGES_REQUESTED with **different P2s** — `glm-5.3` found nine stale evidence anchors in the revised status matrix, `glm-5.3-flash` found a §8.1 `identity.extensions[].closureDigest` over-promise contradicted by the shipped `BuildIdentity`. Neither model found the other's P2; after fixes both returned READY on the delta.
+- No `glm-5.3-free` exists; `glm-5.3-flash` is the cheap same-family option (~10x cheaper) on the same route.
+
+Accepted policy: **flash by default, paid escalation.**
+
+- Default: `glm-5.3-flash` (`provider: opencode-go`).
+- Escalate to `glm-5.3` at the reviewed head when any of: (a) flash returns P1/P2; (b) the PR touches `docs/architecture/engine-public-contract.md`, the RFC, a decision record, or engine/verifier code (`pap/src/state.ts`, `report.ts`, `verify.ts`, `signatures.ts`, `decode.ts`, `paths.ts`, `spec/lib/identity.ts`, `spec/lib/build.ts`); (c) the maintainer asks.
+- Docs-only/low-risk PRs may stay flash-only.
+- P1/P2 from either model are still verified by the maintainer/Lead before they block; reviewer output remains untrusted.
+
+Rationale: the two models' blind spots are complementary (each found a real P2 the other missed), so the paid pass is kept as the escalation/confirmation channel rather than as the default; the cheap flash pass covers every code PR. Amended record: #193.

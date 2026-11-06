@@ -10,7 +10,7 @@ This page is the recipe for [ODR-PROC-002](../decisions/ODR-PROC-002-independent
 
 ## Preconditions (DSH session)
 
-- The `workflow` tool and the `opencode-go` route with `OPENCODE_GO_API_KEY` are available; the reviewer model is `glm-5.3`.
+- The `workflow` tool and the `opencode-go` route with `OPENCODE_GO_API_KEY` are available; the default reviewer model is `glm-5.3-flash`, and `glm-5.3` is the escalation model (see Escalation below).
 - The reviewer is read-only: it may read the repository, run focused tests in a `/tmp` extraction, and write only `/tmp/pre-review/`.
 - It must not commit, push, post GitHub comments, approve or merge.
 
@@ -44,10 +44,20 @@ Write the report to /tmp/pre-review/pr${pr}-glm.md and return it.`;
 }
 
 const results = await parallel(PRS.map((pr) => () =>
-  agent(promptFor(pr), { provider: "opencode-go", model: "glm-5.3", label: `pre-review-pr${pr}`, phase: "review" })
+  agent(promptFor(pr), { provider: "opencode-go", model: "glm-5.3-flash", label: `pre-review-pr${pr}`, phase: "review" })
 ));
 return results;
 ```
+
+## Escalation
+
+Default is `glm-5.3-flash`. Re-run the same head with `glm-5.3` (paid) when any of:
+
+- the flash review returns a P1 or P2;
+- the PR touches a contract/verdict/security-critical surface: `docs/architecture/engine-public-contract.md`, the RFC, a decision record, or engine/verifier code (`pap/src/state.ts`, `report.ts`, `verify.ts`, `signatures.ts`, `decode.ts`, `paths.ts`, `spec/lib/identity.ts`, `spec/lib/build.ts`);
+- the maintainer asks.
+
+Record both runs (model, head, verdict, findings) and union the findings. Docs-only/low-risk PRs may stay flash-only. The A/B evidence for this policy is in ODR-PROC-002 §6: on PR #192 each model found a real P2 the other missed.
 
 ## Triage and record
 
