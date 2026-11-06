@@ -299,6 +299,16 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
   assert.equal(report.dimensions.signature.validity, "VALID");
   assert.equal(report.dimensions.trust.signerIdentity, "TRUSTED");
   assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+  // I1/E2: `mode: required` derives signature/trust even though the operator
+  // omitted them; the unmet quorum then makes I4 coverage partial.
+  assert.deepEqual(report.coverage.requiredDimensions, [
+    "integrity",
+    "sources",
+    "signature",
+    "trust",
+    "checks",
+  ]);
+  assert.equal(report.coverage.full, false);
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"));
   assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.signature.absent"));
 
@@ -310,6 +320,7 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
   const metReport = JSON.parse(met.stdout);
   assert.equal(metReport.verdict, "PASS");
   assert.equal(metReport.dimensions.trust.policyDecision, "ACCEPTED");
+  assert.equal(metReport.coverage.full, true);
 });
 
 test("human review: an array-valued decision is a claim-invalid, not an approval", () => {

@@ -141,6 +141,14 @@ for (const entry of suite.cases) {
     }
     assert.equal(first.status, entry.expect?.exitCode, "exit code");
     assert.equal(document.verdict, entry.expect?.verdict, "verdict");
+    if (document.verdict !== "PASS") {
+      // I5: a non-PASS verdict must name at least one cause. S4 maps each code
+      // to its dimension and checks the correlation; S3 pins the presence.
+      assert.ok(
+        document.diagnostics.length + document.limitations.length > 0,
+        `${entry.caseId}: a non-PASS verdict must carry a diagnostic or limitation`,
+      );
+    }
     assert.equal(validateReport(document), true, JSON.stringify(validateReport.errors));
     compareDimensions(document, entry.expect?.dimensions);
     const codes = new Set(document.diagnostics.map((diagnostic: { code: string }) => diagnostic.code));
