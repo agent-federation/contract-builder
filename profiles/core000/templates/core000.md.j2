@@ -1,7 +1,24 @@
 # {{title}}
 
-**Mode:** {{modeLabel}}
-**Counts:** components={{counts.components}} · interfaces={{counts.interfaces}} · phases={{counts.phases}} · transitions={{counts.transitions}} · extension points={{counts.extensionPoints}} · dependencies={{counts.dependencies}} · diagnostics={{counts.diagnostics}} · claims={{counts.claims}} · source statements={{counts.sourceStatements}} · evidence={{counts.evidence}} · decisions={{counts.decisions}} · conformance cases={{counts.conformanceCases}}
+> Generated build artifact. The source of truth is the declared `contracts/core000/` inputs,
+> not this document. Do not edit it by hand; change the inputs and rebuild.
+
+| Field | Value |
+|---|---|
+| Project | `{{project.id}}` — {{title}} |
+| Project revision | `{{project.revision}}` |
+| Scope | Project `{{project.id}}` — the CORE-000 engine self-contract declared by `contracts/core000/`, rendered by the `{{profile.id}}` profile |
+| Exclusions | No CORE-001 slice or `CORE-001.legacy.md` material; this artifact is the CORE-000 self-contract, not a CORE-001 rendering. |
+| Mode | `{{modeLabel}}` |
+| Profile | `{{profile.id}}` `{{profile.version}}` |
+| Renderer | `{{renderer.id}}` `{{renderer.version}}` |
+| Engine version | `{{identity.engineVersion}}` |
+| Manifest version | `{{identity.manifestVersion}}` |
+| inputDigest | `{{identity.inputDigest}}` |
+| Diagnostics | ERROR={{counts.errors}} · REVIEW_REQUIRED={{counts.reviews}} · WARNING={{counts.warnings}} |
+| Gate | {{gate}} |
+
+**Counts:** components={{counts.components}} · interfaces={{counts.interfaces}} · phases={{counts.phases}} · transitions={{counts.transitions}} · extension points={{counts.extensionPoints}} · dependencies={{counts.dependencies}} · diagnostic catalog={{counts.diagnostics}} · claims={{counts.claims}} · source statements={{counts.sourceStatements}} · evidence={{counts.evidence}} · decisions={{counts.decisions}} · conformance cases={{counts.conformanceCases}}
 
 ## Components
 

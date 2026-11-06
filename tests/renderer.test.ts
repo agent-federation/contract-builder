@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
-import { artifactFrom, normalizeArtifact, type Renderer } from "../spec/lib/render.js";
+import {
+  artifactFrom,
+  normalizeArtifact,
+  type RenderOptions,
+  type Renderer,
+} from "../spec/lib/render.js";
 import { renderer } from "../profiles/core001/renderer.js";
 import {
   copyProjectWithProfile,
@@ -12,6 +17,7 @@ import {
   modelWith,
   PROVISION_FIELDS,
   PROVISION_RELATIONS,
+  TEST_IDENTITY,
   TEST_RENDERERS,
 } from "./support.js";
 
@@ -80,6 +86,28 @@ test("renderer: a minimal renderer runs through the same boundary", async () => 
   assert.equal(result.markdown, "minimal output\n");
 });
 
+test("renderer: the engine passes the computed build identity in RenderOptions", async () => {
+  const dir = await copyProjectWithProfile("identity-options");
+  await setRenderer(dir, "capture");
+  let received: RenderOptions | undefined;
+
+  const capture: Renderer = {
+    id: "capture",
+    version: "1.0.0",
+    closure: { files: [], dependencies: {} },
+    async render(model, options) {
+      received = options;
+      return [artifactFrom(model.manifest.render[0]!.outputs.draft!, "capture\n")];
+    },
+  };
+
+  const result = await runBuild(base(dir, { renderers: { ...TEST_RENDERERS, capture } }));
+  assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.ok(received !== undefined);
+  assert.deepEqual(received.identity, result.identity);
+  assert.match(received.identity.inputDigest, /^sha256:[0-9a-f]{64}$/);
+});
+
 test("renderer: an injected renderer overrides the profile renderer by id", async () => {
   const dir = await copyProjectWithProfile("override-renderer");
   const override: Renderer = {
@@ -115,6 +143,7 @@ test("renderer: tolerates a provision without clauses", async () => {
     mode: "draft",
     templates: { entry: "x", files: { x: "ok" } },
     diagnostics: [],
+    identity: TEST_IDENTITY,
   });
 
   // The renderer shapes content; the core adds the trailing newline.

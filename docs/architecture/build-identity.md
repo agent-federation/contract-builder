@@ -35,8 +35,9 @@ interface BuildIdentity {
 ```
 
 `identity` is computed after the project has loaded and validated; it is `null` when the build
-stops before identity can be computed. It is never rendered into an artifact. `--json` exposes
-it; human CLI output is unchanged.
+stops before identity can be computed. A successful build passes it to the renderer in
+`RenderOptions.identity`, so an artifact can render the build identity; the CORE-000 and
+CORE-001 envelopes do. `--json` exposes it as well; human CLI output is unchanged.
 
 `engineVersion` is the `version` field of the repository `package.json`. No version string is
 duplicated in the engine.

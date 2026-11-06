@@ -1,7 +1,24 @@
 # Contract Builder Engine public self-contract
 
-**Mode:** draft
-**Counts:** components=7 · interfaces=12 · phases=9 · transitions=0 · extension points=4 · dependencies=7 · diagnostics=25 · claims=78 · source statements=3 · evidence=33 · decisions=15 · conformance cases=0
+> Generated build artifact. The source of truth is the declared `contracts/core000/` inputs,
+> not this document. Do not edit it by hand; change the inputs and rebuild.
+
+| Field | Value |
+|---|---|
+| Project | `core-000-self-contract` — Contract Builder Engine public self-contract |
+| Project revision | `0.1.0` |
+| Scope | Project `core-000-self-contract` — the CORE-000 engine self-contract declared by `contracts/core000/`, rendered by the `core000` profile |
+| Exclusions | No CORE-001 slice or `CORE-001.legacy.md` material; this artifact is the CORE-000 self-contract, not a CORE-001 rendering. |
+| Mode | `draft` |
+| Profile | `core000` `0.1.0` |
+| Renderer | `core000-markdown` `0.1.0` |
+| Engine version | `0.1.0` |
+| Manifest version | `0.1` |
+| inputDigest | `sha256:a1d825af2337ee9b945171efabd598effc35fc50cf553405b660092235610d1b` |
+| Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
+| Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
+
+**Counts:** components=7 · interfaces=12 · phases=9 · transitions=0 · extension points=4 · dependencies=7 · diagnostic catalog=25 · claims=78 · source statements=3 · evidence=33 · decisions=15 · conformance cases=0
 
 ## Components
 
@@ -1570,7 +1587,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:01d2e363bcc59efc87048c7cfc5488d0fbcd64f64e083560672bab86b585989b`
+- Source digest: `sha256:609bee4556f33fd454886135da25f9cb1142a6bb2450becbc31b26ecc1034e30`
 - Quote: The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**
 
 ### SRC-MANIFEST-001
@@ -1581,7 +1598,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:01d2e363bcc59efc87048c7cfc5488d0fbcd64f64e083560672bab86b585989b`
+- Source digest: `sha256:609bee4556f33fd454886135da25f9cb1142a6bb2450becbc31b26ecc1034e30`
 - Quote: `render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred.
 
 ### SRC-PROVENANCE-001
@@ -1592,7 +1609,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:01d2e363bcc59efc87048c7cfc5488d0fbcd64f64e083560672bab86b585989b`
+- Source digest: `sha256:609bee4556f33fd454886135da25f9cb1142a6bb2450becbc31b26ecc1034e30`
 - Quote: A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit.
 
 ## Evidence
