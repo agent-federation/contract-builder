@@ -6,7 +6,7 @@
 import { domainHash } from "./digest.js";
 import { jcsBytes } from "./json.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
-import { validateManifest } from "./manifest.js";
+import { decodeManifest } from "./decode.js";
 import type { Manifest } from "./manifest.js";
 import { readPackageFile, resolvePackageRoot, walkPackageFiles } from "./paths.js";
 import { loadPayloads } from "./verify.js";
@@ -135,7 +135,7 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
     return { document: document({ inspection: "INVALID" }), exitCode: 1 };
   }
   const packageIdentity = domainHash("pap.package.v1", jcsBytes(manifestValue));
-  const validation = validateManifest(manifestValue, limits);
+  const validation = decodeManifest(manifestValue, limits);
   for (const defect of validation.defects) {
     diag(defect.code, "error", defect.scope, defect.message);
   }

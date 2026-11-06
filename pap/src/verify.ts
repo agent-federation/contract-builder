@@ -7,7 +7,7 @@
 import { domainHash } from "./digest.js";
 import { jcsBytes } from "./json.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
-import { validateManifest } from "./manifest.js";
+import { decodeManifest } from "./decode.js";
 import type { CheckSpec, Manifest, ManifestDefect } from "./manifest.js";
 import {
   hashPackageFile,
@@ -198,7 +198,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   }
 
   const packageIdentity = domainHash("pap.package.v1", jcsBytes(manifestValue));
-  const validation = validateManifest(manifestValue, limits);
+  const validation = decodeManifest(manifestValue, limits);
   const manifest = validation.manifest;
   const structuralFailure =
     manifest === null ||
