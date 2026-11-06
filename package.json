@@ -19,6 +19,8 @@
     "check:all": "bun run check && bun test tests/core000.test.ts -t \"S2.2 artifact verification\"",
     "pap": "bun pap/src/cli.ts",
     "pap:test": "bun test pap/tests",
+    "pack:core000": "bun pipeline/pack.ts",
+    "pipeline:test": "bun test pipeline/tests",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
