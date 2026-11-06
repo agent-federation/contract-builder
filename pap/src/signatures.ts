@@ -7,12 +7,11 @@
  */
 
 import { opendir } from "node:fs/promises";
-import path from "node:path";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { canonicalBase64Decode, utf8 } from "./digest.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { isObject } from "./manifest.js";
-import { readPackageFile } from "./paths.js";
+import { readPackageFile, resolvePackageDirectory } from "./paths.js";
 import type { PackageRoot } from "./paths.js";
 import type { TrustPolicy } from "./policy.js";
 import type { Diagnostic, Limits, SignatureEntry } from "./types.js";
@@ -80,7 +79,7 @@ export async function evaluateSignatures(options: {
   const discovered = await discoverEnvelopes(options.root, options.limits);
   if (discovered.error !== null) {
     diagnostics.push({
-      code: "pap.package.io",
+      code: discovered.errorCode ?? "pap.package.io",
       severity: "error",
       scope: "signatures",
       message: discovered.error,
@@ -342,18 +341,31 @@ interface EnvelopeDiscovery {
   names: string[];
   limitHit: boolean;
   error: string | null;
+  errorCode?: "pap.package.symlink" | "pap.package.path-escape";
 }
 
 async function discoverEnvelopes(root: PackageRoot, limits: Limits): Promise<EnvelopeDiscovery> {
-  const directory = path.join(root.real, "signatures");
+  const resolved = await resolvePackageDirectory(root, "signatures");
+  if (!resolved.ok) {
+    if (resolved.failure === "missing") {
+      return { names: [], limitHit: false, error: null };
+    }
+    return {
+      names: [],
+      limitHit: false,
+      error: resolved.message,
+      ...(resolved.failure === "symlink"
+        ? { errorCode: "pap.package.symlink" as const }
+        : resolved.failure === "path-escape"
+          ? { errorCode: "pap.package.path-escape" as const }
+          : {}),
+    };
+  }
   const names: string[] = [];
   let directoryHandle;
   try {
-    directoryHandle = await opendir(directory);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { names, limitHit: false, error: null };
-    }
+    directoryHandle = await opendir(resolved.absolute);
+  } catch {
     return { names, limitHit: false, error: "cannot read the signatures directory" };
   }
   try {
