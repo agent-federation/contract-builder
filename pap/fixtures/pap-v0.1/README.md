@@ -41,8 +41,9 @@ The harness runs each `command` (argv after `pap`) with the case directory as cw
 a fixed `--now`, a hostile `TZ`/`LC_ALL`, a producer-free `PATH` with sentinel
 `bun`/`node`/`contract-builder` shims, and asserts the projection in
 `cases.json`: exit code, verdict, constrained dimensions, check outcomes,
-diagnostic and limitation code sets, coverage, effective limits, identity
-relations, Appendix C schema validity, JCS bytes and deterministic reruns.
+diagnostic and limitation code sets, coverage (`full` and the derived
+`requiredDimensions` when pinned), effective limits, identity relations,
+Appendix C schema validity, JCS bytes and deterministic reruns.
 
 ## Limit cases
 

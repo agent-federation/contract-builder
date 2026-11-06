@@ -3125,6 +3125,9 @@ A JCS JSON document: `{"fixtureSetVersion": "0.1", "baseCase": "F01", "cases": [
 - `expect.effectiveLimits` is an optional object of limit name → integer. Each named limit MUST
   equal the report's `effectiveLimits[name]`; a report with no `effectiveLimits` fails the case.
   Limits not named are unconstrained. F52 uses it to pin a lowered limit.
+- `expect.coverageRequiredDimensions` is an optional exact, ordered list; when present, the
+  report's `coverage.requiredDimensions` MUST equal it. F81-F83 use it to pin the I1/E2
+  derivation when the policy under-declares the derived dimensions.
 - `noReport: true` marks exit 64/70/74 cases: no document, and `stderrCodes` MUST appear on
   stderr. Cases for `inspect`/`explain` name `"document": "inspection"|"explanation"` and use
   `inspection` / `checkOutcome` instead of `verdict`.
