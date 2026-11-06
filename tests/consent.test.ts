@@ -53,7 +53,7 @@ async function projectWithEvalMarker(name: string): Promise<{ dir: string; marke
   const footer = `\nwriteFileSync(${JSON.stringify(marker)}, "evaluated");\n`;
 
   for (const file of ["view.ts", "validator.ts"]) {
-    const filePath = path.join(dir, "profile", file);
+    const filePath = path.join(dir, "profiles", "core001", file);
     const original = await readFile(filePath, "utf8");
     await writeFile(filePath, `${header}${original}${footer}`, "utf8");
   }
@@ -179,11 +179,11 @@ test("consent: the CLI preflight validates the profile closure before importing 
   // renderer was imported before the closure violation was rejected.
   const dir = await copyProjectWithProfile("closure-preflight");
   await writeFile(
-    path.join(dir, "profile", "undeclared.ts"),
+    path.join(dir, "profiles", "core001", "undeclared.ts"),
     "export const undeclared = true;\n",
     "utf8",
   );
-  const rendererPath = path.join(dir, "profile", "renderer.ts");
+  const rendererPath = path.join(dir, "profiles", "core001", "renderer.ts");
   const renderer = await readFile(rendererPath, "utf8");
   await writeFile(
     rendererPath,

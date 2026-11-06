@@ -12,10 +12,11 @@ interface CliOptions {
   strict: boolean;
   json: boolean;
   allowExecutableProfile: boolean;
+  engineRoot?: string;
 }
 
 const USAGE =
-  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
+  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--engine-root <dir>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
@@ -44,6 +45,13 @@ function parseArgs(argv: string[]): CliOptions {
         const value = argv[i + 1];
         if (value === undefined) throw new Error("--spec требует путь к каталогу");
         options.specDir = path.resolve(value);
+        i += 1;
+        break;
+      }
+      case "--engine-root": {
+        const value = argv[i + 1];
+        if (value === undefined) throw new Error("--engine-root требует путь к каталогу движка");
+        options.engineRoot = path.resolve(value);
         i += 1;
         break;
       }
