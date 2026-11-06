@@ -99,10 +99,11 @@ required comparison record, not a certification, a gate decision or a claim of s
 | Contract-builder run commit | [\`${batch.contractBuilderCommit}\`](${commitUrl}) |
 | Pinned \`--now\` | \`${batch.pinnedNow}\` |
 | Trust policy | \`${batch.trustPolicy.id}\` |
-| Trust-policy path used by all four runs | \`pipeline/policy/core000-trust-policy.json\` (the same absolute path for all four runs; retained in \`batch.json\`) |
+| Trust-policy path used by all four runs | Run-local copy of \`pipeline/policy/core000-trust-policy.json\` (identical bytes; the same absolute path for all four runs; retained in \`batch.json\`) |
 | Trust-policy digest (verifier-reported) | \`${batch.trustPolicy.sha256}\` |
 | Independent-verifier provenance | [\`${batch.provenance.repository}@${batch.provenance.commit}\`](${provenanceUrl}) ([PR #${batch.provenance.pullRequest}](${provenancePull})) |
 | Provenance handoff | \`${batch.provenance.handoff}\` |
+| Input protection | Package tree and run-local policy copy made read-only during verifier execution and re-hashed after every verifier; any mutation is a problem and fails the batch (\`inputIntegrity\` in \`batch.json\`). |
 | Machine-readable batch | The CI job retains its own run's \`batch.json\` and reports as the \`pipeline-independent-evidence\` artifact (90 days). The values in this record are from the run commit above, not from that artifact. |
 
 The three independent implementations are the blind-lab Gate 3 Phase 2a set. This run
@@ -214,6 +215,10 @@ separate, non-blocking job: it is not a required status and does not gate the re
   package/artifact/source integrity and availability.
 - \`UNSUPPORTED\` is a recorded, executed result. It is not PASS, and no CORE-000 claim
   is promoted to \`independently_verified\` by this record.
+- The runner copies the policy into the run directory, makes the package tree and policy
+  copy read-only, and re-hashes both after every verifier. A verifier that mutates packaged
+  bytes or the policy makes the batch fail closed and stops the remaining runs; the mutation
+  diagnostics are retained in \`batch.json\`.
 - Phase 2b check implementations, cross-environment reproducibility (H2), signing,
   semantic truth and team independence are out of scope.
 `;

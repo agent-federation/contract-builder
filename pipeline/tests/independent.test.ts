@@ -316,6 +316,30 @@ test("the reference report must be PASS", () => {
   );
 });
 
+test("recorded input mutations fail the batch", () => {
+  const mutations = [
+    "rust: package file was modified: artifacts/CORE-000.draft.md",
+  ];
+  const { batch } = assembleBatch({
+    ...optionsWith(defaultExecutions()),
+    extraProblems: ["cannot make package/policy inputs read-only: EPERM"],
+    inputIntegrity: { readOnlyDuringRuns: false, mutations },
+  });
+  assert.equal(batch.ok, false);
+  assert.deepEqual(batch.inputIntegrity.mutations, mutations);
+  assert.equal(batch.inputIntegrity.readOnlyDuringRuns, false);
+  assert.ok(
+    batch.problems.some((problem) =>
+      problem.includes("package file was modified"),
+    ),
+    batch.problems.join("\n"),
+  );
+  assert.ok(
+    batch.problems.some((problem) => problem.includes("read-only")),
+    batch.problems.join("\n"),
+  );
+});
+
 test("a report without package.papVersion is a problem", () => {
   const broken = reportFor("go") as {
     package: Record<string, unknown>;

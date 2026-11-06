@@ -20,7 +20,17 @@
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderEvidenceMarkdown } from "./evidence.js";
@@ -156,6 +166,11 @@ export interface VerifierExecution {
   readonly error?: string;
 }
 
+export interface InputIntegrity {
+  readonly readOnlyDuringRuns: boolean;
+  readonly mutations: readonly string[];
+}
+
 export interface AssembleOptions {
   readonly now: string;
   readonly packageDir: string;
@@ -163,6 +178,10 @@ export interface AssembleOptions {
   readonly manifestText: string;
   readonly packageFileDigests: Readonly<Record<string, string>>;
   readonly executions: readonly VerifierExecution[];
+  /** Run-level diagnostics, such as a failure to make the inputs read-only. */
+  readonly extraProblems?: readonly string[];
+  /** Input-protection result; mutations are also appended to the batch problems. */
+  readonly inputIntegrity?: InputIntegrity;
 }
 
 export interface VerifierEntry {
@@ -222,6 +241,7 @@ export interface C6Batch {
     readonly sources: readonly unknown[];
     readonly files: Readonly<Record<string, string>>;
   };
+  readonly inputIntegrity: InputIntegrity;
   readonly requiredChecks: readonly string[];
   readonly verifiers: readonly VerifierEntry[];
   readonly comparison: Comparison;
@@ -555,7 +575,10 @@ function describeExecuted(
  * retain the failure evidence before exiting non-zero.
  */
 export function assembleBatch(options: AssembleOptions): BatchOutcome {
-  const problems: string[] = [];
+  const problems: string[] = [
+    ...(options.extraProblems ?? []),
+    ...(options.inputIntegrity?.mutations ?? []),
+  ];
   const packageDir = path.resolve(options.packageDir);
   const policyPath = path.resolve(options.policyPath);
   const normalized: AssembleOptions = {
@@ -768,6 +791,8 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
       sources,
       files: options.packageFileDigests,
     },
+    inputIntegrity:
+      options.inputIntegrity ?? { readOnlyDuringRuns: false, mutations: [] },
     requiredChecks: REQUIRED_CHECKS,
     verifiers: entries,
     comparison: {
@@ -1092,6 +1117,99 @@ async function listPackageFiles(
   );
 }
 
+export interface InputSnapshot {
+  readonly packageFiles: Readonly<Record<string, string>>;
+  readonly policySha256: string;
+}
+
+/** Hash the package tree and the run-local policy copy before any verifier runs. */
+export async function snapshotInputs(
+  packageDir: string,
+  policyPath: string,
+): Promise<InputSnapshot> {
+  return {
+    packageFiles: await listPackageFiles(packageDir),
+    policySha256: await sha256File(policyPath),
+  };
+}
+
+async function setTreeMode(target: string, readOnly: boolean): Promise<void> {
+  const info = await stat(target);
+  if (info.isDirectory()) {
+    for (const entry of await readdir(target)) {
+      await setTreeMode(path.join(target, entry), readOnly);
+    }
+    await chmod(target, readOnly ? 0o555 : 0o755);
+    return;
+  }
+  if (info.isFile()) {
+    await chmod(target, readOnly ? 0o444 : 0o644);
+  }
+}
+
+/**
+ * Make the packaged bytes and the run-local policy copy read-only. This is a
+ * defence-in-depth measure: the owner can still chmod them back, which is why
+ * `verifyInputsUnchanged` re-checks the hashes after every verifier.
+ */
+export async function makeInputsReadOnly(
+  packageDir: string,
+  policyPath: string,
+): Promise<void> {
+  await setTreeMode(packageDir, true);
+  await chmod(policyPath, 0o444);
+  await chmod(path.dirname(policyPath), 0o555);
+}
+
+/** Restore owner write permissions so the output directory can be cleaned up. */
+export async function makeInputsWritable(
+  packageDir: string,
+  policyPath: string,
+): Promise<void> {
+  await chmod(path.dirname(policyPath), 0o755);
+  await chmod(policyPath, 0o644);
+  await setTreeMode(packageDir, false);
+}
+
+/**
+ * Compare the package tree and policy copy with the pre-run snapshot. Anything
+ * added, removed or changed is a mutation; the caller fails the batch closed and
+ * skips the remaining verifiers.
+ */
+export async function verifyInputsUnchanged(
+  snapshot: InputSnapshot,
+  packageDir: string,
+  policyPath: string,
+  label: string,
+): Promise<string[]> {
+  let current: InputSnapshot;
+  try {
+    current = await snapshotInputs(packageDir, policyPath);
+  } catch (error) {
+    return [
+      `${label}: cannot re-read package/policy inputs after the verifier: ${messageOf(error)}`,
+    ];
+  }
+  const problems: string[] = [];
+  for (const [file, digest] of Object.entries(snapshot.packageFiles)) {
+    const observed = current.packageFiles[file];
+    if (observed === undefined) {
+      problems.push(`${label}: package file was removed: ${file}`);
+    } else if (observed !== digest) {
+      problems.push(`${label}: package file was modified: ${file}`);
+    }
+  }
+  for (const file of Object.keys(current.packageFiles)) {
+    if (snapshot.packageFiles[file] === undefined) {
+      problems.push(`${label}: package file was added: ${file}`);
+    }
+  }
+  if (current.policySha256 !== snapshot.policySha256) {
+    problems.push(`${label}: the run-local trust policy was modified`);
+  }
+  return problems;
+}
+
 interface CliOptions {
   readonly outDir: string;
   readonly now: string;
@@ -1158,12 +1276,19 @@ async function main(): Promise<void> {
   const outDir = path.resolve(options.outDir);
   assertOutsideRepository(outDir);
   const packageDir = path.join(outDir, "package");
-  const policyPath = path.resolve(
-    path.join(REPO_ROOT, "pipeline", "policy", "core000-trust-policy.json"),
+  const policySource = path.join(
+    REPO_ROOT,
+    "pipeline",
+    "policy",
+    "core000-trust-policy.json",
   );
+  const policyDir = path.join(outDir, "policy");
+  const policyPath = path.join(policyDir, "core000-trust-policy.json");
   const reportsDir = path.join(outDir, "reports");
   await mkdir(reportsDir, { recursive: true });
   await mkdir(path.join(outDir, "tmp"), { recursive: true });
+  await mkdir(policyDir, { recursive: true });
+  await copyFile(policySource, policyPath);
 
   process.stderr.write(`c6: packing CORE-000 once into ${packageDir}\n`);
   await rm(packageDir, { recursive: true, force: true });
@@ -1172,7 +1297,7 @@ async function main(): Promise<void> {
   const manifestText = new TextDecoder("utf-8").decode(
     await readBytes(path.join(packageDir, "assurance-package.json")),
   );
-  const packageFileDigests = await listPackageFiles(packageDir);
+  const snapshot = await snapshotInputs(packageDir, policyPath);
   const context: RunContext = {
     outDir,
     packageDir,
@@ -1180,49 +1305,100 @@ async function main(): Promise<void> {
     now: options.now,
   };
 
-  const executions: VerifierExecution[] = [];
-  const reference = referenceInvocation(context);
-  process.stderr.write("c6: running the reference verifier\n");
-  const referenceOutcome = await runCommand(reference.command, reference.args, {
-    cwd: reference.cwd,
-    env: reference.env,
-  });
-  executions.push({
-    name: "reference",
-    exitCode: referenceOutcome.code,
-    stdout: referenceOutcome.stdout,
-    stderr: referenceOutcome.stderr,
-    ...(referenceOutcome.error === undefined ? {} : { error: referenceOutcome.error }),
-  });
+  const extraProblems: string[] = [];
+  const mutationProblems: string[] = [];
+  let inputsReadOnly = false;
+  try {
+    await makeInputsReadOnly(packageDir, policyPath);
+    inputsReadOnly = true;
+  } catch (error) {
+    extraProblems.push(
+      `cannot make package/policy inputs read-only: ${messageOf(error)}`,
+    );
+  }
 
-  for (const pin of INDEPENDENT_PINS) {
-    process.stderr.write(`c6: preparing the ${pin.name} verifier\n`);
-    let prepared: PreparedVerifier;
-    try {
-      prepared = await prepareIndependent(pin, context);
-    } catch (error) {
-      executions.push({
-        name: pin.name,
-        exitCode: null,
-        stdout: "",
-        stderr: "",
-        error: `cannot build the pinned ${pin.name} verifier: ${messageOf(error)}`,
-      });
-      continue;
-    }
-    const invocation = verifierInvocation(prepared, context);
-    process.stderr.write(`c6: running the ${pin.name} verifier\n`);
+  const executions: VerifierExecution[] = [];
+  let mutated = false;
+
+  const recordVerifier = async (
+    name: VerifierName,
+    invocation: {
+      readonly command: string;
+      readonly args: readonly string[];
+      readonly cwd: string;
+      readonly env: Readonly<Record<string, string>>;
+    },
+  ): Promise<void> => {
     const outcome = await runCommand(invocation.command, invocation.args, {
       cwd: invocation.cwd,
       env: invocation.env,
     });
     executions.push({
-      name: pin.name,
+      name,
       exitCode: outcome.code,
       stdout: outcome.stdout,
       stderr: outcome.stderr,
       ...(outcome.error === undefined ? {} : { error: outcome.error }),
     });
+    const changes = await verifyInputsUnchanged(
+      snapshot,
+      packageDir,
+      policyPath,
+      name,
+    );
+    if (changes.length > 0) {
+      mutated = true;
+      mutationProblems.push(...changes);
+    }
+  };
+
+  try {
+    process.stderr.write("c6: running the reference verifier\n");
+    await recordVerifier("reference", referenceInvocation(context));
+    for (const pin of INDEPENDENT_PINS) {
+      if (mutated) {
+        executions.push({
+          name: pin.name,
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          error:
+            "skipped after an earlier verifier modified package or policy inputs",
+        });
+        continue;
+      }
+      process.stderr.write(`c6: preparing the ${pin.name} verifier\n`);
+      let prepared: PreparedVerifier;
+      try {
+        prepared = await prepareIndependent(pin, context);
+      } catch (error) {
+        executions.push({
+          name: pin.name,
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          error: `cannot build the pinned ${pin.name} verifier: ${messageOf(error)}`,
+        });
+        continue;
+      }
+      process.stderr.write(`c6: running the ${pin.name} verifier\n`);
+      await recordVerifier(pin.name, verifierInvocation(prepared, context));
+    }
+  } finally {
+    try {
+      await makeInputsWritable(packageDir, policyPath);
+    } catch (error) {
+      extraProblems.push(
+        `cannot restore write permissions on package/policy inputs: ${messageOf(error)}`,
+      );
+    }
+  }
+
+  if (mutated) {
+    console.error(
+      "c6: package or policy inputs changed during verifier execution; failing closed",
+    );
+    for (const problem of mutationProblems) console.error(`  - ${problem}`);
   }
 
   for (const execution of executions) {
@@ -1238,8 +1414,13 @@ async function main(): Promise<void> {
     packageDir,
     policyPath,
     manifestText,
-    packageFileDigests,
+    packageFileDigests: snapshot.packageFiles,
     executions,
+    extraProblems,
+    inputIntegrity: {
+      readOnlyDuringRuns: inputsReadOnly,
+      mutations: mutationProblems,
+    },
   });
   await writeFile(
     path.join(outDir, "batch.json"),
