@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import Ajv2020Module from "ajv/dist/2020.js";
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
@@ -102,12 +102,25 @@ function checkJsonContract(stdout: string): any {
   return parsed;
 }
 
+function stderrDiagnosticCodes(stderr: string): string[] {
+  const codes: string[] = [];
+  for (const line of stderr.split("\n")) {
+    if (line === "") continue;
+    const match = /^pap: (pap\.[a-z0-9.-]+): /.exec(line);
+    assert.ok(match, `unexpected stderr line: ${line}`);
+    codes.push(match[1] as string);
+  }
+  return [...new Set(codes)].sort();
+}
+
 function assertNoReport(result: { status: number; stdout: string; stderr: string }, entry: CaseEntry): void {
   assert.equal(result.stdout, "", "no report may be written to stdout");
-  assert.notEqual(result.status, 0, "no-report case must fail");
-  for (const code of entry.stderrCodes ?? []) {
-    assert.ok(result.stderr.includes(`pap: ${code}:`), `stderr must contain ${code}: ${result.stderr}`);
-  }
+  assert.equal(result.status, entry.expect?.exitCode, "no-report exit code");
+  assert.deepEqual(
+    stderrDiagnosticCodes(result.stderr),
+    [...new Set(entry.stderrCodes ?? [])].sort(),
+    `no-report stderr codes: ${result.stderr}`,
+  );
 }
 
 for (const entry of suite.cases) {
@@ -249,4 +262,112 @@ test("an evaluated required-check FAIL does not make coverage partial", () => {
     assert.equal(report.coverage.full, true);
     assert.ok(report.dimensions.checks.results.some((result: any) => result.outcome === "FAIL"));
   }
+});
+
+/**
+ * Codes the CLI can emit but no conformance case can reach. Each is covered by a
+ * focused unit test, except the verifier-bug signal, which no package data can
+ * produce. A new code in `pap/src` needs a case, a unit test, or an entry here
+ * with a reason.
+ */
+const CODES_NOT_REACHABLE_BY_CASE: Record<
+  string,
+  { unitTest?: { file: string; marker: string }; reason: string }
+> = {
+  "pap.io.error": {
+    unitTest: { file: "cli.test.ts", marker: "pap.io.error" },
+    reason: "stdout write failure needs an in-process write stub; a spawn cannot provoke it reliably",
+  },
+  "pap.package.path-escape": {
+    unitTest: { file: "paths.test.ts", marker: "path-escape" },
+    reason: "the reader rejects a symlinked or non-confined declared path as symlink/non-regular before realpath can observe an escape; static fixtures cannot express a mount",
+  },
+  "pap.internal.error": {
+    reason: "last-resort verifier-bug signal; no package data may produce it",
+  },
+};
+
+const DIAGNOSTIC_TOKEN = /pap\.[a-z0-9./-]+/g;
+const DIAGNOSTIC_CODE = /^pap\.[a-z0-9-]+\.[a-z0-9-]+$/;
+const DOMAIN_OR_VERSION_SUFFIX = /\.v\d+(\.\d+)?$/;
+
+function diagnosticCodesIn(source: string): string[] {
+  const codes: string[] = [];
+  for (const match of source.matchAll(DIAGNOSTIC_TOKEN)) {
+    const token = match[0];
+    if (
+      DIAGNOSTIC_CODE.test(token) &&
+      !DOMAIN_OR_VERSION_SUFFIX.test(token) &&
+      token !== "pap.verifier.reference"
+    ) {
+      codes.push(token);
+    }
+  }
+  return codes;
+}
+
+function emittedDiagnosticCodes(): string[] {
+  const codes = new Set<string>();
+  const sourceDir = path.join(root, "src");
+  for (const file of readdirSync(sourceDir).filter((name) => name.endsWith(".ts"))) {
+    for (const code of diagnosticCodesIn(readFileSync(path.join(sourceDir, file), "utf8"))) {
+      codes.add(code);
+    }
+  }
+  return [...codes].sort();
+}
+
+function unitTestedDiagnosticCodes(): Set<string> {
+  const codes = new Set<string>();
+  const testsDir = path.join(root, "tests");
+  for (const file of readdirSync(testsDir).filter(
+    (name) => name.endsWith(".test.ts") && name !== "conformance.test.ts",
+  )) {
+    for (const code of diagnosticCodesIn(readFileSync(path.join(testsDir, file), "utf8"))) {
+      codes.add(code);
+    }
+  }
+  return codes;
+}
+
+test("every diagnostic code emitted by pap/src is expected by a case or unit test", () => {
+  const emitted = emittedDiagnosticCodes();
+  assert.ok(emitted.length > 0, "no diagnostic codes were extracted from pap/src");
+
+  const expected = new Set<string>();
+  for (const entry of suite.cases as CaseEntry[]) {
+    for (const code of entry.expect?.diagnosticCodes ?? []) expected.add(code);
+    for (const code of entry.stderrCodes ?? []) expected.add(code);
+  }
+  const unitTested = unitTestedDiagnosticCodes();
+
+  const uncovered = emitted.filter(
+    (code) =>
+      !expected.has(code) &&
+      !unitTested.has(code) &&
+      CODES_NOT_REACHABLE_BY_CASE[code] === undefined,
+  );
+  assert.deepEqual(
+    uncovered,
+    [],
+    `diagnostic codes without a conformance case or unit test: ${uncovered.join(", ")}`,
+  );
+
+  for (const [code, exemption] of Object.entries(CODES_NOT_REACHABLE_BY_CASE)) {
+    assert.ok(emitted.includes(code), `stale exemption for ${code}`);
+    assert.ok(!expected.has(code), `${code} is expected by a case and must not be exempted`);
+    if (exemption.unitTest !== undefined) {
+      const testSource = readFileSync(
+        path.join(root, "tests", exemption.unitTest.file),
+        "utf8",
+      );
+      assert.ok(
+        testSource.includes(exemption.unitTest.marker),
+        `${code} exemption names ${exemption.unitTest.file}, which does not assert ${exemption.unitTest.marker}`,
+      );
+    }
+  }
+
+  const unknown = [...expected].filter((code) => !emitted.includes(code));
+  assert.deepEqual(unknown, [], `cases expect codes pap/src does not emit: ${unknown.join(", ")}`);
 });

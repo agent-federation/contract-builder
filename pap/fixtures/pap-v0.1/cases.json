@@ -23,7 +23,8 @@
         "coverageFull": true,
         "identityRelations": {
           "packageIdentity": "equals-base"
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -48,10 +49,13 @@
           }
         },
         "diagnosticCodes": [
-          "pap.integrity.artifact-mismatch"
+          "pap.integrity.artifact-mismatch",
+          "pap.check.failed",
+          "pap.claims.producer-mismatch"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -76,10 +80,13 @@
           }
         },
         "diagnosticCodes": [
-          "pap.integrity.source-mismatch"
+          "pap.integrity.source-mismatch",
+          "pap.check.failed",
+          "pap.claims.producer-mismatch"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -104,10 +111,13 @@
           }
         },
         "diagnosticCodes": [
-          "pap.integrity.input-mismatch"
+          "pap.integrity.input-mismatch",
+          "pap.check.failed",
+          "pap.claims.producer-mismatch"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -133,10 +143,13 @@
           }
         },
         "diagnosticCodes": [
-          "pap.check.quote-mismatch"
+          "pap.check.quote-mismatch",
+          "pap.check.failed",
+          "pap.claims.producer-mismatch"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -162,10 +175,12 @@
           }
         },
         "diagnosticCodes": [
-          "pap.claim.edge-unknown-entity"
+          "pap.claim.edge-unknown-entity",
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -192,7 +207,8 @@
           "pap.check.unsupported"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -217,7 +233,8 @@
           "pap.extension.critical-unsupported"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -246,7 +263,8 @@
           "pap.check.unsupported"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -275,7 +293,8 @@
           "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -302,7 +321,8 @@
           "pap.trust.signer-untrusted"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -327,7 +347,8 @@
           "pap.signature.invalid"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -352,7 +373,8 @@
         },
         "diagnosticCodes": [],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -376,7 +398,8 @@
           "pap.trust.policy-absent"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -403,7 +426,8 @@
           "pap.trust.policy-stale"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -430,7 +454,8 @@
           "pap.trust.signer-unknown"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -456,7 +481,8 @@
           "pap.trust.package-not-allowed"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -482,7 +508,8 @@
           "pap.trust.signer-unknown"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -507,7 +534,8 @@
           "pap.signature.absent"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -533,10 +561,12 @@
         },
         "diagnosticCodes": [
           "pap.integrity.artifact-mismatch",
-          "pap.claims.producer-mismatch"
+          "pap.claims.producer-mismatch",
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -565,7 +595,8 @@
         "coverageFull": false,
         "identityRelations": {
           "packageIdentity": null
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -588,10 +619,14 @@
           "integrity.artifacts": "FAIL"
         },
         "diagnosticCodes": [
-          "pap.package.path-invalid"
+          "pap.package.path-invalid",
+          "pap.check.not-evaluated",
+          "pap.package.declared-file-missing",
+          "pap.package.undeclared-file"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -614,10 +649,13 @@
           "integrity.artifacts": "FAIL"
         },
         "diagnosticCodes": [
-          "pap.package.symlink"
+          "pap.package.symlink",
+          "pap.check.not-evaluated",
+          "pap.package.declared-file-missing"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -640,10 +678,14 @@
           "integrity.artifacts": "FAIL"
         },
         "diagnosticCodes": [
-          "pap.package.path-duplicate"
+          "pap.package.path-duplicate",
+          "pap.check.not-evaluated",
+          "pap.package.declared-file-missing",
+          "pap.package.undeclared-file"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -655,7 +697,10 @@
       "noReport": true,
       "stderrCodes": [
         "pap.cli.usage"
-      ]
+      ],
+      "expect": {
+        "exitCode": 64
+      }
     },
     {
       "caseId": "F26-missing-artifact",
@@ -684,7 +729,8 @@
           "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -713,10 +759,12 @@
         },
         "diagnosticCodes": [
           "pap.source.unavailable",
-          "pap.check.not-evaluated"
+          "pap.check.not-evaluated",
+          "pap.package.undeclared-file"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -741,7 +789,8 @@
           "pap.review.missing"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -767,7 +816,8 @@
           "pap.package.duplicate-key"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -790,10 +840,12 @@
           "integrity.artifacts": "NOT_EVALUATED"
         },
         "diagnosticCodes": [
-          "pap.package.unknown-field"
+          "pap.package.unknown-field",
+          "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -816,7 +868,8 @@
           "pap.package.undeclared-file"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -839,7 +892,8 @@
           "pap.extension.ignored"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -862,7 +916,8 @@
           "pap.feature.unsupported"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -886,7 +941,8 @@
         "coverageFull": true,
         "identityRelations": {
           "packageIdentity": "equals-base"
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -915,7 +971,8 @@
         "coverageFull": false,
         "identityRelations": {
           "packageIdentity": null
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -936,7 +993,8 @@
         "dimensions": {},
         "diagnosticCodes": [],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -950,7 +1008,10 @@
       "noReport": true,
       "stderrCodes": [
         "pap.cli.usage"
-      ]
+      ],
+      "expect": {
+        "exitCode": 64
+      }
     },
     {
       "caseId": "F38-explain-usage",
@@ -961,7 +1022,10 @@
       "noReport": true,
       "stderrCodes": [
         "pap.cli.usage"
-      ]
+      ],
+      "expect": {
+        "exitCode": 64
+      }
     },
     {
       "caseId": "F39-explain-unknown",
@@ -974,7 +1038,10 @@
       "noReport": true,
       "stderrCodes": [
         "pap.cli.unknown-check"
-      ]
+      ],
+      "expect": {
+        "exitCode": 64
+      }
     },
     {
       "caseId": "F40-producer-free",
@@ -994,7 +1061,8 @@
         "dimensions": {},
         "diagnosticCodes": [],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1010,7 +1078,10 @@
       "noReport": true,
       "stderrCodes": [
         "pap.trust.policy-invalid"
-      ]
+      ],
+      "expect": {
+        "exitCode": 64
+      }
     },
     {
       "caseId": "F42-explain-positive",
@@ -1053,7 +1124,8 @@
           "pap.trust.profile-unknown"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1082,7 +1154,8 @@
           "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1112,7 +1185,8 @@
           "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1137,10 +1211,12 @@
           }
         },
         "diagnosticCodes": [
-          "pap.claim.inverse-not-reciprocal"
+          "pap.claim.inverse-not-reciprocal",
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1161,7 +1237,8 @@
         "dimensions": {},
         "diagnosticCodes": [],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1182,7 +1259,8 @@
         "dimensions": {},
         "diagnosticCodes": [],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1207,7 +1285,8 @@
           "pap.trust.policy-stale"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1236,7 +1315,8 @@
         "coverageFull": false,
         "identityRelations": {
           "packageIdentity": null
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1265,7 +1345,8 @@
         "coverageFull": false,
         "identityRelations": {
           "packageIdentity": null
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1294,13 +1375,15 @@
         },
         "diagnosticCodes": [
           "pap.package.limit-exceeded",
-          "pap.limit.lowered"
+          "pap.limit.lowered",
+          "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
         "coverageFull": false,
         "effectiveLimits": {
           "fileBytes": 64
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1323,10 +1406,12 @@
           "integrity.artifacts": "NOT_EVALUATED"
         },
         "diagnosticCodes": [
-          "pap.package.schema"
+          "pap.package.schema",
+          "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1344,10 +1429,12 @@
         "verdict": "INCOMPLETE",
         "dimensions": {},
         "diagnosticCodes": [
-          "pap.package.empty-check-specs"
+          "pap.package.empty-check-specs",
+          "pap.trust.policy-absent"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1373,7 +1460,8 @@
         ],
         "limitationCodes": [],
         "coverageFull": true,
-        "humanReviewBasis": "unbound-claim"
+        "humanReviewBasis": "unbound-claim",
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1397,10 +1485,12 @@
           "trust.policyDecision": "REJECTED"
         },
         "diagnosticCodes": [
-          "pap.signature.invalid"
+          "pap.signature.invalid",
+          "pap.signature.duplicate-signer"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1426,7 +1516,8 @@
           "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1448,10 +1539,12 @@
           "integrity.package": "FAIL"
         },
         "diagnosticCodes": [
-          "pap.package.claim-invalid"
+          "pap.package.claim-invalid",
+          "pap.check.not-evaluated"
         ],
         "limitationCodes": [],
-        "coverageFull": false
+        "coverageFull": false,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1476,10 +1569,12 @@
           }
         },
         "diagnosticCodes": [
-          "pap.claim.relation-duplicate"
+          "pap.claim.relation-duplicate",
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1508,7 +1603,8 @@
         "coverageFull": false,
         "identityRelations": {
           "packageIdentity": null
-        }
+        },
+        "diagnosticCodesExact": true
       }
     },
     {
@@ -1534,13 +1630,527 @@
         },
         "diagnosticCodes": [
           "pap.package.limit-exceeded",
-          "pap.limit.lowered"
+          "pap.limit.lowered",
+          "pap.check.not-evaluated",
+          "pap.package.declared-file-missing",
+          "pap.source.unavailable"
         ],
         "limitationCodes": [],
         "coverageFull": false,
         "effectiveLimits": {
           "fileBytes": 64
-        }
+        },
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F62-policy-not-yet-valid",
+      "command": [
+        "verify",
+        "../base",
+        "--trust-policy",
+        "../trust-policy/not-yet-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 2,
+        "verdict": "INCOMPLETE",
+        "dimensions": {
+          "trust.policyDecision": "STALE"
+        },
+        "diagnosticCodes": [
+          "pap.trust.policy-not-yet-valid"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F63-checker-unknown",
+      "command": [
+        "verify",
+        "../base",
+        "--trust-policy",
+        "../trust-policy/checker-unknown.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {
+          "trust.checkerRecognition": "UNSUPPORTED"
+        },
+        "diagnosticCodes": [
+          "pap.trust.checker-unknown"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F64-checker-untrusted",
+      "command": [
+        "verify",
+        "../base",
+        "--trust-policy",
+        "../trust-policy/checker-untrusted.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {
+          "trust.checkerRecognition": "UNTRUSTED"
+        },
+        "diagnosticCodes": [
+          "pap.trust.checker-untrusted"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F65-profile-untrusted",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/profile-untrusted.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {
+          "trust.profileRecognition": "UNTRUSTED"
+        },
+        "diagnosticCodes": [
+          "pap.trust.profile-untrusted"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F66-signature-envelope-invalid",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/signature-optional.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 3,
+        "verdict": "UNTRUSTED",
+        "dimensions": {
+          "signature.validity": "NOT_EVALUATED",
+          "trust.policyDecision": "REJECTED"
+        },
+        "diagnosticCodes": [
+          "pap.signature.envelope-invalid"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F67-signature-unsupported-format",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/signature-optional.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {
+          "signature.validity": "NOT_EVALUATED",
+          "trust.policyDecision": "NOT_EVALUATED"
+        },
+        "diagnosticCodes": [
+          "pap.signature.unsupported-format"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F68-signature-payload-mismatch",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/signature-optional.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 3,
+        "verdict": "UNTRUSTED",
+        "dimensions": {
+          "signature.validity": "NOT_EVALUATED",
+          "trust.policyDecision": "REJECTED"
+        },
+        "diagnosticCodes": [
+          "pap.signature.payload-mismatch"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F69-package-non-regular",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "integrity.package": "FAIL",
+          "integrity.artifacts": "FAIL",
+          "checks": {
+            "pap.check.digest-integrity/1": "NOT_EVALUATED"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.package.non-regular",
+          "pap.package.declared-file-missing",
+          "pap.package.undeclared-file",
+          "pap.check.not-evaluated"
+        ],
+        "limitationCodes": [],
+        "coverageFull": false,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F70-package-duplicate-id",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "integrity.package": "FAIL",
+          "integrity.artifacts": "NOT_EVALUATED",
+          "sources.integrity": "NOT_EVALUATED",
+          "sources.availability": "UNAVAILABLE",
+          "checks": {
+            "pap.check.digest-integrity/1": "NOT_EVALUATED"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.package.duplicate-id",
+          "pap.check.not-evaluated"
+        ],
+        "limitationCodes": [],
+        "coverageFull": false,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F71-integrity-claim-mismatch",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "integrity.package": "FAIL",
+          "checks": {
+            "pap.check.digest-integrity/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.integrity.claim-mismatch",
+          "pap.check.failed"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F72-claim-unsupported-version",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {},
+        "diagnosticCodes": [
+          "pap.claim.unsupported-version"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F73-check-span-out-of-range",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.source-quote/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.check.span-out-of-range",
+          "pap.check.failed",
+          "pap.claims.producer-mismatch"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F74-claim-binding-duplicate",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.source-quote/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.binding-duplicate",
+          "pap.check.failed",
+          "pap.claims.producer-mismatch"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F75-claim-duplicate-entity",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.relation-consistency/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.duplicate-entity",
+          "pap.check.failed"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F76-claim-relation-unknown",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.relation-consistency/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.relation-unknown",
+          "pap.check.failed"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F77-claim-relation-kind-mismatch",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.relation-consistency/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.relation-kind-mismatch",
+          "pap.check.failed"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F78-claim-inverse-missing",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.relation-consistency/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.inverse-missing",
+          "pap.check.failed"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F79-claim-inverse-kind-mismatch",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "checks": {
+            "pap.check.relation-consistency/1": "FAIL"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.inverse-kind-mismatch",
+          "pap.check.failed"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "diagnosticCodesExact": true
       }
     }
   ]

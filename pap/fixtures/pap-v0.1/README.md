@@ -1,19 +1,24 @@
 # PAP v0.1 conformance corpus
 
 This directory is the static corpus from RFC §12. Each `F<NN>-<slug>/` directory
-is a complete package copy; nothing is generated or mutated at test time.
+is a complete package copy, except CLI-only variations (such as `F42`, `F62`–`F64`)
+whose directory is empty and whose command targets `../base`; nothing is generated
+or mutated at test time.
 
 - `base/` — the Appendix F package. Its package identity, artifact/source/quote,
   input and claim digests are the Appendix E.1/E.2 literals.
-- `F01-…`–`F61-…` — one package per normative case. A case differs from `base/`
-  only in the defect or variation it names.
+- `F01-…`–`F79-…` — one package per normative case. A case differs from `base/`
+  only in the defect or variation it names. `F62` and later cover the diagnostic
+  codes the original corpus never asserted.
 - `trust-policy/` — the fixed Appendix B policies. `invalid.json` is intentionally
   schema-invalid; `relations-only-lowered.json` is the F61 policy.
 - `signatures/` — shared DSSE envelopes. The keys are test fixtures; no private
   key is committed. `trusted.dsse.json` and `unknown.dsse.json` are signed over
   the base canonical manifest; `invalid.dsse.json` has one corrupted signature.
 - `cases.json` — the case index consumed by
-  `pap/tests/conformance.test.ts`.
+  `pap/tests/conformance.test.ts`. Report cases assert their complete diagnostic
+  code set (`diagnosticCodesExact`); no-report cases assert the exact exit code
+  and stderr code set.
 
 Run the corpus:
 
