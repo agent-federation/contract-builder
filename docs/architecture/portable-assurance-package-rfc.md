@@ -13,10 +13,16 @@ Portable Assurance Package v0.1 and independent verifier CLI».
 D1–D12 and every §13.8 area. Its recommendations were accepted by the maintainer on 2026-11-02;
 §16 and the decision record on #57 are authoritative. A Gate 1 PASS records specification
 readiness for independent implementation only; it is not Gate 3.
-**Implementation status:** Phase 2 verifier implementation is available in PR #64 under `pap/`;
-merge and independent interoperability validation remain pending. Gate 0 is recorded COMPLETE on
-#43.
-**Conformance status:** Gate 3 is **OPEN**; no cross-implementation agreement is claimed.
+**Implementation status:** Phase 2 verifier implementation is merged into `main` via PR #64 and
+available under `pap/`. Independent interoperability validation for the Phase 2a subset is recorded
+by Gate 3 below. Gate 0 is recorded COMPLETE on #43.
+**Conformance status:** Gate 3 is **PASSED for PAP Phase 2a** (2026-11-04). Three independent
+bundle-v2 implementations (Go, Python, Rust; two model families) agree field-by-field on the frozen
+Phase 2a case set: 19/19 full + 36/36 identity each, 0 findings. The closure is Phase 2a only (6
+later-phase cases excluded; no Phase 2b/2c/2d, Tier B or full-PAP claim; shared owner/harness; two
+model families; documentation-level ZIP-provenance review). Record:
+[`ODR-PAP-005`](../decisions/ODR-PAP-005-gate-3-closure-phase-2a.md); evidence: `blind-lab`
+PR #26/#27/#28.
 
 **Related:** [`docs/architecture/build-identity.md`](build-identity.md) (implemented
 `inputDigest`), [`docs/architecture/provenance-hardening-rfc.md`](provenance-hardening-rfc.md)
@@ -213,9 +219,9 @@ the current status. PAP does not claim to close any of them.
 > since been accepted (2026-11-02), Gate 1 PASS is recorded, and Gate 0 is recorded COMPLETE on
 > #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
 > #32/#33/#35. The maintainer then authorized Phase 2 verifier implementation. A Phase 2
-> implementation is available in PR #64; merge and independent interoperability validation remain
-> pending. Gate 3 remains OPEN. This note cites those records and does not independently re-audit
-> Gate 0.
+> implementation is merged into `main` via PR #64 and available under `pap/`; Gate 3 is **PASSED for
+> PAP Phase 2a** (2026-11-04; ODR-PAP-005), limited to the Phase 2a case set and its stated caveats.
+> This note cites those records and does not independently re-audit Gate 0 or the Gate 3 evidence.
 
 | Phase | Content | State at `f1ddcf7` | PAP implication |
 |---|---|---|---|
@@ -245,9 +251,10 @@ and the RFC's acceptance. At the baseline, acceptance of this document did not a
 and Phase 2 could not begin while #35 remained open. Subsequently, Gate 0 was recorded COMPLETE on
 #43 (comment 6570952005) on the basis of the merged #36–#38 work and the previously completed
 #32/#33/#35. The maintainer's 2026-11-02 decision then authorized Phase 2 verifier implementation
-under the accepted contract (#57). A Phase 2 implementation is available in PR #64; merge and
-independent interoperability validation remain pending. This document cites those records and does
-not independently re-audit Gate 0.
+under the accepted contract (#57). The Phase 2 implementation is merged into `main` via PR #64 and
+available under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to
+the Phase 2a case set and its stated caveats. This document cites
+those records and does not independently re-audit Gate 0 or the Gate 3 evidence.
 
 ### 2.5 A new product track, not M1
 
@@ -315,9 +322,10 @@ The producer and the verifier are separate products. A package is untrusted inpu
 the verifier MUST NOT import the producer runtime, execute producer or profile code, or use the
 network in v0.1. This RFC does not implement either product. The maintainer accepted the v0.1
 specification on 2026-11-02; Gate 0 is recorded COMPLETE on #43 (comment 6570952005); and Phase 2
-was then authorized. A Phase 2 implementation is available in PR #64; merge and independent
-interoperability validation remain pending. This status cites those records and does not
-independently re-audit Gate 0 (§2.4; #43; #44).
+was then authorized. The Phase 2 implementation is merged into `main` via PR #64 and available
+under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to the Phase 2a
+case set and its stated caveats. This status cites those
+records and does not independently re-audit Gate 0 or the Gate 3 evidence (§2.4; #43; #44).
 
 The document is organised as follows. §4 defines the package layout and the manifest; §5 the
 identities, hash domains and digest rules; §6 the trust model and the local policy input; §7 the
@@ -482,7 +490,14 @@ Additional rules:
   segment for non-payload uses;
 - the path is the identity of a payload file. Two declarations with the same path, or paths that
   differ only by case, are `INVALID` even on a case-sensitive filesystem, so a package behaves
-  identically when copied to a case-insensitive one.
+  identically when copied to a case-insensitive one. The duplicate and case-fold rules apply to all
+  declared payload paths as one set, not per class. Because the declared root is fixed per class, a
+  well-formed package cannot contain one package-relative path in two classes. No separate
+  cross-class collision rule is required; a verifier that already applies the global duplicate set
+  is conformant. A declaration whose path does not start with its class root is
+  `pap.package.path-invalid`; the duplicate rule is still evaluated over the same declaration set,
+  so a malformed declaration may additionally produce `pap.package.path-duplicate` when it equals
+  another declaration.
 
 A declared path is validated against this grammar before the Appendix A schema pattern is applied.
 A grammar violation is reported as `pap.package.path-invalid` (and a duplicate or case collision as
@@ -495,6 +510,13 @@ rule.
 - Every payload path MUST resolve to a regular file inside the package directory. Symbolic links
   and non-regular files (directories where a file is declared, sockets, FIFOs, devices) are
   rejected. Hard links cannot be detected portably and are outside the v0.1 guarantee.
+- The package root is the directory named by the `PACKAGE` argument after operating-system path
+  resolution. A `PACKAGE` that is a symbolic link to a directory is permitted: the verifier
+  resolves it once and uses the resolved directory as the root for every containment check in this
+  section. A `PACKAGE` that does not resolve is `pap.package.not-found` (exit 74, no report); a
+  `PACKAGE` that resolves to something other than a directory is a usage error
+  (`pap.cli.usage`, exit 64, no report). Symbolic links at or below a declared payload path remain
+  rejected by the first bullet; resolving the operator-supplied root is not a payload read.
 - The verifier opens each path without following symlinks where the platform supports it, reads
   the bytes once, and hashes exactly the bytes read. It MUST NOT resolve a path outside the
   package root.
@@ -511,6 +533,37 @@ rule.
   (`pap.package.undeclared-file`), is never opened, and does not affect identities. A file may be
   declared at most once; two declarations of one path (or a case-folded duplicate) are
   `pap.package.path-duplicate`.
+- The verifier enumerates the package tree to report undeclared files. It MUST NOT open an
+  undeclared file. If the package root itself, or any directory under it, cannot be enumerated,
+  the verifier MUST emit `pap.package.undeclared-scan-incomplete` (warning) with scope `package`,
+  add the same code to `limitations[]`, and set `coverage.full: false`; the verdict is at most
+  `INCOMPLETE` and MUST NOT be `PASS`. This includes a root that is readable through a known
+  manifest path but cannot be listed; it does not include a root that cannot be resolved
+  (`pap.package.not-found`/74) or a manifest that cannot be read (`pap.package.io` with a `FAIL`
+  report). The affected scope is the undeclared-file scan, whose status is `NOT_EVALUATED`.
+  Because the report has no separate per-scope status field for that scan, the report represents
+  that status with the diagnostic, the limitation and `coverage.full: false`; no dimension is
+  changed to `NOT_EVALUATED` solely by this condition. A `PASS` is impossible because §7.4 rule 6
+  requires `coverage.full: true`, and this rule sets it false. An independently established
+  `FAIL` (for example an artifact digest mismatch) remains `FAIL` under §7.4 rule 1: this rule
+  contributes only the coverage condition of rule 4 and cannot downgrade a higher-precedence
+  verdict. This is a report-level outcome for a package that was otherwise evaluated, not the
+  exit-74 CLI I/O failure of §9.7: resolving the root still uses `pap.package.not-found` (74) when
+  the `PACKAGE` does not exist, and an unreadable or missing manifest still uses `pap.package.io`
+  with a `FAIL` report (§7.7). This rule does not apply to a declared payload: a missing,
+  unreadable or non-regular declared payload remains
+  `pap.package.declared-file-missing`/`pap.package.io` and `FAIL` (the declared-payload bullet;
+  §7.3).
+- v0.1 does not define a limit on the number of filesystem entries visited by the undeclared-file
+  scan. A verifier MAY use an internal robustness budget to bound its own scan. If that budget
+  stops the scan on entry count, traversal depth or any other private bound, the verifier MUST
+  report the scan as incomplete under this section (`pap.package.undeclared-scan-incomplete`,
+  `coverage.full: false`, verdict at most `INCOMPLETE`) and MUST NOT report it as
+  `pap.package.limit-exceeded`, which is reserved for the §4.3.4 limits. The same code therefore
+  covers both an I/O enumeration failure and a private scan stop; it never means a declared
+  payload failed. No conformance case may assert a specific internal budget, and no `PASS` may be
+  reported when the scan did not complete. An implementation that chooses not to bound its scan
+  accepts the no-wall-clock residual of §10.5.
 - A declared file that is missing, unreadable, or not a regular file is an error
   (`pap.package.declared-file-missing`, `pap.package.io`). A package with a missing declared
   payload cannot be verified for integrity.
@@ -1740,8 +1793,8 @@ verification:
 }
 ```
 
-- `full` is `true` only when every required check was evaluated and every required dimension was
-  evaluated; `PASS` requires `full: true`.
+- `full` is `true` only when every required check was evaluated, every required dimension was
+  evaluated, and the undeclared-file scan completed; `PASS` requires `full: true`.
 - The check counters partition the required check set and are computed from the required set, not
   from optional checks: `checksPassed` (`PASS`), `checksFailed` (`FAIL`), `checksUnsupported`
   (`UNSUPPORTED`) and `checksNotEvaluated` (`NOT_EVALUATED`). `checksEvaluated` is
@@ -1754,12 +1807,13 @@ verification:
   (`integrity`, `sources`, `signature`, `trust`, `checks`, `humanReview`) is decided only when every
   sub-status the report carries for it is decided; `PASS` and `FAIL` count for `integrity`,
   `sources` and `checks`, and the navigable 4-field `trust` object counts as decided only when all
-  four fields are decided. `full` is then `checksNotEvaluated == 0`, `checksUnsupported == 0` and
-  `dimensionsEvaluated == len(requiredDimensions)`, and it is `false` when the required set is
-  empty (no required check and no required dimension): the empty-required-set case is `INCOMPLETE`
-  by §7.4 rule 4, never a vacuously full coverage. `full` is also `false` whenever a
-  `pap.package.limit-exceeded` stopped evaluation of any declared payload, required check or
-  signature envelope, even if the affected dimension is not in `requiredDimensions`.
+  four fields are decided. `full` is then `checksNotEvaluated == 0`, `checksUnsupported == 0`,
+  `dimensionsEvaluated == len(requiredDimensions)`, the undeclared-file scan completed, and the
+  required set is not empty. It is `false` when the required set is empty (no required check and
+  no required dimension): the empty-required-set case is `INCOMPLETE` by §7.4 rule 4, never a
+  vacuously full coverage. It is also `false` whenever a `pap.package.limit-exceeded` stopped
+  evaluation of any declared payload, required check or signature envelope, even if the affected
+  dimension is not in `requiredDimensions`, and whenever the undeclared-file scan is incomplete.
 - `requiredChecks` follows `checkSpecs` order for declared checks and appends policy-only required
   checks in ascending `checkId` order. `requiredDimensions` follows the Appendix B enumerable order
   (`integrity`, `integrity.package`, `integrity.artifacts`, `sources`, `sources.integrity`,
@@ -2159,8 +2213,10 @@ pap --version
 pap --help
 ```
 
-- `PACKAGE` is exactly one positional argument naming an existing directory. v0.1 is
-  directory-only (D1): archive files, OCI references, URLs and `-` are not packages.
+- `PACKAGE` is exactly one positional argument naming an existing directory. A symbolic link to a
+  directory names an existing directory and is permitted after resolution (§4.3.2); a link that
+  does not resolve is `pap.package.not-found` (exit 74). v0.1 is directory-only (D1): archive
+  files, OCI references, URLs and `-` are not packages.
 - Options follow the command in any order; `--flag value` and `--flag=value` are both accepted;
   `--` ends option parsing so a path may start with `-`. `--format` accepts exactly `text`
   (default) or `json`, for all three commands.
@@ -2312,13 +2368,20 @@ verification result.
 | verdict `UNSUPPORTED` | 4 | yes |
 | usage error, including invalid/unreadable trust policy, a `PACKAGE` that is not a directory, or `explain` without/with an undeclared `--check` | 64 | no |
 | internal verifier failure | 70 | no |
-| I/O failure: `PACKAGE` missing/unreadable, output unwritable | 74 | no |
+| `PACKAGE` missing or unresolvable, or an I/O failure such as output unwritable | 74 | no |
 
 - `NOT_EVALUATED` is a §7.4 aggregate verdict, not a check outcome, and has no dedicated code; it
   maps to 2 (neither pass nor package failure). Consumers needing the distinction read `verdict`.
-  64, 70 and 74 produce **no** report; their codes are `pap.cli.usage`, `pap.internal.error` and
-  `pap.io.error` (plus `pap.trust.policy-invalid` or `pap.cli.unknown-check` where they apply),
-  written to stderr as `pap: <code>: <message>` and MUST NOT be parsed as a report.
+  64, 70 and 74 produce **no** report. Exit 74 uses `pap.package.not-found` when the `PACKAGE` is
+  missing or does not resolve, and `pap.io.error` for any other I/O failure such as an unwritable
+  output; the remaining codes are `pap.cli.usage` and `pap.internal.error` (plus
+  `pap.trust.policy-invalid` or `pap.cli.unknown-check` where they apply), written to stderr as
+  `pap: <code>: <message>` and MUST NOT be parsed as a report.
+- A resolved `PACKAGE` whose manifest is readable but whose root, or a directory under it, cannot
+  be listed is not an exit-74 I/O failure: it is the §4.3.3 undeclared-file scan-incomplete
+  condition (`pap.package.undeclared-scan-incomplete`, `coverage.full: false`, verdict at most
+  `INCOMPLETE`), and a report is produced. A manifest that cannot be read is likewise a
+  report-level `pap.package.io` failure with verdict `FAIL` (§7.7), not exit 74.
 - **The report is authoritative; the exit code is a gate.** The exit code summarises the verdict
   and collapses multiple causes by §7.4 precedence: a failed check plus an untrusted signer exits
   1 and the report carries both. A consumer MUST NOT infer "package invalid" from a non-zero exit;
@@ -2395,7 +2458,10 @@ During any command the verifier:
    opaque bytes. MUST NOT create subprocesses or load native extensions from the package: file
    reads are limited to the package tree, the explicitly named policy file and process resources;
    no configuration discovery from environment, home or current directory; no writes outside
-   stdout/stderr; no path outside the package root is followed (§4.3.2).
+   stdout/stderr; no path outside the package root is followed (§4.3.2). Resolving the
+   operator-supplied `PACKAGE` argument to its real path (§4.3.2) is not “following a path outside
+   the package root” for this rule; after resolution, no declared payload path may leave the
+   resolved root.
 
 Conformance case F40 checks this with a producer-free environment, sentinel `PATH` shims and
 network denial; a verifier needing network, a producer import or package-supplied code is
@@ -2674,6 +2740,10 @@ Additional safe defaults, normative:
   producer-supplied command, and imports nothing from the package (§4.1 rule 4).
 - **No archive parsing, no wall-clock timeout.** Directory-only v0.1 (§10.7); CPU is bounded by the
   JSON and collection limits, and a wall-clock budget is deferred and recorded as a limitation.
+- **No normative scan-entry limit.** The undeclared-file scan has no §4.3.4 entry-count limit in
+  v0.1. A verifier may bound its own scan; that bound is an implementation robustness measure, not
+  a producer-facing limit, and a stop is reported as an incomplete scan (§4.3.3), never as
+  `pap.package.limit-exceeded`.
 
 ### 10.6 Scope boundary and residual risk
 
@@ -2961,22 +3031,29 @@ only within one verifier build; diagnostic messages are never compared across im
 fixtures/pap-v0.1/
   README.md               fixture policy and how to run the matrix
   cases.json              machine-readable case index and expected assertions
+  requirements.json       code/requirement/verdict-cause map (ODR-PAP-006 A6)
   base/                   canonical valid package; bytes equal to Appendix F
     assurance-package.json  artifacts/ACME-SUPPLIER.draft.md  inputs/project.yml
     sources/acme-policy.md  claims/{provenance,relations,producer-report}.json
-  F01-unchanged/ … F61-…/ one complete static package copy per case
+  F01-unchanged/ … F85-…/ one complete static package copy per case
   trust-policy/           unsigned-valid.json  signature-required.json
                           signature-optional.json  expired.json  invalid.json
                           not-authorized-role.json  package-not-allowed.json
                           unknown-signer.json  profile-pinned.json  review-required.json
-                          lowered-limits.json
+                          lowered-limits.json  not-yet-valid.json
+                          checker-unknown.json  profile-untrusted.json
+                          signature-required-underdeclared.json
+                          signature-quorum-two-underdeclared.json
+                          review-underdeclared.json  strict-enum.json
   signatures/             trusted.dsse.json  untrusted.dsse.json  invalid.dsse.json
 ```
 
 `cases.json` references the Appendix E literals directly, so no separate `vectors/` copy is
 needed. The trust-policy fixtures have these normative semantics. Each is one fixed file: a
 fixture is normative data, so an "either shape is allowed" description would be a conformance
-defect.
+defect. The F62-F80 cases extend the corpus for diagnostic-code coverage; F81-F85 pin the
+S3 required-dimension derivation and the remaining hostile-input boundaries. Their expected
+statuses, diagnostics and coverage are recorded in `cases.json` and enforced by the same harness.
 
 | Fixture | Required content and behaviour |
 |---|---|
@@ -2991,6 +3068,13 @@ defect.
 | `profile-pinned.json` | `signature.mode: "disabled"`, `requiredDimensions` containing `trust`, and `profiles[]` pinning `{id: "acme-supplier", version: "0.1.0"}`; a package declaring another profile version gets `profileRecognition: UNSUPPORTED` (F43). |
 | `review-required.json` | `signature.mode: "disabled"`, the three mechanical checks in `requiredChecks`, `requiredDimensions: ["integrity","sources","checks","humanReview"]`, `humanReview: {required: true, maxAgeSeconds: 2592000}`, and a `signers[]` entry with `allowedRoles: ["reviewer"]` matching the reviewer identity in `claims/reviews.json` (F55). |
 | `lowered-limits.json` | `signature.mode: "disabled"`, `limits: {fileBytes: 64}`; F52 reports `effectiveLimits.fileBytes: 64`, `pap.limit.lowered`, `integrity.artifacts: NOT_EVALUATED` and `INCOMPLETE`. |
+| `not-yet-valid.json` | Same shape as `unsigned-valid.json` but `issuedAt` after the fixture `--now`; policy state `STALE`, verdict `INCOMPLETE` (`pap.trust.policy-not-yet-valid`, F62). |
+| `checker-unknown.json` | `unsigned-valid.json` plus `checkers[]` pinning a synthetic checker id/version; `checkerRecognition: UNSUPPORTED` and `pap.trust.checker-unknown`; `PASS` while trust is not required (F63). |
+| `profile-untrusted.json` | `unsigned-valid.json` plus `profiles[]` pinning `acme-supplier@0.1.0` with a closure digest different from the package declaration; `profileRecognition: UNTRUSTED` and `pap.trust.profile-untrusted`; `PASS` while trust is not required (F65). |
+| `signature-required-underdeclared.json` | Same shape as `signature-required.json` but `requiredDimensions: ["integrity"]`; I1/E2 derivation still requires `signature` and `trust`, and the one valid envelope yields `PASS` with `coverage.full: true` (F81). |
+| `signature-quorum-two-underdeclared.json` | `signature-required-underdeclared.json` plus a second configured signer and `minimumValidSigners: 2`; one valid envelope leaves `trust.policyDecision: NOT_EVALUATED`, `coverage.full: false` and `INCOMPLETE` (F82). |
+| `review-underdeclared.json` | Same shape as `review-required.json` but `requiredDimensions: ["integrity"]`; `humanReview.required: true` still derives the dimension, and the fresh in-scope approval yields `PASS` (F83). |
+| `strict-enum.json` | `unsigned-valid.json` with `signature.mode: ["required"]`; a non-string enum is invalid policy input, so the verifier fails closed with exit 64 and no report (F85). |
 
 Rules:
 
@@ -3041,6 +3125,9 @@ A JCS JSON document: `{"fixtureSetVersion": "0.1", "baseCase": "F01", "cases": [
 - `expect.effectiveLimits` is an optional object of limit name → integer. Each named limit MUST
   equal the report's `effectiveLimits[name]`; a report with no `effectiveLimits` fails the case.
   Limits not named are unconstrained. F52 uses it to pin a lowered limit.
+- `expect.coverageRequiredDimensions` is an optional exact, ordered list; when present, the
+  report's `coverage.requiredDimensions` MUST equal it. F81-F83 use it to pin the I1/E2
+  derivation when the policy under-declares the derived dimensions.
 - `noReport: true` marks exit 64/70/74 cases: no document, and `stderrCodes` MUST appear on
   stderr. Cases for `inspect`/`explain` name `"document": "inspection"|"explanation"` and use
   `inspection` / `checkOutcome` instead of `verdict`.
@@ -3478,6 +3565,7 @@ table leaves deferred.
 | Error-message wording | **Deferred by design**: messages may differ and only codes are normative (§7.7, §9.6); text layout beyond the required lines is not compared (§13.6). | code-set assertions only; no message text is asserted |
 | JSON parser strictness | **Resolved** by §4.10, §5.3.1 and the document-type mapping below: UTF-8 without BOM, duplicate keys invalid, integer-literal number tokens only, and a fixed diagnostic per document type. Parse failure of the manifest is never `INCOMPLETE`; a claim file fails the package while a limit stops the affected scope. | F29, F35, F50, F51, F58; F21 for truncated JSON |
 | Resource-limit defaults and enforcement points | **Resolved** by §4.3.4 and §9.11: the manifest limit yields `FAIL`; every other limit yields `NOT_EVALUATED`/`INCOMPLETE` with `coverage.full: false` and is reported in `effectiveLimits`; limits may only be lowered, and the policy `limits` maximum equals the default. | F35, F52 |
+| Undeclared-file scan completeness | **Resolved** by §4.3.3/§7.5: an enumeration failure yields `pap.package.undeclared-scan-incomplete`, `coverage.full: false` and `INCOMPLETE`; a declared-file failure remains `FAIL`. | a unit/hostile test; no portable static case (see below) |
 | Human-review evidence semantics | **Resolved for v0.1** by §6.7: binding, freshness, reviewer recognition, single-approval sufficiency and rejection precedence are pinned. Signed approvals remain deferred because v0.1 has no policy field to require one (§14.1, §16.1(1)). | F28 (negative), F55 (positive) |
 | Signature adapter details | **Resolved** by §11.2: DSSE profile, payload type, Ed25519 and canonical-`S` verification, canonical base64, envelope discovery/order/limit, and the exact policy key binding are fixed. The in-toto mapping stays optional and outside the conformance tiers (§11.3, §13.1). | Tier B: F11–F13, F15–F18, F56 |
 | Multi-envelope aggregation | **Resolved** by §6.5: the aggregate covers every present envelope, an unknown/untrusted/invalid envelope blocks `PASS` in `optional` and `required` modes, and duplicate signers are counted once. | F18, F56 |
@@ -3506,9 +3594,10 @@ blocker and escalates it; it is never resolved by adopting the reference behavio
 
 This RFC itself is **design only**: it adds no verifier, producer, CLI, fixture generator or test
 code. The maintainer accepted the v0.1 specification on 2026-11-02 and authorized Phase 2 after
-Gate 0 was recorded COMPLETE on #43 (comment 6570952005). A Phase 2 implementation is available in
-PR #64; merge and independent interoperability validation remain pending. This document cites those
-records and does not independently re-audit Gate 0.
+Gate 0 was recorded COMPLETE on #43 (comment 6570952005). The Phase 2 implementation is merged into
+`main` via PR #64 and available under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04;
+ODR-PAP-005), limited to the Phase 2a case set and its stated caveats. This document cites those
+records and does not independently re-audit Gate 0 or the Gate 3 evidence.
 
 - **Phase 2** (independent verifier CLI) consumes §4–§9 and §12. Its gate is a recipient verifying
   offline with no Contract Builder service or runtime dependency; §12 cases are the evidence, with
@@ -3530,8 +3619,8 @@ is an RFC amendment, not a silent implementation choice.
 This RFC authorizes no implementation by itself. With the decision register in §16 accepted,
 Gate 0 recorded COMPLETE on #43, and Phase 2 authorized by the maintainer on 2026-11-02, the
 following sequence keeps the format independently reviewable and matches roadmap #43 Phases 2–3.
-A Phase 2 implementation is available in PR #64; merge and independent interoperability validation
-remain pending. The sequence is:
+The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; Gate 3 is
+PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to the Phase 2a case set. The sequence is:
 
 | Step | Work | Exit condition |
 |---|---|---|
@@ -3673,6 +3762,55 @@ These are recorded as blockers, not assumptions:
    CLI project; it changes no format field or identity (§9.8).
 
 ---
+
+
+## 17. Errata (2026-11-05)
+
+These clarifications are normative. They resolve ambiguities exposed by the 2026-11-05 audit and
+are accepted by [ODR-PAP-006](../decisions/ODR-PAP-006-pap-verdict-model.md); they do not renumber
+sections or change the package format.
+
+**E1 — Resource limits never produce `FAIL` (§4.3.4, §7.4), except an unreadable manifest.** A
+limit hit at any stage — including a JSON nesting/string limit or a file-size limit while reading a
+signature envelope — is reported as `pap.package.limit-exceeded`, leaves the affected dimension
+`NOT_EVALUATED`, sets `coverage.full: false`, and caps the verdict at `INCOMPLETE`. The exception
+is a limit hit on the manifest itself: when `assurance-package.json` cannot be read or parsed within
+the limits, the verifier cannot compute the package identity or the required check set, so it emits
+`pap.package.limit-exceeded` and returns `FAIL` (the same fail-closed report as an unreadable
+manifest). Structural parse errors remain `INVALID`; the verifier must distinguish "the document
+is malformed" from "the verifier stopped for safety".
+
+**E2 — Required dimensions are derived; `requiredDimensions` is additive (§6.3, §7.4).**
+`signature.mode: "required"` requires `signature` and `trust`; `humanReview.required: true`
+requires `humanReview`; the required checks require their implied dimensions. A policy's
+`requiredDimensions` may add to that set but cannot remove a derived requirement; a policy that
+would remove one is `pap.trust.policy-invalid` (exit 64, no report).
+
+**E3 — An unmet signature quorum is `INCOMPLETE` (§6.5, §7.4).** Under
+`signature.mode: "required"`, when fewer distinct authorized valid signers than
+`minimumValidSigners` are presented, `signature.validity` is `VALID` but
+`trust.policyDecision` is `NOT_EVALUATED`; the verdict is `INCOMPLETE`, not `PASS` or `FAIL`, and
+the verifier emits `pap.signature.absent` and a limitation naming the quorum. This does not
+redefine the other trust outcomes: an evaluated `policyDecision: REJECTED` remains `UNTRUSTED`
+(§7.4 rule 2), and `policy.state: STALE` remains `INCOMPLETE` (§7.4 rule 4).
+
+**E4 — `coverage.full` follows required-dimension evaluation, not the verdict (§7.5).** `full` is
+`true` only when every required dimension (derived as in E2) was decided and the undeclared-file
+scan completed. It is `false` when a required dimension is not decided (an unmet quorum leaves
+`trust` `NOT_EVALUATED`, so `full` is false once `signature`/`trust` are derived as required),
+when a `pap.package.limit-exceeded` stopped evaluation, when the scan is incomplete, and when the
+required set is empty. It is **not** automatically false for every `INCOMPLETE`: `STALE` is a
+decided state (§7.5), so a stale policy can yield `INCOMPLETE` with `coverage.full: true` when all
+required work was evaluated.
+
+**E5 — Enum fields are strings; no coercion (§6.3.2, Appendix B).** A policy, manifest or claim
+value that is not the defined string type is invalid input. The verifier must not coerce arrays,
+objects or numbers to strings: an invalid trust policy fails closed (exit 64, no report), and
+invalid package input fails integrity.
+
+**E6 — `__proto__` is an ordinary JSON member (§4.9, §5.3.1).** Per RFC 8785/JCS, a member named
+`__proto__` is hashed, sorted and validated like any other own property and must not become a
+prototype. An implementation that rejects the name instead must document that deviation.
 
 
 ## Appendix A — Manifest JSON Schema (normative)
@@ -5397,7 +5535,7 @@ during integration, this appendix MUST be updated in the same change.
 | 8 | Positive and negative conformance fixtures have expected results. | §12, §12.2, §12.4 | Every runnable matrix row states expected dimensions, verdict, exit code and diagnostics; no-report CLI rows state exit code and stderr code. Expected results are normative in §12.2/§12.4; Appendix E fixes the digest/JCS values. |
 | 9 | A second implementation can implement the supported subset without private Contract Builder dependencies. | §13 | Algorithms and schemas are language-neutral and published; the independent subset and its equality requirements are defined; no producer import is permitted. |
 | 10 | Non-goals and deferred integrations (Sigstore/SCITT/OCI, production key management, temporal graph, mandates) are explicit. | §14, §11, §3.3 | Twelve non-goals and deferred integrations are listed with their reasons and consequences; none is silently included. |
-| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2. A Phase 2 implementation is available in PR #64; merge and Gate 3 validation remain pending. This row cites those records and does not independently re-audit Gate 0. |
+| 11 | RFC is reviewed and accepted before Phase 2 implementation begins. | Document status, §2.4, §3.1 | The RFC is accepted (2026-11-02), Gate 0 is recorded COMPLETE on #43 (comment 6570952005), and the maintainer's #57 decision then authorized Phase 2. The Phase 2 implementation is merged into `main` via PR #64 and available under `pap/`; Gate 3 is PASSED for PAP Phase 2a (2026-11-04; ODR-PAP-005), limited to the Phase 2a case set. This row cites those records and does not independently re-audit Gate 0 or the Gate 3 evidence. |
 
 ### H.3 Required decisions / open questions (12 items)
 
@@ -5583,7 +5721,7 @@ required consequence so an implementation cannot downgrade an error to a warning
 
 | Code | Severity | Effect / limitation |
 |---|---|---|
-| `pap.package.not-found` | error | The package path does not exist; no report, exit 74. A path that exists but is not a directory (including an archive file) is a usage error (`pap.cli.usage`, exit 64) |
+| `pap.package.not-found` | error | The package path does not exist, or a symbolic link used as `PACKAGE` does not resolve; no report, exit 74. A path that exists or resolves to something that is not a directory (including an archive file) is a usage error (`pap.cli.usage`, exit 64). A symbolic link to a directory is resolved and is not this condition |
 | `pap.package.io` | error | A declared file or the manifest cannot be read; integrity `FAIL` (an unreadable manifest also reports `package.identity: null`, verdict `FAIL`, exit 1; a missing package *directory* is `pap.package.not-found`, exit 74) |
 | `pap.package.manifest-json` | error | Manifest is not valid UTF-8 JSON, has a BOM, trailing data or a non-I-JSON number; integrity `FAIL` |
 | `pap.package.duplicate-key` | error | A JSON object repeats a member name; duplicate keys are invalid, not last-wins; integrity `FAIL` |
@@ -5597,6 +5735,7 @@ required consequence so an implementation cannot downgrade an error to a warning
 | `pap.package.declared-file-missing` | error | A manifest-declared payload file is absent or unreadable; integrity `FAIL` |
 | `pap.package.manifest-self-reference` | error | The manifest declares itself as a payload; integrity `FAIL` |
 | `pap.package.undeclared-file` | warning | A regular file is present but not declared; it is not read and does not affect identities |
+| `pap.package.undeclared-scan-incomplete` | warning | The verifier could not complete the undeclared-file scan: an I/O error while enumerating the package root or a directory under it, or a private implementation scan budget (entry count or traversal depth) stopped it. The absence of undeclared files was not established; the scan is `NOT_EVALUATED`, `coverage.full: false`, verdict at most `INCOMPLETE`, and a limitation with the same code. Declared payload integrity is unaffected; a declared payload failure remains `pap.package.io`/`declared-file-missing`/`FAIL` |
 | `pap.package.limit-exceeded` | error | A §4.3.4 resource limit was exceeded; affected check(s) `NOT_EVALUATED`, verdict `INCOMPLETE` — except a limit that prevents reading/parsing the manifest, which yields `package.identity: null`, `integrity.package: FAIL`, verdict `FAIL` |
 | `pap.package.duplicate-id` | error | Duplicate artifact/source/input/check/claim id, or duplicate check specification; integrity `FAIL` |
 | `pap.package.empty-check-specs` | warning | No required check remains after the union with policy; the verifier evaluates the declared checks, then reports `INCOMPLETE` with `coverage.full: false` (§4.4.3, §7.4 rule 4); never a vacuous `PASS` |

@@ -1,0 +1,7 @@
+# Every path is owned by the maintainer.
+#
+# Branch protection requires a Code Owner review, so an approving review from the
+# automation account (it-start) cannot satisfy the required-review gate, even on a
+# pull request whose commits it authored. The maintainer is the only human on the
+# allowed list; the documented admin bypass is the solo-maintainer path.
+* @zaebee

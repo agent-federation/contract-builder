@@ -7,12 +7,11 @@
  */
 
 import { opendir } from "node:fs/promises";
-import path from "node:path";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
-import { canonicalBase64Decode, utf8 } from "./digest.js";
+import { utf8 } from "./digest.js";
+import { decodeSignatureEnvelope } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
-import { isObject } from "./manifest.js";
-import { readPackageFile } from "./paths.js";
+import { readPackageFile, resolvePackageDirectory } from "./paths.js";
 import type { PackageRoot } from "./paths.js";
 import type { TrustPolicy } from "./policy.js";
 import type { Diagnostic, Limits, SignatureEntry } from "./types.js";
@@ -80,7 +79,7 @@ export async function evaluateSignatures(options: {
   const discovered = await discoverEnvelopes(options.root, options.limits);
   if (discovered.error !== null) {
     diagnostics.push({
-      code: "pap.package.io",
+      code: discovered.errorCode ?? "pap.package.io",
       severity: "error",
       scope: "signatures",
       message: discovered.error,
@@ -104,6 +103,7 @@ export async function evaluateSignatures(options: {
     };
   }
 
+  let envelopeLimitHit = false;
   for (const relative of discovered.names) {
     const read = await readPackageFile(
       options.root,
@@ -112,6 +112,25 @@ export async function evaluateSignatures(options: {
       Math.min(options.limits.jsonStringBytes, options.limits.fileBytes),
     );
     if (!read.ok || read.bytes === undefined) {
+      // RFC §4.3.4 / errata E1: a byte or JSON limit is the verifier's safety
+      // boundary, not a producer defect. Only a structural read failure keeps
+      // the envelope-invalid/INVALID path.
+      if (read.failure === "limit") {
+        envelopeLimitHit = true;
+        entries.push({
+          path: relative,
+          validity: "NOT_EVALUATED",
+          signerIdentity: "NOT_EVALUATED",
+          policyDecision: "NOT_EVALUATED",
+        });
+        diagnostics.push({
+          code: "pap.package.limit-exceeded",
+          severity: "error",
+          scope: relative,
+          message: read.message ?? "signature envelope exceeds a configured resource limit",
+        });
+        continue;
+      }
       entries.push({
         path: relative,
         validity: "INVALID",
@@ -128,6 +147,7 @@ export async function evaluateSignatures(options: {
     }
     const parsed = parseEnvelope(relative, read.bytes, options.limits);
     if (!parsed.ok) {
+      if (parsed.limit) envelopeLimitHit = true;
       entries.push({
         path: relative,
         validity: parsed.validity,
@@ -285,28 +305,33 @@ export async function evaluateSignatures(options: {
     }
   }
 
+  // RFC §4.3.4 / errata E1 with §11.5 aggregation: a resource limit stops only
+  // the affected envelope, so the aggregate dimensions come from the entries
+  // that were evaluated. The `envelopeLimitHit` flag still caps the verdict at
+  // INCOMPLETE through the report's `limitStopped` context; it must not mask
+  // another envelope's evaluated INVALID/REJECTED/VALID outcome. The count-limit
+  // path above is the only override: there the verifier read no envelope at all
+  // and returns NOT_EVALUATED directly.
   const validity = aggregateValidity(entries, options.mode);
   const signerIdentity = aggregateSignerIdentity(entries, options.policy, authorizationStates);
-  const policyDecision = aggregatePolicyDecision(
-    entries,
-    options.policy,
-    options.mode,
-    options.policyFresh,
-    validSignerIndexes,
-  );
-
-  if (options.policy === undefined) {
-    // Leave the certificate-signal limitation to the report builder; the
-    // signature dimension itself is NOT_EVALUATED whenever an envelope exists.
-  }
+  const policyDecision =
+    options.policy === undefined
+      ? "NOT_EVALUATED"
+      : aggregatePolicyDecision(
+          entries,
+          options.policy,
+          options.mode,
+          options.policyFresh,
+          validSignerIndexes,
+        );
 
   return {
     validity,
     entries,
     signerIdentity:
       options.policy === undefined && entries.length > 0 ? "NOT_EVALUATED" : signerIdentity,
-    policyDecision: options.policy === undefined ? "NOT_EVALUATED" : policyDecision,
-    envelopeLimitHit: false,
+    policyDecision,
+    envelopeLimitHit,
     discoveryFailure: discovered.error !== null,
     diagnostics,
   };
@@ -316,18 +341,31 @@ interface EnvelopeDiscovery {
   names: string[];
   limitHit: boolean;
   error: string | null;
+  errorCode?: "pap.package.symlink" | "pap.package.path-escape";
 }
 
 async function discoverEnvelopes(root: PackageRoot, limits: Limits): Promise<EnvelopeDiscovery> {
-  const directory = path.join(root.real, "signatures");
+  const resolved = await resolvePackageDirectory(root, "signatures");
+  if (!resolved.ok) {
+    if (resolved.failure === "missing") {
+      return { names: [], limitHit: false, error: null };
+    }
+    return {
+      names: [],
+      limitHit: false,
+      error: resolved.message,
+      ...(resolved.failure === "symlink"
+        ? { errorCode: "pap.package.symlink" as const }
+        : resolved.failure === "path-escape"
+          ? { errorCode: "pap.package.path-escape" as const }
+          : {}),
+    };
+  }
   const names: string[] = [];
   let directoryHandle;
   try {
-    directoryHandle = await opendir(directory);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { names, limitHit: false, error: null };
-    }
+    directoryHandle = await opendir(resolved.absolute);
+  } catch {
     return { names, limitHit: false, error: "cannot read the signatures directory" };
   }
   try {
@@ -366,6 +404,7 @@ type Parsed =
       validity: "INVALID" | "NOT_EVALUATED";
       signerIdentity: SignatureEntry["signerIdentity"];
       policyDecision: SignatureEntry["policyDecision"];
+      limit: boolean;
     };
 
 function parseEnvelope(relative: string, bytes: Uint8Array, limits: Limits): Parsed {
@@ -376,47 +415,18 @@ function parseEnvelope(relative: string, bytes: Uint8Array, limits: Limits): Par
       stringBytes: limits.jsonStringBytes,
     });
   } catch (error) {
+    if (error instanceof JsonParseError && error.failure === "limit") {
+      return limited(error.message);
+    }
     return invalid(error instanceof JsonParseError ? error.message : "envelope is not valid JSON");
   }
-  if (!isObject(value)) return invalid("envelope must be a JSON object");
-  for (const key of Object.keys(value)) {
-    if (!["payloadType", "payload", "signatures"].includes(key)) {
-      return invalid(`unknown envelope field ${key}`);
-    }
-  }
-  if (
-    typeof value.payloadType !== "string" ||
-    typeof value.payload !== "string" ||
-    !Array.isArray(value.signatures) ||
-    value.signatures.length === 0
-  ) {
-    return invalid("envelope is missing payloadType, payload or signatures");
-  }
-  const payload = canonicalBase64Decode(value.payload);
-  if (payload === null) return invalid("envelope payload is not canonical base64");
-  const signatures: EnvelopeSignature[] = [];
-  for (let index = 0; index < value.signatures.length; index += 1) {
-    const raw = value.signatures[index];
-    if (!isObject(raw)) return invalid(`signatures[${index}] must be an object`);
-    for (const key of Object.keys(raw)) {
-      if (!["keyid", "sig"].includes(key)) {
-        return invalid(`unknown signature field ${key}`);
-      }
-    }
-    if (typeof raw.keyid !== "string" || typeof raw.sig !== "string") {
-      return invalid(`signatures[${index}] must carry keyid and sig`);
-    }
-    const sig = canonicalBase64Decode(raw.sig);
-    if (sig === null || sig.length !== 64) {
-      return invalid(`signatures[${index}].sig must be 64 canonical base64 bytes`);
-    }
-    signatures.push({ keyId: raw.keyid, sig });
-  }
+  const decoded = decodeSignatureEnvelope(value);
+  if (!decoded.ok) return invalid(decoded.message);
   return {
     ok: true,
-    payloadType: value.payloadType,
-    payload,
-    signatures,
+    payloadType: decoded.payloadType,
+    payload: decoded.payload,
+    signatures: decoded.signatures,
   };
 }
 
@@ -428,6 +438,19 @@ function invalid(message: string): Parsed {
     validity: "INVALID",
     signerIdentity: "NOT_EVALUATED",
     policyDecision: "REJECTED",
+    limit: false,
+  };
+}
+
+function limited(message: string): Parsed {
+  return {
+    ok: false,
+    code: "pap.package.limit-exceeded",
+    message,
+    validity: "NOT_EVALUATED",
+    signerIdentity: "NOT_EVALUATED",
+    policyDecision: "NOT_EVALUATED",
+    limit: true,
   };
 }
 

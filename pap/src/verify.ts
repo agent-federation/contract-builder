@@ -7,7 +7,7 @@
 import { domainHash } from "./digest.js";
 import { jcsBytes } from "./json.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
-import { validateManifest } from "./manifest.js";
+import { decodeManifest } from "./decode.js";
 import type { CheckSpec, Manifest, ManifestDefect } from "./manifest.js";
 import {
   hashPackageFile,
@@ -40,13 +40,14 @@ import { evaluateSignatures } from "./signatures.js";
 import type { SignatureEvaluation } from "./signatures.js";
 import {
   computeCoverage,
-  computeRequiredDimensions,
   computeVerdict,
+  deriveRequiredDimensions,
   sortDiagnostics,
   sortLimitations,
   statusForDimension,
   verificationRecordIdentity,
 } from "./report.js";
+import type { VerdictContext } from "./report.js";
 import { formatRfc3339, parseRfc3339, systemClock } from "./time.js";
 import type { Instant } from "./time.js";
 import { CHECKER, checkerIdentity } from "./version.js";
@@ -62,7 +63,6 @@ import type {
   CheckRecord,
   ClaimKind,
   Diagnostic,
-  DimensionName,
   Limits,
   Limitation,
   SignatureEntry,
@@ -198,13 +198,20 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   }
 
   const packageIdentity = domainHash("pap.package.v1", jcsBytes(manifestValue));
-  const validation = validateManifest(manifestValue, limits);
+  const validation = decodeManifest(manifestValue, limits);
   const manifest = validation.manifest;
   const structuralFailure =
     manifest === null ||
     validation.defects.some((defect) => defect.structural) ||
     !validation.payloadsUsable;
   const artifactPathFailure = validation.defects.some((defect) => defect.artifactLevel);
+  // RFC §4.3.1 / Appendix J.1: a duplicate or grammar-invalid declared path is
+  // an integrity failure regardless of which payload class it belongs to; the
+  // artifact-level flag only decides the artifacts dimension.
+  const declaredPathFailure = validation.defects.some(
+    (defect) =>
+      defect.code === "pap.package.path-duplicate" || defect.code === "pap.package.path-invalid",
+  );
 
   for (const defect of validation.defects) {
     diag(defect.code, "error", defect.scope, defect.message);
@@ -238,12 +245,11 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   const policyChecks = loadedPolicy?.policy.requiredChecks ?? [];
 
   const payloads = await loadPayloads(root, limits, manifest, structuralFailure, artifactPathFailure, diagnostics, diag);
-  let enumerationFailure = false;
+  let scanIncomplete = false;
   let nestedManifestFailure = false;
   if (manifest !== null && !structuralFailure) {
     const scan = await reportUndeclaredFiles(root, manifest, limits, diag);
-    if (scan.limitHit) payloads.limitHit = true;
-    enumerationFailure = scan.error !== null;
+    scanIncomplete = scan.incomplete;
     nestedManifestFailure = scan.nestedManifest;
   }
   if (
@@ -304,7 +310,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
         : "PASS";
 
   let integrityPackage: VerificationReport["dimensions"]["integrity"]["package"] = "PASS";
-  if (structuralFailure || artifactPathFailure || enumerationFailure || nestedManifestFailure) {
+  if (structuralFailure || artifactPathFailure || declaredPathFailure || nestedManifestFailure) {
     integrityPackage = "FAIL";
   } else if (
     payloads.artifacts.some((artifact) => artifact.status === "missing") ||
@@ -388,6 +394,20 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
       diag("pap.signature.absent", "warning", "signatures", "a signature is required but no envelope is present");
     }
   }
+  if (
+    loadedPolicy?.policy.signature.mode === "required" &&
+    signatureEvaluation.entries.length > 0 &&
+    signatureEvaluation.validity !== "INVALID" &&
+    signatureEvaluation.policyDecision === "NOT_EVALUATED" &&
+    !signatureEvaluation.envelopeLimitHit
+  ) {
+    diag(
+      "pap.signature.absent",
+      "warning",
+      "signatures",
+      "the required signature quorum is not met",
+    );
+  }
   if (signatureEvaluation.envelopeLimitHit) {
     // `evaluateSignatures` already emitted the limit diagnostic.
   }
@@ -430,8 +450,13 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     diag,
   );
 
-  const requiredDimensions = computeRequiredDimensions(requiredChecks, loadedPolicy?.policy.requiredDimensions ?? []);
+  // I1/erratum E2: requirements are derived from the policy and the required
+  // checks. The operator's `requiredDimensions` can only add to the derived set,
+  // so an omitted `signature`/`trust`/`humanReview` no longer under-evaluates
+  // the package.
+  const requiredDimensions = deriveRequiredDimensions(loadedPolicy?.policy ?? null, requiredChecks);
   const signatureMode = loadedPolicy?.policy.signature.mode ?? "optional";
+  const humanReviewRequired = loadedPolicy?.policy.humanReview.required === true;
   const emptyRequiredSet = requiredChecks.length === 0 && requiredDimensions.length === 0;
   if (emptyRequiredSet) {
     diag(
@@ -501,20 +526,26 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     diagnostics: [],
   };
 
+  // S3: normalize every verdict input once, then hand the pure fold a single
+  // `VerdictContext`. `coverageFull` is the I4 evaluation-completeness result
+  // over the same derived requirement set, so the verdict and the coverage
+  // counters cannot disagree about what was required.
   const limitStopped = payloads.limitHit || signatureEvaluation.envelopeLimitHit;
-  report.coverage = computeCoverage(report, requiredChecks, requiredDimensions, limitStopped);
-  report.verdict = computeVerdict(report, {
+  report.coverage = computeCoverage(report, requiredChecks, requiredDimensions, limitStopped, scanIncomplete);
+  const verdictContext: VerdictContext = {
     requiredChecks,
     requiredDimensions,
     signatureMode,
-    humanReviewRequired: loadedPolicy?.policy.humanReview.required === true,
+    humanReviewRequired,
     policyState: report.policy.state,
     limitStopped,
     unsupportedVersion: validation.compat !== null,
     unsupportedFeature:
       validation.unsupportedFeatures.length > 0 || validation.unsupportedCriticalExtensions.length > 0,
     emptyRequiredSet,
-  });
+    coverageFull: report.coverage.full,
+  };
+  report.verdict = computeVerdict(report, verdictContext);
 
   report.limitations = buildLimitations(diagnostics);
   report.diagnostics = sortDiagnostics(diagnostics);
@@ -1084,7 +1115,7 @@ function emptyCheckRecord(
   };
 }
 
-function evaluateTrust(options: {
+export function evaluateTrust(options: {
   policy: TrustPolicy | undefined;
   state: "FRESH" | "STALE" | "ABSENT";
   signature: SignatureEvaluation;
@@ -1143,12 +1174,16 @@ function evaluateTrust(options: {
     }
   }
 
-  const signerIdentity =
-    options.signature.envelopeLimitHit
-      ? "NOT_EVALUATED"
-      : options.signature.entries.length === 0
-        ? "NOT_APPLICABLE"
-        : options.signature.signerIdentity;
+  // RFC §4.3.4: the envelope-count limit reads no envelope, so the signature
+  // scope is NOT_EVALUATED rather than absent. A per-envelope limit must not
+  // hide the aggregate of the envelopes that were evaluated.
+  const noEnvelopeEvaluated =
+    options.signature.envelopeLimitHit && options.signature.entries.length === 0;
+  const signerIdentity = noEnvelopeEvaluated
+    ? "NOT_EVALUATED"
+    : options.signature.entries.length === 0
+      ? "NOT_APPLICABLE"
+      : options.signature.signerIdentity;
   const policyDecision =
     options.state === "STALE" ? "STALE" : options.signature.policyDecision;
   if (policyDecision === "REJECTED" && options.signature.entries.length > 0) {
@@ -1321,8 +1356,7 @@ function buildLimitations(diagnostics: Diagnostic[]): Limitation[] {
 }
 
 interface UndeclaredScan {
-  limitHit: boolean;
-  error: string | null;
+  incomplete: boolean;
   nestedManifest: boolean;
 }
 
@@ -1345,11 +1379,25 @@ async function reportUndeclaredFiles(
     if (ref !== undefined) add(ref.path);
   }
   const walk = await walkPackageFiles(root, limits);
+  // RFC §4.3.3/R-PAP-2 and R-PAP-3: an enumeration failure or a private
+  // entry/depth budget stop leaves the absence of undeclared files
+  // unestablished. It is a scan-incomplete warning, never a package I/O
+  // failure and never a §4.3.4 limit violation.
   if (walk.limitHit) {
-    diag("pap.package.limit-exceeded", "error", "package", "directory enumeration exceeded the verifier budget");
+    diag(
+      "pap.package.undeclared-scan-incomplete",
+      "warning",
+      "package",
+      "the undeclared-file scan stopped at the verifier entry or depth budget",
+    );
   }
   if (walk.error !== null) {
-    diag("pap.package.io", "error", "package", walk.error);
+    diag(
+      "pap.package.undeclared-scan-incomplete",
+      "warning",
+      "package",
+      `${walk.error}; the absence of undeclared files was not established`,
+    );
   }
   let nestedManifest = false;
   for (const file of walk.files) {
@@ -1368,7 +1416,7 @@ async function reportUndeclaredFiles(
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) continue;
     diag("pap.package.undeclared-file", "warning", file, "undeclared file is present and was not read");
   }
-  return { limitHit: walk.limitHit, error: walk.error, nestedManifest };
+  return { incomplete: walk.limitHit || walk.error !== null, nestedManifest };
 }
 
 function duplicateDeclaredPaths(manifest: Manifest): Set<string> {

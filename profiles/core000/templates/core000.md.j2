@@ -1,0 +1,207 @@
+# {{title}}
+
+**Mode:** {{modeLabel}}
+**Counts:** components={{counts.components}} · interfaces={{counts.interfaces}} · phases={{counts.phases}} · transitions={{counts.transitions}} · extension points={{counts.extensionPoints}} · dependencies={{counts.dependencies}} · diagnostics={{counts.diagnostics}} · claims={{counts.claims}} · source statements={{counts.sourceStatements}} · evidence={{counts.evidence}} · decisions={{counts.decisions}} · conformance cases={{counts.conformanceCases}}
+
+## Components
+
+{% for component in components %}
+### {{component.id}} — {{component.name}}
+
+- Boundary: `{{component.boundary}}`
+- Public: {{component.public}}
+- Responsibility: {{component.responsibility}}
+{% if component.interfaces.length > 0 %}
+- Provides: {% for iface in component.interfaces %}{% if not loop.first %}, {% endif %}`{{iface}}`{% endfor %}
+{% endif %}
+{% endfor %}
+## Interfaces
+
+{% for iface in interfaces %}
+### {{iface.id}} — {{iface.name}}
+
+- Surface: `{{iface.surface}}`
+- Stability: `{{iface.stability}}`
+- Owner: `{{iface.owner}}`
+- Description: {{iface.description}}
+
+{% endfor %}
+## Trust boundaries
+
+{% for boundary in trustBoundaries %}
+### {{boundary.id}} — {{boundary.name}}
+
+- Policy status: `{{boundary.policyStatus}}`
+- Enforcement: `{{boundary.enforcement}}`
+- Policy reference: {{boundary.policyRef}}
+- Inside: {{boundary.inside}}
+- Outside: {{boundary.outside}}
+- Statement: {{boundary.statement}}
+
+{% endfor %}
+## Phases
+
+{% for phase in phases %}
+### {{phase.id}} — {{phase.name}}
+
+- Guarantee: {{phase.guarantee}}
+- Not guaranteed: {{phase.notGuaranteed}}
+{% if phase.prerequisites.length > 0 %}
+- Prerequisites: {% for prerequisite in phase.prerequisites %}{% if not loop.first %}, {% endif %}`{{prerequisite}}`{% endfor %}
+{% else %}
+- Prerequisites: _none_
+{% endif %}
+
+{% endfor %}
+## Transitions
+
+{% if transitions.length === 0 %}
+{{transitionNote}}
+{% else %}
+{% for transition in transitions %}
+### {{transition.id}}
+
+- Condition: {{transition.condition}}
+- Description: {{transition.description}}
+
+{% endfor %}
+{% endif %}
+## Extension points
+
+{% for extension in extensionPoints %}
+### {{extension.id}} — {{extension.name}}
+
+- Mechanism: `{{extension.mechanism}}`
+- Trust: `{{extension.trust}}`
+- Status: `{{extension.status}}`
+{% if extension.loadedBy.length > 0 %}
+- Loaded by: {% for loadedBy in extension.loadedBy %}{% if not loop.first %}, {% endif %}`{{loadedBy}}`{% endfor %}
+{% endif %}
+{% if extension.exposes.length > 0 %}
+- Exposes: {% for exposed in extension.exposes %}{% if not loop.first %}, {% endif %}`{{exposed}}`{% endfor %}
+{% endif %}
+
+{% endfor %}
+## Dependencies
+
+{% for dependency in dependencies %}
+### {{dependency.id}} — {{dependency.name}}
+
+- Kind: `{{dependency.kind}}`
+- Status: `{{dependency.status}}`
+- Version: `{{dependency.version}}`
+{% if dependency.consequence %}
+- Consequence: {{dependency.consequence}}
+{% endif %}
+
+{% endfor %}
+## Diagnostic catalog
+
+{% for diagnostic in diagnosticCatalog %}
+- `{{diagnostic.id}}` — `{{diagnostic.severity}}` on `{{diagnostic.phase}}` ({{diagnostic.status}}): {{diagnostic.message}}
+{% endfor %}
+## Conformance cases
+
+{% if conformanceCases.length === 0 %}
+_None declared._
+{% else %}
+{% for conformanceCase in conformanceCases %}
+### {{conformanceCase.id}}
+
+- Kind: `{{conformanceCase.kind}}`
+- Input: {{conformanceCase.input}}
+- Expected: {{conformanceCase.expected}}
+- Status: `{{conformanceCase.status}}`
+{% if conformanceCase.covers.length > 0 %}
+- Covers: {% for covered in conformanceCase.covers %}{% if not loop.first %}, {% endif %}`{{covered}}`{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+{% for claimGroup in claimGroups %}
+## {{claimGroup.label}}
+
+{# `none` is a Nunjucks keyword, so the count is reached by subscript, not dot notation. #}
+_{{claimGroup.claims.length}} claims: {{claimGroup.counts.accepted}} accepted, {{claimGroup.counts.proposed}} proposed, {{claimGroup.counts.deferred}} deferred, {{claimGroup.counts["none"]}} none_
+
+{% for claim in claimGroup.claims %}
+### {{claim.id}}
+
+- Class: `{{claim.className}}`
+- Status: decision=`{{claim.status.decision}}`, implementation=`{{claim.status.implementation}}`, tests=`{{claim.status.tests}}`, verification=`{{claim.status.verification}}`
+- Authority: `{{claim.authority}}`
+- Lifecycle: `{{claim.lifecycle}}`
+- Statement: {{claim.statement}}
+{% if claim.conditions %}
+- Conditions: {{claim.conditions}}
+{% endif %}
+- Scope: {{claim.scope}}
+- Verification method: {{claim.verificationMethod}}
+{% if claim.baseline %}
+- Baseline: {{claim.baseline}}
+{% endif %}
+{% if claim.consequence %}
+- Consequence: {{claim.consequence}}
+{% endif %}
+{% if claim.notes %}
+- Notes: {{claim.notes}}
+{% endif %}
+{% if claim.subjects.length > 0 %}
+- Subjects: {% for subject in claim.subjects %}{% if not loop.first %}, {% endif %}`{{subject.id}}` ({{subject.kind}}){% endfor %}
+{% endif %}
+{% if claim.citations.length > 0 %}
+- Cites: {% for citation in claim.citations %}{% if not loop.first %}, {% endif %}`{{citation.id}}` ({{citation.sourceRef}}){% endfor %}
+{% endif %}
+{% if claim.evidence.length > 0 %}
+- Evidence: {% for evidence in claim.evidence %}{% if not loop.first %}, {% endif %}`{{evidence.id}}` ({{evidence.kind}}: {{evidence.locator}}){% endfor %}
+{% endif %}
+{% if claim.decisions.length > 0 %}
+- Decisions: {% for decision in claim.decisions %}{% if not loop.first %}, {% endif %}`{{decision.id}}` ({{decision.status}}){% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endfor %}
+## Source statements and provenance verification
+
+{% for statement in sourceStatements %}
+### {{statement.id}}
+
+- Locator: `{{statement.ref}}`
+- Verification status: `{{statement.status}}`
+- Outcome: `{{statement.outcome}}`
+- Method: `{{statement.method}}`
+- Verifier: `{{statement.verifier}}`
+- Source version: {{statement.sourceVersion}}
+- Source digest: `{{statement.sourceDigest}}`
+- Quote: {{statement.quote}}
+
+{% endfor %}
+## Evidence
+
+{% for item in evidence %}
+- `{{item.id}}` ({{item.kind}}) — {{item.locator}} @ {{item.revision}}: {{item.description}}
+{% endfor %}
+## Decisions
+
+{% for decision in decisions %}
+### {{decision.id}} — {{decision.title}}
+
+- Status: `{{decision.status}}`
+- Owner: {{decision.owner}}
+- Source: {{decision.source}}
+- Consequence: {{decision.consequence}}
+
+{% endfor %}
+## Independent verification
+
+{{independentVerificationNote}}
+
+## Build diagnostics
+
+{% if diagnostics.length === 0 %}
+_None._
+{% else %}
+{% for diagnostic in diagnostics %}
+- `{{diagnostic.severityLabel}}` `{{diagnostic.code}}` {{diagnostic.file}}{{diagnostic.pointer}}: {{diagnostic.message}}
+{% endfor %}
+{% endif %}

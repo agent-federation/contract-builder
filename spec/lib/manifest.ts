@@ -39,6 +39,7 @@ export interface Manifest {
   project: { id: string; title?: string; revision?: string };
   profile: { id: string; version: string; source: string; external?: boolean };
   inputs: ManifestInput[];
+  /** M1 supports exactly one source; more than one is rejected by `validateSources`. */
   sources?: ManifestSource[];
   /** M1 supports exactly one render declaration; zero or many are rejected by the loader. */
   render: ManifestRender[];
@@ -78,6 +79,10 @@ export interface Profile {
   documents: ProfileDocumentBinding[];
   relations?: RelationDecl[];
   provenance?: ProvenanceMapping[];
+  /**
+   * M1 requires an executable profile: both `view` and `validator` must be declared.
+   * `validateProfile` rejects a data-only profile, so a loaded profile has both.
+   */
   view?: string;
   validator?: string;
   diagnostics?: string;
@@ -374,6 +379,18 @@ function validateSources(
   if (value === undefined) return undefined;
   if (!Array.isArray(value)) return fail("/sources", "sources должен быть массивом");
 
+  // M1 supports exactly one source (ODR-ENG-001 B4). Reject more than one here, during
+  // manifest validation, so neither the model, the identity nor the renderer sees a
+  // multi-source manifest. An absent or empty array keeps the existing "source not
+  // declared" error reported by the build path (ERR_UNKNOWN_REF).
+  if (value.length > 1) {
+    return fail(
+      "/sources",
+      "M1 supports exactly one source: manifest.sources must contain exactly one entry; " +
+        `multi-source manifests are not supported by M1 (declared ${value.length})`,
+    );
+  }
+
   const sources: ManifestSource[] = [];
   for (const [index, item] of value.entries()) {
     if (!isObject(item)) return fail(`/sources/${index}`, "Источник должен быть объектом");
@@ -616,6 +633,19 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
       return fail("/validator", "validator должен быть непустой строкой");
     }
     validator = value.validator;
+  }
+
+  // M1 requires an executable profile (ODR-ENG-001 B3). A data-only profile cannot be
+  // executed by this engine, so reject it here, before the consent gate, the closure check
+  // and any profile module import, with a diagnostic that names the requirement instead of
+  // the later generic "profile does not declare view" from the module loader.
+  if (view === undefined || validator === undefined) {
+    const pointer = view === undefined ? (validator === undefined ? "" : "/view") : "/validator";
+    return fail(
+      pointer,
+      "M1 requires an executable profile: profile.view and profile.validator must be declared; " +
+        "data-only profiles are not supported by M1",
+    );
   }
 
   let diagnostics: string | undefined;

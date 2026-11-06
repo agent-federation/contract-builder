@@ -5,6 +5,8 @@ import path from "node:path";
 import Ajv2020Module from "ajv/dist/2020.js";
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
 import { jcs } from "../src/json.js";
+import { DIMENSION_ORDER, isDimensionPositive } from "../src/state.js";
+import type { DimensionName } from "../src/types.js";
 import {
   BASE_IDENTITY,
   fixtures,
@@ -21,6 +23,7 @@ interface CaseExpect {
   diagnosticCodesExact?: boolean;
   limitationCodes?: string[];
   coverageFull?: boolean;
+  coverageRequiredDimensions?: string[];
   effectiveLimits?: Record<string, number>;
   identityRelations?: { packageIdentity?: "equals-base" | "differs-from-base" | null };
   humanReviewBasis?: string;
@@ -42,6 +45,107 @@ const suite = JSON.parse(readFileSync(casesFile, "utf8")) as {
   baseCase: string;
   cases: CaseEntry[];
 };
+
+interface RequirementsMap {
+  verdictCause: Record<string, string | string[]>;
+  verdictCauseExceptions: Record<string, string>;
+}
+
+const requirements = JSON.parse(
+  readFileSync(path.join(fixtures, "requirements.json"), "utf8"),
+) as RequirementsMap;
+
+function dimensionNames(code: string): string[] {
+  const mapped = requirements.verdictCause[code];
+  if (mapped === undefined) return [];
+  return Array.isArray(mapped) ? mapped : [mapped];
+}
+
+function reportStates(document: any): Parameters<typeof isDimensionPositive>[1] {
+  return {
+    integrity: {
+      package: document.dimensions.integrity.package,
+      artifacts: document.dimensions.integrity.artifacts,
+    },
+    sources: {
+      integrity: document.dimensions.sources.integrity,
+      availability: document.dimensions.sources.availability,
+    },
+    signature: { validity: document.dimensions.signature.validity },
+    trust: {
+      signerIdentity: document.dimensions.trust.signerIdentity,
+      policyDecision: document.dimensions.trust.policyDecision,
+      checkerRecognition: document.dimensions.trust.checkerRecognition,
+      profileRecognition: document.dimensions.trust.profileRecognition,
+    },
+    checks: { results: document.dimensions.checks.results },
+    humanReview: { status: document.dimensions.humanReview.status },
+  };
+}
+
+/**
+ * A cause dimension covers a required dimension when they are equal, when the
+ * cause maps to the required dimension's root (e.g. `integrity` covers
+ * `integrity.package`), or when the cause maps to one of its sub-dimensions
+ * (e.g. `integrity.artifacts` covers `integrity`).
+ */
+function causeNamesDimension(dimension: string, named: Set<string>): boolean {
+  if (named.has(dimension)) return true;
+  const root = dimension.split(".")[0];
+  if (root !== undefined && named.has(root)) return true;
+  return [...named].some((candidate) => candidate.startsWith(`${dimension}.`));
+}
+
+/**
+ * A mapped cause dimension is non-positive when the dimension itself is not
+ * positive, or when one of its sub-dimensions is not. Both directions matter:
+ * the map may name a root while the report decides a sub-dimension, or the
+ * other way around.
+ */
+function isCauseDimensionNonPositive(
+  dimension: string,
+  states: Parameters<typeof isDimensionPositive>[1],
+): boolean {
+  if (!isDimensionPositive(dimension as DimensionName, states)) return true;
+  return DIMENSION_ORDER.some(
+    (candidate) =>
+      candidate.startsWith(`${dimension}.`) && !isDimensionPositive(candidate, states),
+  );
+}
+
+/**
+ * I5: every non-PASS verdict names its cause. (a) at least one diagnostic or
+ * limitation code is in the map; (b) one of its dimensions is not positive in
+ * the report; (c) every required dimension that is not positive is named. The
+ * documented degenerate cases in `verdictCauseExceptions` keep (a) but cannot
+ * satisfy (b)/(c) because their cause is a verdict context, not a dimension.
+ */
+function assertVerdictCause(caseId: string, document: any): void {
+  const causeCodes = new Set<string>([
+    ...document.diagnostics.map((diagnostic: { code: string }) => diagnostic.code),
+    ...document.limitations.map((limitation: { code: string }) => limitation.code),
+  ]);
+  const mapped = [...causeCodes].filter((code) => requirements.verdictCause[code] !== undefined);
+  assert.ok(
+    mapped.length > 0,
+    `${caseId}: (a) a non-PASS verdict must carry a code mapped to its cause`,
+  );
+
+  if (requirements.verdictCauseExceptions[caseId] !== undefined) return;
+
+  const states = reportStates(document);
+  const dimensions = new Set(mapped.flatMap((code) => dimensionNames(code)));
+  assert.ok(
+    [...dimensions].some((dimension) => isCauseDimensionNonPositive(dimension, states)),
+    `${caseId}: (b) no mapped cause dimension is non-positive`,
+  );
+
+  const unnamed = (document.coverage.requiredDimensions as DimensionName[]).filter(
+    (dimension) =>
+      !isDimensionPositive(dimension, states) && !causeNamesDimension(dimension, dimensions),
+  );
+  assert.deepEqual(unnamed, [], `${caseId}: (c) required dimensions without a named cause`);
+}
 
 const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
 for (const name of [
@@ -102,12 +206,25 @@ function checkJsonContract(stdout: string): any {
   return parsed;
 }
 
+function stderrDiagnosticCodes(stderr: string): string[] {
+  const codes: string[] = [];
+  for (const line of stderr.split("\n")) {
+    if (line === "") continue;
+    const match = /^pap: (pap\.[a-z0-9.-]+): /.exec(line);
+    assert.ok(match, `unexpected stderr line: ${line}`);
+    codes.push(match[1] as string);
+  }
+  return [...new Set(codes)].sort();
+}
+
 function assertNoReport(result: { status: number; stdout: string; stderr: string }, entry: CaseEntry): void {
   assert.equal(result.stdout, "", "no report may be written to stdout");
-  assert.notEqual(result.status, 0, "no-report case must fail");
-  for (const code of entry.stderrCodes ?? []) {
-    assert.ok(result.stderr.includes(`pap: ${code}:`), `stderr must contain ${code}: ${result.stderr}`);
-  }
+  assert.equal(result.status, entry.expect?.exitCode, "no-report exit code");
+  assert.deepEqual(
+    stderrDiagnosticCodes(result.stderr),
+    [...new Set(entry.stderrCodes ?? [])].sort(),
+    `no-report stderr codes: ${result.stderr}`,
+  );
 }
 
 for (const entry of suite.cases) {
@@ -145,6 +262,16 @@ for (const entry of suite.cases) {
     }
     if (entry.expect?.coverageFull !== undefined) {
       assert.equal(document.coverage.full, entry.expect.coverageFull, "coverage.full");
+    }
+    if (entry.expect?.coverageRequiredDimensions !== undefined) {
+      assert.deepEqual(
+        document.coverage.requiredDimensions,
+        entry.expect.coverageRequiredDimensions,
+        "coverage.requiredDimensions",
+      );
+    }
+    if (document.verdict !== "PASS") {
+      assertVerdictCause(entry.caseId, document);
     }
     for (const [name, value] of Object.entries(entry.expect?.effectiveLimits ?? {})) {
       assert.ok(document.effectiveLimits, "effectiveLimits missing");
@@ -249,4 +376,42 @@ test("an evaluated required-check FAIL does not make coverage partial", () => {
     assert.equal(report.coverage.full, true);
     assert.ok(report.dimensions.checks.results.some((result: any) => result.outcome === "FAIL"));
   }
+});
+
+test("every PASS case asserts an exact diagnostic set", () => {
+  const missing = suite.cases
+    .filter((entry) => entry.expect?.verdict === "PASS")
+    .filter((entry) => entry.expect?.diagnosticCodesExact !== true)
+    .map((entry) => entry.caseId);
+  assert.deepEqual(missing, [], `PASS cases without diagnosticCodesExact: ${missing.join(", ")}`);
+});
+
+test("I5: a root cause dimension names a dotted required sub-dimension", () => {
+  // A cause mapped to `integrity` must name a required `integrity.artifacts`
+  // instead of being reported as unnamed (GLM pre-review of #196, P2 finding).
+  assertVerdictCause("synthetic-dotted", {
+    verdict: "FAIL",
+    diagnostics: [{ code: "pap.integrity.artifact-mismatch" }],
+    limitations: [],
+    coverage: { requiredDimensions: ["integrity.artifacts"] },
+    dimensions: {
+      integrity: { package: "PASS", artifacts: "FAIL" },
+      sources: { integrity: "PASS", availability: "PASS" },
+      signature: { validity: "NOT_APPLICABLE" },
+      trust: {
+        signerIdentity: "NOT_APPLICABLE",
+        policyDecision: "NOT_EVALUATED",
+        checkerRecognition: "NOT_APPLICABLE",
+        profileRecognition: "NOT_APPLICABLE",
+      },
+      checks: { results: [] },
+      humanReview: { status: "NOT_APPLICABLE" },
+    },
+  });
+});
+
+test("I5: cause dimensions cover sub-dimensions in both directions", () => {
+  assert.equal(causeNamesDimension("integrity.artifacts", new Set(["integrity"])), true);
+  assert.equal(causeNamesDimension("integrity", new Set(["integrity.artifacts"])), true);
+  assert.equal(causeNamesDimension("sources", new Set(["integrity"])), false);
 });

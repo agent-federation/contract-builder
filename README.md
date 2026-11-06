@@ -4,7 +4,7 @@
 
 Демонстрационный срез — реальный фрагмент `CORE-001.legacy.md` §10.1–10.2 (Temporal Reference Model). Предметная логика CORE-001 не реализуется: прототип проверяет архитектуру и гарантии сборки на настоящем нормативном материале.
 
-Правила для контрибьюторов и агентов: [AGENTS.md](AGENTS.md).
+Правила для контрибьюторов и агентов: [AGENTS.md](AGENTS.md). Краткий гайд для внешних контрибьюторов: [CONTRIBUTING.md](CONTRIBUTING.md). Кодекс поведения: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Быстрый старт
 
@@ -34,6 +34,7 @@ bun run build:release  # release (сейчас намеренно заблоки
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run pap -- verify <PACKAGE>` | независимый PAP v0.1 verifier: `verify`, `inspect`, `explain` |
 | `bun spec/build.ts --spec <dir> --no-write --json --allow-executable-profile` | сборка произвольной спецификации с машиночитаемой диагностикой |
+| `bun spec/build.ts --spec <dir> --engine-root <engine-dir> ...` | сборка против явно заданного корня движка (см. «Явный корень движка») |
 
 The independent Portable Assurance Package v0.1 verifier lives under `pap/`.
 It does not import the builder, profiles or renderers; see `pap/README.md` for the
@@ -41,11 +42,15 @@ CLI, the 61-case conformance corpus and the test commands.
 
 ## Профиль: данные и код
 
-Профиль бывает декларативным — схемы, связи, каталог диагностик, метки и шаблоны как данные — и исполняемым: модули `view.ts` и `validator.ts` (с их импортами) загружаются через `import()` и выполняются в процессе сборщика с его правами: файловая система, окружение, сеть. Это доверенный код, а не песочница.
+M1 принимает только исполняемый профиль: модули `view.ts` и `validator.ts` обязательны. Профиль без них (data-only) отклоняется при загрузке проекта с `core.profile.invalid` и указанием на требование M1 — до проверки согласия и до импорта кода профиля; поддержка data-only профилей отложена отдельным решением. Исполняемые модули (с их импортами) загружаются через `import()` и выполняются в процессе сборщика с его правами: файловая система, окружение, сеть. Это доверенный код, а не песочница.
 
-Согласие задаёт вызывающий: `runBuild({ ..., allowExecutableProfile: true })` в API или `--allow-executable-profile` в CLI. Манифест и профиль не могут выдать согласие сами себе. CLI проверяет объявленный profile closure и импортирует встроенный CORE-001 renderer только если выбранный проект объявляет профиль `core001` и renderer `core001-markdown`: одного флага недостаточно. Если `bun.lock` не читается, preflight завершается `ERR_IO`, и renderer не импортируется. Без согласия сборка профиля с исполняемыми модулями останавливается с `core.profile.consent-required` до первого `import()`.
+Согласие задаёт вызывающий: `runBuild({ ..., allowExecutableProfile: true })` в API или `--allow-executable-profile` в CLI. Манифест и профиль не могут выдать согласие сами себе. CLI проверяет объявленный profile closure и импортирует встроенный CORE-001 renderer только если выбранный проект объявляет профиль `core001` и renderer `core001-markdown`: одного флага недостаточно. Если `bun.lock` не читается, preflight завершается `ERR_IO`, и renderer не импортируется. Без согласия сборка профиля останавливается с `core.profile.consent-required` до первого `import()`.
 
-Согласие — разрешение выполнить доверенный код, не изоляция. Изоляция процесса или WASM с ограниченными возможностями отложена (D32). Идентичность сборки и статическое сканирование импортов — механизмы целостности и учёта, не граница безопасности, и они не заменяют согласие. Декларативные данные не «безопасны по умолчанию»: парсинг, схемы и исчерпание ресурсов — отдельные риски.
+Согласие — разрешение выполнить доверенный код, не изоляция. Изоляция процесса или WASM с ограниченными возможностями отложена (D32). Идентичность сборки и статическое сканирование импортов — механизмы целостности и учёта, не граница безопасности, и они не заменяют согласие. Данные профиля не «безопасны по умолчанию»: парсинг, схемы и исчерпание ресурсов — отдельные риски.
+
+## Явный корень движка
+
+`runBuild({ engineRoot })` и CLI-флаг `--engine-root <dir>` задают каталог движка — каталог, содержащий `spec/lib` и `package.json`. По умолчанию используется корень запущенного движка. Профильные импорты вида `../../spec/lib/*.js` разрешаются и загружаются из этого корня, а `engineVersion` читается из его `package.json`; поэтому копия проекта собирается и исполняет тот же код движка независимо от каталога запуска. Корень должен быть абсолютным и содержать `spec/lib` и `package.json`, а его версия — совпадать с версией запущенного движка; иначе сборка останавливается (`core.path.outside-root`, `core.engine.version-mismatch`, `core.engine.root-unavailable`). Подробности — в контракте, §5.7 и §8.
 
 ## Структура
 
@@ -65,11 +70,14 @@ spec/
     relations.ts                объявления и разрешение связей
     provenance.ts               привязки и записи проверки происхождения
     hook.ts                     контракт хука и разрешение находок
+    extension.ts                extension closure: объявление, lockfile и импорт-скан
+    identity.ts                 идентичность сборки: inputDigest и profileDigest
     render.ts                   граница рендерера и нормализация артефакта
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
     guards.ts                   общие проверки типов
     source.ts                   SourceDocument и SourceAdapter
     adapters/markdown.ts        локаторы markdown и адаптер источника
+    adapters/index.ts           реестр встроенных адаптеров
   sources.yml                   границы среза и дословные фрагменты
   ontology.yml                  документ и термины
   semantics.json                нормативные положения
@@ -79,6 +87,9 @@ spec/
 profiles/core001/
   profile.json                  виды, связи, происхождение, привязки документов
   view.ts                       представление CORE-001 и производные значения
+  context.ts                    CheckContext: то, что видит проверка профиля
+  slice.ts                      проверки границ среза
+  text.ts                       текстовые нормализации для проверок
   validator.ts                  агрегатор проверок профиля
   checks/*.ts                   проверки CORE-001 по семействам
   checks/verification.ts        проверка происхождения CORE-001
@@ -87,6 +98,15 @@ profiles/core001/
   labels.ru.json                метки представления
   templates/core001.md.j2       шаблон
   schemas/*.schema.json         схемы документов и схемы видов сущностей
+profiles/core000/               профиль самоконтракта CORE-000: view, validator, checks, renderer, schemas
+profiles/example/               синтетический не-CORE-001 профиль для проверки общности ядра
+contracts/core000/
+  contract-builder.json         проект самоконтракта CORE-000
+  claims.yml                    реестр 78 claims, evidence и decisions
+  structure.yml                 компоненты, интерфейсы, фазы и границы доверия
+  run.ts                        harness: временное рабочее пространство и сборка
+  mutations.ts                  именованные мутации для негативных тестов
+  output/CORE-000.draft.md      сгенерированный артефакт (только через harness)
 tests/build.test.ts
 tests/manifest.test.ts          манифест и границы проекта
 tests/ir.test.ts                IR, связи и происхождение
@@ -96,11 +116,17 @@ tests/provenance.test.ts        привязка ≠ проверка, стат�
 tests/genericity.test.ts        защита ядра от лексики CORE-001
 tests/renderer.test.ts          выбор рендерера и нормализация
 tests/golden.test.ts            эталонная сборка CORE-001
+tests/identity.test.ts          идентичность сборки и extension closure
+tests/example-profile.test.ts   синтетический профиль end-to-end
+tests/consent.test.ts           согласие на исполняемый профиль
+tests/core000.test.ts           самоконтракт CORE-000 (S1, S2.1, S2.2)
+tests/docs-freshness.test.ts    свежесть документации: число claims против claims.yml
 fixtures/
   broken-modality/              violated выведен из permission
   broken-source-drift/          цитата не найдена в legacy
   open-decision/                положение зависит от открытого решения
 docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md
+docs/architecture/implementation-status.md
 ```
 
 ## Модель в одном экране
@@ -189,7 +215,8 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 - Проверка происхождения не является независимой: `verified` означает совпадение цитаты с объявленным локатором текущего источника, а не подлинность, криптографическую подпись или правильность выбора цитаты. `unavailable` (включая not checked) и `stale` никогда не выдаются за `verified`.
 - `checkedAt` в записи проверки недоступен: сборка детерминирована и не читает часы. Доверенное время — открытое решение `DEC-TRUSTED-TIME`.
 - SHA-256 в записи проверки фиксирует байты, против которых выполнялась проверка. Объявленный `identity.sha256` и его проверка — отдельный принятый RFC (#4), в этой сборке не реализован.
-- Схема допускает ровно один источник; multi-source явно не поддерживается.
+- Ровно один источник: больше одного — `core.manifest.invalid` при валидации манифеста; отсутствие или пустой массив — `ERR_UNKNOWN_REF`. Multi-source не поддерживается.
+- M1 требует исполняемый профиль (`view` + `validator`); data-only профили не поддерживаются.
 - Манифест требует ровно одно объявление `render[]`; ноль или несколько — `core.manifest.invalid`. Multi-target рендеринг не поддерживается.
 - Один `review.status` подтверждает нормализацию, классификацию и интерпретацию кейса сразу. Разделение этих подтверждений — следующий шаг.
 - `Credential` упоминается в §10.2, но определён в §4 — вне среза, поэтому не моделируется и даёт WARNING.
@@ -204,7 +231,7 @@ ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
 
 Детерминированная идентичность сборки: [docs/architecture/build-identity.md](docs/architecture/build-identity.md).
 
-Статус реализации архитектуры и публичного контракта (снимок на `f1ddcf7`, 2026-11-02): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
+Статус реализации архитектуры и публичного контракта (снимок на `07cbf5b`, 2026-11-02; дельты CORE-000 S2 до `f89a53f`, 2026-11-05, и E1/E2/аудит до `1f1ac26`, 2026-11-06): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
 
 ## Лицензия
 

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/claim.schema.json",
+  "title": "Entity: claim",
+  "$defs": {
+    "status": {
+      "type": "object",
+      "required": ["decision", "implementation", "tests", "verification"],
+      "additionalProperties": false,
+      "properties": {
+        "decision": { "enum": ["accepted", "proposed", "deferred", "none"] },
+        "implementation": { "enum": ["implemented", "none"] },
+        "tests": { "enum": ["tested", "none"] },
+        "verification": { "enum": ["independently_verified", "none"] }
+      }
+    },
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "author",
+        "statement",
+        "class",
+        "status",
+        "verification_method",
+        "scope",
+        "authority",
+        "lifecycle",
+        "subject_kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^C000-[A-Z]{2,4}-[0-9]{3}$" },
+        "author": { "type": "string", "minLength": 1 },
+        "statement": { "type": "string", "minLength": 1 },
+        "class": {
+          "enum": [
+            "requirement",
+            "guarantee",
+            "assumption",
+            "constraint",
+            "implementation_fact",
+            "proposal",
+            "deferred",
+            "limitation",
+            "non_goal",
+            "trust_boundary"
+          ]
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "verification_method": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "authority": { "enum": ["engine", "external", "human"] },
+        "lifecycle": { "enum": ["active", "superseded", "retired"] },
+        "subject_kind": {
+          "enum": [
+            "component",
+            "interface",
+            "phase",
+            "transition",
+            "trust_boundary",
+            "extension_point",
+            "diagnostic",
+            "dependency",
+            "claim",
+            "decision",
+            "evidence",
+            "source_statement"
+          ]
+        },
+        "conditions": { "type": "string", "minLength": 1 },
+        "consequence": { "type": "string", "minLength": 1 },
+        "baseline": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/structure.schema.json",
+  "title": "CORE-000 structure document",
+  "type": "object",
+  "required": [
+    "components",
+    "interfaces",
+    "trustBoundaries",
+    "phases",
+    "transitions",
+    "extensionPoints",
+    "diagnostics",
+    "dependencies"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://core000.local/schemas/component.schema.json" }
+    },
+    "interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://core000.local/schemas/interface.schema.json" }
+    },
+    "trustBoundaries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://core000.local/schemas/trust-boundary.schema.json" }
+    },
+    "phases": {
+      "type": "array",
+      "items": { "$ref": "https://core000.local/schemas/phase.schema.json" }
+    },
+    "transitions": {
+      "type": "array",
+      "items": { "$ref": "https://core000.local/schemas/transition.schema.json" }
+    },
+    "extensionPoints": {
+      "type": "array",
+      "items": { "$ref": "https://core000.local/schemas/extension-point.schema.json" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "https://core000.local/schemas/diagnostic.schema.json" }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "https://core000.local/schemas/dependency.schema.json" }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core000.local/schemas/source-statement.schema.json",
+  "title": "Entity: source_statement",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "source", "source_ref", "source_quote"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^SRC-[A-Z0-9-]+$" },
+        "source": { "type": "string", "pattern": "^SRC-[A-Z0-9-]+$" },
+        "source_ref": { "type": "string", "pattern": "^SRC-[A-Z0-9-]+#" },
+        "source_quote": { "type": "string", "minLength": 1 },
+        "note": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "provenance": { "type": "object" },
+        "verification": { "type": "object" },
+        "relations": { "type": "object" },
+        "review": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/base" }]
+}

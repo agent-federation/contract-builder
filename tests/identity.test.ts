@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -147,7 +148,7 @@ test("identity: a profile file change moves profileDigest and inputDigest", asyn
   const beforeProfile = await profileDigest(dir);
   const beforeBuild = (await identityOf(dir)).inputDigest;
 
-  const file = path.join(dir, "profile", "view.ts");
+  const file = path.join(dir, "profiles", "core001", "view.ts");
   const original = await readFile(file, "utf8");
   await writeFile(file, `${original} `, "utf8");
 
@@ -155,6 +156,67 @@ test("identity: a profile file change moves profileDigest and inputDigest", asyn
   const afterBuild = (await identityOf(dir)).inputDigest;
   assert.notEqual(afterProfile, beforeProfile);
   assert.notEqual(afterBuild, beforeBuild);
+});
+
+test("identity: an undeclared executable profile file fails closed before execution", async () => {
+  const dir = await copyLocalProject("identity-undeclared-executable");
+  const marker = path.join(dir, "view-evaluated.marker");
+  const viewPath = path.join(dir, "profiles", "core001", "view.ts");
+  await writeFile(
+    viewPath,
+    `import { writeFileSync } from "node:fs";\n${await readFile(viewPath, "utf8")}\n` +
+      `writeFileSync(${JSON.stringify(marker)}, "evaluated");\n`,
+    "utf8",
+  );
+
+  const profilePath = path.join(dir, "profiles", "core001", "profile.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files: string[] };
+  profile.files = profile.files.filter((entry) => entry !== "view.ts");
+  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+
+  const result = await runBuild(base(dir));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.identity, null);
+  assert.equal(existsSync(marker), false, "profile code was evaluated before the closure check");
+
+  const diagnostic = result.diagnostics.find(
+    (item) => item.code === "core.extension.unpinned-dependency",
+  );
+  assert.ok(diagnostic !== undefined, "undeclared executable did not report unpinned-dependency");
+  assert.match(diagnostic.message, /view\.ts/);
+});
+
+test("identity: every consumed profile file must be declared in profile.files", async () => {
+  const entries = [
+    ["validator.ts", "validator"],
+    ["catalog.json", "diagnostics"],
+    ["schemas/sources.schema.json", "schema"],
+    ["templates/core001.md.j2", "render.template"],
+    ["labels.ru.json", "render.labels"],
+  ] as const;
+
+  for (const [index, [entry, label]] of entries.entries()) {
+    const dir = await copyLocalProject(`identity-undeclared-consumed-${index}`);
+    const profilePath = path.join(dir, "profiles", "core001", "profile.json");
+    const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files: string[] };
+    profile.files = profile.files.filter((item) => item !== entry);
+    await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+
+    const result = await runBuild(base(dir));
+    assert.equal(result.exitCode, 1, `${label} was not required in profile.files`);
+    assert.equal(result.identity, null, `${label} still produced an identity`);
+    const diagnostic = result.diagnostics.find(
+      (item) => item.code === "core.extension.unpinned-dependency",
+    );
+    assert.ok(
+      diagnostic !== undefined,
+      `${label} did not fail with core.extension.unpinned-dependency`,
+    );
+    assert.ok(
+      diagnostic.message.includes(entry),
+      `${label} diagnostic does not name ${entry}: ${diagnostic.message}`,
+    );
+  }
 });
 
 test("identity: a declared source-adapter file change moves its closure and the digest", async () => {
@@ -450,14 +512,16 @@ test("identity: a relative import outside the extension root is unpinned", async
   assert.ok(diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"));
 });
 
-test("identity: an import of an engine module outside the extension root is allowed", async () => {
+test("identity: a relative import of an engine module is allowed", async () => {
   const base = await mkdtemp(path.join(tmpdir(), "identity-engine-"));
   const extension = path.join(base, "extension");
   await mkdir(extension);
   const engineModule = path.join(root, "spec", "lib", "manifest.ts");
+  const relative = path.relative(extension, engineModule).split(path.sep).join("/");
+  const specifier = relative.startsWith(".") ? relative : `./${relative}`;
   await writeFile(
     path.join(extension, "entry.ts"),
-    `import { resolveContained } from ${JSON.stringify(engineModule)};\n`,
+    `import { resolveContained } from ${JSON.stringify(specifier)};\n`,
     "utf8",
   );
 
@@ -472,6 +536,31 @@ test("identity: an import of an engine module outside the extension root is allo
   );
 
   assert.ok(closure !== null, diagnostics.report());
+});
+
+test("identity: an absolute engine import is rejected as unpinned", async () => {
+  const base = await mkdtemp(path.join(tmpdir(), "identity-absolute-"));
+  const extension = path.join(base, "extension");
+  await mkdir(extension);
+  const engineModule = path.join(root, "spec", "lib", "manifest.ts");
+  await writeFile(
+    path.join(extension, "entry.ts"),
+    `import { resolveContained } from ${JSON.stringify(engineModule)};\n`,
+    "utf8",
+  );
+
+  const diagnostics = new Diagnostics();
+  const closure = await resolveExtensionClosure(
+    "renderer",
+    "absolute-import",
+    "1.0.0",
+    { root: extension, files: ["entry.ts"], dependencies: {} },
+    await readLockfile(),
+    diagnostics,
+  );
+
+  assert.equal(closure, null);
+  assert.ok(diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"));
 });
 
 test("identity: literal dynamic imports inside template interpolations are detected", () => {
@@ -491,7 +580,7 @@ test("identity: template expressions with regex braces are scanned", () => {
 
 test("identity: a template-interpolation import in a profile is unpinned", async () => {
   const dir = await copyLocalProject("identity-template-import");
-  const file = path.join(dir, "profile", "checks", "cases.ts");
+  const file = path.join(dir, "profiles", "core001", "checks", "cases.ts");
   const injection = 'const templateImport = () => `${await import("left-pad")}`;';
   await writeFile(file, `${await readFile(file, "utf8")}\n${injection}\n`, "utf8");
 
@@ -554,7 +643,7 @@ test("identity: closure digests sort files and dependencies", () => {
 
 test("identity: undeclared literal static import is core.extension.unpinned-dependency", async () => {
   const dir = await copyLocalProject("identity-unpinned-static");
-  const file = path.join(dir, "profile", "checks", "cases.ts");
+  const file = path.join(dir, "profiles", "core001", "checks", "cases.ts");
   await writeFile(file, `${await readFile(file, "utf8")}\nimport "left-pad";\n`, "utf8");
 
   const result = await runBuild(base(dir));
@@ -565,7 +654,7 @@ test("identity: undeclared literal static import is core.extension.unpinned-depe
 
 test("identity: undeclared literal dynamic import is core.extension.unpinned-dependency", async () => {
   const dir = await copyLocalProject("identity-unpinned-dynamic");
-  const file = path.join(dir, "profile", "view.ts");
+  const file = path.join(dir, "profiles", "core001", "view.ts");
   await writeFile(
     file,
     `${await readFile(file, "utf8")}\nconst lazy = () => import("left-pad");\n`,
@@ -579,7 +668,7 @@ test("identity: undeclared literal dynamic import is core.extension.unpinned-dep
 
 test("identity: a declared version that does not match bun.lock fails the build", async () => {
   const dir = await copyLocalProject("identity-mismatch");
-  const file = path.join(dir, "profile", "profile.json");
+  const file = path.join(dir, "profiles", "core001", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as {
     dependencies: Record<string, string>;
   };
@@ -594,7 +683,7 @@ test("identity: a declared version that does not match bun.lock fails the build"
 test("identity: a missing declared closure file fails the build", async () => {
   const dir = await copyLocalProject("identity-missing-file");
   const { rm } = await import("node:fs/promises");
-  await rm(path.join(dir, "profile", "renderer.ts"));
+  await rm(path.join(dir, "profiles", "core001", "renderer.ts"));
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);

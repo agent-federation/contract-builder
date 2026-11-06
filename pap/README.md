@@ -16,9 +16,10 @@ The verifier is a separate product boundary inside this repository:
   call, symlinks and non-regular files are rejected, and resource limits are
   enforced while reading.
 
-The implementation does not establish Gate 3. Gate 3 still requires a separately
-implemented checker compared field-by-field against the same corpus under the
-same tier.
+Gate 3 is **PASSED for PAP Phase 2a** (2026-11-04): separately implemented
+checkers agree field-by-field on the frozen Phase 2a case set. See
+[`ODR-PAP-005`](../docs/decisions/ODR-PAP-005-gate-3-closure-phase-2a.md) for the
+scope and caveats; this implementation remains the reference described below.
 
 **Packaging boundary.** RFC §9.1 requires the verifier to be a separate project
 with its own release and pinned artifacts. During Phase 2, `pap/` is an in-repo
@@ -63,7 +64,8 @@ with a fixed `--now`, a hostile `TZ`/`LC_ALL`, a producer-free `PATH` with
 sentinel `bun`/`node`/`contract-builder` shims, and asserts:
 
 - exit code, verdict, constrained dimensions, check outcomes and effective limits;
-- required diagnostic and limitation code sets;
+- required diagnostic and limitation code sets, with PASS and extended-corpus
+  cases asserting the complete diagnostic set exactly;
 - coverage and package-identity relations;
 - Appendix C schema validity of every verify report;
 - JCS-canonical stdout and deterministic repeated output;
@@ -84,11 +86,15 @@ the record-identity and E.10 mutation tests.
 `fixtures/pap-v0.1/` is the static corpus described by RFC §12:
 
 - `base/` — the Appendix F package, byte-identical to the E.1/E.2 vectors;
-- `F01-…` through `F61-…` — one complete static package copy per case;
+- `F01-…` through `F85-…` — one static package copy per case (empty directory
+  for CLI-only variations that target `../base`);
 - `trust-policy/` — the fixed Appendix B policy fixtures, including
-  `relations-only-lowered.json` for F61;
+  `relations-only-lowered.json` for F61 and the `*-underdeclared.json` policies
+  that prove I1/E2 derivation;
 - `signatures/` — the shared trusted, unknown-key and corrupted DSSE envelopes;
-- `cases.json` — the generic projection-and-compare case index.
+- `cases.json` — the generic projection-and-compare case index;
+- `requirements.json` — the code/requirement/verdict-cause map validated by
+  `pap/tests/requirements.test.ts`.
 
 `F52` and `F61` use the verifier's limit interpretation: files under
 `artifacts/`, `sources/` and `inputs/` are bounded by `fileBytes` and

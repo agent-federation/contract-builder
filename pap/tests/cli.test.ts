@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { runCli } from "../src/cli.js";
 import { fixtures, runPap } from "./support.js";
 
 const base = path.join(fixtures, "base");
@@ -104,4 +105,33 @@ test("--now normalises offsets and preserves the fraction, rejecting leap second
   const leap = runPap(["verify", ".", "--now", "2026-11-02T00:00:60Z"], base);
   assert.equal(leap.status, 64);
   assert.equal(leap.stdout, "");
+});
+
+test("a stdout write failure is a pap.io.error I/O failure (74)", async () => {
+  const originalStdoutWrite = process.stdout.write;
+  const originalStderrWrite = process.stderr.write;
+  let stderr = "";
+  let status = -1;
+  try {
+    process.stdout.write = (() => {
+      throw new Error("simulated EPIPE");
+    }) as typeof process.stdout.write;
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      stderr += String(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    status = await runCli([
+      "verify",
+      base,
+      "--format",
+      "json",
+      "--now",
+      "2026-11-02T00:00:00Z",
+    ]);
+  } finally {
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+  }
+  assert.equal(status, 74);
+  assert.ok(stderr.includes("pap: pap.io.error: "));
 });

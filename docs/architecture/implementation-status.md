@@ -1,10 +1,11 @@
 # Implementation status — engine architecture and public contract
 
 **As-of snapshot.** Audited `main` at commit
-[`f1ddcf78888d2be5130d5975526cad47c4774284`](https://github.com/agent-federation/contract-builder/commit/f1ddcf78888d2be5130d5975526cad47c4774284)
-("feat: add an independent example profile and end-to-end fixture (#46)"), audit date
-**2026-11-02** (UTC). Every status in this document describes that commit only; later commits may
-change it.
+[`07cbf5bd6cbed740e55351612d0300196b8d1464`](https://github.com/agent-federation/contract-builder/commit/07cbf5bd6cbed740e55351612d0300196b8d1464)
+("feat: add the CORE-000 S1 bounded self-build slice (#77)"), audit date
+**2026-11-02** (UTC). The original M1 audit remains pinned to `f1ddcf7`; this snapshot carries
+forward its rows and records the bounded CORE-000 S1 delta below. Every status in this document
+describes the stated baseline or an explicitly identified later change; later commits may change it.
 
 **Snapshot update for Issue #35.** Row H5 and the consent clause in row A3 record the executable
 profile consent added after `f1ddcf7` by the focused [#35](https://github.com/agent-federation/contract-builder/issues/35)
@@ -24,6 +25,50 @@ change: `ProvenanceVerification` and `VerificationRecord` are part of the IR, th
 verifier supplies claims, and outputs render binding and verification separately. Rows V1 and
 §5–§6 are revised only where that change alters their wording. Every other row still describes
 `f1ddcf7`; no independent verification is claimed for the new row.
+
+**Snapshot update for CORE-000 S1.** PR [#77](https://github.com/agent-federation/contract-builder/pull/77)
+merged at `07cbf5b`. The new X3a row and §4.1 record only the bounded five-claim S1 slice;
+the full 78-claim CORE-000 model, cross-environment reproducibility (H2) and independent
+verification (H3) remain uncompleted. The PR's maintainer review is linked as evidence for the
+specific implementation behaviors inspected; it is not H3 and does not verify claim truth.
+
+**Snapshot update for CORE-000 S2.1/S2.2.** `main` at
+[`f89a53f`](https://github.com/agent-federation/contract-builder/commit/f89a53f113deb2df3df795387a9045f53fca92b0)
+(2026-11-05), 34 commits after `07cbf5b`, carries the CORE-000 S2 delta: the remaining S2.1
+check/view/template wiring ([#105](https://github.com/agent-federation/contract-builder/pull/105)),
+the S2.2a non-structural claim subject kinds
+([#123](https://github.com/agent-federation/contract-builder/pull/123)), the full accepted S2.2
+register and its regenerated artifact
+([#127](https://github.com/agent-federation/contract-builder/pull/127)), the `C000-CT-011`
+conditions correction ([#129](https://github.com/agent-federation/contract-builder/pull/129)) and
+the CORE-000 artifact rule in `AGENTS.md`
+([#131](https://github.com/agent-federation/contract-builder/pull/131)). §4.2 records the delta
+item by item. This update supersedes the S1 sentence above, which says that "the full 78-claim
+CORE-000 model" remains uncompleted, **for the register data only**: the accepted register and
+structure are now encoded, but encoding promotes no claim status, and no implementation, test or
+independence capability is re-audited here. Rows keep their `07cbf5b` meaning unless §4.2 says
+otherwise; full self-hosting (X3) still closes only through M5.
+
+**Snapshot update for the 2026-11-05 audit batch and stream B (E1/E2).** `main` at
+[`1f1ac26`](https://github.com/agent-federation/contract-builder/commit/1f1ac2643e7d29eaf153c10ed1333a7c31a7bf5a)
+(2026-11-06) carries the engine changes after `f89a53f`:
+[#158](https://github.com/agent-federation/contract-builder/pull/158) (`70f6311`) requires every
+consumed profile file to be declared in `profile.files` before profile code is imported;
+[#179](https://github.com/agent-federation/contract-builder/pull/179) (`213a57b`) rejects
+data-only profiles and more than one source; and
+[#181](https://github.com/agent-federation/contract-builder/pull/181) (`9d4e623`) adds the
+explicit `engineRoot`/`--engine-root`, portable engine-owned imports and the engine-version
+correspondence check. Rows R6, B5 and B6 are added; rows A2, B1, B3 and H5 and §5–§6 are
+revised only where these changes alter their meaning. §4.3 records the delta item by item.
+
+The PAP verifier fixes merged in the same period (#152, #154, #156, #157, #163, #169, #171,
+#183, #185, #187) belong to the PAP component record — the PAP RFC, its ODRs and
+`pap/README.md` — not to this engine matrix; only the engine-identity change #145/#158 is
+engine-matrix material (#159's split). This update promotes no row to `independently_verified`,
+changes no claim status and does not close H2, H3 or X3.
+
+**CORE-000 register freshness.** `contracts/core000/claims.yml` declares
+**78 claims**; `tests/docs-freshness.test.ts` fails when this number and the register disagree.
 
 **What this is.** The audit deliverable requested by
 [#39](https://github.com/agent-federation/contract-builder/issues/39): a source-backed status
@@ -117,6 +162,7 @@ carries it.
 | R3 | An undeclared kind or relation is never guessed: `core.profile.unknown-kind` and `core.profile.unknown-relation`; a duplicate `(name, from)` declaration is rejected; a declared `inverse` must be a non-empty string (`core.profile.invalid`, never normalized away) and must be declared from the target kind, point back at the forward relation and reverse the endpoints (`core.profile.invalid`) | `accepted` | `implemented` | `tested` | `—` | Contract [§3.2](engine-public-contract.md), [§5.1–5.2](engine-public-contract.md); plan [§7.4](m1-implementation-plan.md); [ir.ts:81](../../spec/lib/ir.ts#L81), [relations.ts:24](../../spec/lib/relations.ts#L24), [manifest.ts:447](../../spec/lib/manifest.ts#L447), [manifest.ts:529](../../spec/lib/manifest.ts#L529), [manifest.ts:558](../../spec/lib/manifest.ts#L558); [ir.test.ts:170](../../tests/ir.test.ts#L170), [ir.test.ts:182](../../tests/ir.test.ts#L182), [example-profile.test.ts:258](../../tests/example-profile.test.ts#L258), [manifest.test.ts:266](../../tests/manifest.test.ts#L266), [manifest.test.ts:280](../../tests/manifest.test.ts#L280), [manifest.test.ts:295](../../tests/manifest.test.ts#L295), [manifest.test.ts:313](../../tests/manifest.test.ts#L313), [manifest.test.ts:332](../../tests/manifest.test.ts#L332) |
 | R4 | Declarative rule primitives (`matrix`, `substring`, `coverage`, `gate`, …) | `deferred` | `—` | `—` | `—` | Directed hook-only in M1; primitives are the M3 target (D15 narrowed, plan [§3](m1-implementation-plan.md)); contract [§3.3](engine-public-contract.md) |
 | R5 | Typed `ReviewState` with N named review dimensions, and profile `vocabularies` / `renderDefaults` / `overridablePolicyKeys` | `deferred` | `—` | `—` | `—` | D16 narrowed (review stays opaque in `fields`), D24 proposed / M4; plan [§12](m1-implementation-plan.md); [ir.ts:46](../../spec/lib/ir.ts#L46) does not strip `review`, so it stays in `fields` |
+| R6 | M1 requires an executable profile: `view` and `validator` must both be declared; a data-only profile is rejected during project loading with `core.profile.invalid` naming the M1 requirement, before consent is evaluated and before any profile module is imported | `accepted` | `implemented` | `tested` | `—` | ODR-ENG-001 B3; contract [§3.2](engine-public-contract.md), [§3.3](engine-public-contract.md); [manifest.ts:642](../../spec/lib/manifest.ts#L642) data-only rejection; [unsupported-configurations.test.ts:74](../../tests/unsupported-configurations.test.ts#L74) missing `view`, [:96](../../tests/unsupported-configurations.test.ts#L96) missing `validator`, [:113](../../tests/unsupported-configurations.test.ts#L113) data-only |
 
 ### 3.3 Generic IR, identity and reference integrity
 
@@ -145,7 +191,7 @@ carries it.
 | H2 | Draft/release gating in M1: `error` and `review` block, `warning` blocks under `--strict`, and release refuses to write when anything blocks | `accepted` | `implemented` | `tested` | `—` | Accepted M1 behavior, plan [§9.4](m1-implementation-plan.md); [build.ts:250](../../spec/lib/build.ts#L250), [build.ts:255](../../spec/lib/build.ts#L255); [build.test.ts:59](../../tests/build.test.ts#L59), [build.test.ts:119](../../tests/build.test.ts#L119), [build.test.ts:131](../../tests/build.test.ts#L131) |
 | H3 | Per-code, per-mode blocking computed from profile policy + project overlay + build mode (three axes) | `deferred` | `—` | `—` | `—` | D9 accepted as design, but contract [§18](engine-public-contract.md) correction 2 and plan [§9.4](m1-implementation-plan.md) place it in M2; blocking is severity-derived at [build.ts:250](../../spec/lib/build.ts#L250) |
 | H4 | CORE-001 policy modules: one module per check family with a fixed order and per-module unit tests | `accepted` | `implemented` | `tested` | `—` | D15 approval requires the module split (plan [§10.1](m1-implementation-plan.md)); [validator.ts:19](../../profiles/core001/validator.ts#L19), [checks/](../../profiles/core001/checks); [checks.test.ts:34](../../tests/checks.test.ts#L34), [hook.test.ts:93](../../tests/hook.test.ts#L93) |
-| H5 | Executable profile consent: a profile declaring `view`/`validator` fails closed with `core.profile.consent-required` before any profile module is imported unless the caller passes `allowExecutableProfile: true` (API) or `--allow-executable-profile` (CLI); the CLI validates the selected profile's declared closure before importing its built-in renderer, and only when the project declares profile `core001` and renderer `core001-markdown`; an unreadable lockfile is a failed preflight (`ERR_IO`), not a pass; consent is not isolation | `accepted` | `implemented` | `tested` | `—` | Issue [#35](https://github.com/agent-federation/contract-builder/issues/35); contract [§3.3](engine-public-contract.md) "Executable profile consent"; [build.ts:76](../../spec/lib/build.ts#L76) consent gate, [build.ts:362](../../spec/lib/build.ts#L362) `hasExecutableProfileConsent`, [build.ts:50](../../spec/lib/build.ts#L50) `BuildOptions.allowExecutableProfile`, [identity.ts:345](../../spec/lib/identity.ts#L345) closure preflight, [identity.ts:352](../../spec/lib/identity.ts#L352) lockfile failure; CLI [cli-renderers.ts:31](../../spec/cli-renderers.ts#L31) closure preflight before import, [cli-renderers.ts:50](../../spec/cli-renderers.ts#L50) closure check, [build.ts:62](../../spec/build.ts#L62) flag, [build.ts:130](../../spec/build.ts#L130) call; [consent.test.ts:87](../../tests/consent.test.ts#L87) API rejection, [consent.test.ts:108](../../tests/consent.test.ts#L108) API success, [consent.test.ts:121](../../tests/consent.test.ts#L121) CLI rejection and success, [consent.test.ts:148](../../tests/consent.test.ts#L148) other-profile renderer isolation, [consent.test.ts:176](../../tests/consent.test.ts#L176) closure preflight, [consent.test.ts:232](../../tests/consent.test.ts#L232) lockfile-unreadable preflight, [consent.test.ts:253](../../tests/consent.test.ts#L253) `ERR_IO` diagnostic, [example-profile.test.ts:147](../../tests/example-profile.test.ts#L147) synthetic profile rejection |
+| H5 | Executable profile consent: a profile declaring `view`/`validator` fails closed with `core.profile.consent-required` before any profile module is imported unless the caller passes `allowExecutableProfile: true` (API) or `--allow-executable-profile` (CLI); a data-only profile is rejected earlier, during project loading and before consent (R6); the CLI validates the selected profile's declared closure before importing its built-in renderer, and only when the project declares profile `core001` and renderer `core001-markdown`; an unreadable lockfile is a failed preflight (`ERR_IO`), not a pass; consent is not isolation | `accepted` | `implemented` | `tested` | `—` | Issue [#35](https://github.com/agent-federation/contract-builder/issues/35); contract [§3.3](engine-public-contract.md) "Executable profile consent"; [build.ts:128](../../spec/lib/build.ts#L128) consent gate, [build.ts:444](../../spec/lib/build.ts#L444) `hasExecutableProfileConsent`, [build.ts:69](../../spec/lib/build.ts#L69) `BuildOptions.allowExecutableProfile`, [identity.ts:771](../../spec/lib/identity.ts#L771) closure preflight, [identity.ts:783](../../spec/lib/identity.ts#L783) lockfile failure; CLI [cli-renderers.ts:76](../../spec/cli-renderers.ts#L76) closure preflight before import, [build.ts:71](../../spec/build.ts#L71) flag, [build.ts:149](../../spec/build.ts#L149) call; [consent.test.ts:87](../../tests/consent.test.ts#L87) API rejection, [consent.test.ts:108](../../tests/consent.test.ts#L108) API success, [consent.test.ts:121](../../tests/consent.test.ts#L121) CLI rejection and success, [consent.test.ts:148](../../tests/consent.test.ts#L148) other-profile renderer isolation, [consent.test.ts:176](../../tests/consent.test.ts#L176) closure preflight, [consent.test.ts:238](../../tests/consent.test.ts#L238) lockfile-unreadable preflight, [consent.test.ts:257](../../tests/consent.test.ts#L257) `ERR_IO` diagnostic, [example-profile.test.ts:145](../../tests/example-profile.test.ts#L145) synthetic profile rejection; data-only rejection before consent [manifest.ts:642](../../spec/lib/manifest.ts#L642), [unsupported-configurations.test.ts:113](../../tests/unsupported-configurations.test.ts#L113) |
 
 ### 3.6 Diagnostics: shape, codes and phases
 
@@ -167,10 +213,12 @@ carries it.
 
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
-| B1 | `BuildResult.identity` with `projectId`, `engineVersion`, `manifestVersion`, authoritative `inputDigest` (`sha256:<hex>`) and the extension list; the identity is never rendered into the artifact | `accepted` | `implemented` | `tested` | `—` | D10; contract [§8](engine-public-contract.md); plan [§11](m1-implementation-plan.md); [build-identity.md](build-identity.md); [identity.ts:358](../../spec/lib/identity.ts#L358); [identity.test.ts:90](../../tests/identity.test.ts#L90), [identity.test.ts:603](../../tests/identity.test.ts#L603), [example-profile.test.ts:409](../../tests/example-profile.test.ts#L409) |
-| B2 | `inputDigest` covers the canonical manifest, every declared input, source documents, `profileDigest`, and adapter/renderer closures; LF normalization and length-prefixed record framing; clock, locale, mtimes, env, absolute paths excluded | `accepted` | `implemented` | `tested` | `—` | D10, D28; contract [§8.1](engine-public-contract.md) controls; [identity.ts:167](../../spec/lib/identity.ts#L167) `computeClosureDigest`, [identity.ts:358](../../spec/lib/identity.ts#L358); [identity.test.ts:107](../../tests/identity.test.ts#L107), [identity.test.ts:113](../../tests/identity.test.ts#L113), [identity.test.ts:281](../../tests/identity.test.ts#L281), [identity.test.ts:302](../../tests/identity.test.ts#L302), [identity.test.ts:502](../../tests/identity.test.ts#L502) |
-| B3 | Extension closure declaration (`{root, files, dependencies}`), lockfile authority, and static/dynamic-literal import scanning; an undeclared or unpinned import is `core.extension.unpinned-dependency` | `accepted` | `implemented` | `tested` | `—` | D28; contract [§8.1](engine-public-contract.md); plan [§11](m1-implementation-plan.md); [extension.ts:14](../../spec/lib/extension.ts#L14), [identity.ts:344](../../spec/lib/identity.ts#L344), [identity.ts:596](../../spec/lib/identity.ts#L596); [identity.test.ts:554](../../tests/identity.test.ts#L554), [identity.test.ts:565](../../tests/identity.test.ts#L565), [identity.test.ts:579](../../tests/identity.test.ts#L579), [identity.test.ts:593](../../tests/identity.test.ts#L593) |
+| B1 | `BuildResult.identity` with `projectId`, `engineVersion`, `manifestVersion`, authoritative `inputDigest` (`sha256:<hex>`) and the extension list; `engineVersion` is read from the explicit engine root, and the complete `engineVersion` + `inputDigest` + extension-identity triple is the equality key; the identity is never rendered into the artifact | `accepted` | `implemented` | `tested` | `—` | D10, ODR-ENG-001 B2; contract [§8](engine-public-contract.md); plan [§11](m1-implementation-plan.md); [build-identity.md](build-identity.md); [identity.ts:795](../../spec/lib/identity.ts#L795) `computeBuildIdentity`, [identity.ts:189](../../spec/lib/identity.ts#L189) `readEngineVersion`; [identity.test.ts:92](../../tests/identity.test.ts#L92) identity fields, [engine-root.test.ts:75](../../tests/engine-root.test.ts#L75) portable rebuild, [example-profile.test.ts:422](../../tests/example-profile.test.ts#L422) identity not in artifact |
+| B2 | `inputDigest` covers the canonical manifest, every declared input, source documents, `profileDigest`, and adapter/renderer closures; LF normalization and length-prefixed record framing; clock, locale, mtimes, env, absolute paths excluded | `accepted` | `implemented` | `tested` | `—` | D10, D28; contract [§8.1](engine-public-contract.md) controls; [identity.ts:523](../../spec/lib/identity.ts#L523) `computeClosureDigest`, [identity.ts:795](../../spec/lib/identity.ts#L795) `computeBuildIdentity`; [identity.test.ts:115](../../tests/identity.test.ts#L115) one-byte input change, [identity.test.ts:146](../../tests/identity.test.ts#L146) profile file change, [identity.test.ts:268](../../tests/identity.test.ts#L268) renderer closure change, [identity.test.ts:344](../../tests/identity.test.ts#L344) excluded environment, [identity.test.ts:592](../../tests/identity.test.ts#L592) record framing, [identity.test.ts:608](../../tests/identity.test.ts#L608) LF normalization, [identity.test.ts:620](../../tests/identity.test.ts#L620) raw binary bytes |
+| B3 | Extension closure declaration (`{root, files, dependencies}`), lockfile authority, and static/dynamic-literal import scanning; engine-owned imports resolve and load from the explicit engine root (B5); the consumed profile set must be declared (B6); an undeclared or unpinned import is `core.extension.unpinned-dependency` | `accepted` | `implemented` | `tested` | `—` | D28, ODR-ENG-001 B1/B2; contract [§5.7](engine-public-contract.md), [§8.1](engine-public-contract.md); plan [§11](m1-implementation-plan.md); [extension.ts:14](../../spec/lib/extension.ts#L14), [identity.ts:292](../../spec/lib/identity.ts#L292) `classifyEngineSpecifier`, [identity.ts:680](../../spec/lib/identity.ts#L680) `requiredProfileFiles`; [identity.test.ts:161](../../tests/identity.test.ts#L161), [identity.test.ts:189](../../tests/identity.test.ts#L189), [identity.test.ts:644](../../tests/identity.test.ts#L644), [engine-root.test.ts:263](../../tests/engine-root.test.ts#L263) |
 | B4 | Isolated hook/extension execution so determinism is engine-enforced rather than an author obligation | `deferred` | `—` | `—` | `—` | D32 deferred; contract [§3.3](engine-public-contract.md) and [§8.1](engine-public-contract.md); the static import scan is a guard, not a sandbox ([build-identity.md](build-identity.md) "Static import scan") |
+| B5 | Engine-root portability: `runBuild({ engineRoot })` / CLI `--engine-root` supplies the directory containing `spec/lib` and `package.json`; engine-owned profile imports are resolved lexically against `spec/lib` and loaded from that root (single `spec/lib` occurrence, subpath rules, realpath containment); absolute and `file:`/other non-`node:` schemes are rejected, bare packages stay lockfile-pinned, `node:` stays outside the closure; `engineVersion` is read from the root and must match the running engine; an invalid root, a version mismatch and a runtime without import remapping fail closed | `accepted` | `implemented` | `tested` | `—` | ODR-ENG-001 B2; contract [§5.7](engine-public-contract.md), [§8.1–§8.2](engine-public-contract.md); [identity.ts:95](../../spec/lib/identity.ts#L95) `loadEngineRoot`, [identity.ts:159](../../spec/lib/identity.ts#L159) `verifyEngineVersion`, [identity.ts:292](../../spec/lib/identity.ts#L292) `classifyEngineSpecifier`, [identity.ts:368](../../spec/lib/identity.ts#L368) `resolveEngineModule`, [identity.ts:427](../../spec/lib/identity.ts#L427) `installEngineImportPlugin`, [build.ts:89](../../spec/lib/build.ts#L89), [build.ts:96](../../spec/lib/build.ts#L96) `core.engine.root-unavailable`; CLI [build.ts:52](../../spec/build.ts#L52); [engine-root.test.ts:75](../../tests/engine-root.test.ts#L75), [engine-root.test.ts:107](../../tests/engine-root.test.ts#L107), [engine-root.test.ts:175](../../tests/engine-root.test.ts#L175), [engine-root.test.ts:289](../../tests/engine-root.test.ts#L289), [engine-root.test.ts:309](../../tests/engine-root.test.ts#L309), [engine-root.test.ts:319](../../tests/engine-root.test.ts#L319), [engine-root.test.ts:329](../../tests/engine-root.test.ts#L329), [engine-root.test.ts:363](../../tests/engine-root.test.ts#L363) |
+| B6 | The consumed profile set is part of the closure contract: `view`, `validator`, `diagnostics`, every `schemas[*]` entry and the manifest's `render.template`/`render.labels` must be declared in `profile.files`; otherwise the build fails closed with `core.extension.unpinned-dependency` before any profile module is imported | `accepted` | `implemented` | `tested` | `—` | ODR-ENG-001 B1; [#145](https://github.com/agent-federation/contract-builder/issues/145), [#158](https://github.com/agent-federation/contract-builder/pull/158); contract [§8.1](engine-public-contract.md); [identity.ts:680](../../spec/lib/identity.ts#L680) `requiredProfileFiles`, [identity.ts:704](../../spec/lib/identity.ts#L704) `resolveProfileClosure`; [identity.test.ts:161](../../tests/identity.test.ts#L161) undeclared executable, [identity.test.ts:189](../../tests/identity.test.ts#L189) every consumed file. The enumeration is manual; ODR-ENG-001 B1's recursive schema-walk contract test is not implemented (§6 item 14). |
 
 ### 3.9 Build/CLI result contract and public TypeScript API
 
@@ -185,7 +233,7 @@ carries it.
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
 | A1 | `SourceAdapter` interface (load + verifyQuote), one built-in `markdown` adapter, and an injectable adapter registry | `accepted` | `implemented` | `tested` | `—` | Contract [§11](engine-public-contract.md); [source.ts:13](../../spec/lib/source.ts#L13), [adapters/index.ts](../../spec/lib/adapters/index.ts); [build.test.ts:113](../../tests/build.test.ts#L113), [identity.test.ts:159](../../tests/identity.test.ts#L159) |
-| A2 | Multi-source projects (N sources, a provenance binding naming exactly one) | `proposed` | `—` | `—` | `—` | D21 `proposed`, M4 (#5); M1 requires at least one source and the hook consumes `sources[0]` ([build.ts:86](../../spec/lib/build.ts#L86), [build.ts:150](../../spec/lib/build.ts#L150)); README states one-source support |
+| A2 | Multi-source projects (N sources, a provenance binding naming exactly one) | `proposed` | `—` | `—` | `—` | D21 `proposed`, M4 (#5); M1 rejects `sources.length > 1` during manifest validation with `core.manifest.invalid` ([manifest.ts:386](../../spec/lib/manifest.ts#L386)); absent or empty `sources` still fails later with legacy `ERR_UNKNOWN_REF` ([build.ts:154](../../spec/lib/build.ts#L154)); tests [unsupported-configurations.test.ts:133](../../tests/unsupported-configurations.test.ts#L133) multi-source, [:162](../../tests/unsupported-configurations.test.ts#L162) absent/empty. Multi-source itself remains unimplemented. |
 | A3 | Extension trust boundary: profiles, adapters, renderers and hooks are trusted in-process code; executable profile modules require explicit caller consent (H5); `external: true` is an explicit trust declaration; declared closures participate in identity | `accepted` | `implemented` | `tested` | `—` | D28, D31; contract [§3.3](engine-public-contract.md), [§5.7](engine-public-contract.md), [§8.1](engine-public-contract.md); [build-identity.md](build-identity.md); [identity.test.ts:427](../../tests/identity.test.ts#L427), [identity.test.ts:554](../../tests/identity.test.ts#L554), [consent.test.ts:58](../../tests/consent.test.ts#L58) |
 | A4 | A second real profile (HTTP API) and an OpenAPI adapter | `deferred` | `—` | `—` | `—` | M3 (plan [§17](m1-implementation-plan.md), contract [§16.3](engine-public-contract.md)); only the synthetic `profiles/example` exists |
 | A5 | A synthetic non-CORE-001 profile builds through the same core path (M1 PR 7) | `accepted` | `implemented` | `tested` | `—` | Approved plan PR 7 (plan [§13](m1-implementation-plan.md)); issue #33 acceptance; [profiles/example](../../profiles/example); [example-profile.test.ts:146](../../tests/example-profile.test.ts#L146), [example-profile.test.ts:167](../../tests/example-profile.test.ts#L167), [example-profile.test.ts:195](../../tests/example-profile.test.ts#L195), [example-profile.test.ts:206](../../tests/example-profile.test.ts#L206) |
@@ -203,7 +251,9 @@ carries it.
 |---|---|---|---|---|---|---|
 | X1 | Package split into core / CLI / renderer / adapter / profile packages | `proposed` | `—` | `—` | `—` | D14 `proposed` (future target, contract [§18](engine-public-contract.md)); [package.json](../../package.json) stays one private package with no `exports` |
 | X2 | Publication and distribution scope | `proposed` | `—` | `—` | `—` | D20 unresolved (blocked by #10, contract [§18](engine-public-contract.md)); D29 unresolved with a local-directory default; M5 |
-| X3 | Self-hosting: the engine's own contract described as a project using the public model | `deferred` | `—` | `—` | `—` | D26 `deferred`, M5 (plan [§17](m1-implementation-plan.md); contract [§14](engine-public-contract.md)) |
+| X3 | Full self-hosting: the complete engine contract represented and maintained through the public model | `deferred` | `—` | `—` | `—` | D26 `deferred`, M5 (plan [§17](m1-implementation-plan.md); contract [§14](engine-public-contract.md)); bounded S1 is tracked separately in X3a and does not close this row |
+| X3a | Bounded CORE-000 S1 self-build: a five-claim project is loaded, validated, related, provenance-checked, policy-checked, rendered and identified through the existing generic pipeline; draft succeeds and release is blocked by the expected review findings | `accepted` | `implemented` | `tested` | `—` | Maintainer authorization: [#72 approval](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746), canonical decision [#75](https://github.com/agent-federation/contract-builder/pull/75), implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76); code [contracts/core000/run.ts](../../contracts/core000/run.ts), [profiles/core000/](../../profiles/core000/); tests [core000.test.ts](../../tests/core000.test.ts), `bun test`; merged [PR #77](https://github.com/agent-federation/contract-builder/pull/77), [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507). H2 is `NOT_TESTED`; H3 is `NOT_PERFORMED` (PR evidence record). S2.1/S2.2 later extended the project to the full 78-claim register; this row keeps its bounded-S1 meaning — see §4.2. |
+| X3b | S1 ephemeral workspace copy and undeclared-write detection: profile/source inputs are copied rather than symlinked into the checkout; workspace snapshot detects undeclared writes | `accepted` | `implemented` | `tested` | `—` | S1 boundary approved in [#72](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); implementation [contracts/core000/run.ts](../../contracts/core000/run.ts); regression assertions [tests/core000.test.ts](../../tests/core000.test.ts); [maintainer review #5739321136](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) independently reviewed these bounded implementation behaviors (real copies, no-symlink condition, whole-workspace write detection and regression test). This is maintainer code review, not independent verification under this matrix's verification axis, not H3, sandboxing or a second verifier implementation. |
 | X4 | Declared runtime matrix (Node 20+ library, Bun development/CI) | `proposed` | `—` | `—` | `—` | D19 `proposed` (contract [§18](engine-public-contract.md)); CI runs Bun only ([ci.yml](../../.github/workflows/ci.yml)) |
 | X5 | Remaining M2–M5 milestones (public API, three-axis diagnostics, code namespacing, rule primitives, multi-source, review dimensions, provenance hardening, packaging, self-hosting) | `deferred` | `—` | `—` | `—` | Plan [§17](m1-implementation-plan.md) "Deferred capabilities"; each has its own row above where material |
 
@@ -235,6 +285,90 @@ sequence did not change CORE-001 normative content or the generated bytes.
 
 ---
 
+## 4.1 CORE-000 bounded S1 delivery (PR #77)
+
+PR [#77](https://github.com/agent-federation/contract-builder/pull/77) merged at
+[`07cbf5b`](https://github.com/agent-federation/contract-builder/commit/07cbf5bd6cbed740e55351612d0300196b8d1464)
+after the maintainer-approved scope in [#72](https://github.com/agent-federation/contract-builder/issues/72),
+the canonical decision update [#75](https://github.com/agent-federation/contract-builder/pull/75)
+and implementation task [#76](https://github.com/agent-federation/contract-builder/issues/76).
+
+| Dimension | S1 result | Evidence / limit |
+|---|---|---|
+| Maintainer decision | Accepted bounded S1 | [Approval comment](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); [decision record PR #75](https://github.com/agent-federation/contract-builder/pull/75) |
+| Implementation | Implemented for the bounded five-claim slice | [Harness](../../contracts/core000/run.ts), [profile](../../profiles/core000/), [project inputs](../../contracts/core000/) |
+| Automated tests | Tested | [tests/core000.test.ts](../../tests/core000.test.ts); PR #77 reports 308 passing tests overall (22 files, including 16 CORE-000 tests); [CI run #187](https://github.com/agent-federation/contract-builder/actions/runs/41475652507) succeeded. The count is the PR's reported test output; CI success is separately linked. |
+| Independent review | Independently reviewed only for the explicit behaviors below | [Maintainer APPROVE review](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) inspected the real copied workspace, absence of checkout symlinks, whole-workspace write detection, regression coverage and approved scope. This is not a second verifier implementation and does not establish H3. |
+
+**What S1 establishes.** The generic pipeline processes the bounded CORE-000 project and
+produces a draft; release is blocked by the expected independent-review findings. The tested
+positive and negative mutations exercise only the cases named in PR #77. The implementation
+records a transient run-evidence object.
+
+**What S1 does not establish.** The complete 78-claim / 14-kind / 28-relation / 23-policy-check
+model named at the S1 milestone was not implemented at `07cbf5b`. That count is the historical S1
+snapshot: the accepted design prose says 23, its check table enumerates 24, and S2-D1 resolves
+the full-model count. The S2.2 register and structure were later encoded (78 claims, 14 kinds,
+29 relation declarations, 24 policy-check codes — see §4.2); that is register data, not
+capability. Same-environment, fresh-workspace repeatability (two processes, each
+creating its own fresh workspace) was tested, but H2 cross-environment reproducibility was
+explicitly recorded as `NOT_TESTED`. H3 independent verification was recorded as `NOT_PERFORMED`. No claim is
+`independently_verified`; the review status above applies to selected implementation behaviors,
+not the truth or completeness of CORE-000 claims. The temporary workspace is not a security
+sandbox. D14, P-2, P-3 and P-6 remain deferred for S1.
+
+**Next milestone.** S2 — structure and full model — is the next proposed milestone: complete the
+full model before the later S3 negative/provenance matrix and S4 H2/H3 work. At `07cbf5b` S2 was
+not authorized by this status update; it required its own bounded implementation task and
+maintainer approval.
+
+**Later status.** S2.1 and S2.2 were subsequently authorized and merged (#105, #123, #127);
+§4.2 records what they delivered. S2.3 (focused tests and evidence), S3 and S4 remain not
+started.
+
+---
+
+## 4.2 CORE-000 S2.1/S2.2 delta (PRs #105, #123, #127, #129, #131)
+
+This is a delta against the `07cbf5b` snapshot, not a re-audit of the engine. It records only
+what merged after that commit, with the limit of what each item proves. Files are relative to the
+repository root.
+
+| Item | Merged as | Delivered | What it proves | What it does not prove |
+|---|---|---|---|---|
+| #105 remaining S2.1 wiring | `dbc93de` | `profiles/core000/checks/{model-structure,evidence,conformance}.ts` added; `claim-evidence.ts` and `provenance-verification.ts` extended; validator, view, profile closure (28) and template wired | The S2.1 check family runs end to end through the existing generic pipeline | The checks' correctness or completeness; it changes no kind, schema or relation |
+| #123 S2.2a subject kinds | `2497ed9` | `claim`, `decision`, `evidence`, `source_statement` added to the `subject_kind` enum in `profiles/core000/schemas/claim.schema.json`; [core-000-self-contract.md](core-000-self-contract.md) §5.3.1 documents "about" semantics | The register can name non-structural subjects without a new kind per claim | That each mapping is the right semantic subject; the decision record carries that ruling |
+| #127 S2.2 full register | `95f1bfd` | `contracts/core000/claims.yml` holds the accepted 78 claims, 15 decisions, 33 evidence rows and 3 source statements (0 conformance cases, 0 independent verifications); `contracts/core000/output/CORE-000.draft.md` regenerated with `claims=78`, `evidence=33`, `decisions=15` | The accepted register and its artifact are encoded and the CORE-000 project builds them | Claim truth, capability completeness or independence: encoding changes no status; `S2.2 artifact verification` is the machine check |
+| #129 C000-CT-011 correction | `fbe1e3f` | The S2.2-approved conditions wording now names adapter closures as part of `inputDigest`, matching the claim statement and `spec/lib/identity.ts` | The approved wording matches the claim and the code | Any new implementation or status change; drafting correction only |
+| #131 CORE-000 artifact rule | `b569dc5` | `AGENTS.md` documents that `contracts/core000/output/CORE-000.draft.md` is generated, the Q9 regeneration procedure and that `bun run check` covers CORE-001 only | The maintenance rule is discoverable next to the CORE-001 rule | A machine check of the CORE-000 artifact; the `S2.2 artifact verification` test is that check |
+
+**Not delivered by this delta.** S2.3 focused tests/evidence, the S3 N1–N18 negative matrix and
+S4 H2/H3 work remain not started. No row in §3 moves to `independently_verified`; X3a keeps its
+bounded-S1 wording, and X3 (full self-hosting) stays `deferred`.
+
+---
+
+## 4.3 Engine delta after `f89a53f` (audit batch #158 and stream B E1/E2)
+
+This is a delta against the `f89a53f` snapshot, not a re-audit. It records the engine changes
+that landed between `f89a53f` and `1f1ac26`; PAP verifier changes in the same period are recorded
+in the PAP component record, not here (#159's split). Files are relative to the repository root.
+
+| Item | Merged as | Delivered | What it proves | What it does not prove |
+|---|---|---|---|---|
+| #145 / #158 profile closure | `70f6311` | `requiredProfileFiles` requires `view`, `validator`, `diagnostics`, every `schemas[*]` entry and the manifest's `render.template`/`render.labels` in `profile.files`; `resolveProfileClosure` fails closed with `core.extension.unpinned-dependency` before profile code is imported | An executable or consumed profile file can no longer escape the closure digest and the import scan | Completeness of the consumed set when the profile schema grows: the enumeration is manual and ODR-ENG-001 B1's recursive schema-walk test is not implemented (B6); nor that the static scan sees computed imports (B4) |
+| #179 data-only and multi-source | `213a57b` | `validateProfile` rejects a profile without `view`/`validator` with `core.profile.invalid` naming the M1 requirement; `validateSources` rejects `sources.length > 1` with `core.manifest.invalid` before the model, identity or renderer runs; absent/empty `sources` keeps legacy `ERR_UNKNOWN_REF` | Unsupported configurations now fail with an explicit diagnostic instead of degrading partially | That data-only profiles or multi-source semantics exist; the zero/absent deviation from ODR-ENG-001 B4 stays recorded in contract §5.3 (A2, R6) |
+| #181 engine-root portability | `9d4e623` | `runBuild({ engineRoot })` and CLI `--engine-root`; lexical `spec/lib` mapping and loading from the root (single occurrence, subpath rules, realpath containment, non-relative dispositions); `engineVersion` read from the root with a running-engine match check; CORE-000 harness passes the root instead of rewriting imports | A copied project builds without rewriting imports, and the executed engine module comes from the supplied root; the same declared project + version + extension identities are independent of launch location | Cross-platform byte equality, import-scan completeness for computed specifiers, or safe concurrent builds in one process (B5, §6 item 13) |
+
+**Recorded run for this delta (2026-11-06, local checkout).** `bun test` → 566 pass, 0 fail
+(34 files); `bun run typecheck` → clean; `bun run check` → clean; the CORE-000
+`S2.2 artifact verification` test also passes after the artifact regeneration that this contract
+change requires. The run covers the engine-root, profile-closure and unsupported-configuration
+tests; it is not independent verification of the behavior (no row moves to
+`independently_verified`).
+
+---
+
 ## 5. What the contract promises versus what M1 implements
 
 The accepted contract describes the engine's full public surface. M1 delivered a bounded slice
@@ -245,18 +379,19 @@ of it. These are different kinds of claim and are not interchangeable:
   [G2](#36-diagnostics-shape-codes-and-phases), H3), provenance hardening (accepted 2026-11-02;
   V4).
 - **Proposed but not implemented:** `BuildStatus` and exit code 2 (D18), code namespacing (D17),
-  rule primitives (D15; R4), multi-source (D21; A2), typed review dimensions (D24; R5), packaging
-  and publication (D14, D20, D29; X1–X2), runtime matrix (D19; X4).
-- **A code comment is staler than the contract:** `RenderOptions.diagnostics` exists and is
-  required by contract [§11](engine-public-contract.md), but
-  [render.ts:27](../../spec/lib/render.ts#L27) still calls it a "proposed contract extension"
-  (see [§8](#8-documentation-drift-and-smallest-corrections)).
+  rule primitives (D15; R4), multi-source (D21; A2 — M1 now rejects more than one source), typed
+  review dimensions (D24; R5), packaging and publication (D14, D20, D29; X1–X2), runtime matrix
+  (D19; X4).
+- **A code comment is no longer staler than the contract (fixed).** `RenderOptions.diagnostics`
+  is required by contract [§11](engine-public-contract.md), and
+  [render.ts:23](../../spec/lib/render.ts#L23) now says so instead of calling it a "proposed
+  contract extension" (Issue #149; see [§8](#8-documentation-drift-and-smallest-corrections)).
 - **Deferred:** isolated hook execution (D32; B4), conformance execution (D27; N2), self-hosting
   (D26; X3) and the M2–M5 milestone program (X5).
 - **M1 narrowings that are deliberate, not accidental:** one renderer and one artifact per build
   (O3), `review` opaque inside `fields` (R5), legacy diagnostic codes preserved verbatim (G1),
   severity-based blocking (H2), source quote verification in the profile hook (V3) recorded as a
-  verification status (V5).
+  verification status (V5), an executable profile required (R6) and exactly one source (A2).
 
 The contract's own limit applies: a successful build is evidence of internal consistency, not of
 normative correctness (contract [§1.1](engine-public-contract.md), [§6.3](engine-public-contract.md)).
@@ -286,9 +421,9 @@ Each item is a limitation of this commit, not a task list. Evidence is linked.
    specifiers, `createRequire`, `process.binding` and runtime file access; determinism of trusted
    extensions remains an author obligation (B3, B4;
    [build-identity.md](build-identity.md) "Static import scan").
-6. **One source is the only source exercised.** The loader loops over declared sources and the
-   manifest type allows a list, but M1 requires at least one source, the hook consumes `sources[0]`,
-   and no test or fixture builds a two-source project (A2).
+6. **One source is the only supported source.** The manifest type keeps an array, but M1 rejects
+   `sources.length > 1` with `core.manifest.invalid` and keeps the legacy `ERR_UNKNOWN_REF` for an
+   absent or empty array; multi-source behavior remains unimplemented (A2).
 7. **Multi-source, review dimensions, typed `ReviewState`, per-code blocking, rule primitives and
    conformance execution are absent from the code**, not merely undocumented (R4, R5, H3, N2, A2).
 8. **Diagnostics are narrower than the contract and carry legacy strings.** No `disposition`,
@@ -301,10 +436,20 @@ Each item is a limitation of this commit, not a task list. Evidence is linked.
     "packages" are local modules (X1, X2).
 11. **Conformance is declarative only.** Vectors are stored and cross-checked; no scenario is
     executed and no implementation is evaluated (N1, N2).
-12. **M1 decisions narrowed the contract and the contract text still says "not started."** The
-    narrowing is recorded in the plan, but the stale status lines remain in the contract and the
-    plan headers, alongside a stale test count in the README and design record
-    ([§8](#8-documentation-drift-and-smallest-corrections)).
+12. **M1 decisions narrowed the contract and the contract text still said "not started."** The
+    narrowing is recorded in the plan, but at `07cbf5b` the stale status lines remained in the
+    contract and the plan headers, alongside a stale test count in the README and design record.
+    The #149 documentation update labels the status lines historical and scopes the test count to
+    a snapshot (see [§8](#8-documentation-drift-and-smallest-corrections)).
+13. **Engine import remapping is process-global and assumes one build at a time.** The mapping is
+    keyed by the normalized profile directory and the runtime resolver is installed once per
+    process; concurrent builds in one process are not supported, and two concurrent builds that
+    share a profile directory but use different engine roots could observe each other's mapping
+    (B5; contract [§8.2](engine-public-contract.md)).
+14. **Consumed-profile detection is a manual enumeration.** `requiredProfileFiles` lists the
+    profile artifacts the engine executes or consumes; the recursive schema-walk contract test
+    that ODR-ENG-001 B1 requires for future profile fields is not implemented, so a new consumed
+    field would be caught by review, not by the test suite (B6).
 
 ---
 
@@ -367,6 +512,15 @@ The status lines and the two test counts are factual records, not architecture d
 correcting them would not violate the "do not re-decide" constraint; they are deferred here to
 keep this PR audit-only. The header annotations added by this PR already point at the current
 status, so no reader is misled in the meantime.
+
+**Corrections applied (Issue #149).** The rows above remain the original audit record. The
+documentation-drift corrections were applied in the snapshot-update series that this section
+announces: the design-record test count, the README and `AGENTS.md` layout lists, the `render.ts`
+comment, the `check` M1 code mapping (`core.artifact.drift` → `ERR_OUTPUT_STALE`) and the status
+lines. The historical "Implementation status: not started (pre-M1 record)" lines stay in the
+contract and the plan, relabelled as historical next to an explicit current-state pointer; no
+historical RFC/ODR text was rewritten. The CORE-000 claim count is now machine-checked by
+`tests/docs-freshness.test.ts`.
 
 ---
 

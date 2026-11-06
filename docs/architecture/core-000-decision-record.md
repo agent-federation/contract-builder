@@ -1,28 +1,459 @@
-# CORE-000 decision record — D1, D13, D14, D15 and P-1–P-6
+# CORE-000 decision record — S1 decisions and S2 planning decisions
 
-**Status:** proposed for explicit maintainer answers. Planning and decision-preparation only.
-Nothing in this document is accepted or decided; it does not implement CORE-000, change code,
-tests, schemas, fixtures, evidence or generic-core behaviour.
-**Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47).
-**Baseline:** current `main` at
-[`b8e67a8`](https://github.com/agent-federation/contract-builder/commit/b8e67a8bf74897b8c44399931d17477abccd78ec)
-(the PR base; includes merged execution plan PR #59 and the later #58 work). The accepted design is
+**Status:** canonical CORE-000 decision record. The original S1 decisions were recorded on
+2026-11-02; D14, P-2, P-3 and P-6 were deferred for S1 at that time and were subsequently accepted
+for the full-model planning scope on 2026-11-03. S2-D1–S2-D4 were also accepted on 2026-11-03.
+Q1, Q3, Q5 and Q10 were accepted on 2026-11-03/04; Q2, Q4, Q6, Q7, Q8 and Q9 were accepted on
+2026-11-04. None of these later planning decisions authorize S2.1, S2.2 or S2.3 implementation.
+S2.1 implementation was separately authorized by the project owner on 2026-11-04 (see
+[Maintainer authorization — S2.1 implementation](#maintainer-authorization--s21-implementation-2026-11-04)
+below); S2.2 and S2.3 remain separately gated. This document does not implement CORE-000 and does
+not change code, tests, schemas, fixtures, evidence or generic-core behaviour.
+**Issue:** [#47](https://github.com/agent-federation/contract-builder/issues/47), refreshed by
+[#72](https://github.com/agent-federation/contract-builder/issues/72).
+**Original S1 decision recorded:** 2026-11-02, after PR #74 merged as
+[`1c405c2`](https://github.com/agent-federation/contract-builder/commit/1c405c2876c030f8855f777e160ca9f9f638af45).
+**Original S1 decision source:** [Issue #72 comment 6579841746](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746)
+by `zaebee` (maintainer).
+**Subsequent planning decisions:** D14, P-2, P-3, P-6 and S2-D1–S2-D4 were explicitly approved
+by the maintainer in the project-owner conversation on 2026-11-03 and are recorded in this
+documentation PR. That approval conversation is not a public GitHub source; this record does not
+misrepresent the PR itself as the original source of approval.
+**Planning baseline:** [`c6ee644`](https://github.com/agent-federation/contract-builder/commit/c6ee64416c91ab56f9d8270114c8f8a8b9d2f608)
+(PR #73; includes #59, #60, #61, #64, #66, #67 and the PAP verifier). The original record baseline was
+[`b8e67a8`](https://github.com/agent-federation/contract-builder/commit/b8e67a8bf74897b8c44399931d17477abccd78ec);
+the refresh found no code or profile change that affects these decisions (see
+[`core-000-baseline-refresh.md`](core-000-baseline-refresh.md)). The accepted design is
 [`core-000-self-contract.md`](core-000-self-contract.md) (PR #51); the accepted execution plan is
 [`core-000-execution-plan.md`](core-000-execution-plan.md) (PR #59).
 
-> **What this is.** A single reviewable record of the ten decisions that still need a maintainer
-> answer before the first CORE-000 implementation slice: D1, D13, D14, D15 and P-1–P-6. For each
-> item it states the exact question, viable options (including `defer` where it is viable), a
-> recommended default and why, consequences and trade-offs, dependencies, reversibility, and the
-> repository evidence that informs the recommendation.
+> **What this is.** The canonical record of the CORE-000 S1 decisions and subsequent S2 planning
+> decisions. The 2026-11-02 S1 deferrals of D14, P-2, P-3 and P-6 remain part of the historical
+> decision trail; the 2026-11-03 maintainer decision below accepts those four options for the
+> full-model planning scope and accepts S2-D1–S2-D4.
+> For each item the record states the exact question, viable options, decision, consequences and
+> trade-offs, dependencies, reversibility, and the repository evidence that informs it.
 >
-> **What this is not.** It is not a decision, an implementation plan, a first-slice proposal, a
-> generic-core change, or an independent verification. The recommendations below are proposals;
-> only the maintainer can accept them. No code or CORE-000 artifact is created by this record.
+> **What this is not.** It is not an implementation, a generic-core change, or an independent
+> verification. No code or CORE-000 artifact is created by this record.
+> **Historical S1 gate (already satisfied):** the first-slice proposal in
+> [`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10 was approved for implementation
+> after the canonical S1 decision record merged. S1 was subsequently implemented and merged; this
+> paragraph records that historical sequence and is not a pending authorization gate.
 
 ---
 
-## 0. How to answer this record
+## Maintainer decision — 2026-11-02
+
+**Source:** the maintainer's [Issue #72 comment](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746)
+on 2026-11-02. This section is the canonical acceptance record; the detailed sections below retain
+the full rationale and the open-item analysis.
+
+| ID | Decision status as of 2026-11-02 | Effect for S1 |
+|---|---|---|
+| D1 | **Accepted — A** | CORE-000 project at `contracts/core000/`, profile at `profiles/core000/`; no package publication is implied. |
+| D13 | **Accepted — A** | Distinct `independent_verification` entity kind/schema; do not reuse the core `VerificationRecord`. |
+| D15 | **Accepted — A** | Require a stored `verified` provenance record for every normative source statement; failed/stale/unavailable is an error. |
+| P-1 | **Accepted — B** | One base project plus one deterministic mutation per fresh isolated copy for negative cases. |
+| P-4 | **Accepted — A** | `nunjucks` 3.2.4 as a declared, lockfile-pinned renderer dependency. |
+| P-5 | **Accepted — A** | `contracts/core000/run.ts` plus `tests/core000.test.ts` as the consumer harness. |
+| D14 | **Deferred for S1 — open** | Do not add consent interface/diagnostic entities in S1. |
+| P-2 | **Deferred for S1 — open** | Defer durable evidence publication/location and the human-readable summary format. S1 must still write and test the transient JSON evidence record from the accepted execution plan and S1 proposal. |
+| P-3 | **Deferred for S1 — open** | Do not commit the generated CORE-000 draft in S1. |
+| P-6 | **Deferred for S1 — open** | Do not commit run evidence or external verification records in S1. |
+
+**Historical S1 decision snapshot (2026-11-02).** The statuses in the table above record the
+maintainer's S1 decision at that date. The later 2026-11-03 decision below accepts D14, P-2, P-3
+and P-6 for the full-model planning scope; it does not rewrite what S1 actually did.
+
+**G4 / consumer harness.** Confirmed for S1 only: the bounded consumer harness may be used for the
+first slice. This does not close G4, does not close the generic CLI/API gap, and is not independent
+verification.
+
+**Authorization boundary.** The maintainer approves the bounded S1 scope in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10, subject to this canonical
+decision-record update being merged. S1 implementation is authorized only after that merge and
+when the implementation task references this record. S1 remains limited to the proposed vertical
+slice, its positive/negative tests and transient evidence. No generic-core changes,
+arbitrary/untrusted profile execution, security-sandbox claims, independent certification or
+semantic-truth claims are authorized. A temporary workspace is not a security sandbox. Any scope
+expansion or material deviation requires a new maintainer decision. The four items deferred in
+that historical S1 snapshot were subsequently accepted for the full-model planning scope below.
+
+---
+
+## Maintainer decision — 2026-11-03
+
+**Source:** explicit maintainer approval in the project-owner conversation on 2026-11-03.
+This section records the eight decisions in this canonical file. It supersedes the open status of
+the four S1 deferrals for the subsequent full-model planning scope; it does not rewrite the
+historical S1 snapshot above.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| D14 | **Accepted — A** | Represent the consent surface with API option, CLI flag and diagnostic entity; settle the trust boundary as `explicit_consent`. This does not claim sandboxing or process isolation. |
+| P-2 | **Accepted — A** | Persist producer run evidence at `evidence/core000/<run>/result.json` and maintain the human-readable summary at `docs/architecture/core-000-execution-evidence.md`. |
+| P-3 | **Accepted — A** | Commit `contracts/core000/output/CORE-000.draft.md` after a successful, reviewed run. A committed draft is an output for review, not a correctness or truth certification. |
+| P-6 | **Accepted — A, run evidence only** | Commit producer-generated run evidence in Git. Independent-verification records remain separate and are not generated by the engine; S2 creates zero such records. Future records under `verification/core000/` require a distinct verifier and a separate maintainer decision. |
+| S2-D1 | **Accepted — A** | The 24 enumerated policy-check codes are normative; the prose count of 23 is an error. Historical S1 snapshots remain historical. |
+| S2-D2 | **Accepted — A** | Encode all 78 accepted claims with original IDs and statuses. No status promotion from structural completeness or build success; any status change requires source evidence and a separately authorized decision. |
+| S2-D3 | **Accepted — A** | Include the `conformance_case` kind/schema with `conformanceCases: []`. For S2-D3, use a synthetic fixture to test `conformance.case-uncovered`; this fixture is a test input, not project data or independent evidence. Other synthetic fixtures used by focused tests remain test inputs only. |
+| S2-D4 | **Accepted — A** | Keep the full N1–N18 negative-test matrix in S3. S2.3 covers focused tests for the 11 new checks only. |
+
+**Mandatory evidence-separation invariant.** Producer-generated run records belong under
+`evidence/core000/` and are producer evidence, not independent verification. Synthetic fixtures
+are test inputs only. S2 creates zero `independent_verification` records and zero
+`verification/core000/` records. Any future independent-verification record must be produced by a
+distinct verifier and accepted under a separate maintainer decision; engine-generated evidence must
+never be represented as independent.
+
+**Authorization boundary.** This decision-record update records planning decisions only. It does
+not authorize S2.1, S2.2 or S2.3. Each stage requires its own separate, explicit maintainer
+authorization after review of that stage's exact scope. Approval or merge of this documentation PR,
+or creation/linking of an implementation issue, is not implementation authorization. For S2.1
+specifically, the separate authorization was given on 2026-11-04 (see the authorization section
+below); this historical boundary is unchanged for S2.2 and S2.3.
+
+---
+
+## Maintainer decision — Q1, Q3, Q5 and Q10 (2026-11-03/04)
+
+**Source:** the project owner's [PR #87 Q1 confirmation comment
+6607056794](https://github.com/agent-federation/contract-builder/pull/87#issuecomment-6607056794)
+(2026-11-03) and [PR #87 Q3/Q5/Q10 decision comment
+6621046448](https://github.com/agent-federation/contract-builder/pull/87#issuecomment-6621046448)
+(2026-11-04). The full question, evidence, options and consequence records for Q1, Q3, Q5 and Q10
+are in [`S2.1-open-questions.md`](proposals/core000-s21/S2.1-open-questions.md). This section is the
+canonical cross-reference to those durable owner decisions; it does not reinterpret, broaden or
+reopen any of them.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| Q1 | **Accepted — 2026-11-03** | One `hasPrerequisite` relation (the 29th declaration, phase → phase, many, no inverse) carries the eight contract §6.2 phase-dependency edges; the `transition` kind/schema is retained with zero S2.1 instances. The post-run invariant is the maintainer-approved formalization of `requires`; “all prerequisites `passed`” establishes eligibility only and admission is not an event. The §6.2 failure→skip sentence is read directly (direct dependents), and the completeness rule is a separate approved policy. Acyclic `hasPrerequisite` is an explicit well-formedness policy enforced by the S2.1 test only. No causal, execution-order, timing, scheduler, admission-event or state-production semantics are encoded. |
+| Q3 | **Accepted — 2026-11-04** | Consent surface: `IF-CONSENT-OPTION` for `BuildOptions.allowExecutableProfile`, `IF-CONSENT-CLI-FLAG` for `--allow-executable-profile`, and the core-owned diagnostic `core.profile.consent-required`. `TB-PROFILE-EXEC` stays settled with `enforcement: explicit_consent`. One `/diagnostics` inventory: 24 profile-owned `core000.*` entries matching the catalog plus one core-owned entry (25 total). Model-level `diagnostic.phase` remains required; the consent diagnostic is associated with `PH-LOAD`, and any `raisedIn` must agree with `phase`. Ownership is catalog membership, never ID-prefix inference. |
+| Q5 | **Accepted — 2026-11-04** | The generic IR's reserved `Entity.kind` semantics are preserved, as are the domain fields `dependency.kind` and `conformance_case.kind`; neither is renamed and generic IR extraction is unchanged. Profile-level bounded typed accessors `dependencyKind(model, id)` and `conformanceCaseKind(model, id)` are provided, fail closed, and never fall back to `Entity.kind` or a default. No unrestricted raw-document accessor is exposed to renderers or templates. |
+| Q10 | **Accepted — 2026-11-04** | All seven declared components are public responsibility units and all twelve declared interface entities are public surfaces; interfaces are public by definition, so no redundant `public` field is added. Component `public` describes a public responsibility unit, not external accessibility; `stability` is independent of public status. Expected coverage remains 19 public surfaces (3 covered, 16 uncovered); tests assert the exact uncovered IDs, and the warnings remain visible. |
+
+**Cross-question effect.** Q1 is the source of the 29th relation and the 18th S2.1 relation
+declaration; Q3's inventory remains 25 model-level diagnostic rows and does not change Q4's
+`id = code` vocabulary; Q5's accessors and Q10's public-surface semantics are unchanged from the
+owner decisions. The affected relation counts are synchronized in
+[`core-000-s2-package.md`](core-000-s2-package.md), the accepted design
+([`core-000-self-contract.md`](core-000-self-contract.md)) and the
+[`core-000-execution-plan.md`](core-000-execution-plan.md). The Q9 stage allocation remains recorded
+in the 2026-11-04 section below and is synchronized in the S2 package.
+
+**Authorization boundary.** This section is a canonical documentation record only. It does not
+authorize S2.1, S2.2 or S2.3 implementation, code, schema, fixture, test, evidence or
+generated-artifact changes.
+
+---
+
+## Maintainer decision — 2026-11-04
+
+**Source:** [Issue #84 comment
+6621648632](https://github.com/agent-federation/contract-builder/issues/84#issuecomment-6621648632)
+(maintainer, 2026-11-04), based on the adversarial review of Q2/Q4/Q6/Q7/Q8/Q9 at merged `main`
+`8bfebec`. This section records six accepted S2.1 planning decisions and the stated later-stage
+artifact direction. It does not authorize implementation.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| Q2 | **Accepted — B + D** | Add a distinct `TB-CONSUMER-EXTENSION` trust boundary with `enforcement: none` and `policy_status: settled`, describing only the consumer's own import decision (the engine's `allowExecutableProfile` gate does not govern it; no sandbox/isolation/engine enforcement implied). Scope `core000.trust.consent-facts` to `TB-PROFILE-EXEC` per design §5.7, with exact-set tests; a non-profile boundary with `enforcement: none` must not produce that finding. The inventory wording is corrected: an extra `review` finding does not fail the positive draft. |
+| Q4 | **Accepted — A + D clarification** | `diagnostic.id = diagnostic.code`; `status` remains an open non-empty string (no closed enum) with a format constraint; S2.1 uses `status: declared` for every row, documented as a data-level label, not a diagnostic lifecycle state. Tests cover `id === code`, uniqueness, exact catalog/core membership, trimmed non-empty status, the S2.1 status set `{declared}`, and phase/`raisedIn` agreement. Ownership remains catalog membership, never ID-prefix inference. |
+| Q6 | **Accepted — A′** | `core000.claim.invalid-status` is retained as a defensive, unit-level assertion; schema validation shadows it in the pipeline and no pipeline observability is claimed. `core000.evidence.locator` is limited to non-empty trimmed locator/revision; no locator regex or grammar is added, and the path/URL/command form stays human review. Catalog messages and S2.3 planning must not claim stronger guarantees. |
+| Q7 | **Accepted — A′** | `core000.claim.status-class-conflict` enforces only the machine-decidable subset: `non_goal`/`deferred` with `implementation: implemented` or `tests: tested`, and `proposal` with `implementation: implemented`. The `limitation` exception remains human review; no marker field, accepted-limitation ID list or literal rule is added. The check and its catalog message describe machine-decidable class/status conflicts only; S2.3 uses synthetic cases and notes that the project register has no `deferred`/`non_goal` class rows. |
+| Q8 | **Accepted — A′** | Seven dependency rows (`bun`, `ajv`, `nunjucks`, `yaml`, `typescript`, `@types/node`, `@types/nunjucks`); no transitive or unsourced pipeline/decision/product rows. `resolved` rows use exact lockfile versions (ajv 8.20.0, nunjucks 3.2.4, yaml 2.9.1, typescript 5.9.3, @types/node 22.20.5, @types/nunjucks 3.2.6). `bun` is runtime/`declared` with `version: >=1.4.0`; the `packageManager: bun@1.4.2` pin is a separate consequence/note. Only import-grounded `requires` edges are kept (COMP-CORE→ajv, COMP-CORE→yaml, COMP-RENDERER→nunjucks); the COMP-CORE→bun edge is removed and no build-tooling edges are invented. |
+| Q9 | **Accepted — A + staged D** | S2.1 commits no draft and no durable producer evidence (transient harness output only). Planning direction: `contracts/core000/output/CORE-000.draft.md` in S2.2 after the full register; `evidence/core000/<run>/result.json` and `docs/architecture/core-000-execution-evidence.md` in S2.3 after focused checks. Before those stages, specify a reproducible copy-from-temporary-workspace procedure and a CORE-000-specific artifact verification command/check; `bun run check` validates CORE-001 only and must not be relied on for CORE-000. This is staged planning, not authorization to create artifacts or implement S2.2/S2.3. |
+
+**Cross-question constraints.** Q1, Q3, Q5 and Q10 remain resolved exactly as recorded. Q3's single
+25-entry model-level diagnostic inventory, required `diagnostic.phase`, and ownership by catalog
+membership are preserved. Q5's bounded typed accessors and the generic IR's reserved `Entity.kind`
+are preserved. Q10's 19 public surfaces / 16 uncovered warnings are preserved. Repository facts,
+accepted normative rules, these owner decisions and any implementation proposal remain distinct;
+no accepted source was rewritten and no new semantics was inferred.
+
+**Authorization boundary.** This section records planning decisions and the Q9 staged direction
+only. It does not itself authorize S2.1, S2.2 or S2.3 implementation, code, schema, fixture, test,
+evidence or generated-artifact changes. S2.1 was authorized separately on 2026-11-04 (see the
+authorization section below); S2.2 and S2.3 still require their own separate, explicit maintainer
+authorization.
+
+---
+
+## Maintainer authorization — S2.1 implementation (2026-11-04)
+
+**Source:** [Issue #84 comment
+6623307799](https://github.com/agent-federation/contract-builder/issues/84#issuecomment-6623307799)
+(project owner, 2026-11-04).
+
+**Status:** S2.1 implementation is **authorized** and, at the time of this record, **not yet
+performed**. Implementation baseline: `main` `8c3a5faf388cac97e357073204de39f82a3737d6`.
+
+**Scope of the authorization.** The exact accepted S2.1 scope in the proposal and its Q1–Q10
+decisions, including:
+
+- preserve the five existing S1 claims, their statuses and existing S1 behavior;
+- implement the accepted model surface and 29 relation declarations, including the eight Q1
+  `hasPrerequisite` edges and zero transition instances;
+- preserve the Q1 distinction between repository facts, owner-approved formalization/policies and
+  deferred runtime behavior; add no scheduler, execution-order, causal state-production,
+  admission-event or fourth phase-state semantics;
+- no generic-core changes, no new dependencies, no CORE-001 changes, no H2/H3 or
+  independent-verification claims;
+- no full 78-claim register (S2.2), no focused S2.3 tests/evidence, no S3 N1–N18 matrix;
+- no committed CORE-000 draft or durable producer evidence in S2.1 (Q9: draft S2.2, durable
+  evidence/human summary S2.3).
+
+**Still gated.** S2.2, S2.3 and S3 each require their own separate, explicit maintainer
+authorization. This authorization does not extend to generic-core changes, new normative semantics,
+CORE-000 draft or durable producer-evidence creation, claim promotion or independent-verification
+records. The planning decisions above remain historical planning decisions; this section is the
+canonical record of the S2.1 implementation authorization and supersedes only the earlier “S2.1 not
+authorized” current-status statements.
+
+---
+
+## Maintainer decision — S2.2 owner rulings (2026-11-04)
+
+**Source:** owner review of the S2.2 owner-decision sheet, [Issue #119 comment
+6631326400](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6631326400)
+(maintainer, 2026-11-04), based on the second adversarial review and the follow-up maintainer review
+in that issue. This section records S2.2 planning decisions and one staged model decision. It does
+not authorize S2.2 implementation.
+
+**Status:** the S2.2 scope remains **not authorized**. It is re-frozen only after the S2.2a
+subject-model decision below and a fresh independent scope review.
+
+| ID | Decision status | Accepted effect |
+|---|---|---|
+| S2.2-A | **Accepted — direction A2 + A1a, staged** | The S2.2 register maps structural claims to the existing eight `subject_kind` values with a per-claim rationale (A2). Meta-claims — claims about claims, decisions, evidence, source statements, the register or process — are intended to receive honest non-structural subjects (A1a). A1a changes model semantics (design §5.3.1/§5.4: the allowed subject kind is policy, all subjects of a claim share one kind, and a claim needing two kinds is split), so it requires a separate **S2.2a** decision and scope that align schema, design and checks. S2.2a review and scope preparation are authorized as planning only. S2.2 **must not implement A1a**: no new `subject_kind` value and no missing-subject exemption is authorized by this section. |
+| S2.2-B | **Accepted — B1 + B4** | Per-claim decision-source table `claim → source → decision status → decision entity`. Source hierarchy: (1) `core-000-decision-record.md` entries; (2) task constraints C1–C15 as decision entities per design §5.3.1; (3) `engine-public-contract.md` entries only where that document's own legend makes them accepted or maintainer-directed — the document is `Status: proposed for maintainer review`, not a canonical accepted list; (4) design acceptance (PR #51) only with an explicit per-claim owner ruling, never blanket. One decision entity per distinct decision, not per claim. No umbrella decision for claims with no per-claim source; such a claim needs an explicit owner ruling or deferral. Status agreement (`accepted`/`proposed`/`deferred`/`unresolved`) is checked per claim. |
+| S2.2-C | **Accepted — C1** | Explicit, owner-approved per-claim `authority` table. The five S1 values are fixed: `C000-TR-001` human, `C000-TR-003` external, `C000-CT-025` engine, `C000-CT-026` engine, `C000-IM-004` external. No class/subject rule and no implementer inference; every `engine` assignment must be justified by an actually core-enforceable check. The table fixes `M` in `core000.independent-verification.missing = 3 + M`. |
+| S2.2-D | **Accepted — D1 with a grounding rule** | Encode and render class-specific fields (`conditions`, `consequence`, `baseline`, `notes`) only where an accepted source supports the actual value. `conditions` is required for the two guarantee claims (otherwise `core000.claim.unsupported-guarantee` errors): `C000-CT-012`'s conditions come from its claim statement, while **`C000-CT-011`'s condition text requires a separate owner-approved formulation** and must not be authored by the implementer to make a check pass. Ungrounded fields are explicitly deferred, not invented. The §7.6 class grouping and status counts may be applied within the existing `view.ts`/template boundary. |
+| S2.2-E | **Accepted — E1′** | New evidence rows use the base revision whose behaviour was inspected (`96ff22f` or the PR's base), not the as-yet-unknown S2.2 merge SHA. The S1 rows remain byte-verbatim at `dffdaa2`; no S1 refresh (E2 rejected). The two C4 locator refinements are re-checked at scope preparation: `C000-IM-003` → the build-result exit-code assertions in `tests/build.test.ts`; `C000-IM-009` → `spec/lib/identity.ts:604/753` plus `tests/identity.test.ts:555`. Evidence **rows** are part of `claims.yml` and therefore participate in `inputDigest`; evidence **files** remain outside it (G1); the artifact is built after the final evidence inputs are fixed. |
+| S2.2-F | **Accepted — literal multiset + entity IDs** | The S2.2 verification test asserts the literal `{code, severity, occurrence count}` multiset **and** the exact finding `entityId` values, at a named revision, labelled a reviewed snapshot of the accepted mappings — not a prediction from design §7.7. This is recorded as an explicit S2.2 acceptance criterion. |
+| S2.2-H | **Accepted — explicit authoring policy** | The six schema-required fields (`author`, `authority`, `scope`, `verification_method`, `lifecycle`, `subject_kind`) receive an owner-approved policy/table; no silent defaults. `authority` is S2.2-C; `subject_kind`/`subject` is S2.2-A; `author` attribution, `scope` and `verification_method` text, and the `lifecycle` rule are explicitly decided, with a per-claim table where the accepted register is ambiguous. |
+| S2.2-U | **Conditional — default U = 0** | An unresolved-decision link is recorded only if a claim has a confirmed semantic dependency on a canonically recorded unresolved decision. Verification found the only source for `C000-CT-022`'s `D20`/`D29` dependency is the proposed `engine-public-contract.md`, whose `D20` rationale references issue #10 — a closed LICENSE decision — and no open or accepted source records packaging/publication as unresolved today. No unresolved link is therefore created in the S2.2 register: `core000.decision.unresolved` is not demonstrated by the clean build and remains covered by the S2.3 synthetic test. If an unresolved decision source is canonically recorded later, linking it (U = 1) is the expected representation; the register is not adjusted to manufacture a diagnostic count. |
+| S2.2-SC | **Accepted — honest surface coverage** | The subject mapping determines `core000.surface.claim-missing`; do not invent claims to reach zero. The S2.2 PR lists the final uncovered component/interface IDs and states that the accepted register does not cover them. |
+| S2.2-G | **Accepted — mechanical constraints** | Every existing assertion the register breaks is updated in the same PR without weakening the S2.2 test (repo-draft absence, the 5-claim count, the counts object, evidence-accessor ordering, S1-POS-01's exact 19-diagnostic set, artifact-substring assertions). The five S1 claim/evidence/decision blocks stay byte-verbatim, the five mutation anchors stay unique (`mutations.ts` throws on duplicates), and the S1 evidence rows stay leading. The CORE-000 generated-artifact maintenance rule is a separate follow-up tail: `AGENTS.md` documents the CORE-001 rule only and is outside the S2.2 boundary. |
+
+**Staged model decision — S2.2a.** The A1a direction is accepted, but its implementation is not. A
+separate S2.2a step may review and prepare a scope for the subject-model change (schema, design and
+check alignment), and must demonstrate that the new subject kinds work with design §5.3.1/§5.4
+before any implementation is authorized. S2.2 cannot start the register work on the assumption that
+A1a will land.
+
+**U condition.** U = 1 is not pre-authorized. It becomes the correct representation only after a
+canonical unresolved-decision source for `C000-CT-022` is recorded; until then U = 0 and the S2.3
+synthetic test is the coverage of `core000.decision.unresolved`. This keeps the register data honest
+and prevents the diagnostic multiset from driving the data.
+
+**Verified basis for these rulings.** The second adversarial review and the follow-up maintainer
+review in Issue #119 agree on the diagnosis. Verified against merged `main` `96ff22f`:
+`engine-public-contract.md` is marked proposed for maintainer review; design §5.4 makes
+`subject_kind` policy with one kind per claim and a split for multi-kind claims; design §5.3.1 makes
+task constraints C1–C15 decision entities; the D-table marks `D17`/`D18`/`D25` proposed,
+`D20`/`D29` unresolved, `D32` deferred and `D33` accepted (#37); `C000-CT-012` states its conditions
+while `C000-CT-011` does not; the S1 authority precedents are as listed in S2.2-C; evidence rows are
+inside `inputDigest` while evidence files are outside it (G1); `git log dffdaa2..HEAD -- spec/lib` is
+empty, so the S1 evidence at `dffdaa2` remains valid.
+
+**Authorization boundary.** This section records planning decisions and one staged model direction
+only. It does not authorize S2.2 implementation, code, schema, claim data, test, evidence or
+generated-artifact changes, and it does not authorize S2.2a implementation. After the S2.2a decision
+and these rulings are recorded and reviewed, the S2.2 scope in Issue #119 is re-frozen with the
+rulings and the S2.2-G constraints as explicit acceptance criteria, a fresh independent scope review
+is performed, and only then may a separate explicit S2.2 authorization be granted. S2.3 and S3
+remain separately gated; no generic-core, CORE-001 or PAP change is implied.
+
+---
+
+## Maintainer decision — S2.2a subject-model change (2026-11-04)
+
+**Source:** owner rulings in [Issue #119 comment
+6633603904](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6633603904)
+and the S2.2a implementation authorization in [Issue #119 comment
+6633888644](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6633888644)
+(project owner, 2026-11-04). Baseline: merged `main` `2d1f09a`.
+
+**Decision status: Accepted for the exact scope below.** S2.2a adds non-structural claim subjects,
+staged from the S2.2 owner rulings. It does not add a register/self kind (that is a future S2.2b
+decision) and does not write S2.2 claim data.
+
+### Accepted model change
+
+- Add four `subject_kind` values, reusing existing entity kinds: `claim`, `decision`, `evidence`,
+  `source_statement`.
+- Semantics: an **"about"** edge, not an `appliesTo`/scope relation. `claim` means a specific claim
+  or set of claims, never "the register". A claim subject may be self-referential when the rule
+  applies to its own class, and the data lists the self-edge explicitly. All subjects of one claim
+  share one kind; a claim needing two kinds is split in future registers, and in the fixed 78-claim
+  register it is ungroundable and requires an owner ruling. No missing-subject exemption and no
+  check-code change.
+- `subject` stays `claim → *`, many, no inverse; no `profile.json` or relation change;
+  `claim.schema.json` enum is the only schema change; `profileDigest`/`inputDigest` change as
+  expected; `entityKinds` 14 / `schemas` 16 / `relations` 29 / `files` 28 are unchanged.
+
+### Recorded owner rulings this change serves
+
+- **Global-register modelling — option C.** Precise `claim` subsets for `C000-ST-001` (29 claims),
+  `C000-ST-002` (45, confirmed), `C000-ST-004` (6) and `C000-SV-006` (the S1 three plus the `M`
+  external/human claims). The nine truly register-wide rules (`ST-003`, `SV-003`, `SV-005`,
+  `LM-001`, `LM-002`, `LM-003`, `LM-006`, `LM-007`, `CT-020`) use one documented `COMP-PROJECT`
+  proxy — not a claim that the component *is* the register; `IF-PROJECT-MODEL` remains an
+  alternative if a model-entity subject is later preferred.
+- **Five firm claims.** `C000-SC-001` → documented `COMP-PROJECT` proxy; `C000-IM-008` →
+  documented `TB-CONSUMER-EXTENSION` proxy; `C000-SC-005` → task-constraint decisions C1/C14;
+  `C000-GAP-007` → `D24` via the S2.2-B amendment; `C000-SV-004` → documented `COMP-PROJECT` proxy,
+  interim until the S2.3 negative-case set is defined.
+- **D13 accepted.** `C000-SC-004`, `C000-EV-002`, `C000-EV-003`, `C000-VF-001..004` and
+  `C000-LM-004` take the `D13` decision entity as their `decision` subject; S2.2-B creates it.
+- **S2.2-B amendment.** Engine-contract entries marked `proposed` may source proposed decision
+  entities (so `D24` can ground `GAP-007`); the original restriction remains for accepted
+  decisions.
+- **`subject` is "about", not "applies to".** `appliesTo`/scope remains future research (#122) and
+  is not part of S2.2a or S2.2.
+
+### Fixed-register consequence
+
+The S2.2 register can encode all 78 accepted claims under option C: nine rules via the
+`COMP-PROJECT` proxy, `ST-001`'s 29 and `ST-002`'s 45 precise claim subjects, the structural /
+evidence / source / decision subjects, and the documented firm proxies. The subject-edge volume is
+the option-C total (illustrative ≈ 233 until the S2.2-E evidence-row count `T + N` is fixed). The
+diagnostic floor and the exact multiset are pinned by the S2.2 scope, not by this section.
+
+### Authorization of this scope
+
+**S2.2a implementation is authorized** for exactly: `profiles/core000/schemas/claim.schema.json`
+(the four enum values), `docs/architecture/core-000-self-contract.md` (§5.3.1 and §5.4), this
+decision-record section, and `tests/core000.test.ts` (the S2.2a matrix: each new value accepted and
+an unknown value rejected; kind-matched subjects pass; a wrong kind still produces
+`core000.claim.subject-kind-mismatch`; a missing subject still produces
+`core000.claim.missing-subject`; mixed-kind subjects mismatch; the self-reference case; the S2.1
+14/16/29/28 counts unchanged). Baseline `main` `2d1f09a`; verified with typecheck, tests and
+`bun run check` per the Issue #119 authorization.
+
+**Still gated.** S2.2 data, artifact, committed draft and S2.2b (register kind) are not authorized.
+S2.2 requires its scope to be re-frozen with the S2.2 owner rulings and a fresh independent review
+before a separate authorization. No generic-core, CORE-001 or PAP change is implied.
+
+---
+
+## Maintainer decision — S2.2 scope approvals and Q10 coverage amendment (2026-11-04)
+
+**Source:** owner approvals in [Issue #119 comment
+6638912688](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638912688),
+based on the re-frozen S2.2 scope request ([comment
+6634376883](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6634376883))
+and its corrections ([6638543785](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638543785),
+[6638774981](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638774981)),
+and the independent review ([6638714905](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6638714905)).
+Baseline: merged `main` `2497ed9`.
+
+**Decision status: approved — S2.2 scope acceptance criteria.** This section records the owner
+approvals and the Q10 amendment. It does **not** authorize S2.2 implementation.
+
+### Q10 coverage amendment (S2.2 scope)
+
+Q10's 19 public surfaces with 3 covered / 16 uncovered remains the S2.1 baseline and the historical
+record. For the full-register S2.2 scope, the approved option-C subject mapping covers **13** and
+leaves **6** uncovered:
+
+- covered: S1's `COMP-CORE`, `IF-MANIFEST`, `IF-PROFILE-VALIDATOR` plus `COMP-PROFILE`,
+  `COMP-PROJECT`, `IF-PROJECT-MODEL`, `IF-ADAPTER`, `IF-DIAGNOSTIC`, `IF-RENDERER`,
+  `IF-BUILD-IDENTITY`, `IF-CONFORMANCE`, `IF-BUILD-RESULT`, `IF-CLI`;
+- uncovered: `COMP-ADAPTER`, `COMP-RENDERER`, `COMP-CLI`, `COMP-REVIEWER`, `IF-CONSENT-OPTION`,
+  `IF-CONSENT-CLI-FLAG`.
+
+The expected `core000.surface.claim-missing` is **6** with those entity IDs. This is an explicit
+S2.2 amendment, not a rewrite of Q10.
+
+### C1 authority table (approved)
+
+The five S1 values are fixed: `C000-TR-001` human, `C000-TR-003` external, `C000-CT-025` engine,
+`C000-CT-026` engine, `C000-IM-004` external. The 73 new claims:
+
+- **engine (14):** `CT-001`–`CT-007`, `CT-009`–`CT-015`;
+- **external (21):** `CT-008`, `CT-016`, `CT-017`, `CT-021`, `CT-024`, `IM-001`, `IM-002`,
+  `IM-003`, `IM-005`, `IM-006`, `IM-009`, `TR-002`, `TR-004`, `EV-002`, `SV-001`, `SV-002`,
+  `GAP-001`, `GAP-003`, `GAP-004`, `GAP-005`, `GAP-006`;
+- **human (38):** `SC-001`–`SC-005`, `ST-001`–`ST-004`, `CT-018`, `CT-019`, `CT-020`, `CT-022`,
+  `CT-023`, `IM-007`, `IM-008`, `TR-005`, `TR-006`, `EV-001`, `EV-003`, `VF-001`–`VF-004`,
+  `SV-003`–`SV-006`, `GAP-002`, `GAP-007`, `LM-001`–`LM-008`.
+
+`M = 59`; `core000.independent-verification.missing` = **62** (the S1 three plus the 59
+external/human claims).
+
+### Decision-source table (approved)
+
+37 accepted + 2 deferred:
+
+- S1: `TR-001`/`TR-003` → `DEC-35`; `CT-025` → `DEC-PR-56`; `CT-026` → `DEC-PR-55`.
+- `IM-007`, `TR-004` → `DEC-35` (per-claim approved reuse).
+- `CT-008` → `DEC-D8-D9`; `CT-013`, `IM-008` → `DEC-D31`; `TR-002`, `TR-006` → `DEC-D28`.
+- `SC-004`, `SV-003` → `DEC-TASK-C5`; `SC-005` → `DEC-TASK-C1-C14`; `ST-004` → `DEC-TASK-C7`;
+  `TR-005` → `DEC-TASK-C4`.
+- 21 claims → `DEC-DESIGN-51` (per-claim owner-approved design acceptance): `SC-001`, `SC-002`,
+  `CT-001`–`CT-007`, `CT-009`–`CT-012`, `CT-014`–`CT-017`, `CT-021`, `IM-009`, `EV-001`, `EV-003`.
+- `CT-019` → `DEC-DEFER-019`; `CT-023` → `DEC-DEFER-023` (deferred).
+
+No umbrella entity; a D-reference in evidence text is not a `decidedBy` source; status agreement is
+checked per claim.
+
+### H authoring policy (approved)
+
+- `author`: `it-start` for the 73 new claims; the S1 rows stay byte-verbatim.
+- `scope`: per-claim template "CORE-000 accepted design §4.2 row `<ID>` at the accepted design
+  baseline"; the claim statement is the scope.
+- `verification_method`: per-claim template "Accepted design §4.2 evidence/method column for `<ID>`
+  at the accepted design baseline", transcribed to a non-empty method sentence; tested claims
+  include the test method.
+- `lifecycle`: `active` for the 73; the S1 rows unchanged.
+
+### Class fields and C000-CT-011 conditions (approved)
+
+- `conditions` is mandatory for `C000-CT-011` and `C000-CT-012` (`CT-012` takes them from its
+  statement).
+- **Approved `C000-CT-011` conditions (corrected 2026-11-04).** The first approved wording omitted
+  adapter closures, while the claim statement and `spec/lib/identity.ts` include them (the build
+  identity hashes profile, adapter and renderer closures). The owner-approved corrected text is:
+  "Given a project whose canonical manifest declares its inputs and sources, and whose profile,
+  source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the
+  canonical manifest, declared input bytes, source bytes, and those closures; clock, locale,
+  environment, mtimes and absolute paths are excluded." Correction source: [Issue #119 comment
+  6639847281](https://github.com/agent-federation/contract-builder/issues/119#issuecomment-6639847281).
+- `consequence`, `baseline` and `notes` are encoded and rendered only where the accepted source
+  grounds the value; otherwise they are explicitly deferred and listed in the S2.2 PR. The §7.6
+  class-grouped artifact shape is within the S2.2 `view.ts`/template boundary.
+
+### Expected S2.2 snapshot (approved)
+
+At the committed-artifact revision: **68 diagnostics** — **62** `core000.independent-verification.missing`
+(review) + **6** `core000.surface.claim-missing` (warning, IDs above); **0 errors**; all other
+catalog codes 0; `core000.decision.unresolved` = 0 under S2.2-U (no canonical unresolved decision
+source exists, the `CT-022` link is not created, and the S2.3 synthetic test covers the code);
+`core000.evidence.orphan` = 0; `core000.trust.consent-facts` = 0. The S2.2 test asserts the full
+24-code map and the exact finding `entityId` sets at the named revision.
+
+### Resolution of the independent-review conflicts
+
+- `decision.unresolved = 0` is the approved S2.2-U result: no `unresolved` decision entity exists in
+  the register and no canonical source grounds the `CT-022` link. It is not an assumption and the
+  count is not zero by omission.
+- The 6 `surface.claim-missing` count is the approved Q10 S2.2 amendment above, not an unapproved
+  change to Q10.
+
+### Boundary
+
+This section records owner approvals and the S2.2 acceptance criteria only. S2.2 implementation,
+claim data, the committed draft and S2.2b remain **unauthorized**. After this record, the fresh
+focused independent review of the frozen S2.2 scope is performed, and only then may a separate
+explicit S2.2 authorization be given. No generic-core, CORE-001 or PAP change is implied.
+
+---
+
+## 0. How to answer the open items
 
 For each item, one of the following is enough:
 
@@ -33,30 +464,33 @@ For each item, one of the following is enough:
 | `defer` | Leave the item open; state what the first slice may do without it. |
 | `record: <text>` | Record a different decision and its consequence. |
 
-The record stays open until each item has an answer. The first-slice proposal is deliberately not
-made here: it depends on these answers. After the answers, the worker will propose a small first
-slice with exact files, behaviour, tests, expected outputs and exclusions, and wait for explicit
-authorization before implementing it.
+The six original S1 decisions were answered on 2026-11-02. The four items deferred for S1 were
+subsequently accepted for the full-model planning scope by the 2026-11-03 decision above. The
+answer format below applies to any later material deviation; it does not reopen accepted decisions
+or authorize implementation.
 
 ---
 
 ## 1. Decision summary
 
-| ID | Question | Recommendation | Needed before the first slice? |
-|---|---|---|---|
-| D1 | Where do the CORE-000 project and profile live? | A: `contracts/core000/` + `profiles/core000/` | Yes — all paths depend on it. |
-| D13 | How is an independent verification represented? | A: separate `independent_verification` kind | Yes if the first slice includes the model schema. |
-| D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | Yes if the first slice includes the profile/model skeleton. |
-| D15 | Must every normative source statement have a checked verification record? | A: require a stored `verified` record; failed/stale/unavailable is an error | Yes if the first slice includes provenance policy. |
-| P-1 | Complete per-case fixture projects or base + mutations? | B: base project + one deterministic temp-copy mutation per case | Before negative tests. |
-| P-2 | Evidence path/format? | A: `evidence/core000/<run>/result.json` + summary doc | Can follow the first slice; needed before evidence capture. |
-| P-3 | Commit the generated CORE-000 draft? | A: commit after a successful reviewed run | Can follow the first slice; needed before accepting the generated artifact. |
-| P-4 | Renderer dependency? | A: `nunjucks` 3.2.4, declared and lockfile-pinned | Yes if the first slice includes the renderer. |
-| P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | Before the first run/evidence capture. |
-| P-6 | Evidence and independent records in git? | A: commit run evidence and external verification records | Can follow the first slice; needed before evidence publication. |
+| ID | Question | Decision | Status | Needed before the first slice? |
+|---|---|---|---|---|
+| D1 | Where do the CORE-000 project and profile live? | A: `contracts/core000/` + `profiles/core000/` | **Accepted — A** | Yes — all paths depend on it. |
+| D13 | How is an independent verification represented? | A: separate `independent_verification` kind | **Accepted — A** | Yes — S1 includes the kind schema. |
+| D14 | How is the consent surface represented? | A: consent interface/diagnostic entities + settled trust boundary | **Accepted — A (2026-11-03)** | Full-model planning includes the API option, CLI flag, diagnostic and `explicit_consent` boundary; no sandbox claim. |
+| D15 | Must every normative source statement have a checked verification record? | A: require a stored `verified` record; failed/stale/unavailable is an error | **Accepted — A** | Yes — S1 includes the provenance policy. |
+| P-1 | Complete per-case fixture projects or base + mutations? | B: base project + one deterministic temp-copy mutation per case | **Accepted — B** | Yes — S1 includes negative tests. |
+| P-2 | Durable evidence publication/location and summary format? | A: `evidence/core000/<run>/result.json` + human summary | **Accepted — A (2026-11-03)** | Durable producer evidence plus human-readable summary; transient run evidence remains required. |
+| P-3 | Commit the generated CORE-000 draft? | A: commit after a successful reviewed run | **Accepted — A (2026-11-03)** | Commit the full-model draft after a successful, reviewed run; this is not certification. |
+| P-4 | Renderer dependency? | A: `nunjucks` 3.2.4, declared and lockfile-pinned | **Accepted — A** | Yes — S1 includes the renderer. |
+| P-5 | Harness shape? | A: `contracts/core000/run.ts` + `tests/core000.test.ts` | **Accepted — A** | Yes — S1 includes the harness. |
+| P-6 | Evidence and independent records in git? | A: commit producer run evidence; keep future independent records separate | **Accepted — A (2026-11-03), run evidence only** | Commit producer evidence under `evidence/core000/`; zero independent records in S2; future external records require a distinct verifier and separate decision. |
 
-“Needed before the first slice” is a dependency note, not a decision: the first slice can be
-narrowed after the answers if a decision is deferred.
+“Needed before the first slice” is a dependency note, not a decision. The six original S1
+decisions and four S1 deferrals were recorded on 2026-11-02; the four deferred items were later
+accepted for the full-model planning scope on 2026-11-03. The separate consumer-harness/G4
+confirmation remains for S1 only and does not close G4. The historical S1 deferrals did not remove
+the requirement to write and assert transient evidence in S1.
 
 ---
 
@@ -64,6 +498,9 @@ narrowed after the answers if a decision is deferred.
 
 **Question.** Where do the CORE-000 project and profile live, and are they distributed as a
 package?
+
+**Decision status:** **Accepted — A** on 2026-11-02 (canonical decision above). S1 uses
+`contracts/core000/` and `profiles/core000/`; no package publication is implied.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -95,6 +532,11 @@ published, a move requires re-running and re-linking evidence.
 is the CORE-001 project root; `profiles/example` is a profile outside its project root; `package.json`
 is private with no `exports`. There is no `contracts/` directory at the baseline.
 
+**Evidence needed to accept:** a maintainer instruction naming the paths and confirming that no
+package or publication is implied; a check that the chosen paths do not collide with existing
+top-level directories; and review of the S1 file list in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10.2 for those paths.
+
 **Answer needed:** accept A, choose B/C, or defer with an explicit statement that the first slice
 may not create project/profile paths.
 
@@ -104,6 +546,9 @@ may not create project/profile paths.
 
 **Question.** How should CORE-000 represent an independent review, given that #37 introduced a
 core provenance `VerificationRecord`?
+
+**Decision status:** **Accepted — A** on 2026-11-02. S1 uses a distinct
+`independent_verification` kind/schema and does not reuse the core provenance `VerificationRecord`.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -136,6 +581,11 @@ renaming/migrating is a data change.
 design already has the `independent_verification` kind and the C000-VF claims with zero independent
 verification.
 
+**Evidence needed to accept:** maintainer approval of the field set and the distinction from the
+core `VerificationRecord`; review of the schema and the `verifies`/`verifiedBy` declarations; and a
+check that no engine-generated record is presented as an independent one. The PAP verifier's
+report schema is a separate product contract and is not evidence for this choice.
+
 **Answer needed:** accept A, choose B/C, or defer independent-verification modeling from the first
 slice.
 
@@ -144,6 +594,11 @@ slice.
 ## 4. D14 — Consent-surface representation in the model
 
 **Question.** How should CORE-000 represent the merged consent API/CLI surface?
+
+**Decision status:** **Accepted — A (2026-11-03)** for the full-model planning scope. The original
+S1 deferral remains historical; the full model represents the API option, CLI flag and
+`core.profile.consent-required` diagnostic, with `TB-PROFILE-EXEC` settled /
+`explicit_consent`. This does not imply sandboxing or process isolation.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -176,8 +631,13 @@ renderer preflight; `tests/consent.test.ts` covers rejection/success/preflight. 
 records the trust boundary as settled/explicit_consent and the execution plan expects a
 `core000.trust.consent-facts` check.
 
-**Answer needed:** accept A, choose B/C, or defer the consent-surface entities from the first
-slice.
+**Evidence needed to accept:** maintainer approval of the interface/diagnostic rows and the settled
+trust-boundary values; review of the current consent facts at the pinned commit (`spec/lib/build.ts`,
+`spec/build.ts`, `spec/cli-renderers.ts`, `tests/consent.test.ts`); and an explicit statement that
+no sandbox or per-module isolation is modelled as existing.
+
+**Decision recorded:** A accepted on 2026-11-03 for the full-model planning scope. The original S1
+deferral is historical.
 
 ---
 
@@ -185,6 +645,9 @@ slice.
 
 **Question.** Must every `source_statement` have a checked verification record before it can
 support a normative claim?
+
+**Decision status:** **Accepted — A** on 2026-11-02. S1 requires a stored `verified` record for
+each normative source statement; failed/stale/unavailable is an error.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -224,6 +687,11 @@ the affected claims/artifacts re-run. C is not compatible with the accepted desi
 validates claims; the design has `core000.source.verification-missing`/`-failed`/`-unavailable`
 checks. `sourceDigest` records the bytes checked, not a declared pin; V4 remains unimplemented.
 
+**Evidence needed to accept:** maintainer approval of the `verified` requirement and of
+failed/stale/unavailable as errors; review of the profile verifier design and of positive and
+negative tests for each status; and an explicit acknowledgement that `sourceDigest` is not a
+declared source pin and that V4 remains open.
+
 **Answer needed:** accept A, choose B, reject C explicitly, or defer provenance policy from the
 first slice.
 
@@ -234,18 +702,22 @@ first slice.
 **Question.** Should each negative case have a complete project copy, or should one base project be
 copied and mutated per case?
 
+**Decision status:** **Accepted — B** on 2026-11-02. S1 uses one base project plus one
+deterministic named mutation in a fresh temporary copy per case.
+
 | Option | What it means | Main consequence |
 |---|---|---|
 | A | One complete minimal project per accepted design case N1–N18 under `contracts/core000/fixtures/<case>/` (N4 a/b). | Literal to the design’s illustrative §7.8 wording; 19 copies of a 78-claim model and its schemas are expensive and drift-prone. |
 | **B (recommended)** | One base project (`contracts/core000`) plus one deterministic, named mutation per case in a fresh temporary copy (`contracts/core000/mutations.ts`); no per-case complete-project copies. | Smaller and less duplicative; each run is isolated by a fresh temp copy and exactly one mutation. |
 | `defer` | Defer negative fixtures until after the first slice. | The first slice can be positive-only; negative coverage waits. |
 
-**Recommended default: B.** The plan selected B, but it needs explicit confirmation because it
-refines the design’s illustrative fixture layout. The run semantics are unchanged: one project,
-one mutation, one expected diagnostic, no artifact. Isolation/reproducibility: each run copies the
-base to a new temp directory, applies exactly one named deterministic mutation, rewrites only temp
-paths/profile imports, records the base commit and mutation ID in evidence, and never writes to the
-repository. The accepted design §7.8 is reconciled by this paragraph; if the maintainer prefers the
+**Recommended default: B.** The execution plan recommends B, but it needs explicit confirmation
+because it refines the design’s illustrative fixture layout. The run semantics are unchanged: one
+project, one mutation, one expected diagnostic, no artifact. Isolation/reproducibility: each run
+copies the base to a new temp directory, applies exactly one named deterministic mutation, rewrites
+only temp paths/profile imports, records the base commit and mutation ID in evidence, and never
+writes to the repository. The accepted design §7.8 is reconciled by this paragraph; if the
+maintainer prefers the
 literal A, the mutation table can materialize complete fixture directories, but B is recommended.
 
 **Consequences and trade-offs.**
@@ -262,38 +734,60 @@ materialize A later from the same mutation table; moving A→B is harder. The de
 before negative fixtures are implemented.
 
 **Repository evidence/constraint.** The accepted design §7.8 describes per-case complete projects;
-the execution plan §3/§5/§9 selects B and explains the reconciliation. No fixture exists at the
-baseline.
+the execution plan §3/§5/§9 recommends B and explains the reconciliation. No fixture exists at the
+baseline. The earlier execution-plan wording that called B “selected” is not a maintainer answer
+and should be read as a recommendation until this item is answered.
+
+**Evidence needed to accept:** maintainer confirmation of B and of the §7.8 reconciliation; review
+of the mutation table and its one-mutation-per-fresh-copy rule; and evidence from the first
+negative runs that each mutation produces exactly the expected diagnostic and no artifact.
 
 **Answer needed:** confirm B (with the §7.8 reconciliation), choose A, or defer negative fixtures.
 
 ---
 
-## 7. P-2 — Evidence path and format
+## 7. P-2 — Durable evidence publication and summary format
 
-**Question.** Where and in what format is run evidence captured?
+**Question.** Where is run evidence durably published, and what human-readable summary format
+accompanies it? P-2 does **not** re-open the transient JSON record shape: the accepted execution
+plan §6.2 already defines the required base shape, and S1 must use and test it (plus its S1
+additions) regardless of P-2.
+
+**Decision status:** **Accepted — A (2026-11-03)** for durable producer evidence and its human-readable
+summary. The original S1 deferral remains historical; S1 still wrote and asserted the transient
+record. The accepted durable paths are `evidence/core000/<run>/result.json` and
+`docs/architecture/core-000-execution-evidence.md`.
 
 | Option | What it means | Main consequence |
 |---|---|---|
-| **A (recommended)** | `evidence/core000/<run>/result.json` plus a human-readable `docs/architecture/core-000-execution-evidence.md` summary. | Machine-readable, diffable, reviewable without screenshots; evidence can be referenced per run. |
-| B | Only a Markdown evidence document. | Readable but not machine-checkable; easier to omit fields or transpose values. |
-| `defer` | Decide after the first run. | The first slice can run without publishing evidence, but the run’s result is not captured in a durable format. |
+| **A (recommended)** | Publish the run records durably under `evidence/core000/<run>/result.json` and add a human-readable `docs/architecture/core-000-execution-evidence.md` summary. | Machine-readable, diffable, reviewable without screenshots; evidence can be referenced per run. |
+| B | Publish only a Markdown summary; keep the raw JSON records external or transient. | Readable but not machine-checkable in-repository; easier to omit fields or transpose values. |
+| `defer` | Decide durable publication and the summary format after the first run. | S1 still writes and asserts the transient record; only durable publication and the human summary wait. |
 
-**Recommended default: A.** The execution plan already defines a canonical JSON shape (commit,
-command, exit/blockedBy, identity digest, artifact SHA-256, diagnostics, expected codes,
-classification, limitations). It makes the evidence auditable and comparable across runs.
+**Recommended default: A.** The execution plan already defines a canonical transient JSON record
+(commit, command, exit/blockedBy, identity digest, artifact SHA-256, diagnostics, expected codes,
+classification, limitations). P-2 decides only whether and where that record is durably published
+and what human-readable summary accompanies it.
 
-**Consequences and trade-offs.** A adds a new `evidence/` path and a summary document; P-6 decides
-whether they are committed. B is simpler but weaker. The JSON must not include absolute paths,
-hostnames, environment values or secrets.
+**Consequences and trade-offs.** A adds a durable `evidence/` path and a summary document; P-6
+decides whether they are committed. B is simpler but weaker. The record must not include absolute
+paths, hostnames, environment values or secrets. **Deferring P-2 does not defer the temporary S1
+evidence record or its schema assertion.**
 
-**Dependencies/reversibility.** P-6 controls git; D13/P-5 control records/harness. The format can
-be revised before records are accepted; after publication, changes require re-recording.
+**Dependencies/reversibility.** P-6 controls git; P-5 controls the harness; D13 defines independent
+verification records, which are not P-2 run evidence. Durable location/summary format can be
+revised before records are published; after publication, changes require re-recording.
 
-**Repository evidence/constraint.** The accepted execution plan §6 defines the record; `runBuild`
-returns the fields; the repository has no `evidence/` directory at the baseline.
+**Repository evidence/constraint.** The accepted execution plan §6.2 defines the transient record;
+`runBuild` returns the fields; the repository has no `evidence/` directory at the baseline. S1
+writes the transient record to a temporary path and does not publish it.
 
-**Answer needed:** accept A, choose B, or defer evidence capture.
+**Evidence needed to accept:** maintainer approval of the durable location and summary format;
+review of a sample record against the no-absolute-paths/no-secrets rule; and confirmation that the
+published record is sufficient to reproduce under the pinned inputs without claiming authenticity.
+
+**Decision recorded:** A accepted on 2026-11-03. The transient S1 evidence record and its schema
+assertion remained required regardless of the durable-publication decision.
 
 ---
 
@@ -301,6 +795,10 @@ returns the fields; the repository has no `evidence/` directory at the baseline.
 
 **Question.** Should `contracts/core000/output/CORE-000.draft.md` be committed after a successful
 run?
+
+**Decision status:** **Accepted — A (2026-11-03)** for the full-model planning scope. The original
+S1 deferral remains historical. Commit `contracts/core000/output/CORE-000.draft.md` only after a
+successful, reviewed run; the committed artifact is reviewable output, not a certification.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -320,15 +818,23 @@ weakens reviewability. `defer` is acceptable for the first slice if the artifact
 low risk, but changing it changes the evidence’s artifact hash.
 
 **Repository evidence/constraint.** AGENTS.md “artifact rule”; CORE-001 `spec/output/CORE-001.draft.md`
-is generated and checked by `bun run check`. There is no CORE-000 output at the baseline.
+is generated and checked by `bun run check`. There is no CORE-000 output at the baseline. S1 does
+not commit a CORE-000 draft; if A is chosen, the commit policy applies to a later slice.
 
-**Answer needed:** accept A, choose B, or defer the commit policy.
+**Evidence needed to accept:** maintainer approval of the artifact rule for CORE-000; a successful
+reviewed draft in a later slice; and a CI check that rebuilds and compares the artifact. If P-3 is
+deferred, the evidence is explicitly absent, and no draft is committed.
+
+**Decision recorded:** A accepted on 2026-11-03 for the full-model planning scope.
 
 ---
 
 ## 9. P-4 — Renderer dependency
 
 **Question.** Which renderer implementation/dependency should the CORE-000 profile use?
+
+**Decision status:** **Accepted — A** on 2026-11-02. S1 uses `nunjucks` 3.2.4 as a declared,
+lockfile-pinned dependency.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -352,6 +858,10 @@ reversible; after artifacts/evidence exist, switching renderers changes the arti
 3.2.4; `profiles/core001/renderer.ts` uses it; `profiles/example` has an empty dependency map. The
 profile closure requires exact declared versions.
 
+**Evidence needed to accept:** maintainer approval; a lockfile check that `nunjucks` resolves to
+3.2.4; a profile-closure test that rejects an undeclared or differently pinned dependency; and a
+review of the renderer/template surface. S1 uses A and records the exact version.
+
 **Answer needed:** accept A, choose B, or defer rendering.
 
 ---
@@ -359,6 +869,9 @@ profile closure requires exact declared versions.
 ## 10. P-5 — Harness shape
 
 **Question.** How should the consumer harness be shaped?
+
+**Decision status:** **Accepted — A** on 2026-11-02. S1 uses `contracts/core000/run.ts` plus
+`tests/core000.test.ts` as the consumer harness.
 
 | Option | What it means | Main consequence |
 |---|---|---|
@@ -373,14 +886,21 @@ path. Both are consumers; neither is a generic-core implementation.
 **Consequences/trade-offs.** A adds a project-level script (not in the profile closure and not in
 `inputDigest`) and a test file; B is smaller but weaker. N14 must not use the positive harness
 because its static renderer import is not consent-boundary evidence; it uses the CLI without
-consent (see §12).
+consent and `view`/`validator` evaluation markers (see §12). The consumer-supplied renderer import
+is a separate consumer trust boundary; `allowExecutableProfile` does not gate it.
 
 **Dependencies/reversibility.** D1/P-1/P-2/D13; G4. The harness can be added before or after the
 profile; once evidence is published, changing its command/record shape requires re-recording.
 
 **Repository evidence/constraint.** `tests/example-profile.test.ts` and `tests/consent.test.ts` use
 `runBuild` with a consumer renderer registry; the package is private with no public API; the CLI
-only wires CORE-001 (G4).
+only wires CORE-001 (G4). The PAP verifier under `pap/` is not a generic CORE-000 harness, and it
+does not close G4.
+
+**Evidence needed to accept:** maintainer approval of the harness shape and its command surface;
+review of the harness's use of the public `runBuild` path with a caller-supplied renderer and
+consent; and a demonstration that the harness never bypasses the pipeline or writes to the
+repository. S1 uses A and keeps the harness in the same PR as its test.
 
 **Answer needed:** accept A, choose B, or defer the harness.
 
@@ -389,18 +909,26 @@ only wires CORE-001 (G4).
 ## 11. P-6 — Evidence and independent-verification records in git
 
 **Question.** Should run evidence and future independent-verification records be committed to the
-repository?
+repository? S2 creates **zero** independent-verification records, and no engine-generated record
+counts as independent.
+
+**Decision status:** **Accepted — A (2026-11-03), run evidence only.** The original S1 deferral
+remains historical. Commit producer run evidence under `evidence/core000/`. Independent records
+remain separate; S2 creates zero independent-verification records and zero files under
+`verification/core000/`. Future records there require a distinct verifier and a separate
+maintainer decision.
 
 | Option | What it means | Main consequence |
 |---|---|---|
-| **A (recommended)** | Commit `evidence/core000/` run records and `verification/core000/` external records; keep generated artifacts separate per P-3. | Reviewable, diffable, linked to commits; no private material may be committed. |
+| **A (accepted)** | Commit producer run evidence under `evidence/core000/`. Future independent records produced by a distinct verifier may be committed under `verification/core000/` only after a separate maintainer decision; S2 creates zero such records. Generated artifacts stay separate per P-3. | Reviewable, diffable, linked to commits; no private material may be committed; no engine-generated record counts as independent. |
 | B | Keep evidence/verification records external only. | Avoids repository noise, but review depends on external links and may be less durable. |
 | `defer` | Decide after the first run. | The first slice can run without committing evidence; publication waits. |
 
-**Recommended default: A.** The issue asks for reviewable evidence and the plan's format is
-designed to be diffable without secrets. Independent records must be authored by a distinct
-verifier and must never be engine-generated; committing them makes the independence claim
-inspectable. B is acceptable only if durable external storage exists.
+**Accepted decision: A for producer run evidence; zero independent records in S2.** The issue asks for
+reviewable evidence and the plan's format is designed to be diffable without secrets. Independent
+records must be authored by a distinct verifier and must never be engine-generated; committing a
+future external record makes the independence claim inspectable, but S2 creates none and does not
+imply one. B is acceptable only if durable external storage exists.
 
 **Consequences/trade-offs.** A adds data files and a maintenance surface; B avoids them but weakens
 review. Neither option makes the engine the authority for `independently_verified`; a maintainer
@@ -411,9 +939,18 @@ published records requires preserving the old evidence for audit.
 
 **Repository evidence/constraint.** The design §8 defines an external verification record; the
 execution plan §6 defines `evidence/core000/` and `verification/core000/`; no such paths exist at
-the baseline. AGENTS.md prohibits secrets in files.
+the baseline. AGENTS.md prohibits secrets in files. The PAP verifier's records are its own package
+output and are not CORE-000 evidence.
 
-**Answer needed:** accept A, choose B, or defer record publication.
+**Evidence needed to accept:** maintainer approval of the retention/publication policy; a review
+that the evidence contains no secrets, private material or absolute host paths; and an explicit
+statement that S2 creates zero independent records and no engine-generated record counts as
+independent. A future external record would additionally need a verifier distinct from the author
+and an external record locator.
+
+**Decision recorded:** A accepted on 2026-11-03 for producer run evidence only. S2 creates zero
+independent-verification records; any future independent record requires a distinct verifier and
+a separate maintainer decision.
 
 ---
 
@@ -451,48 +988,84 @@ the baseline. AGENTS.md prohibits secrets in files.
 The harness is a **test consumer**, not a generic-core implementation and not independent
 verification. Its results are scoped to `runBuild` plus the supplied renderer/profile; they do not
 close G4. The positive harness’s static renderer import is also not consent-boundary evidence; N14
-uses the CLI without consent and a renderer/view/validator evaluation marker (execution plan §4.1).
+uses the CLI without consent and `view`/`validator` evaluation markers (execution plan §4.1). The
+renderer is consumer-supplied and is not gated by `allowExecutableProfile`; a renderer marker would
+not demonstrate the consent boundary.
+
+**Refresh (Issue #72).** The PAP v0.1 verifier under `pap/` is a separate product boundary; it
+does not import `spec/` or `profiles/`, does not select a CORE-000 profile, does not supply the
+CORE-000 renderer and does not produce a CORE-000 artifact. It is not the consumer harness and
+does not close G4. `package.json` remains private with no `exports`; `runBuild` remains the only
+engine entry point. S1 uses the consumer harness in `core-000-self-build-poc.md` §10.4.
+
+**Harness boundary confirmation (2026-11-02).** The maintainer confirmed the bounded consumer
+harness for S1 only. G4 remains **open**, the generic CLI/API gap remains **open**, and harness use
+is **not** independent verification. This does not authorize arbitrary/untrusted profiles or any
+claim that the generic CLI/API is complete.
 
 **Evidence/constraint.** `spec/lib/build.ts` `runBuild` and `BuildOptions.renderers`;
 `spec/cli-renderers.ts` CORE-001 constants; `spec/build.ts` CLI; `package.json` private; execution
-plan §7/§8 and G4.
+plan §7/§8 and G4; `pap/README.md` (separate boundary).
 
 ---
 
-## 13. First implementation slice after the answers
+## 13. First implementation slice
 
-**No first-slice proposal is made in this record.** The task requires it only after the decisions
-are answered; the answers determine paths, schema, policy and test layout. Once they are recorded,
-the worker will propose a small slice with:
+The first-slice proposal is in
+[`core-000-self-build-poc.md`](core-000-self-build-poc.md) §10. The maintainer approved the bounded
+S1 package on 2026-11-02: **D1 A, D13 A, D15 A, P-1 B, P-4 A, P-5 A are accepted**;
+**D14, P-2, P-3 and P-6 were deferred for S1 in the 2026-11-02 decision and accepted for the
+full-model planning scope on 2026-11-03.** The consumer harness is confirmed for S1. P-2's original
+S1 deferral did not defer the transient S1 evidence record or its schema assertion.
+
+**Historical S1 authorization gate (satisfied):** S1 implementation was authorized after the
+canonical S1 decision record merged and a dedicated implementation task referenced it. S1 remains
+bounded to the scope below; any expansion or material deviation required a new maintainer decision.
+
+S1 is a bounded vertical slice with:
 
 - exact files and paths (no generic-core change);
 - exact behaviour and expected outputs/diagnostics;
-- focused tests and negative cases;
+- focused tests and negative cases (N2, N3, N8, N11, N14);
 - exclusions (what the slice deliberately does not implement);
-- a stop condition if a generic-core gap is hit;
-- a review request and explicit authorization gate before implementation.
+- stop conditions if a generic-core gap is hit;
+- a review request and an explicit authorization gate before implementation.
 
-A likely bounded shape is a profile-skeleton/schema slice with a consent smoke test, but that is a
-candidate, not a proposal; it may change after D1/D13/D14/D15/P-1–P-6 are answered.
+The earlier record deferred the first-slice proposal until the S1 decisions were answered.
+The 2026-11-02 decision answered the six accepted S1 items, deferred the other four for S1 and
+confirmed the harness boundary; those four were subsequently accepted for full-model planning on
+2026-11-03. S1 was implemented and merged separately; this decision record is not a pending S1
+implementation task or authorization.
 
 ---
 
 ## 14. Evidence, constraints and limitations of this record
 
-- Baseline `b8e67a8` (PR base, including #59 and #58); accepted design PR #51; 169 tests, typecheck and
-  `bun run check` green at the time of writing; CORE-001 artifact unchanged. These are repository
-  facts, not independent verification of CORE-000.
+- Planning baseline `c6ee644` (PR #73), refreshed from the original `b8e67a8`; accepted design PR
+  #51; execution plan PR #59. The decision was recorded after PR #74 merged as `1c405c2`; this
+  follow-up is documentation-only. The refresh run: `bun test` 292 pass / 0 fail (21 files; 169
+  engine + 123 PAP), typecheck clean, `bun run check` clean, CORE-001 artifact unchanged. See
+  [`core-000-baseline-refresh.md`](core-000-baseline-refresh.md). These are repository facts, not
+  independent verification of CORE-000.
+- The PAP verifier is implemented as a separate product boundary; it does not change these
+  decisions and is not independent verification of CORE-000.
 - This record is documentation-only; it creates no CORE-000 project/profile, code, tests, schemas,
   fixtures, evidence or generated artifact, and changes no generic-core behaviour.
-- Recommendations are proposals. D1, D13, D14, D15 and P-1–P-6 remain open until the maintainer
-  answers; `defer` is valid only where stated.
+- The six original S1 decisions remain accepted. D14, P-2, P-3 and P-6 were historically deferred
+  for S1 and subsequently accepted for the full-model planning scope; S2-D1–S2-D4 were also
+  accepted on 2026-11-03. The record does not authorize implementation.
 - The consumer harness is a test consumer; G4 remains open and is recorded as a separate proposal.
+  Harness use is not independent verification.
 - No independent verification, certification, security, cross-platform determinism or production
-  readiness is claimed.
-- The first-slice proposal is intentionally deferred until the decisions are answered.
+  readiness is claimed; a temporary workspace is not a security sandbox.
+- **Historical S1 authorization:** the S1 implementation gate was satisfied before S1 was
+  implemented and merged; that historical authorization does not carry forward to S2.
+- No S2 implementation is included or authorized. D14, P-2, P-3, P-6 and S2-D1–S2-D4 are accepted
+  for planning scope only; S2.1, S2.2 and S2.3 each require separate explicit authorization.
+- **S2 follow-up:** the accepted planning decisions are reflected in
+  [`core-000-s2-package.md`](core-000-s2-package.md). The package remains a planning document;
+  none of the decisions authorizes S2.1, S2.2 or S2.3 implementation.
 
-**Requested maintainer action:** answer D1, D13, D14, D15 and P-1–P-6 using the format in §0,
-confirm the consumer-harness/G4 boundary in §12, and authorize (or reject) the preparation of the
-first-slice proposal. The decisions remain open; implementation stays blocked until those answers
-and an explicit authorization. Whether this documentation-only record is merged is the
-maintainer's review decision.
+**Requested maintainer action:** review and merge this documentation-only update to record the
+2026-11-03 decisions. No implementation authorization is requested or implied. S2.1, S2.2 and
+S2.3 each remain separately gated by explicit maintainer authorization.
