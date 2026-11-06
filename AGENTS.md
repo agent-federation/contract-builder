@@ -123,8 +123,9 @@ changes the register.
   approval cannot satisfy the Code Owner review requirement.
 - Before merge, code pull requests (changes under `pap/`, `spec/lib/`,
   `profiles/` or `contracts/`) need an independent-family pre-review with
-  GLM-5.3 (`opencode-go` route, `glm-5.3` model) following
-  `docs/agents/pre-review.md`; record the reviewer, the reviewed head, the
+  the independent-family reviewer from `docs/agents/pre-review.md` —
+  `glm-5.3-flash` by default on the `opencode-go` route, escalating to
+  `glm-5.3` on the documented triggers; record the reviewer, the reviewed head, the
   findings and their dispositions in the pull request. The review is advisory:
   CI, the Code Owner review and the human merge remain the gates, and P1/P2
   findings must be verified before they block. Documentation-only changes may
