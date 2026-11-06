@@ -57,7 +57,7 @@ An A/B experiment ran both models on the same heads of PRs #191 (S3) and #192 (E
 Accepted policy: **flash by default, paid escalation.**
 
 - Default: `glm-5.3-flash` (`provider: opencode-go`).
-- Escalate to `glm-5.3` at the reviewed head when any of: (a) flash returns P1/P2; (b) the PR touches `docs/architecture/engine-public-contract.md`, the RFC, a decision record, or engine/verifier code (`pap/src/state.ts`, `report.ts`, `verify.ts`, `signatures.ts`, `decode.ts`, `paths.ts`, `spec/lib/identity.ts`, `spec/lib/build.ts`); (c) the maintainer asks.
+- Escalate to `glm-5.3` at the reviewed head when any of: (a) flash returns P1/P2; (b) the PR touches `docs/architecture/engine-public-contract.md`, the RFC, a decision record, or engine/verifier code (`pap/src/state.ts`, `pap/src/report.ts`, `pap/src/verify.ts`, `pap/src/signatures.ts`, `pap/src/decode.ts`, `pap/src/paths.ts`, `spec/lib/identity.ts`, `spec/lib/build.ts`); (c) the maintainer asks.
 - Docs-only/low-risk PRs may stay flash-only.
 - P1/P2 from either model are still verified by the maintainer/Lead before they block; reviewer output remains untrusted.
 

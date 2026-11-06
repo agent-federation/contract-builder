@@ -54,7 +54,7 @@ return results;
 Default is `glm-5.3-flash`. Re-run the same head with `glm-5.3` (paid) when any of:
 
 - the flash review returns a P1 or P2;
-- the PR touches a contract/verdict/security-critical surface: `docs/architecture/engine-public-contract.md`, the RFC, a decision record, or engine/verifier code (`pap/src/state.ts`, `report.ts`, `verify.ts`, `signatures.ts`, `decode.ts`, `paths.ts`, `spec/lib/identity.ts`, `spec/lib/build.ts`);
+- the PR touches a contract/verdict/security-critical surface: `docs/architecture/engine-public-contract.md`, the RFC, a decision record, or engine/verifier code (`pap/src/state.ts`, `pap/src/report.ts`, `pap/src/verify.ts`, `pap/src/signatures.ts`, `pap/src/decode.ts`, `pap/src/paths.ts`, `spec/lib/identity.ts`, `spec/lib/build.ts`);
 - the maintainer asks.
 
 Record both runs (model, head, verdict, findings) and union the findings. Docs-only/low-risk PRs may stay flash-only. The A/B evidence for this policy is in ODR-PROC-002 §6: on PR #192 each model found a real P2 the other missed.
