@@ -1163,12 +1163,16 @@ function evaluateTrust(options: {
     }
   }
 
-  const signerIdentity =
-    options.signature.envelopeLimitHit
-      ? "NOT_EVALUATED"
-      : options.signature.entries.length === 0
-        ? "NOT_APPLICABLE"
-        : options.signature.signerIdentity;
+  // RFC §4.3.4: the envelope-count limit reads no envelope, so the signature
+  // scope is NOT_EVALUATED rather than absent. A per-envelope limit must not
+  // hide the aggregate of the envelopes that were evaluated.
+  const noEnvelopeEvaluated =
+    options.signature.envelopeLimitHit && options.signature.entries.length === 0;
+  const signerIdentity = noEnvelopeEvaluated
+    ? "NOT_EVALUATED"
+    : options.signature.entries.length === 0
+      ? "NOT_APPLICABLE"
+      : options.signature.signerIdentity;
   const policyDecision =
     options.state === "STALE" ? "STALE" : options.signature.policyDecision;
   if (policyDecision === "REJECTED" && options.signature.entries.length > 0) {

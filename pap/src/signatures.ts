@@ -104,6 +104,7 @@ export async function evaluateSignatures(options: {
     };
   }
 
+  let envelopeLimitHit = false;
   for (const relative of discovered.names) {
     const read = await readPackageFile(
       options.root,
@@ -112,6 +113,25 @@ export async function evaluateSignatures(options: {
       Math.min(options.limits.jsonStringBytes, options.limits.fileBytes),
     );
     if (!read.ok || read.bytes === undefined) {
+      // RFC §4.3.4 / errata E1: a byte or JSON limit is the verifier's safety
+      // boundary, not a producer defect. Only a structural read failure keeps
+      // the envelope-invalid/INVALID path.
+      if (read.failure === "limit") {
+        envelopeLimitHit = true;
+        entries.push({
+          path: relative,
+          validity: "NOT_EVALUATED",
+          signerIdentity: "NOT_EVALUATED",
+          policyDecision: "NOT_EVALUATED",
+        });
+        diagnostics.push({
+          code: "pap.package.limit-exceeded",
+          severity: "error",
+          scope: relative,
+          message: read.message ?? "signature envelope exceeds a configured resource limit",
+        });
+        continue;
+      }
       entries.push({
         path: relative,
         validity: "INVALID",
@@ -128,6 +148,7 @@ export async function evaluateSignatures(options: {
     }
     const parsed = parseEnvelope(relative, read.bytes, options.limits);
     if (!parsed.ok) {
+      if (parsed.limit) envelopeLimitHit = true;
       entries.push({
         path: relative,
         validity: parsed.validity,
@@ -285,28 +306,33 @@ export async function evaluateSignatures(options: {
     }
   }
 
+  // RFC §4.3.4 / errata E1 with §11.5 aggregation: a resource limit stops only
+  // the affected envelope, so the aggregate dimensions come from the entries
+  // that were evaluated. The `envelopeLimitHit` flag still caps the verdict at
+  // INCOMPLETE through the report's `limitStopped` context; it must not mask
+  // another envelope's evaluated INVALID/REJECTED/VALID outcome. The count-limit
+  // path above is the only override: there the verifier read no envelope at all
+  // and returns NOT_EVALUATED directly.
   const validity = aggregateValidity(entries, options.mode);
   const signerIdentity = aggregateSignerIdentity(entries, options.policy, authorizationStates);
-  const policyDecision = aggregatePolicyDecision(
-    entries,
-    options.policy,
-    options.mode,
-    options.policyFresh,
-    validSignerIndexes,
-  );
-
-  if (options.policy === undefined) {
-    // Leave the certificate-signal limitation to the report builder; the
-    // signature dimension itself is NOT_EVALUATED whenever an envelope exists.
-  }
+  const policyDecision =
+    options.policy === undefined
+      ? "NOT_EVALUATED"
+      : aggregatePolicyDecision(
+          entries,
+          options.policy,
+          options.mode,
+          options.policyFresh,
+          validSignerIndexes,
+        );
 
   return {
     validity,
     entries,
     signerIdentity:
       options.policy === undefined && entries.length > 0 ? "NOT_EVALUATED" : signerIdentity,
-    policyDecision: options.policy === undefined ? "NOT_EVALUATED" : policyDecision,
-    envelopeLimitHit: false,
+    policyDecision,
+    envelopeLimitHit,
     discoveryFailure: discovered.error !== null,
     diagnostics,
   };
@@ -366,6 +392,7 @@ type Parsed =
       validity: "INVALID" | "NOT_EVALUATED";
       signerIdentity: SignatureEntry["signerIdentity"];
       policyDecision: SignatureEntry["policyDecision"];
+      limit: boolean;
     };
 
 function parseEnvelope(relative: string, bytes: Uint8Array, limits: Limits): Parsed {
@@ -376,6 +403,9 @@ function parseEnvelope(relative: string, bytes: Uint8Array, limits: Limits): Par
       stringBytes: limits.jsonStringBytes,
     });
   } catch (error) {
+    if (error instanceof JsonParseError && error.failure === "limit") {
+      return limited(error.message);
+    }
     return invalid(error instanceof JsonParseError ? error.message : "envelope is not valid JSON");
   }
   if (!isObject(value)) return invalid("envelope must be a JSON object");
@@ -428,6 +458,19 @@ function invalid(message: string): Parsed {
     validity: "INVALID",
     signerIdentity: "NOT_EVALUATED",
     policyDecision: "REJECTED",
+    limit: false,
+  };
+}
+
+function limited(message: string): Parsed {
+  return {
+    ok: false,
+    code: "pap.package.limit-exceeded",
+    message,
+    validity: "NOT_EVALUATED",
+    signerIdentity: "NOT_EVALUATED",
+    policyDecision: "NOT_EVALUATED",
+    limit: true,
   };
 }
 
