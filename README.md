@@ -122,7 +122,7 @@ rebuilding an unchanged specification leaves the working tree clean.
 | `docs/` | engine public contract, RFCs, decision records, implementation status |
 | `tests/` | builder, profile, provenance, identity and self-contract tests |
 | `fixtures/` | intentionally broken specifications used by tests and examples |
-| `CORE-001.legacy.md` | read-only source document the CORE-001 slice quotes |
+| `CORE-001.legacy.md` | read-only source document that the CORE-001 slice quotes |
 
 Full path-by-path tree: [docs/repository-map.md](docs/repository-map.md).
 
