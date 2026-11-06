@@ -15,6 +15,7 @@
 import { canonicalBase64Decode, isDigest } from "./digest.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { pathKey, validateDeclaredPath } from "./paths.js";
+import { DIMENSION_ORDER } from "./state.js";
 import { parseRfc3339 } from "./time.js";
 import type { Instant } from "./time.js";
 import { DEFAULT_LIMITS } from "./types.js";
@@ -46,24 +47,6 @@ export class PolicyInvalid extends Error {
     this.name = "PolicyInvalid";
   }
 }
-
-export const DIMENSION_ORDER: DimensionName[] = [
-  "integrity",
-  "integrity.package",
-  "integrity.artifacts",
-  "sources",
-  "sources.integrity",
-  "sources.availability",
-  "signature",
-  "signature.validity",
-  "trust",
-  "trust.signerIdentity",
-  "trust.policyDecision",
-  "trust.checkerRecognition",
-  "trust.profileRecognition",
-  "checks",
-  "humanReview",
-];
 
 const CHECK_ID = /^pap\.check\.[a-z0-9-]+\/[0-9]+$/;
 const VERSION = /^(0|[1-9][0-9]*)$/;

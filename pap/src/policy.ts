@@ -15,7 +15,8 @@ import type { Instant } from "./time.js";
 import { DEFAULT_LIMITS } from "./types.js";
 import type { DimensionName, LimitName, Limits } from "./types.js";
 
-export { DIMENSION_ORDER, PolicyInvalid } from "./decode.js";
+export { PolicyInvalid } from "./decode.js";
+export { DIMENSION_ORDER } from "./state.js";
 
 export interface PolicyKey {
   keyId: string;
