@@ -76,7 +76,7 @@ The producer never declares its own package identity: the verifier computes `pac
 1. The report validates against Appendix C and was produced by a verifier whose identity is recorded.
 2. `verdict == "PASS"`; `coverage.full == true`; every required dimension is in its positive state; no `FAIL`/`UNTRUSTED`/`UNSUPPORTED` dimension, no limit-stopped scope.
 3. Either `signature.mode: disabled` (the policy does not require trust) or the signature/trust dimensions are `ACCEPTED` per policy.
-4. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED"|"NOT_ACCEPTED", reasons[], verifier {id, version, implementationDigest}, evaluatedAt}`. It is evidence, not authority; the human owner still accepts in v0.1.
+4. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED" | "NOT_ACCEPTED", reasons: string[], verifier: {id, version, implementationDigest}, evaluatedAt}`. It is evidence, not authority; the human owner still accepts in v0.1.
 5. Anything else — including `INCOMPLETE`, `UNSUPPORTED`, `UNTRUSTED`, schema-invalid reports, missing report — is `NOT_ACCEPTED` with the reason. The gate never converts a non-PASS into a pass.
 
 **Phase 2a caveat:** the in-repo verifier implements the three checks and can PASS this package; independent verifiers may report `UNSUPPORTED`/`INCOMPLETE` for checks outside Phase 2a. The gate must treat that as `NOT_ACCEPTED`, and the comparison matrix is recorded separately (blind-lab), not hidden in the package. CI behaviour for that expected limitation is decision **D5**.
@@ -117,8 +117,8 @@ Scripts: `bun run pack:core000`, `bun run gate:core000`, `bun run pipeline:test`
 
 1. build CORE-000 in a temporary workspace (Q9-style, no checkout mutation);
 2. pack twice; require byte-identical package files and `packageIdentity` (verifier output);
-3. `bun run pap -- verify <tmp package> --trust-policy pipeline/policy/core000-trust-policy.json --format json --now <pinned>`;
-4. gate the report; upload `report.json` and `acceptance-decision.json` as CI artifacts;
+3. `bun run pap -- verify <tmp package> --trust-policy pipeline/policy/core000-trust-policy.json --format json --now <pinned> > report.json`;
+4. `bun run gate:core000 report.json > acceptance-decision.json`; upload both files as CI artifacts;
 5. fail the job on `NOT_ACCEPTED`, invalid schema, non-deterministic package, or any unexpected diagnostic; no network, no secrets;
 6. optionally record the independent-verifier matrix as a separate job/artifact (manual blind-lab, not CI-blocking).
 
