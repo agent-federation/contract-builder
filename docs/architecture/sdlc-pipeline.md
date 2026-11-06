@@ -135,6 +135,8 @@ Do not merge the CORE-000 and CORE-001 domain models. Define a **presentation en
 
 Any template change is a separate PR with regenerated artifacts and golden updates; it must not touch `CORE-001.legacy.md` or domain content.
 
+**C5 decision:** the envelope and the current CORE-000/CORE-001 element mapping are recorded in [ODR-ART-001](../decisions/ODR-ART-001-artifact-envelope.md). C5 is documentation-only; template/artifact changes and golden updates are the separate C5b follow-up.
+
 ## 7. Components and CI
 
 **Producer-side layout (new, outside `pap/`):**
