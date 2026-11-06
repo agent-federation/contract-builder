@@ -72,12 +72,25 @@ export interface PackageDeclaration {
   readonly profile: { readonly id: string; readonly version: string };
 }
 
+export type ClaimKind = "provenance" | "relations" | "producerReport" | "reviews";
+
+/** One raw claim file and the manifest key it is declared under. */
+export interface ClaimFilePayload {
+  readonly kind: ClaimKind;
+  /** Package-relative path under `claims/`. */
+  readonly path: string;
+  /** Raw claim bytes; the manifest digest is `H("pap.claims.v1", bytes)`. */
+  readonly bytes: Uint8Array;
+}
+
 export interface MappingInput {
   readonly artifact: ArtifactPayload;
   readonly inputs: readonly InputPayload[];
   readonly source: SourcePayload;
   readonly build: BuildClaim;
   readonly declaration: PackageDeclaration;
+  /** C2 declares provenance and relations; C1 passed no claims. */
+  readonly claims?: readonly ClaimFilePayload[];
 }
 
 export interface ManifestArtifact {
@@ -117,6 +130,18 @@ export const CORE000_CHECK_SPECS: readonly CheckSpec[] = [
   { id: "pap.check.relation-consistency/1", version: "1", required: true },
 ] as const;
 
+export interface ManifestClaimRef {
+  readonly path: string;
+  readonly digest: Digest;
+}
+
+export interface ManifestClaims {
+  readonly provenance?: ManifestClaimRef;
+  readonly relations?: ManifestClaimRef;
+  readonly producerReport?: ManifestClaimRef;
+  readonly reviews?: ManifestClaimRef;
+}
+
 export interface PackageManifest {
   readonly papVersion: "0.1";
   readonly package: {
@@ -137,8 +162,8 @@ export interface PackageManifest {
   readonly sources: readonly ManifestSource[];
   readonly profile: { readonly id: string; readonly version: string };
   readonly checkSpecs: readonly CheckSpec[];
-  /** C1 packages no claims; the field is absent, not an empty object. */
-  readonly claims?: never;
+  /** Present only when the package carries claim files; C1 omitted the field. */
+  readonly claims?: ManifestClaims;
 }
 
 export interface PackageFile {
@@ -318,9 +343,9 @@ function requireUnique(paths: readonly string[]): void {
 }
 
 /**
- * Map one CORE-000 build's bytes into the C1 package: artifact, three inputs,
- * one source, the build claim and the three required checks. No claims are
- * produced in C1.
+ * Map one CORE-000 build's bytes into the PAP package: artifact, three inputs,
+ * one source, the build claim, the three required checks and (from C2) the
+ * provenance and relations claims.
  */
 export function mapCore000Package(input: MappingInput): PackagePlan {
   const artifactPath = input.artifact.path;
@@ -341,10 +366,24 @@ export function mapCore000Package(input: MappingInput): PackagePlan {
   const source = input.source;
   requirePrefix(source.path, "sources/", "source path");
 
+  const claims = input.claims ?? [];
+  const claimRefs: Partial<Record<ClaimKind, ManifestClaimRef>> = {};
+  for (const claim of claims) {
+    requirePrefix(claim.path, "claims/", "claim path");
+    if (claimRefs[claim.kind] !== undefined) {
+      throw new Error(`duplicate claim kind: ${claim.kind}`);
+    }
+    claimRefs[claim.kind] = {
+      path: claim.path,
+      digest: domainHash("pap.claims.v1", claim.bytes),
+    };
+  }
+
   requireUnique([
     artifactPath,
     ...normalizedInputs.map((entry) => entry.payload.path),
     source.path,
+    ...claims.map((claim) => claim.path),
   ]);
 
   const normalizedInputDigest = normalizedInputSetDigest(
@@ -412,6 +451,7 @@ export function mapCore000Package(input: MappingInput): PackagePlan {
       version: input.declaration.profile.version,
     },
     checkSpecs: CORE000_CHECK_SPECS.map((spec) => ({ ...spec })),
+    ...(claims.length === 0 ? {} : { claims: claimRefs }),
   };
 
   const manifestBytes = concatBytes([canonicalJsonBytes(manifest), utf8("\n")]);
@@ -422,6 +462,7 @@ export function mapCore000Package(input: MappingInput): PackagePlan {
       path: entry.payload.path,
       bytes: entry.normalized,
     })),
+    ...claims.map((claim) => ({ path: claim.path, bytes: claim.bytes })),
     { path: source.path, bytes: source.bytes },
   ].sort((a, b) => compareBytes(utf8(a.path), utf8(b.path)));
 
