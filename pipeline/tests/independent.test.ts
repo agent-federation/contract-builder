@@ -316,6 +316,23 @@ test("the reference report must be PASS", () => {
   );
 });
 
+test("a report without package.papVersion is a problem", () => {
+  const broken = reportFor("go") as {
+    package: Record<string, unknown>;
+  } & Record<string, unknown>;
+  delete broken.package.papVersion;
+  const executions = replaceExecution(
+    defaultExecutions(),
+    executionFor("go", broken, 4),
+  );
+  const { batch, problems } = assembleBatch(optionsWith(executions));
+  assert.equal(batch.ok, false);
+  assert.ok(
+    problems.some((problem) => problem.includes("package.papVersion is missing")),
+    problems.join("\n"),
+  );
+});
+
 test("all four runs must use the same pinned --now", () => {
   const executions = replaceExecution(
     defaultExecutions(),

@@ -517,6 +517,9 @@ function describeExecuted(
   }
 
   const papVersion = textOf(pkg.papVersion);
+  if (papVersion === null || papVersion.length === 0) {
+    problems.push(`${name}: package.papVersion is missing from the report`);
+  }
   const manifestPapVersion = textOf(manifest.papVersion);
   if (papVersion !== null && manifestPapVersion !== null && papVersion !== manifestPapVersion) {
     problems.push(
@@ -566,6 +569,10 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     manifest = asObject(JSON.parse(options.manifestText), "assurance-package.json");
   } catch (error) {
     problems.push(`package manifest cannot be read: ${messageOf(error)}`);
+  }
+
+  if (textOf(manifest.papVersion) === null) {
+    problems.push("package manifest papVersion is missing");
   }
 
   const revisions = new Set<string>();
@@ -812,27 +819,36 @@ function runCommand(
         ...(spawnError === undefined ? {} : { error: spawnError }),
       });
     };
-    const child = spawn(command, [...args], {
-      cwd: options.cwd,
-      env: { ...process.env, ...options.env },
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: options.timeoutMs ?? 15 * 60 * 1000,
-    });
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.on("error", (error) => {
-      spawnError = error.message;
-      finish(null);
-    });
-    child.on("close", (code) => {
-      finish(code);
-    });
+    try {
+      const child = spawn(command, [...args], {
+        cwd: options.cwd,
+        env: { ...process.env, ...options.env },
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: options.timeoutMs ?? 15 * 60 * 1000,
+      });
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+      child.stdout.on("data", (chunk: string) => {
+        stdout += chunk;
+      });
+      child.stderr.on("data", (chunk: string) => {
+        stderr += chunk;
+      });
+      child.on("error", (error) => {
+        spawnError = error.message;
+        finish(null);
+      });
+      child.on("close", (code) => {
+        finish(code);
+      });
+    } catch (error) {
+      resolve({
+        code: null,
+        stdout: "",
+        stderr: "",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   });
 }
 
@@ -875,6 +891,7 @@ async function fetchArchive(
   process.stderr.write(`c6: downloading ${pin.name} ${pin.commit}\n`);
   const response = await fetch(pin.tarball, {
     headers: { "user-agent": "contract-builder-c6-independent" },
+    signal: AbortSignal.timeout(120_000),
   });
   if (!response.ok) {
     throw new Error(
