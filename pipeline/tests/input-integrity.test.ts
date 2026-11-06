@@ -5,11 +5,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  assembleBatch,
   makeInputsReadOnly,
   makeInputsWritable,
   snapshotInputs,
   verifyInputsUnchanged,
 } from "../independent.js";
+import { MANIFEST, NOW, executionsForPaths } from "./support.js";
 
 interface Fixture {
   readonly root: string;
@@ -66,6 +68,23 @@ test("a verifier process that mutates package bytes is detected", async () => {
         change.includes("package file was modified"),
       ),
       changes.join("\n"),
+    );
+
+    const outcome = assembleBatch({
+      now: NOW,
+      packageDir,
+      policyPath,
+      manifestText: MANIFEST,
+      packageFileDigests: snapshot.packageFiles,
+      executions: executionsForPaths(packageDir, policyPath),
+      inputIntegrity: { readOnlyDuringRuns: true, mutations: changes },
+    });
+    assert.equal(outcome.batch.ok, false);
+    assert.ok(
+      outcome.batch.problems.some((problem) =>
+        problem.includes("package file was modified"),
+      ),
+      outcome.batch.problems.join("\n"),
     );
   } finally {
     await makeInputsWritable(packageDir, policyPath);
