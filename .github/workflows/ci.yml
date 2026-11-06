@@ -60,3 +60,114 @@ jobs:
           path: coverage/
           if-no-files-found: warn
           retention-days: 7
+
+  # C4 (#209): exercise the CORE-000 producer -> verifier -> gate chain and
+  # retain its evidence. Separate from `check` and not a required status yet.
+  pipeline:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Pinned inside the policy window (2026-11-01 .. 2027-11-01); the report
+      # and the acceptance decision never read the wall clock.
+      PIPELINE_NOW: "2026-11-06T00:00:00Z"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun install cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Pack CORE-000 twice
+        run: |
+          set -euo pipefail
+          PIPELINE_DIR="$RUNNER_TEMP/pipeline"
+          mkdir -p "$PIPELINE_DIR"
+          bun run pack:core000 --out "$PIPELINE_DIR/pack-a"
+          bun run pack:core000 --out "$PIPELINE_DIR/pack-b"
+
+      - name: Require byte-identical packages and an untouched checkout
+        run: |
+          set -euo pipefail
+          PIPELINE_DIR="$RUNNER_TEMP/pipeline"
+          diff -r "$PIPELINE_DIR/pack-a" "$PIPELINE_DIR/pack-b"
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "::error::packing mutated the checkout"
+            git status --porcelain --untracked-files=all
+            exit 1
+          fi
+
+      - name: Verify each package with the CORE-000 trust policy
+        run: |
+          set -euo pipefail
+          PIPELINE_DIR="$RUNNER_TEMP/pipeline"
+          POLICY="pipeline/policy/core000-trust-policy.json"
+          bun run pap -- verify "$PIPELINE_DIR/pack-a" \
+            --trust-policy "$POLICY" --format json --now "$PIPELINE_NOW" \
+            > "$PIPELINE_DIR/report.json"
+          bun run pap -- verify "$PIPELINE_DIR/pack-b" \
+            --trust-policy "$POLICY" --format json --now "$PIPELINE_NOW" \
+            > "$PIPELINE_DIR/report-b.json"
+
+      - name: Require one packageIdentity and a clean report
+        run: |
+          set -euo pipefail
+          PIPELINE_DIR="$RUNNER_TEMP/pipeline"
+          bun run pipeline/ci.ts determinism \
+            "$PIPELINE_DIR/report.json" "$PIPELINE_DIR/report-b.json"
+
+      - name: Gate the report
+        run: |
+          set -euo pipefail
+          PIPELINE_DIR="$RUNNER_TEMP/pipeline"
+          bun run gate:core000 \
+            --report "$PIPELINE_DIR/report.json" \
+            --policy pipeline/policy/core000-trust-policy.json \
+            --out "$PIPELINE_DIR/acceptance-decision.json"
+          bun run pipeline/ci.ts assert-decision \
+            "$PIPELINE_DIR/acceptance-decision.json" ACCEPTED
+
+      - name: Prove the gate fails closed on a non-PASS report
+        run: |
+          set -euo pipefail
+          PIPELINE_DIR="$RUNNER_TEMP/pipeline"
+          bun run pipeline/ci.ts tamper \
+            "$PIPELINE_DIR/report.json" "$PIPELINE_DIR/tampered-report.json"
+          status=0
+          bun run gate:core000 \
+            --report "$PIPELINE_DIR/tampered-report.json" \
+            --policy pipeline/policy/core000-trust-policy.json \
+            --out "$PIPELINE_DIR/tampered-decision.json" || status=$?
+          if [ "$status" -ne 1 ]; then
+            echo "::error::the gate must exit 1 on a non-PASS report, got $status"
+            exit 1
+          fi
+          bun run pipeline/ci.ts assert-decision \
+            "$PIPELINE_DIR/tampered-decision.json" NOT_ACCEPTED
+
+      - name: Upload pipeline evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pipeline-evidence
+          path: |
+            ${{ runner.temp }}/pipeline/report.json
+            ${{ runner.temp }}/pipeline/report-b.json
+            ${{ runner.temp }}/pipeline/acceptance-decision.json
+            ${{ runner.temp }}/pipeline/tampered-decision.json
+            ${{ runner.temp }}/pipeline/pack-a/assurance-package.json
+          if-no-files-found: warn
+          retention-days: 90
