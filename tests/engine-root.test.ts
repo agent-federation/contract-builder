@@ -128,6 +128,74 @@ test("engine-root: the CLI accepts --engine-root for a copied project", async ()
   assert.match(parsed.identity?.inputDigest ?? "", /^sha256:[0-9a-f]{64}$/);
 });
 
+test("engine-root: the CLI preflight validates against --engine-root, not the running root", async () => {
+  // The distinct root pins a dependency the running lockfile does not have. Only a preflight
+  // that reads the supplied root's lockfile can validate this project's profile closure.
+  const engineRoot = await copyEngineRoot("cli-divergent");
+  const lockPath = path.join(engineRoot, "bun.lock");
+  const lock = await readFile(lockPath, "utf8");
+  await writeFile(
+    lockPath,
+    lock.replace(
+      '"packages": {',
+      '"packages": {\n    "engine-root-probe": ["engine-root-probe@1.0.0", "", {}, "sha512-ZW5naW5lLXJvb3Q="],',
+    ),
+    "utf8",
+  );
+
+  const project = await copyProjectWithProfile("engine-root-cli-divergent");
+  const profilePath = path.join(project, "profiles", "core001", "profile.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
+    dependencies?: Record<string, string>;
+  };
+  profile.dependencies = { ...(profile.dependencies ?? {}), "engine-root-probe": "1.0.0" };
+  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+
+  const cli = spawnSync(
+    process.execPath,
+    [
+      path.join(root, "spec", "build.ts"),
+      "--spec",
+      project,
+      "--engine-root",
+      engineRoot,
+      "--no-write",
+      "--json",
+      "--allow-executable-profile",
+    ],
+    { cwd: root, encoding: "utf8", timeout: 120_000 },
+  );
+  assert.equal(cli.status, 0, cli.stderr);
+  const parsed = JSON.parse(cli.stdout) as {
+    identity: { engineVersion: string } | null;
+  };
+  assert.equal(parsed.identity?.engineVersion, await repoPackageVersion());
+});
+
+test("engine-root: a distinct same-version root's modules are the ones executed", async () => {
+  const engineRoot = await copyEngineRoot("distinct-execution");
+  const provenancePath = path.join(engineRoot, "spec", "lib", "provenance.ts");
+  const markerPath = path.join(engineRoot, "spec", "lib", "provenance.marker");
+  const original = await readFile(provenancePath, "utf8");
+  await writeFile(
+    provenancePath,
+    [
+      'import { writeFileSync } from "node:fs";',
+      'import { fileURLToPath } from "node:url";',
+      'writeFileSync(fileURLToPath(new URL("./provenance.marker", import.meta.url)), "loaded", "utf8");',
+      original,
+    ].join("\n"),
+    "utf8",
+  );
+
+  const project = await copyProjectWithProfile("distinct-root-execution");
+  const result = await runBuild(base(project, { engineRoot }));
+  assert.equal(result.exitCode, 0, failure(result));
+  assert.equal(result.markdown, await readFile(draftPath, "utf8"));
+  assert.equal(await readFile(markerPath, "utf8"), "loaded");
+});
+
+
 test("engine-root: the mapping rule recognizes nested and deeper spec/lib imports", () => {
   const profile = path.join(path.sep, "project", "profiles", "core001");
   const layout = path.join(path.sep, "project");

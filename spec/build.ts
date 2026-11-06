@@ -1,7 +1,8 @@
 import path from "node:path";
 import { loadProfileRenderers } from "./cli-renderers.js";
 import { runBuild, type BuildResult } from "./lib/build.js";
-import { SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
+import { Diagnostics, SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
+import { loadEngineRoot, verifyEngineVersion } from "./lib/identity.js";
 import type { BuildMode, Renderer } from "./lib/render.js";
 
 interface CliOptions {
@@ -133,9 +134,21 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Resolve the engine root once, before the preflight: the renderer preflight and the build
+  // must validate the profile closure against the same root, including the same lockfile.
+  const engineDiagnostics = new Diagnostics();
+  const engine = await loadEngineRoot(cli.engineRoot, engineDiagnostics);
+  if (engine === null || !(await verifyEngineVersion(engine, engineDiagnostics))) {
+    console.error(engineDiagnostics.report());
+    process.exitCode = 1;
+    return;
+  }
+
   let renderers: Record<string, Renderer>;
   try {
-    renderers = await loadProfileRenderers(cli.allowExecutableProfile, cli.specDir);
+    renderers = await loadProfileRenderers(cli.allowExecutableProfile, cli.specDir, {
+      engineRoot: engine.root,
+    });
   } catch (error) {
     console.error(
       `Не удалось загрузить рендерер профиля: ${error instanceof Error ? error.message : String(error)}`,
@@ -146,6 +159,7 @@ async function main(): Promise<void> {
 
   const result = await runBuild({
     ...cli,
+    engineRoot: engine.root,
     renderers,
   });
 

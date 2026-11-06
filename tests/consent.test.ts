@@ -192,9 +192,11 @@ test("consent: the CLI preflight validates the profile closure before importing 
   );
 
   let imported = 0;
-  const renderers = await loadProfileRenderers(true, dir, async () => {
-    imported += 1;
-    return FAKE_RENDERER;
+  const renderers = await loadProfileRenderers(true, dir, {
+    importRenderer: async () => {
+      imported += 1;
+      return FAKE_RENDERER;
+    },
   });
 
   assert.equal(imported, 0, "renderer imported before the profile closure was validated");
@@ -205,9 +207,11 @@ test("consent: the CLI preflight imports the renderer only for a declared valid 
   const dir = await copyProjectWithProfile("preflight-valid");
   let imported = 0;
 
-  const renderers = await loadProfileRenderers(true, dir, async () => {
-    imported += 1;
-    return FAKE_RENDERER;
+  const renderers = await loadProfileRenderers(true, dir, {
+    importRenderer: async () => {
+      imported += 1;
+      return FAKE_RENDERER;
+    },
   });
 
   assert.equal(imported, 1);
@@ -220,9 +224,11 @@ test("consent: the CLI preflight skips the renderer for another profile", async 
   const dir = await copyExampleProjectWithRenderer("preflight-other", "core001-markdown");
   let imported = 0;
 
-  const renderers = await loadProfileRenderers(true, dir, async () => {
-    imported += 1;
-    return FAKE_RENDERER;
+  const renderers = await loadProfileRenderers(true, dir, {
+    importRenderer: async () => {
+      imported += 1;
+      return FAKE_RENDERER;
+    },
   });
 
   assert.equal(imported, 0);
@@ -233,18 +239,16 @@ test("consent: the CLI preflight does not import the renderer when the lockfile 
   const dir = await copyProjectWithProfile("lockfile-unavailable");
   let imported = 0;
 
-  const renderers = await loadProfileRenderers(
-    true,
-    dir,
-    async () => {
+  const renderers = await loadProfileRenderers(true, dir, {
+    importRenderer: async () => {
       imported += 1;
       return FAKE_RENDERER;
     },
-    (project, diagnostics) =>
+    validateClosure: (project, diagnostics) =>
       validateProfileClosure(project, diagnostics, async () => {
         throw new Error("bun.lock is unavailable");
       }),
-  );
+  });
 
   assert.equal(imported, 0, "renderer imported although the lockfile was unreadable");
   assert.deepEqual(renderers, {});
