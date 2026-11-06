@@ -86,12 +86,15 @@ the record-identity and E.10 mutation tests.
 `fixtures/pap-v0.1/` is the static corpus described by RFC §12:
 
 - `base/` — the Appendix F package, byte-identical to the E.1/E.2 vectors;
-- `F01-…` through `F80-…` — one static package copy per case (empty directory
+- `F01-…` through `F85-…` — one static package copy per case (empty directory
   for CLI-only variations that target `../base`);
 - `trust-policy/` — the fixed Appendix B policy fixtures, including
-  `relations-only-lowered.json` for F61;
+  `relations-only-lowered.json` for F61 and the `*-underdeclared.json` policies
+  that prove I1/E2 derivation;
 - `signatures/` — the shared trusted, unknown-key and corrupted DSSE envelopes;
-- `cases.json` — the generic projection-and-compare case index.
+- `cases.json` — the generic projection-and-compare case index;
+- `requirements.json` — the code/requirement/verdict-cause map validated by
+  `pap/tests/requirements.test.ts`.
 
 `F52` and `F61` use the verifier's limit interpretation: files under
 `artifacts/`, `sources/` and `inputs/` are bounded by `fileBytes` and

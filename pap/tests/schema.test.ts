@@ -45,13 +45,20 @@ test("Appendix F manifest and claims validate", () => {
   }
 });
 
-test("trust policy fixtures validate except the intentionally invalid one", () => {
+/**
+ * Policy fixtures that must fail Appendix B. `invalid.json` violates a field
+ * invariant; `strict-enum.json` carries a non-string `signature.mode` and is the
+ * F85 fail-closed fixture. Every other policy fixture must validate.
+ */
+const INTENTIONALLY_INVALID_POLICIES = new Set(["invalid.json", "strict-enum.json"]);
+
+test("trust policy fixtures validate except the intentionally invalid fixtures", () => {
   const validate = ajv.getSchema("urn:pap:0.1:trust-policy");
   for (const name of readdirSync(path.join(fixtures, "trust-policy"))) {
     const value = JSON.parse(readFileSync(path.join(fixtures, "trust-policy", name), "utf8"));
     const actual = validate(value);
-    if (name === "invalid.json") {
-      assert.equal(actual, false, "invalid.json must fail Appendix B");
+    if (INTENTIONALLY_INVALID_POLICIES.has(name)) {
+      assert.equal(actual, false, `${name} must fail Appendix B`);
     } else {
       assert.equal(actual, true, `${name}: ${JSON.stringify(validate.errors)}`);
     }
