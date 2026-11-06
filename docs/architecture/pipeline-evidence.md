@@ -8,13 +8,14 @@ required comparison record, not a certification, a gate decision or a claim of s
 
 | Field | Value |
 |---|---|
-| Contract-builder run commit | [`0317a0c0d6476317785c4aa36ddbf3f0a9a876a8`](https://github.com/agent-federation/contract-builder/commit/0317a0c0d6476317785c4aa36ddbf3f0a9a876a8) |
+| Contract-builder run commit | [`542052d781edc92e2583f7bd0e47f596aa7c19f4`](https://github.com/agent-federation/contract-builder/commit/542052d781edc92e2583f7bd0e47f596aa7c19f4) |
 | Pinned `--now` | `2026-11-06T00:00:00Z` |
 | Trust policy | `policy-core000-unsigned-2026-11` |
-| Trust-policy path used by all four runs | `pipeline/policy/core000-trust-policy.json` (the same absolute path for all four runs; retained in `batch.json`) |
+| Trust-policy path used by all four runs | Run-local copy of `pipeline/policy/core000-trust-policy.json` (identical bytes; the same absolute path for all four runs; retained in `batch.json`) |
 | Trust-policy digest (verifier-reported) | `e7dc5f2928ef0cf0825dbaf4384ed32a26a342d71f16a1a33e1b998ee65cda58` |
 | Independent-verifier provenance | [`agent-federation/blind-lab@e5da9ac404547579d184d2f47d33c1e1ac866495`](https://github.com/agent-federation/blind-lab/commit/e5da9ac404547579d184d2f47d33c1e1ac866495) ([PR #42](https://github.com/agent-federation/blind-lab/pull/42)) |
 | Provenance handoff | `audit/c6-independent-2026-11-07` |
+| Input protection | Package tree and run-local policy copy made read-only during verifier execution and re-hashed after every verifier; any mutation is a problem and fails the batch (`inputIntegrity` in `batch.json`). |
 | Machine-readable batch | The CI job retains its own run's `batch.json` and reports as the `pipeline-independent-evidence` artifact (90 days). The values in this record are from the run commit above, not from that artifact. |
 
 The three independent implementations are the blind-lab Gate 3 Phase 2a set. This run
@@ -26,8 +27,8 @@ blind-lab handoff reports are provenance, not the source of truth.
 
 | Field | Value |
 |---|---|
-| `packageIdentity` | `sha256:b5a3bdfa2938f61254768b5cb43de26ed9c6e161ba8ad82e1acd23f3d5648bdc` |
-| Manifest SHA-256 (`assurance-package.json`) | `0de72c2b37a82cbf7992927e0a03bdaa7d5e5469054e90bcc4cc204f582c3a5d` |
+| `packageIdentity` | `sha256:57280f75156896cb899981a4d5455f3a6bc761f4f07bfb0ebcf4a80268339bbb` |
+| Manifest SHA-256 (`assurance-package.json`) | `339d40a6502a66471212fb746e4a86bef74c91695ca069294c9a6d5610e142e6` |
 | PAP version | `0.1` |
 | Build `engineVersion` | `0.1.0` |
 | Build `manifestVersion` | `0.1` |
@@ -39,7 +40,7 @@ blind-lab handoff reports are provenance, not the source of truth.
 
 **Commit binding.** `packageIdentity` is commit-bound: the manifest's
 `sources[].acquisition.revision` is the packing checkout's git HEAD, so the identity
-above is valid for `0317a0c0d6476317785c4aa36ddbf3f0a9a876a8` only. A CI run packs its own
+above is valid for `542052d781edc92e2583f7bd0e47f596aa7c19f4` only. A CI run packs its own
 checkout (on a pull request, the merge commit) and therefore records a different
 identity. The evidence pin is the run commit stated here, not a constant.
 
@@ -47,10 +48,10 @@ identity. The evidence pin is the run commit stated here, not a constant.
 
 | Verifier | id | version | implementationDigest | verdict | exit | report SHA-256 |
 |---|---|---|---|---|---|---|
-| reference | pap.verifier.reference | 0.1.0 | `sha256:fc9478c781922d37458efc7f2aef8e5fcb4d38d3e74a94778790a6db40a5081e` | PASS | 0 | `2f4d37f5bb7da5ace7a1447b8ee721ae876229923dd1c9ea14e2fceac4ac8810` |
-| rust | pap.verifier.rust | 0.1.0 | `sha256:e5d6ab21a1ea94d17e0ed60f1873ca622db03b2fac70ebda0f172f24c4c1454d` | UNSUPPORTED | 4 | `18466d8fc0745cb9e6445567944e9f5d7872a3c1ba0d5769d55c1aa795f9a98c` |
-| go | pap.verifier.go | 0.1.0 | `sha256:f386a6f8712bdb290be2b272d93bc70bfb589d6c4289bfbd9044b2b118c7dc14` | UNSUPPORTED | 4 | `5c63ecfa57cf9b242cb17d3f6e5b994924d3c41f4b881fb4ef9d9360a2b4c99c` |
-| python | pap.verifier.python | 0.1.0 | `sha256:367c40ff74b93d34b927485035000cbeb465f8e4ebcde8cd85c61743efd41393` | UNSUPPORTED | 4 | `45feacb1328eacd326f380bdfd48bcb2e90dd8f995a53b6cc2af66f83b95f5dd` |
+| reference | pap.verifier.reference | 0.1.0 | `sha256:fc9478c781922d37458efc7f2aef8e5fcb4d38d3e74a94778790a6db40a5081e` | PASS | 0 | `b42392158e6bf99df01a6872a2f5b641ad843604d2f6dbe0e10e48ebaee550ed` |
+| rust | pap.verifier.rust | 0.1.0 | `sha256:e5d6ab21a1ea94d17e0ed60f1873ca622db03b2fac70ebda0f172f24c4c1454d` | UNSUPPORTED | 4 | `9256c7c36c812a40632c88cbe0d5b457b5c753bc0b14dac1766aeef6b01121fc` |
+| go | pap.verifier.go | 0.1.0 | `sha256:f386a6f8712bdb290be2b272d93bc70bfb589d6c4289bfbd9044b2b118c7dc14` | UNSUPPORTED | 4 | `b00a21010a428e048f74d561f8e1230c29e81859692890f69aea795e39a0c3b6` |
+| python | pap.verifier.python | 0.1.0 | `sha256:367c40ff74b93d34b927485035000cbeb465f8e4ebcde8cd85c61743efd41393` | UNSUPPORTED | 4 | `cd2d341202965ca236c78a8452ce9b5045e4eb2bdfb9ee860ca88301ce3fa76e` |
 
 ### Pinned independent sources
 
@@ -127,8 +128,8 @@ bun run pipeline:independent --out "$RUNNER_TEMP/pipeline-independent" \
 The `pipeline-independent` CI job runs this command on every pull request. It is a
 separate, non-blocking job: it is not a required status and does not gate the reference
 `pipeline` job. It uploads `batch.json`, the four reports and the package manifest for
-90 days. A missing report, an unparseable report, a pinned-identity mismatch or a
-`packageIdentity` disagreement fails the job explicitly.
+90 days. A missing report, an unparseable report, a pinned-identity mismatch, a
+`packageIdentity` disagreement or an input mutation fails the job explicitly.
 
 ## 7. What this does and does not establish
 
@@ -138,5 +139,9 @@ separate, non-blocking job: it is not a required status and does not gate the re
   package/artifact/source integrity and availability.
 - `UNSUPPORTED` is a recorded, executed result. It is not PASS, and no CORE-000 claim
   is promoted to `independently_verified` by this record.
+- The runner copies the policy into the run directory, makes the package tree and policy
+  copy read-only, and re-hashes both after every verifier. A verifier that mutates packaged
+  bytes or the policy makes the batch fail closed and stops the remaining runs; the mutation
+  diagnostics are retained in `batch.json`.
 - Phase 2b check implementations, cross-environment reproducibility (H2), signing,
   semantic truth and team independence are out of scope.

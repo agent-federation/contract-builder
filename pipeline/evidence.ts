@@ -204,8 +204,8 @@ bun run pipeline:independent --out "$RUNNER_TEMP/pipeline-independent" \\
 The \`pipeline-independent\` CI job runs this command on every pull request. It is a
 separate, non-blocking job: it is not a required status and does not gate the reference
 \`pipeline\` job. It uploads \`batch.json\`, the four reports and the package manifest for
-90 days. A missing report, an unparseable report, a pinned-identity mismatch or a
-\`packageIdentity\` disagreement fails the job explicitly.
+90 days. A missing report, an unparseable report, a pinned-identity mismatch, a
+\`packageIdentity\` disagreement or an input mutation fails the job explicitly.
 
 ## 7. What this does and does not establish
 
