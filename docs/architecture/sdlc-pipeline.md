@@ -54,6 +54,9 @@ The producer builds into a temporary directory with the fixed PAP layout (§4): 
 
 The producer never declares its own package identity: the verifier computes `packageIdentity = H("pap.package.v1", JCS(manifest))` (RFC §5.3) from the canonical manifest. A package cannot self-digest.
 
+**Classification decision (D2).** Issue #135 initially lists `claims.yml` and `structure.yml` among the "artifacts". This note classifies the rendered `CORE-000.draft.md` as the PAP **artifact** (the exported subject the verifier treats as opaque bytes) and `claims.yml`/`structure.yml` as **inputs** (build inputs whose content is also the basis for the producer's claims). That is the PAP model (artifacts are subjects; inputs are build snapshots) and it will be recorded as an explicit maintainer decision, with the issue's acceptance wording reconciled before implementation.
+
+
 ## 4. Determinism and timestamps
 
 - The package bytes must be a pure function of the declared inputs and the engine identity: sorted declarations, JCS canonical JSON, LF line endings, no absolute paths, no wall-clock timestamps, no host data.
@@ -71,15 +74,49 @@ The producer never declares its own package identity: the verifier computes `pac
 - `requiredChecks`: the three checks; `requiredDimensions: ["integrity","sources","checks"]`;
 - `checkers: []`, `profiles: []`, `humanReview.required: false`.
 
+A complete minimal schema-valid policy (the Appendix B schema requires `trustPolicyVersion`, `id`, `issuedAt`, `expiresAt`, `signature`, `keys`, `signers`, `checkers`, `profiles`, `requiredChecks` (≥1), `requiredDimensions` (≥1) and `humanReview.{required,maxAgeSeconds}` even when signing is disabled; this is the same shape as the verifier fixture `trust-policy/unsigned-valid.json`):
+
+```json
+{
+  "trustPolicyVersion": "0.1",
+  "id": "policy-core000-unsigned-2026-11",
+  "issuedAt": "2026-11-01T00:00:00Z",
+  "expiresAt": "2027-11-01T00:00:00Z",
+  "signature": { "mode": "disabled" },
+  "keys": [],
+  "signers": [],
+  "checkers": [],
+  "profiles": [],
+  "requiredChecks": [
+    "pap.check.digest-integrity/1",
+    "pap.check.source-quote/1",
+    "pap.check.relation-consistency/1"
+  ],
+  "requiredDimensions": ["integrity", "sources", "checks"],
+  "humanReview": { "required": false, "maxAgeSeconds": 2592000 }
+}
+```
+
 **Gate rule** (acceptor, reads only the JSON report):
 
 1. The report validates against Appendix C and was produced by a verifier whose identity is recorded.
 2. `verdict == "PASS"`; `coverage.full == true`; every required dimension is in its positive state; no `FAIL`/`UNTRUSTED`/`UNSUPPORTED` dimension, no limit-stopped scope.
 3. Either `signature.mode: disabled` (the policy does not require trust) or the signature/trust dimensions are `ACCEPTED` per policy.
-4. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED" | "NOT_ACCEPTED", reasons: string[], verifier: {id, version, implementationDigest}, evaluatedAt}`. It is evidence, not authority; the human owner still accepts in v0.1.
+4. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED" | "NOT_ACCEPTED", reasons: string[], verifier: {id, version, implementationDigest}, evaluatedAt}`. `evaluatedAt` is **copied verbatim from the verifier report** (`report.evaluatedAt`), never read from the clock; with a fixed report the decision bytes are therefore deterministic. It is evidence, not authority; the human owner still accepts in v0.1.
 5. Anything else — including `INCOMPLETE`, `UNSUPPORTED`, `UNTRUSTED`, schema-invalid reports, missing report — is `NOT_ACCEPTED` with the reason. The gate never converts a non-PASS into a pass.
 
-**Phase 2a caveat:** the in-repo verifier implements the three checks and can PASS this package; independent verifiers may report `UNSUPPORTED`/`INCOMPLETE` for checks outside Phase 2a. The gate must treat that as `NOT_ACCEPTED`, and the comparison matrix is recorded separately (blind-lab), not hidden in the package. CI behaviour for that expected limitation is decision **D5**.
+**Phase 2a caveat:** the in-repo verifier implements the three checks and can PASS this package; independent verifiers may report `UNSUPPORTED`/`INCOMPLETE` for checks outside Phase 2a. The gate must treat that as `NOT_ACCEPTED`, and the comparison matrix is recorded separately (blind-lab), not hidden in the package.
+
+### 5.1 Independent verification (required deliverable)
+
+Independent verification is **not optional** in stream C (#135 acceptance criteria; #170 stream definition). It is separate from the reference-verifier gate:
+
+- **Definition:** a verifier implementation that is not this repository's `pap/` (the blind-lab independent verifiers), run offline against the same package bytes and a pinned `--now`.
+- **Deliverable C6 (required):** at least one successful independent-verifier run for the CORE-000 package, plus a committed evidence record `docs/architecture/pipeline-evidence.md` containing: commit, `packageIdentity`, package manifest digest, verifier identities (`id`, `version`, `implementationDigest`), verdict and dimension/check matrix, differences and limitations, and the report file hashes. The `implementation-status.md` H2/H3 rows are updated in the same change; an `UNSUPPORTED`/`INCOMPLETE` independent result is reported explicitly and never recorded as a pass.
+- **CI:** a separate `pipeline-independent` job runs the pinned independent verifier artifact when it is available in CI; it is **not** a required status for the reference-verifier pipeline and never blocks it. When the artifact is unavailable the job records `NOT_PERFORMED` explicitly. Stream C is not closed on `NOT_PERFORMED`: the required evidence record must exist (it may be produced out-of-band and committed).
+- **Retention:** CI uploads the reference report, the independent report and both decision documents (90-day artifact retention); the committed `pipeline-evidence.md` summary is permanent. This is the "evidence retention" half of #170's independent-verification requirement.
+
+D5 is split accordingly: **D5a** reference-verifier package acceptance (the gate), **D5b** cross-implementation compatibility (the independent matrix + evidence record).
 
 ## 6. Artifact envelope (#130), separate slice
 
@@ -120,7 +157,7 @@ Scripts: `bun run pack:core000`, `bun run gate:core000`, `bun run pipeline:test`
 3. `bun run pap -- verify <tmp package> --trust-policy pipeline/policy/core000-trust-policy.json --format json --now <pinned> > report.json`;
 4. `bun run gate:core000 report.json > acceptance-decision.json`; upload both files as CI artifacts;
 5. fail the job on `NOT_ACCEPTED`, invalid schema, non-deterministic package, or any unexpected diagnostic; no network, no secrets;
-6. optionally record the independent-verifier matrix as a separate job/artifact (manual blind-lab, not CI-blocking).
+6. a separate `pipeline-independent` job runs the pinned independent verifier when its artifact is available, records `NOT_PERFORMED`/`INCOMPLETE`/`UNSUPPORTED` explicitly, never turns an unsupported result into a pass, and does not block the reference job; its reports feed the C6 evidence record (§5.1).
 
 ## 8. Phases
 
@@ -131,15 +168,17 @@ Scripts: `bun run pack:core000`, `bun run gate:core000`, `bun run pipeline:test`
 | C3 | CORE-000 policy + gate + decision document | gate table tests (PASS/FAIL/INCOMPLETE/UNTRUSTED/UNSUPPORTED/schema-invalid); decision artifact deterministic given report |
 | C4 | CI `pipeline` job | chain runs on PRs; deterministic package; gate fails closed; artifacts uploaded |
 | C5 | Artifact envelope (#130) decision + implementation | common elements decided; templates/regenerated artifacts + goldens updated; no domain merge |
-| C6 (optional) | Independent-verifier comparison matrix | reference + independent reports recorded with differences explained, never hidden |
+| C6 (required) | Independent-verifier evidence and comparison matrix | at least one independent verifier run; committed `docs/architecture/pipeline-evidence.md` + `implementation-status.md` H2/H3 update; differences/limitations explicit; `NOT_PERFORMED` does not close the stream |
 
 ## 9. Decisions requested (D1–D6)
 
 - **D1 — producer location and commands.** Recommend `pipeline/` with `bun run pack:core000` / `gate:core000`; no new published package in v0.1.
-- **D2 — mapping scope.** Recommend artifacts+inputs+source for C1, provenance+relations for C2, **no producer-report** in v0.1.
+- **D2 — mapping scope and classification.** Recommend artifacts+inputs+source for C1, provenance+relations for C2, **no producer-report** in v0.1; and accept the classification `CORE-000.draft.md` = artifact, `claims.yml`/`structure.yml` = inputs (records the difference from #135's initial wording).
 - **D3 — timestamps.** Recommend **omit** `createdAt`/`acquiredAt` for byte-reproducible packages; if a date is required, derive from `SOURCE_DATE_EPOCH`/commit date and pin it in CI. (Omitting changes package identity versus including a date; the decision is which identity the repo wants.)
 - **D4 — gate authority.** Recommend: the gate emits `ACCEPTED`/`NOT_ACCEPTED` evidence and CI fails closed; a human owner still accepts in v0.1; signing/publication deferred.
-- **D5 — expected Phase 2a outcome.** Recommend: the reference verifier is expected to PASS the CORE-000 package for the three checks; an independent verifier's `UNSUPPORTED`/`INCOMPLETE` is `NOT_ACCEPTED` and recorded in a separate matrix. CI blocks on `NOT_ACCEPTED`; it does not silently allowlist it.
+- **D5a — reference-verifier package acceptance.** Recommend: the reference verifier is expected to PASS the CORE-000 package for the three checks; the gate blocks on any non-PASS and does not silently allowlist expected limitations.
+- **D5b — cross-implementation compatibility.** Independent-verifier results are a distinct dimension, evidenced by C6; `UNSUPPORTED`/`INCOMPLETE` is reported as such (and is not a pass), even where the reference verifier PASSes.
+- **D7 — independent-verification evidence.** Recommend the C6 definition in §5.1: required committed evidence record + `implementation-status.md` update; separate non-blocking CI job; explicit `NOT_PERFORMED`/`UNSUPPORTED`; raw reports retained as CI artifacts, summary committed permanently.
 - **D6 — envelope scope.** Recommend the mandatory/optional table in §6; implement in C5 as a presentation-only change with regenerated artifacts and goldens.
 
 ## 10. Non-goals
