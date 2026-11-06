@@ -4,7 +4,8 @@
  * The CORE-000 draft is built in a fresh temporary workspace (Q9 style), so the
  * checkout is never written to. The package bytes are a function of the built
  * artifact, the three declared inputs, the declared source and the engine build
- * identity: no clock, no absolute paths and no producer-report claim.
+ * identity plus the C2 provenance/relations claims: no clock, no absolute paths and
+ * no producer-report claim.
  */
 
 import { createHash } from "node:crypto";
@@ -15,10 +16,14 @@ import {
   prepareWorkspace,
   runHarness,
   type HarnessRun,
+  type Workspace,
 } from "../contracts/core000/run.js";
+import { buildCore000Claims } from "./claims.js";
 import {
   mapCore000Package,
+  normalizeLf,
   type ArtifactPayload,
+  type ClaimFilePayload,
   type InputPayload,
   type PackageFile,
   type PackageManifest,
@@ -67,6 +72,11 @@ const PACKAGE_ID = "urn:pap:contract-builder:core000";
 
 export interface PackOptions {
   readonly outDir: string;
+  /**
+   * Test seam: pack an already prepared temporary workspace instead of creating and
+   * cleaning up one. The caller remains responsible for `workspace.cleanup()`.
+   */
+  readonly workspace?: Workspace;
 }
 
 export interface PackResult {
@@ -89,7 +99,7 @@ interface ProjectDeclaration {
 }
 
 /**
- * Build CORE-000 in a temporary workspace and write the C1 PAP package.
+ * Build CORE-000 in a temporary workspace and write the C2 PAP package.
  * The output directory must be outside the checkout and empty.
  */
 export async function packCore000(options: PackOptions): Promise<PackResult> {
@@ -97,14 +107,15 @@ export async function packCore000(options: PackOptions): Promise<PackResult> {
   assertOutsideRepository(outDir);
   await assertEmptyOutputDirectory(outDir);
 
-  const workspace = await prepareWorkspace();
+  const owned = options.workspace === undefined;
+  const workspace = options.workspace ?? (await prepareWorkspace());
   try {
     const run = await runHarness({
       mode: "draft",
       write: true,
       specDir: workspace.projectDir,
       workspaceRoot: workspace.root,
-      run: "pipeline-c1-pack",
+      run: "pipeline-c2-pack",
     });
     const identity = assertExpectedDraft(run);
 
@@ -136,10 +147,25 @@ export async function packCore000(options: PackOptions): Promise<PackResult> {
       ...acquisitionFor(run),
     };
 
+    const normalizedInputs = new Map<string, Uint8Array>();
+    for (const declaration of INPUT_FILES) {
+      const payload = inputs.find((entry) => entry.path === declaration.path);
+      if (payload === undefined) {
+        throw new Error(`missing CORE-000 input: ${declaration.file}`);
+      }
+      normalizedInputs.set(declaration.file, normalizeLf(payload.bytes));
+    }
+    const claims = buildCore000Claims({
+      inputBytes: normalizedInputs,
+      source: { id: source.id, bytes: source.bytes },
+    });
+    const claimFiles: ClaimFilePayload[] = [claims.provenance, claims.relations];
+
     const plan: PackagePlan = mapCore000Package({
       artifact,
       inputs,
       source,
+      claims: claimFiles,
       build: {
         engineVersion: identity.engineVersion,
         manifestVersion: identity.manifestVersion,
@@ -172,7 +198,7 @@ export async function packCore000(options: PackOptions): Promise<PackResult> {
       normalizedInputDigest: plan.normalizedInputDigest,
     };
   } finally {
-    await workspace.cleanup();
+    if (owned) await workspace.cleanup();
   }
 }
 

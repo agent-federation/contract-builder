@@ -101,9 +101,10 @@ A complete minimal schema-valid policy (the Appendix B schema requires `trustPol
 
 1. The report validates against Appendix C and was produced by a verifier whose identity is recorded.
 2. `verdict == "PASS"`; `coverage.full == true`; every required dimension is in its positive state; no `FAIL`/`UNTRUSTED`/`UNSUPPORTED` dimension, no limit-stopped scope.
-3. Either `signature.mode: disabled` (the policy does not require trust) or the signature/trust dimensions are `ACCEPTED` per policy.
-4. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED" | "NOT_ACCEPTED", reasons: string[], verifier: {id, version, implementationDigest}, evaluatedAt}`. `evaluatedAt` is **copied verbatim from the verifier report** (`report.evaluatedAt`), never read from the clock; with a fixed report the decision bytes are therefore deterministic. It is evidence, not authority; the human owner still accepts in v0.1.
-5. Anything else — including `INCOMPLETE`, `UNSUPPORTED`, `UNTRUSTED`, schema-invalid reports, missing report — is `NOT_ACCEPTED` with the reason. The gate never converts a non-PASS into a pass.
+3. **Policy freshness is re-derived, not trusted:** using `report.evaluatedAt` (never the clock) and the policy's `issuedAt`/`expiresAt`, the report timestamp must fall inside the **inclusive** policy window in addition to `report.policy.state == "FRESH"`. An out-of-window timestamp is `NOT_ACCEPTED` with an explicit reason.
+4. Either `signature.mode: disabled` (the policy does not require trust) or the signature/trust dimensions are `ACCEPTED` per policy.
+5. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED" | "NOT_ACCEPTED", reasons: string[], verifier: {id, version, implementationDigest}, evaluatedAt}`. `evaluatedAt` is **copied verbatim from the verifier report** (`report.evaluatedAt`), never read from the clock; with a fixed report the decision bytes are therefore deterministic. It is evidence, not authority; the human owner still accepts in v0.1.
+6. Anything else — including `INCOMPLETE`, `UNSUPPORTED`, `UNTRUSTED`, schema-invalid reports, missing report — is `NOT_ACCEPTED` with the reason. The gate never converts a non-PASS into a pass.
 
 **Phase 2a caveat:** the in-repo verifier implements the three checks and can PASS this package; independent verifiers may report `UNSUPPORTED`/`INCOMPLETE` for checks outside Phase 2a. The gate must treat that as `NOT_ACCEPTED`, and the comparison matrix is recorded separately (blind-lab), not hidden in the package.
 
@@ -133,6 +134,8 @@ Do not merge the CORE-000 and CORE-001 domain models. Define a **presentation en
 | substantive body | profile-specific | architecture/claims/evidence | provisions/quotes/vectors/provenance |
 
 Any template change is a separate PR with regenerated artifacts and golden updates; it must not touch `CORE-001.legacy.md` or domain content.
+
+**C5 decision:** the envelope and the current CORE-000/CORE-001 element mapping are recorded in [ODR-ART-001](../decisions/ODR-ART-001-artifact-envelope.md). C5 is documentation-only; template/artifact changes and golden updates are the separate C5b follow-up.
 
 ## 7. Components and CI
 

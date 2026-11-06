@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020Module from "ajv/dist/2020.js";
+import YAML from "yaml";
 import {
   artifactDigest,
   canonicalJson,
@@ -15,8 +16,10 @@ import {
   normalizeLf,
   normalizedInputSetDigest,
   rawSourceDigest,
+  utf8,
 } from "../mapping.js";
-import { REPO_ROOT, assertOutsideRepository } from "../pack.js";
+import { packCore000, REPO_ROOT, assertOutsideRepository } from "../pack.js";
+import { prepareWorkspace } from "../../contracts/core000/run.js";
 
 const Ajv2020 = Ajv2020Module as unknown as new (
   options: Record<string, unknown>,
@@ -121,6 +124,8 @@ async function checkPackageTree(packageDir: string): Promise<void> {
   assert.deepEqual(files, [
     "artifacts/CORE-000.draft.md",
     "assurance-package.json",
+    "claims/provenance.json",
+    "claims/relations.json",
     "inputs/claims.yml",
     "inputs/contract-builder.json",
     "inputs/structure.yml",
@@ -205,7 +210,48 @@ async function checkPackageTree(packageDir: string): Promise<void> {
     { id: "pap.check.source-quote/1", version: "1", required: true },
     { id: "pap.check.relation-consistency/1", version: "1", required: true },
   ]);
-  assert.equal("claims" in manifest, false, "C1 packages no claims");
+
+  assert.deepEqual(Object.keys(manifest.claims).sort(), ["provenance", "relations"]);
+  assert.deepEqual(manifest.claims.provenance.path, "claims/provenance.json");
+  assert.deepEqual(manifest.claims.relations.path, "claims/relations.json");
+  const provenanceBytes = await readBytes(
+    path.join(packageDir, manifest.claims.provenance.path),
+  );
+  const relationsBytes = await readBytes(
+    path.join(packageDir, manifest.claims.relations.path),
+  );
+  assert.equal(
+    manifest.claims.provenance.digest,
+    domainHash("pap.claims.v1", provenanceBytes),
+  );
+  assert.equal(
+    manifest.claims.relations.digest,
+    domainHash("pap.claims.v1", relationsBytes),
+  );
+
+  const provenance = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(provenanceBytes),
+  ) as Record<string, any>;
+  assert.equal(provenance.papClaimsVersion, "0.1");
+  assert.equal(provenance.bindings.length, 3);
+  for (const binding of provenance.bindings) {
+    assert.equal(binding.sourceId, source.id);
+    assert.equal(binding.quote.normalization, "none");
+    const extracted = sourceBytes.subarray(binding.locator.start, binding.locator.end);
+    assert.equal(binding.quote.digest, domainHash("pap.quote.v1", extracted));
+  }
+
+  const relations = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(relationsBytes),
+  ) as Record<string, any>;
+  assert.equal(relations.papClaimsVersion, "0.1");
+  assert.ok(relations.entities.some((entity: { id: string }) => entity.id === "SRC-TR-001"));
+  assert.ok(
+    relations.edges.some(
+      (edge: { relation: string; from: string; to: string }) =>
+        edge.relation === "cites" && edge.from === "C000-TR-001" && edge.to === "SRC-TR-001",
+    ),
+  );
 
   const serialized = JSON.stringify(manifest);
   assert.equal(serialized.includes(root), false, "no absolute checkout path");
@@ -219,7 +265,7 @@ async function checkPackageTree(packageDir: string): Promise<void> {
   assert.deepEqual(canonical, manifest);
 }
 
-test("pack:core000 produces the C1 layout and both runs are byte-identical", async () => {
+test("pack:core000 produces the C2 layout and both runs are byte-identical", async () => {
   const tempRoot = await mkdtemp(path.join(tmpdir(), "pipeline-c1-"));
   const first = path.join(tempRoot, "first");
   const second = path.join(tempRoot, "second");
@@ -254,8 +300,8 @@ test("pack:core000 produces the C1 layout and both runs are byte-identical", asy
 
     const firstVerify = verifyPackage(first);
     const secondVerify = verifyPackage(second);
-    assert.equal(firstVerify.status, 2, firstVerify.stderr);
-    assert.equal(secondVerify.status, 2, secondVerify.stderr);
+    assert.equal(firstVerify.status, 0, firstVerify.stderr);
+    assert.equal(secondVerify.status, 0, secondVerify.stderr);
 
     const firstReport = JSON.parse(firstVerify.stdout) as Record<string, any>;
     const secondReport = JSON.parse(secondVerify.stdout) as Record<string, any>;
@@ -291,13 +337,16 @@ test("pack:core000 produces the C1 layout and both runs are byte-identical", asy
       manifest.build.normalizedInputDigest,
     );
 
-    assert.equal(firstReport.verdict, "INCOMPLETE");
+    assert.equal(firstReport.verdict, "PASS");
     assert.equal(firstReport.dimensions.integrity.package, "PASS");
     assert.equal(firstReport.dimensions.integrity.artifacts, "PASS");
     assert.equal(firstReport.dimensions.sources.integrity, "PASS");
-    assert.equal(firstReport.coverage.full, false);
-    assert.equal(firstReport.coverage.checksPassed, 1);
-    assert.equal(firstReport.coverage.checksNotEvaluated, 2);
+    assert.equal(firstReport.dimensions.sources.availability, "PASS");
+    assert.equal(firstReport.coverage.full, true);
+    assert.equal(firstReport.coverage.checksEvaluated, 3);
+    assert.equal(firstReport.coverage.checksPassed, 3);
+    assert.equal(firstReport.coverage.checksFailed, 0);
+    assert.equal(firstReport.coverage.checksNotEvaluated, 0);
     assert.deepEqual(
       firstReport.dimensions.checks.results.map((entry: { checkId: string; outcome: string }) => [
         entry.checkId,
@@ -305,8 +354,8 @@ test("pack:core000 produces the C1 layout and both runs are byte-identical", asy
       ]),
       [
         ["pap.check.digest-integrity/1", "PASS"],
-        ["pap.check.source-quote/1", "NOT_EVALUATED"],
-        ["pap.check.relation-consistency/1", "NOT_EVALUATED"],
+        ["pap.check.source-quote/1", "PASS"],
+        ["pap.check.relation-consistency/1", "PASS"],
       ],
     );
     assert.deepEqual(
@@ -320,6 +369,119 @@ test("pack:core000 produces the C1 layout and both runs are byte-identical", asy
       firstReport.diagnostics.filter((entry: { severity: string }) => entry.severity === "error"),
       [],
     );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("pack:core000 fails closed on an ambiguous provenance quote", async () => {
+  const tempRoot = await mkdtemp(path.join(tmpdir(), "pipeline-c2-ambiguous-"));
+  const out = path.join(tempRoot, "package");
+  const workspace = await prepareWorkspace();
+  try {
+    const sourcePath = path.join(
+      workspace.root,
+      "docs",
+      "architecture",
+      "engine-public-contract.md",
+    );
+    const source = await readFile(sourcePath, "utf8");
+    const claims = YAML.parse(
+      await readFile(path.join(workspace.projectDir, "claims.yml"), "utf8"),
+    ) as { sourceStatements: { source_quote: string }[] };
+    const quote = claims.sourceStatements[0]?.source_quote;
+    assert.ok(quote);
+    await writeFile(sourcePath, `${source}\n\n${quote}\n`, "utf8");
+    await assert.rejects(
+      packCore000({ outDir: out, workspace }),
+      /ambiguous in the source/,
+    );
+    await assert.rejects(access(out), "no partial package is written");
+  } finally {
+    await workspace.cleanup();
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("pack:core000 declares claim digests; a mutated claim fails verification", async () => {
+  const tempRoot = await mkdtemp(path.join(tmpdir(), "pipeline-c2-claim-digest-"));
+  const packageDir = path.join(tempRoot, "package");
+  try {
+    await mkdir(packageDir);
+    const packed = run(["run", "pack:core000", "--out", packageDir]);
+    assert.equal(packed.status, 0, packed.stderr);
+
+    const manifest = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(
+        await readBytes(path.join(packageDir, "assurance-package.json")),
+      ),
+    ) as Record<string, any>;
+    const claimPaths = [manifest.claims.provenance.path, manifest.claims.relations.path] as string[];
+    for (const claimPath of claimPaths) {
+      assert.match(
+        await readFile(path.join(packageDir, claimPath), "utf8"),
+        /^\{/,
+        `${claimPath} is packaged`,
+      );
+    }
+
+    const tampered = path.join(packageDir, manifest.claims.provenance.path);
+    const original = await readFile(tampered);
+    await writeFile(tampered, Buffer.concat([original, Buffer.from(" ")]));
+
+    const verified = verifyPackage(packageDir);
+    assert.equal(verified.status, 1, verified.stderr);
+    const report = JSON.parse(verified.stdout) as Record<string, any>;
+    assert.equal(report.verdict, "FAIL");
+    assert.equal(report.dimensions.integrity.package, "FAIL");
+    assert.ok(
+      report.diagnostics.some(
+        (diagnostic: { code: string }) => diagnostic.code === "pap.integrity.claim-mismatch",
+      ),
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("pack:core000 evidence: a mutated range with a valid claim digest fails source-quote", async () => {
+  const tempRoot = await mkdtemp(path.join(tmpdir(), "pipeline-c2-range-"));
+  const packageDir = path.join(tempRoot, "package");
+  try {
+    await mkdir(packageDir);
+    const packed = run(["run", "pack:core000", "--out", packageDir]);
+    assert.equal(packed.status, 0, packed.stderr);
+
+    const manifestPath = path.join(packageDir, "assurance-package.json");
+    const manifest = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(await readBytes(manifestPath)),
+    ) as Record<string, any>;
+    const claimPath = path.join(packageDir, manifest.claims.provenance.path as string);
+    const claim = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(await readBytes(claimPath)),
+    ) as Record<string, any>;
+    claim.bindings[0].locator.start += 1;
+
+    const claimBytes = utf8(`${canonicalJson(claim)}\n`);
+    await writeFile(claimPath, claimBytes);
+    manifest.claims.provenance.digest = domainHash("pap.claims.v1", claimBytes);
+    await writeFile(manifestPath, utf8(`${canonicalJson(manifest)}\n`));
+
+    const verified = verifyPackage(packageDir);
+    assert.equal(verified.status, 1, verified.stderr);
+    const report = JSON.parse(verified.stdout) as Record<string, any>;
+    assert.equal(report.verdict, "FAIL");
+    const sourceQuote = report.checks.find(
+      (check: { checkId: string }) => check.checkId === "pap.check.source-quote/1",
+    );
+    assert.ok(sourceQuote);
+    assert.equal(sourceQuote.outcome, "FAIL");
+    assert.ok(
+      sourceQuote.diagnostics.some(
+        (diagnostic: { code: string }) => diagnostic.code === "pap.check.quote-mismatch",
+      ),
+    );
+    assert.equal(report.dimensions.integrity.package, "PASS", "the recomputed claim digest keeps integrity");
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
