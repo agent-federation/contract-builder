@@ -281,6 +281,95 @@ test("mapping fills every manifest section field by field", () => {
   assert.equal(serialized.includes("acquiredAt"), false);
 });
 
+test("mapping declares claim files by path and H(\"pap.claims.v1\", bytes)", () => {
+  const input = sampleInput();
+  const provenance = utf8('{"bindings":[],"papClaimsVersion":"0.1"}\n');
+  const relations = utf8(
+    '{"edges":[],"entities":[],"papClaimsVersion":"0.1","relations":[]}\n',
+  );
+  const plan = mapCore000Package({
+    ...input,
+    claims: [
+      { kind: "provenance", path: "claims/provenance.json", bytes: provenance },
+      { kind: "relations", path: "claims/relations.json", bytes: relations },
+    ],
+  });
+
+  assert.deepEqual(plan.manifest.claims, {
+    provenance: {
+      path: "claims/provenance.json",
+      digest: domainHash("pap.claims.v1", provenance),
+    },
+    relations: {
+      path: "claims/relations.json",
+      digest: domainHash("pap.claims.v1", relations),
+    },
+  });
+  assert.deepEqual(
+    plan.files.map((file) => file.path),
+    [
+      "artifacts/SAMPLE.draft.md",
+      "assurance-package.json",
+      "claims/provenance.json",
+      "claims/relations.json",
+      "inputs/a.json",
+      "inputs/z.yml",
+      "sources/sample.md",
+    ],
+  );
+  const packaged = plan.files.find((file) => file.path === "claims/provenance.json");
+  assert.ok(packaged);
+  assert.deepEqual(packaged.bytes, provenance);
+
+  const manifestFile = plan.files.find((file) => file.path === "assurance-package.json");
+  assert.ok(manifestFile);
+  assert.deepEqual(JSON.parse(Buffer.from(manifestFile.bytes).toString("utf8")).claims, {
+    provenance: {
+      path: "claims/provenance.json",
+      digest: domainHash("pap.claims.v1", provenance),
+    },
+    relations: {
+      path: "claims/relations.json",
+      digest: domainHash("pap.claims.v1", relations),
+    },
+  });
+});
+
+test("mapping rejects claim paths outside claims/ and duplicate claim paths", () => {
+  const input = sampleInput();
+  const bytes = utf8('{"bindings":[],"papClaimsVersion":"0.1"}\n');
+  assert.throws(
+    () =>
+      mapCore000Package({
+        ...input,
+        claims: [{ kind: "provenance", path: "inputs/provenance.json", bytes }],
+      }),
+    /claim path must start with claims\//,
+  );
+  assert.throws(
+    () =>
+      mapCore000Package({
+        ...input,
+        claims: [
+          { kind: "provenance", path: "claims/claim.json", bytes },
+          { kind: "relations", path: "claims/claim.json", bytes },
+        ],
+      }),
+    /duplicate package path/,
+  );
+  assert.throws(
+    () =>
+      mapCore000Package({
+        ...input,
+        claims: [
+          { kind: "provenance", path: "claims/a.json", bytes },
+          { kind: "provenance", path: "claims/b.json", bytes },
+        ],
+      }),
+    /duplicate claim kind/,
+  );
+});
+
 test("mapping rejects missing/crossing path prefixes and duplicates", () => {
   const baseInput = sampleInput();
   assert.throws(
