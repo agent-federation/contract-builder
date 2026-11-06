@@ -810,7 +810,8 @@ Rules:
 #### Engine-owned imports and the explicit engine root
 
 A build is portable: engine code is loaded from an **explicit engine root**, not from the
-project copy. The root is the directory that contains the engine's `spec/` and `package.json`;
+project copy. The root is the directory that contains the engine's `spec/lib` and
+`package.json`;
 `runBuild({ engineRoot })` and the M1 CLI flag `--engine-root <dir>` supply it, and the default is
 the running engine's root. The root is canonicalized with `realpath` and must be absolute and
 contain both `spec/lib` (a directory) and `package.json` (a file); otherwise the build fails
