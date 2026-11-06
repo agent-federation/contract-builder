@@ -12,7 +12,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { isBuiltin } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,18 +64,130 @@ export interface IdentityInput {
   adapters: Record<string, SourceAdapter>;
   renderer: Renderer;
   diagnostics: Diagnostics;
+  /** Validated engine root the identity is computed against; defaults to the running engine. */
+  engineRoot?: string;
 }
 
 /** Text of the pre-hash envelopes, so the two digest families cannot be confused. */
 const INPUT_ENVELOPE = new TextEncoder().encode("contract-builder/input-digest/v1\n");
 const CLOSURE_ENVELOPE = new TextEncoder().encode("contract-builder/extension-closure/v1\n");
 
-/** Engine source directory; relative imports that land here are engine imports, not closure files. */
-const ENGINE_SOURCE_ROOT = fileURLToPath(new URL(".", import.meta.url));
+/**
+ * Default engine root: the checkout that contains the running engine's `spec/` and
+ * `package.json`. See `docs/decisions/ODR-ENG-001-engine-identity-boundary.md` (B2).
+ */
+export function defaultEngineRoot(): string {
+  return fileURLToPath(new URL("../../", import.meta.url));
+}
 
-/** Reads the repository package version, the M1 source of `engineVersion`. */
-export async function readEngineVersion(): Promise<string> {
-  const text = await readFile(new URL("../../package.json", import.meta.url), "utf8");
+/** A validated engine root and the version its own `package.json` declares. */
+export interface EngineRoot {
+  /** Canonical (realpath) engine root. */
+  root: string;
+  version: string;
+}
+
+/**
+ * Validates an explicit engine root and reads its version. A root must be an absolute
+ * directory that contains `spec/lib` and `package.json`; the version is the one reported in
+ * `BuildIdentity`, never the running process's own version.
+ */
+export async function loadEngineRoot(
+  requested: string | undefined,
+  diagnostics: Diagnostics,
+): Promise<EngineRoot | null> {
+  const candidate = requested ?? defaultEngineRoot();
+  if (!path.isAbsolute(candidate)) {
+    diagnostics.error(
+      "core.path.outside-root",
+      "package.json",
+      "",
+      `Корень движка "${candidate}" должен быть абсолютным путём`,
+    );
+    return null;
+  }
+
+  let root: string;
+  try {
+    root = await realpath(candidate);
+  } catch (error) {
+    diagnostics.error(
+      "core.path.outside-root",
+      "package.json",
+      "",
+      `Корень движка "${candidate}" недоступен: ${messageOf(error)}`,
+    );
+    return null;
+  }
+
+  const libOk = await stat(path.join(root, "spec", "lib"))
+    .then((entry) => entry.isDirectory())
+    .catch(() => false);
+  const packageOk = await stat(path.join(root, "package.json"))
+    .then((entry) => entry.isFile())
+    .catch(() => false);
+  if (!libOk || !packageOk) {
+    diagnostics.error(
+      "core.path.outside-root",
+      "package.json",
+      "",
+      `Корень движка "${root}" должен содержать spec/lib и package.json`,
+    );
+    return null;
+  }
+
+  let version: string;
+  try {
+    version = await readEngineVersion(root);
+  } catch (error) {
+    diagnostics.error(
+      "core.engine.version-mismatch",
+      "package.json",
+      "/version",
+      `Не удалось определить версию движка в "${root}": ${messageOf(error)}`,
+    );
+    return null;
+  }
+  return { root, version };
+}
+
+/**
+ * Version correspondence: the modules loaded from the engine root must be the same engine
+ * release the running process belongs to. Otherwise an identity would be reported for code
+ * the running engine cannot vouch for, so the build fails closed.
+ */
+export async function verifyEngineVersion(
+  engine: EngineRoot,
+  diagnostics: Diagnostics,
+): Promise<boolean> {
+  let running: string;
+  try {
+    running = await readEngineVersion();
+  } catch (error) {
+    diagnostics.error(
+      "ERR_IO",
+      "package.json",
+      "/version",
+      `Не удалось определить версию запущенного движка: ${messageOf(error)}`,
+    );
+    return false;
+  }
+
+  if (running !== engine.version) {
+    diagnostics.error(
+      "core.engine.version-mismatch",
+      "package.json",
+      "/version",
+      `Корень движка "${engine.root}" объявляет версию ${engine.version}, но выполняется движок ${running}: модули не соответствуют отчётной версии`,
+    );
+    return false;
+  }
+  return true;
+}
+
+/** Reads the engine version declared by `engineRoot/package.json` (default: running engine). */
+export async function readEngineVersion(engineRoot: string = defaultEngineRoot()): Promise<string> {
+  const text = await readFile(path.join(engineRoot, "package.json"), "utf8");
   const parsed: unknown = JSON.parse(text);
   if (!isObject(parsed) || !isNonEmptyString(parsed.version)) {
     throw new Error("package.json не содержит version");
@@ -83,9 +195,9 @@ export async function readEngineVersion(): Promise<string> {
   return parsed.version;
 }
 
-/** Reads the repository lockfile; `bun.lock` is JSON with comments and trailing commas. */
-export async function readLockfile(): Promise<Lockfile> {
-  const text = await readFile(new URL("../../bun.lock", import.meta.url), "utf8");
+/** Reads the engine lockfile (default: running engine). */
+export async function readLockfile(engineRoot: string = defaultEngineRoot()): Promise<Lockfile> {
+  const text = await readFile(path.join(engineRoot, "bun.lock"), "utf8");
   return parseLockfile(text);
 }
 
@@ -119,6 +231,250 @@ export function parseLockfile(text: string): Lockfile {
     });
   }
   return { packages };
+}
+
+/** One engine-owned import: the lexical subpath and the module resolved under the engine root. */
+export interface EngineImportMapping {
+  engineRoot: string;
+  /** Deepest ancestor of the project root and the profile directory. */
+  layoutRoot: string;
+  /** `"<importer>\u0000<specifier>"` → resolved absolute module path under `<engineRoot>/spec/lib`. */
+  mappings: Map<string, string>;
+}
+
+/** Lexical classification result for one relative specifier. */
+export type EngineSpecifierClassification =
+  | { kind: "engine"; subpath: string }
+  | { kind: "extension" }
+  | { kind: "error"; code: string; message: string };
+
+/** POSIX form of a filesystem path, used by the lexical mapping rule. */
+function posixPath(value: string): string {
+  return value.replace(/\\/g, "/");
+}
+
+/** Deepest common ancestor of two absolute directories. */
+function commonAncestor(first: string, second: string): string {
+  const a = path.resolve(first).split(path.sep);
+  const b = path.resolve(second).split(path.sep);
+  const shared: string[] = [];
+  for (let index = 0; index < a.length && index < b.length; index += 1) {
+    if (a[index] !== b[index]) break;
+    shared.push(a[index]!);
+  }
+  const joined = shared.join(path.sep);
+  return joined.length === 0 ? path.parse(path.resolve(first)).root : joined;
+}
+
+/** Layout root used to decide whether an engine candidate escapes the project. */
+function projectLayoutRoot(project: ResolvedProject): string {
+  return commonAncestor(project.root, project.profileDir);
+}
+
+/** Creates the engine-import mapping a profile closure is scanned and loaded with. */
+export function createEngineImportMapping(
+  project: ResolvedProject,
+  engineRoot: string,
+): EngineImportMapping {
+  return {
+    engineRoot,
+    layoutRoot: projectLayoutRoot(project),
+    mappings: new Map(),
+  };
+}
+
+/**
+ * Exact lexical `spec/lib` mapping rule (ODR-ENG-001 B2): only relative specifiers are engine
+ * candidates; collapse `.`/`..` against the importing file's directory without touching the
+ * filesystem, reject a result that escapes the project layout root, require exactly one
+ * contiguous `spec/lib` segment sequence, and validate the subpath that follows it.
+ */
+export function classifyEngineSpecifier(
+  specifier: string,
+  importer: string,
+  layoutRoot: string,
+): EngineSpecifierClassification {
+  const importerFile = posixPath(path.resolve(importer));
+  const root = posixPath(path.resolve(layoutRoot));
+  const collapsed = path.posix.normalize(
+    path.posix.join(path.posix.dirname(importerFile), posixPath(specifier)),
+  );
+  const relative = path.posix.relative(root, collapsed);
+  if (
+    relative.length === 0 ||
+    relative === ".." ||
+    relative.startsWith("../") ||
+    path.posix.isAbsolute(relative)
+  ) {
+    return {
+      kind: "error",
+      code: "core.path.outside-root",
+      message: `Импорт "${specifier}" выходит за пределы корня проекта`,
+    };
+  }
+
+  const segments = relative.split("/");
+  const occurrences: number[] = [];
+  for (let index = 0; index + 1 < segments.length; index += 1) {
+    if (segments[index] === "spec" && segments[index + 1] === "lib") {
+      occurrences.push(index);
+    }
+  }
+  if (occurrences.length === 0) return { kind: "extension" };
+  if (occurrences.length > 1) {
+    return {
+      kind: "error",
+      code: "core.extension.unpinned-dependency",
+      message: `Импорт "${specifier}" неоднозначен: последовательность spec/lib встречается ${occurrences.length} раз`,
+    };
+  }
+
+  const subpath = segments.slice(occurrences[0]! + 2);
+  if (
+    subpath.length === 0 ||
+    subpath.some((segment) => segment.length === 0 || segment === "." || segment === "..") ||
+    subpath.join("/").startsWith("/")
+  ) {
+    return {
+      kind: "error",
+      code: "core.extension.unpinned-dependency",
+      message: `Импорт "${specifier}" содержит недопустимый подпуть после spec/lib`,
+    };
+  }
+  return { kind: "engine", subpath: subpath.join("/") };
+}
+
+/** Candidate files for an engine subpath; `.js` specifiers map to TypeScript sources. */
+function engineModuleCandidates(target: string): string[] {
+  const stripped = target.replace(/\.(?:js|mjs|cjs|jsx)$/, "");
+  if (stripped !== target) {
+    return [`${stripped}.ts`, `${stripped}.tsx`, `${stripped}.mts`, `${stripped}.cts`, target];
+  }
+  return [
+    target,
+    `${target}.ts`,
+    `${target}.tsx`,
+    `${target}.mts`,
+    `${target}.cts`,
+    path.join(target, "index.ts"),
+  ];
+}
+
+/**
+ * Resolves an engine subpath to a module under `<engineRoot>/spec/lib` whose realpath stays
+ * inside that directory. A symlink escaping the directory is rejected; a missing module is
+ * an unpinned engine dependency. The returned path is the real module the build must load.
+ */
+async function resolveEngineModule(
+  engineRoot: string,
+  subpath: string,
+): Promise<
+  | { target: string }
+  | { code: "core.path.outside-root" | "core.extension.unpinned-dependency"; message: string }
+> {
+  let libRoot: string;
+  try {
+    libRoot = await realpath(path.join(engineRoot, "spec", "lib"));
+  } catch (error) {
+    return {
+      code: "core.path.outside-root",
+      message: `Каталог spec/lib корня движка недоступен: ${messageOf(error)}`,
+    };
+  }
+
+  const target = path.join(libRoot, ...subpath.split("/"));
+  for (const candidate of engineModuleCandidates(target)) {
+    let real: string;
+    try {
+      real = await realpath(candidate);
+    } catch {
+      continue;
+    }
+    if (!isInside(libRoot, real)) {
+      return {
+        code: "core.path.outside-root",
+        message: `Модуль движка "${subpath}" после realpath выходит за пределы ${libRoot}`,
+      };
+    }
+    return { target: real };
+  }
+  return {
+    code: "core.extension.unpinned-dependency",
+    message: `Модуль движка "${subpath}" не найден в ${libRoot}`,
+  };
+}
+
+interface EngineImportRegistration {
+  root: string;
+  mappings: Map<string, string>;
+}
+
+/** Registered profile roots the runtime resolver may remap, keyed by normalized profile dir. */
+const engineImportRegistry = new Map<string, EngineImportRegistration>();
+let engineImportPluginState: "unknown" | "installed" | "unavailable" = "unknown";
+
+function normalizeImportKey(value: string): string {
+  const file = value.startsWith("file:") ? fileURLToPath(value) : value;
+  return posixPath(path.resolve(file));
+}
+
+/**
+ * Installs the process-wide Bun resolver that loads engine-owned profile imports from the
+ * supplied root by absolute `file://` URL. Static classification alone is not enough: the
+ * module that executes must come from `engineRoot`. Returns false when the runtime cannot
+ * remap imports, so the build can fail closed instead of silently loading the wrong module.
+ */
+export function installEngineImportPlugin(): boolean {
+  if (engineImportPluginState === "installed") return true;
+  if (engineImportPluginState === "unavailable") return false;
+
+  const runtime = (globalThis as {
+    Bun?: { plugin?: (plugin: unknown) => unknown };
+  }).Bun;
+  if (runtime?.plugin === undefined) {
+    engineImportPluginState = "unavailable";
+    return false;
+  }
+
+  runtime.plugin({
+    name: "contract-builder-engine-root",
+    setup(build: {
+      onResolve: (
+        options: { filter: RegExp },
+        handler: (args: { path: string; importer?: string }) => { path: string } | undefined,
+      ) => void;
+    }) {
+      build.onResolve({ filter: /.*/ }, (args) => {
+        if (typeof args.importer !== "string" || args.importer.length === 0) return undefined;
+        const importer = normalizeImportKey(args.importer);
+        for (const entry of engineImportRegistry.values()) {
+          if (importer !== entry.root && !importer.startsWith(`${entry.root}/`)) continue;
+          const target = entry.mappings.get(`${importer}\u0000${args.path}`);
+          // The absolute path is the module identity the runtime turns into the absolute
+          // `file://` URL it loads. Bun 1.4.2 does not accept a URL string in this field.
+          if (target !== undefined) return { path: target };
+        }
+        return undefined;
+      });
+    },
+  });
+  engineImportPluginState = "installed";
+  return true;
+}
+
+/** Runs `body` with the profile's engine imports mapped to the supplied root. */
+export async function withEngineImportMapping<T>(
+  profileDir: string,
+  mapping: EngineImportMapping,
+  body: () => Promise<T>,
+): Promise<T> {
+  const root = normalizeImportKey(profileDir);
+  engineImportRegistry.set(root, { root, mappings: mapping.mappings });
+  try {
+    return await body();
+  } finally {
+    engineImportRegistry.delete(root);
+  }
 }
 
 /** Normalizes declared bytes to LF when they are UTF-8 text; binary bytes stay raw. */
@@ -289,6 +645,7 @@ export async function resolveExtensionClosure(
   declaration: ExtensionClosureDeclaration | undefined,
   lockfile: Lockfile,
   diagnostics: Diagnostics,
+  engineRoot: string = defaultEngineRoot(),
 ): Promise<ResolvedExtensionClosure | null> {
   return resolveClosure({
     kind,
@@ -298,6 +655,14 @@ export async function resolveExtensionClosure(
     lockfile,
     diagnostics,
     diagnosticFile: `${kind}:${id}`,
+    engine: {
+      engineRoot,
+      // An adapter or renderer has no manifest-bound project root; the lexical `spec/lib`
+      // sequence is still enough to recognize engine code, and there is no project boundary
+      // to escape from.
+      layoutRoot: path.parse(path.resolve(declaration?.root ?? ".")).root,
+      mappings: new Map(),
+    },
   });
 }
 
@@ -340,6 +705,7 @@ export async function resolveProfileClosure(
   project: ResolvedProject,
   lockfile: Lockfile,
   diagnostics: Diagnostics,
+  engine: EngineImportMapping = createEngineImportMapping(project, defaultEngineRoot()),
 ): Promise<ResolvedExtensionClosure | null> {
   const declared = project.profile.files;
   if (declared === undefined || declared.length === 0) {
@@ -391,6 +757,7 @@ export async function resolveProfileClosure(
     lockfile,
     diagnostics,
     diagnosticFile: "profile.json",
+    engine,
   });
 }
 
@@ -404,11 +771,14 @@ export async function resolveProfileClosure(
 export async function validateProfileClosure(
   project: ResolvedProject,
   diagnostics: Diagnostics,
-  lockfileReader: () => Promise<Lockfile> = readLockfile,
+  lockfileReader?: () => Promise<Lockfile>,
+  engine?: EngineImportMapping,
 ): Promise<boolean> {
+  const mapping = engine ?? createEngineImportMapping(project, defaultEngineRoot());
+  const reader = lockfileReader ?? (() => readLockfile(mapping.engineRoot));
   let lockfile: Lockfile;
   try {
-    lockfile = await lockfileReader();
+    lockfile = await reader();
   } catch (error) {
     diagnostics.error(
       "ERR_IO",
@@ -418,17 +788,18 @@ export async function validateProfileClosure(
     );
     return false;
   }
-  return (await resolveProfileClosure(project, lockfile, diagnostics)) !== null;
+  return (await resolveProfileClosure(project, lockfile, diagnostics, mapping)) !== null;
 }
 
 /** Computes the complete build identity for a resolved project. */
 export async function computeBuildIdentity(input: IdentityInput): Promise<BuildIdentity | null> {
   const { project, loaded, sources, adapters, renderer, diagnostics } = input;
+  const engineRoot = input.engineRoot ?? defaultEngineRoot();
 
   let engineVersion: string;
   let lockfile: Lockfile;
   try {
-    engineVersion = await readEngineVersion();
+    engineVersion = await readEngineVersion(engineRoot);
   } catch (error) {
     diagnostics.error(
       "ERR_IO",
@@ -439,7 +810,7 @@ export async function computeBuildIdentity(input: IdentityInput): Promise<BuildI
     return null;
   }
   try {
-    lockfile = await readLockfile();
+    lockfile = await readLockfile(engineRoot);
   } catch (error) {
     diagnostics.error(
       "ERR_IO",
@@ -450,7 +821,12 @@ export async function computeBuildIdentity(input: IdentityInput): Promise<BuildI
     return null;
   }
 
-  const profileClosure = await resolveProfileClosure(project, lockfile, diagnostics);
+  const profileClosure = await resolveProfileClosure(
+    project,
+    lockfile,
+    diagnostics,
+    createEngineImportMapping(project, engineRoot),
+  );
   if (profileClosure === null) return null;
 
   const adapterIds = [
@@ -551,10 +927,11 @@ interface ClosureRequest {
   lockfile: Lockfile;
   diagnostics: Diagnostics;
   diagnosticFile: string;
+  engine: EngineImportMapping;
 }
 
 async function resolveClosure(request: ClosureRequest): Promise<ResolvedExtensionClosure | null> {
-  const { kind, id, version, declaration, lockfile, diagnostics, diagnosticFile } = request;
+  const { kind, id, version, declaration, lockfile, diagnostics, diagnosticFile, engine } = request;
   if (declaration === undefined) {
     diagnostics.error(
       "core.extension.unpinned-dependency",
@@ -592,7 +969,15 @@ async function resolveClosure(request: ClosureRequest): Promise<ResolvedExtensio
   );
   if (dependencies === null) return null;
 
-  if (!scanImports(files, declaration.dependencies ?? {}, declaration.root ?? ".", diagnostics)) {
+  if (
+    !(await scanImports(
+      files,
+      declaration.dependencies ?? {},
+      declaration.root ?? ".",
+      diagnostics,
+      engine,
+    ))
+  ) {
     return null;
   }
 
@@ -660,12 +1045,13 @@ async function readDeclaredFiles(
   return files.sort((a, b) => compare(a.path, b.path));
 }
 
-function scanImports(
+async function scanImports(
   files: ReadonlyArray<{ path: string; bytes: Uint8Array }>,
   dependencies: Readonly<Record<string, string>>,
   root: string,
   diagnostics: Diagnostics,
-): boolean {
+  engine: EngineImportMapping,
+): Promise<boolean> {
   const declared = new Set(files.map((file) => file.path));
   let ok = true;
 
@@ -678,38 +1064,78 @@ function scanImports(
       continue;
     }
 
+    const importer = path.join(root, file.path);
     for (const specifier of importSpecifiers(text)) {
-      if (specifier.startsWith(".") || specifier.startsWith("/")) {
-        const resolved = resolveImport(root, file.path, specifier);
-        if (!resolved.escapes) {
-          if (!resolved.relative.some((candidate) => declared.has(candidate))) {
-            diagnostics.error(
-              "core.extension.unpinned-dependency",
-              file.path,
-              "",
-              `Относительный импорт "${specifier}" не входит в объявленные files расширения`,
-            );
-            ok = false;
-          }
-          continue;
-        }
-
-        if (resolved.absolute.some((candidate) => isInside(ENGINE_SOURCE_ROOT, candidate))) {
-          continue; // engine-owned code is covered by engineVersion
-        }
-
+      if (specifier.startsWith("/")) {
         diagnostics.error(
           "core.extension.unpinned-dependency",
           file.path,
           "",
-          `Импорт "${specifier}" выходит за пределы files расширения и не является модулем движка`,
+          `Абсолютный импорт "${specifier}" недопустим в коде расширения`,
         );
         ok = false;
         continue;
       }
 
+      const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(specifier);
+      if (scheme !== null) {
+        if (scheme[1] === "node") continue; // standard-library import, not a closure file
+        diagnostics.error(
+          "core.extension.unpinned-dependency",
+          file.path,
+          "",
+          `Импорт "${specifier}" использует недопустимую URL-схему: ${scheme[1]}:`,
+        );
+        ok = false;
+        continue;
+      }
+
+      if (specifier.startsWith(".")) {
+        const classification = classifyEngineSpecifier(specifier, importer, engine.layoutRoot);
+        if (classification.kind === "error") {
+          diagnostics.error(classification.code, file.path, "", classification.message);
+          ok = false;
+          continue;
+        }
+
+        if (classification.kind === "engine") {
+          const resolved = await resolveEngineModule(engine.engineRoot, classification.subpath);
+          if ("code" in resolved) {
+            diagnostics.error(resolved.code, file.path, "", resolved.message);
+            ok = false;
+            continue;
+          }
+          engine.mappings.set(
+            `${normalizeImportKey(importer)}\u0000${specifier}`,
+            resolved.target,
+          );
+          continue;
+        }
+
+        const resolved = resolveImport(root, file.path, specifier);
+        if (resolved.escapes) {
+          diagnostics.error(
+            "core.extension.unpinned-dependency",
+            file.path,
+            "",
+            `Импорт "${specifier}" выходит за пределы files расширения и не является модулем движка`,
+          );
+          ok = false;
+          continue;
+        }
+        if (!resolved.relative.some((candidate) => declared.has(candidate))) {
+          diagnostics.error(
+            "core.extension.unpinned-dependency",
+            file.path,
+            "",
+            `Относительный импорт "${specifier}" не входит в объявленные files расширения`,
+          );
+          ok = false;
+        }
+        continue;
+      }
+
       if (isBuiltin(specifier)) continue;
-      if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(specifier)) continue;
 
       const packageName = packageNameOf(specifier);
       if (packageName === null) continue;

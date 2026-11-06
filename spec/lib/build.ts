@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Diagnostics, type Diagnostic } from "./diagnostics.js";
-import { loadProject } from "./load.js";
+import { loadProject, type LoadedSpec } from "./load.js";
 import { loadSchemas, validateDocuments } from "./schema.js";
 import { buildProjectModel } from "./ir.js";
 import { DEFAULT_ADAPTERS } from "./adapters/index.js";
@@ -28,8 +28,15 @@ import {
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import {
   computeBuildIdentity,
+  createEngineImportMapping,
+  installEngineImportPlugin,
+  loadEngineRoot,
   validateProfileClosure,
+  verifyEngineVersion,
+  withEngineImportMapping,
   type BuildIdentity,
+  type EngineImportMapping,
+  type EngineRoot,
 } from "./identity.js";
 import type { SourceAdapter } from "./source.js";
 import { pathToFileURL } from "node:url";
@@ -46,6 +53,12 @@ export interface BuildOptions {
   adapters?: Record<string, SourceAdapter>;
   /** Renderer registry supplied by the consumer; the core never loads the profile. */
   renderers?: Record<string, Renderer>;
+  /**
+   * Absolute engine root: the directory that contains the engine's `spec/` and
+   * `package.json`. Engine-owned profile imports are resolved and loaded from this root, and
+   * `engineVersion` is read from its `package.json`. Defaults to the running engine's root.
+   */
+  engineRoot?: string;
   /**
    * Explicit consent to load and evaluate the executable profile modules declared by
    * `profile.json` (`view` and `validator`). Defaults to `false`: a build whose profile
@@ -71,11 +84,44 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   const specDir = path.resolve(options.specDir);
   const diags = options.diagnostics ?? new Diagnostics();
 
+  // The engine root is resolved before the project so a missing or mismatched root fails
+  // closed, and so the modules the profile imports can be loaded from it.
+  const engine = await loadEngineRoot(options.engineRoot, diags);
+  if (engine === null) {
+    return result(options, diags, null, "", false, "errors");
+  }
+  if (!(await verifyEngineVersion(engine, diags))) {
+    return result(options, diags, null, "", false, "errors");
+  }
+  if (!installEngineImportPlugin()) {
+    diags.error(
+      "core.engine.root-unavailable",
+      "package.json",
+      "",
+      "Среда выполнения не поддерживает перенаправление импортов движка; сборка остановлена, чтобы не выполнить модули не из engineRoot",
+    );
+    return result(options, diags, null, "", false, "errors");
+  }
+
   const loaded = await loadProject(specDir, diags);
   if (loaded === null) {
     return result(options, diags, null, "", false, "errors");
   }
 
+  const mapping = createEngineImportMapping(loaded.project, engine.root);
+  return withEngineImportMapping(loaded.project.profileDir, mapping, () =>
+    buildResolvedProject(options, specDir, loaded, engine, mapping, diags),
+  );
+}
+
+async function buildResolvedProject(
+  options: BuildOptions,
+  specDir: string,
+  loaded: LoadedSpec,
+  engine: EngineRoot,
+  mapping: EngineImportMapping,
+  diags: Diagnostics,
+): Promise<BuildResult> {
   // Consent is checked before the closure scan and before any profile module is imported:
   // reading a profile's declared files is not execution, but failing first keeps the
   // boundary explicit and makes the diagnostic about consent rather than a downstream error.
@@ -84,8 +130,9 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   }
 
   // Validate the profile closure before importing profile modules: an undeclared import is
-  // an identity problem, not a profile load error.
-  if (!(await validateProfileClosure(loaded.project, diags))) {
+  // an identity problem, not a profile load error. The scan also resolves every engine-owned
+  // import under the explicit root, so the runtime mapping below can only load those modules.
+  if (!(await validateProfileClosure(loaded.project, diags, undefined, mapping))) {
     return result(options, diags, null, "", false, "errors");
   }
 
@@ -247,6 +294,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     adapters,
     renderer,
     diagnostics: diags,
+    engineRoot: engine.root,
   });
   if (identity === null) {
     return result(options, diags, null, outputPath, false, "errors");

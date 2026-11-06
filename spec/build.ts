@@ -1,7 +1,8 @@
 import path from "node:path";
 import { loadProfileRenderers } from "./cli-renderers.js";
 import { runBuild, type BuildResult } from "./lib/build.js";
-import { SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
+import { Diagnostics, SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
+import { loadEngineRoot, verifyEngineVersion } from "./lib/identity.js";
 import type { BuildMode, Renderer } from "./lib/render.js";
 
 interface CliOptions {
@@ -12,10 +13,11 @@ interface CliOptions {
   strict: boolean;
   json: boolean;
   allowExecutableProfile: boolean;
+  engineRoot?: string;
 }
 
 const USAGE =
-  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
+  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--engine-root <dir>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
@@ -44,6 +46,13 @@ function parseArgs(argv: string[]): CliOptions {
         const value = argv[i + 1];
         if (value === undefined) throw new Error("--spec требует путь к каталогу");
         options.specDir = path.resolve(value);
+        i += 1;
+        break;
+      }
+      case "--engine-root": {
+        const value = argv[i + 1];
+        if (value === undefined) throw new Error("--engine-root требует путь к каталогу движка");
+        options.engineRoot = path.resolve(value);
         i += 1;
         break;
       }
@@ -125,9 +134,21 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Resolve the engine root once, before the preflight: the renderer preflight and the build
+  // must validate the profile closure against the same root, including the same lockfile.
+  const engineDiagnostics = new Diagnostics();
+  const engine = await loadEngineRoot(cli.engineRoot, engineDiagnostics);
+  if (engine === null || !(await verifyEngineVersion(engine, engineDiagnostics))) {
+    console.error(engineDiagnostics.report());
+    process.exitCode = 1;
+    return;
+  }
+
   let renderers: Record<string, Renderer>;
   try {
-    renderers = await loadProfileRenderers(cli.allowExecutableProfile, cli.specDir);
+    renderers = await loadProfileRenderers(cli.allowExecutableProfile, cli.specDir, {
+      engineRoot: engine.root,
+    });
   } catch (error) {
     console.error(
       `Не удалось загрузить рендерер профиля: ${error instanceof Error ? error.message : String(error)}`,
@@ -138,6 +159,7 @@ async function main(): Promise<void> {
 
   const result = await runBuild({
     ...cli,
+    engineRoot: engine.root,
     renderers,
   });
 
