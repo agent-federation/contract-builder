@@ -101,9 +101,9 @@ export interface RunEvidence {
 
 /**
  * Creates a fresh temp workspace with real copies of the project, the CORE-000 profile and the
- * source document, preserving the committed relative manifest layout. Profile engine imports are
- * rewritten to the repository engine because the copied modules are no longer at the repository
- * depth. No symlink points back into the checkout. This is still a workspace, not a sandbox.
+ * source document, preserving the committed relative manifest layout. Profile engine imports
+ * stay as authored and are resolved from the explicit engine root passed to `runBuild`. No
+ * symlink points back into the checkout. This is still a workspace, not a sandbox.
  */
 export async function prepareWorkspace(): Promise<Workspace> {
   const root = await mkdtemp(path.join(tmpdir(), "core000-"));
@@ -116,7 +116,6 @@ export async function prepareWorkspace(): Promise<Workspace> {
 
   const profileDir = path.join(root, "profiles", "core000");
   await cp(path.join(REPO_ROOT, "profiles", "core000"), profileDir, { recursive: true });
-  await rewriteProfileEngineImports(profileDir);
 
   const sourceDir = path.join(root, "docs", "architecture");
   await mkdir(sourceDir, { recursive: true });
@@ -130,18 +129,6 @@ export async function prepareWorkspace(): Promise<Workspace> {
     projectDir,
     cleanup: async () => rm(root, { recursive: true, force: true }),
   };
-}
-
-/** Resolves copied profile imports to the repository engine, as the accepted plan allows. */
-async function rewriteProfileEngineImports(profileDir: string): Promise<void> {
-  const engineLib = path.join(REPO_ROOT, "spec", "lib").split(path.sep).join("/");
-  for (const file of await listFiles(profileDir)) {
-    if (!file.endsWith(".ts")) continue;
-    const target = path.join(profileDir, file);
-    const text = await readFile(target, "utf8");
-    const next = text.replace(/(?:\.\.\/)+spec\/lib\//g, `${engineLib}/`);
-    if (next !== text) await writeFile(target, next, "utf8");
-  }
 }
 
 export async function runHarness(options: HarnessOptions = {}): Promise<HarnessRun> {
@@ -181,6 +168,7 @@ export async function runHarness(options: HarnessOptions = {}): Promise<HarnessR
       strict: false,
       renderers: RENDERERS,
       allowExecutableProfile: true,
+      engineRoot: REPO_ROOT,
     };
     result = await runBuild(buildOptions);
 

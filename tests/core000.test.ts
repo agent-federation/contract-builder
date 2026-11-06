@@ -754,9 +754,10 @@ test("S1 temp workspace holds real profile/source copies with no symlink into th
     );
 
     const view = await readFile(path.join(profileDir, "view.ts"), "utf8");
-    const engineLib = path.join(REPO_ROOT, "spec", "lib").split(path.sep).join("/");
-    assert.equal(view.includes(engineLib), true);
-    assert.equal(view.includes("../../spec/lib/"), false);
+    // The copied profile keeps its authored engine imports; runBuild resolves and loads them
+    // from the explicit engine root instead of the workspace rewriting source text.
+    assert.equal(view.includes("../../spec/lib/"), true);
+    assert.equal(view.includes(path.join(REPO_ROOT, "spec", "lib")), false);
   } finally {
     await workspace.cleanup();
   }
