@@ -5,7 +5,7 @@
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
 **Implementation status (historical, pre-M1 record):** not started at this document's baseline; see the current-status pointer below.
-**Current implementation status:** M1 implemented and tested as of `f1ddcf7`; the [implementation-status matrix](implementation-status.md) pins the audit at `07cbf5b` and records the CORE-000 S2 delta after it.
+**Current implementation status:** M1 implemented and tested as of `f1ddcf7`; the [implementation-status matrix](implementation-status.md) pins the audit at `07cbf5b` and records the CORE-000 S2 delta and the later engine-boundary changes (E1/E2, `1f1ac26`).
 
 > **Reading statuses.** `accepted` in this document means *explicitly directed by the
 > maintainer* — in the iteration brief (§1.1–1.9) or in the final revision brief (§1–§4).
@@ -165,7 +165,8 @@ interface Profile {
   provenance?: ProvenanceMapping[];
   vocabularies?: Record<string, Array<string | boolean | number>>;
   rules: RuleInstance[];
-  validator?: string;                        // optional profile hook module
+  view: string;                              // executable view module (M1 requires it)
+  validator: string;                         // executable validator hook (M1 requires it)
   diagnostics: DiagnosticCatalog;
   review?: ReviewPolicy;
   overridablePolicyKeys?: string[];          // project PolicyOverlay may change only these
@@ -204,6 +205,14 @@ interface ReviewPolicy {
 ```
 
 The profile carries **no project content**. Two projects can share one profile.
+
+**M1 requires an executable profile.** Both `view` and `validator` are mandatory. A profile that
+supplies only validated data — schemas, relations, declarative rules, the diagnostic catalogue,
+labels and templates — is rejected during project loading with `core.profile.invalid` at `/view`
+or `/validator` (empty pointer when both are missing), naming the M1 requirement (ODR-ENG-001
+B3). Data-only profiles are a deferred design, not a supported shape. The check runs before the
+consent decision is evaluated and before any profile module is imported (§3.3). A future decision
+may implement data-only profiles; until then, this paragraph is the contract.
 
 **Unknown kinds and relations are not guessed.** An input that declares a kind missing from
 `entityKinds`, a `RelationDecl` with an unknown `from`/`to`, or a key inside the reserved
@@ -292,7 +301,8 @@ The entity kind is scoped at the rule level, so a rule cannot reference two kind
 a relation declared on the source that points at the target. For CORE-001:
 `targetKind: "provision"`, `sourceKind: "case"`, `relation: "vectors"`.
 
-**Profile validator hook.** A profile may ship a module implementing:
+**Profile validator hook.** M1 requires a profile validator module (the `validator` entry of the
+profile, §3.2) implementing:
 
 ```ts
 interface ValidatorFinding {
@@ -334,11 +344,13 @@ applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
 
 #### Executable profile consent
 
-A profile is **declarative** when it supplies only validated data — schemas, relations,
-declarative rules, the diagnostic catalogue, labels and templates. It is **executable** when it
-ships code modules that the engine imports, currently `view` and `validator` (with their
-transitive imports). Declarative data is not thereby risk-free: parsing, schema validation and
-resource exhaustion are separate risks.
+A profile is **executable** when it ships code modules that the engine imports. M1 accepts only
+that shape: `view` and `validator` (with their transitive imports) are required, and a data-only
+profile — one that supplies only validated data such as schemas, relations, declarative rules,
+the diagnostic catalogue, labels and templates — is rejected during project loading with
+`core.profile.invalid` (§3.2; ODR-ENG-001 B3). That is a profile-shape rule, not a consent rule:
+the data-only check runs before consent is evaluated. Profile data is not thereby risk-free:
+parsing, schema validation and resource exhaustion are separate risks.
 
 The engine must not import or evaluate an executable profile module without an explicit
 caller decision. Consent is a caller-supplied build option (`allowExecutableProfile: true`; the
@@ -620,13 +632,23 @@ Generic vs profile:
 
 ### 5.3 Multiple sources
 
-`Manifest.sources` is an array. The core supports N sources; each provenance binding names
-exactly one source; provenance is verified through that source's adapter. A `VerificationRecord`
-identifies the source digest and declared version its outcome covers. Recording that digest is
-not a check of a declared `identity.sha256` pin: the digest-pin check accepted in the
-provenance-hardening RFC (#4) remains unimplemented and is a separate input to a future record.
-The first milestone ships with one source; multi-source remains a core capability with no extra
-API surface.
+`Manifest.sources` keeps its array shape for forward compatibility, but **M1 supports exactly one
+source**. `validateSources` rejects more than one entry during manifest validation with
+`core.manifest.invalid` at `/sources`, before inputs, the model, identity or renderer are built;
+a multi-source manifest is a validation error, not a partially processed project.
+Multi-source semantics (a sources map, per-source verification and render semantics) remain a
+future design tracked separately (#5, M4).
+
+An absent or empty `sources` array is not part of that manifest-level rule: it keeps the existing
+legacy `ERR_UNKNOWN_REF` error at `/sources` from the build path. This is the implemented M1
+behaviour and a recorded deviation from the `sources.length !== 1` ⇒ `core.manifest.invalid`
+wording of ODR-ENG-001 B4; the contract states the code rather than the ODR's shorthand.
+
+Each provenance binding names exactly one source; provenance is verified through that source's
+adapter. A `VerificationRecord` identifies the source digest and declared version its outcome
+covers. Recording that digest is not a check of a declared `identity.sha256` pin: the digest-pin
+check accepted in the provenance-hardening RFC (#4) remains unimplemented and is a separate input
+to a future record.
 
 ### 5.4 Formats
 
@@ -785,6 +807,64 @@ Rules:
 - The engine never rewrites or normalizes a source locator (`ref`); it is opaque and passed to
   the adapter verbatim.
 
+#### Engine-owned imports and the explicit engine root
+
+A build is portable: engine code is loaded from an **explicit engine root**, not from the
+project copy. The root is the directory that contains the engine's `spec/lib` and
+`package.json`;
+`runBuild({ engineRoot })` and the M1 CLI flag `--engine-root <dir>` supply it, and the default is
+the running engine's root. The root is canonicalized with `realpath` and must be absolute and
+contain both `spec/lib` (a directory) and `package.json` (a file); otherwise the build fails
+closed with `core.path.outside-root` at `package.json`. A root whose version cannot be read, and a
+root whose version differs from the running engine, both fail closed with
+`core.engine.version-mismatch`; a runtime that cannot remap imports fails closed with
+`core.engine.root-unavailable`. These checks run before the project is loaded.
+
+Only relative specifiers (`./…`, `../…`) can be engine-owned. Their `.`/`..` segments are
+collapsed **lexically** against the importing file's directory, without filesystem access:
+
+- For a profile, the layout root is the deepest common ancestor of the project root and the
+  profile directory. A collapsed path that escapes above it is `core.path.outside-root`. For an
+  adapter or renderer, which has no manifest-bound project root, the layout root is the
+  filesystem root; the escape test cannot reject there, while the containment test below still
+  applies.
+- The normalized path relative to the layout root must contain exactly one contiguous `spec/lib`
+  segment sequence. Zero occurrences mean an ordinary extension file, which must be declared in
+  the extension's `files`; more than one is ambiguous and fails closed with
+  `core.extension.unpinned-dependency`.
+- The subpath after that sequence must be non-empty and contain no `.`/`..`/empty segments and no
+  leading `/`; otherwise the build fails closed with `core.extension.unpinned-dependency`.
+
+The engine resolves `engineRoot/spec/lib/<subpath>` (a `.js` specifier maps to the corresponding
+TypeScript source candidates), requires the module's `realpath` to stay under
+`engineRoot/spec/lib`, and loads that module from the absolute path under the supplied root.
+Classification alone is not sufficient: the module that executes must come from the root. A
+symlink escape is `core.path.outside-root`; a missing module is
+`core.extension.unpinned-dependency`.
+
+Dispositions of the other specifier forms are explicit and none bypasses closure validation:
+
+| Specifier form | Disposition |
+|---|---|
+| Relative `./…`, `../…` | Engine-owned per the mapping above, or a declared extension file |
+| Absolute `/…` and `file:` URLs | Rejected before resolution with `core.extension.unpinned-dependency`; never loaded |
+| Bare package (`yaml`) | Must be declared in the extension's `dependencies` and pinned in `bun.lock`; name, exact version and integrity enter the extension closure (`closureDigest`, hence `inputDigest`); undeclared or unpinned is `core.extension.unpinned-dependency` |
+| Node built-ins (bare or `node:`-prefixed) | Allowed; not files, so they stay outside the extension closure |
+| Any other URL scheme, including `bun:` | Rejected like absolute paths with `core.extension.unpinned-dependency` |
+
+`BuildIdentity.engineVersion` and the determinism condition read the version from
+`engineRoot/package.json`, never from the running process; the running engine and the supplied
+root must declare the same version. A failure to read the **running** engine's own
+`package.json` is an I/O failure (`ERR_IO`), distinct from an unreadable or different version
+under the supplied root (`core.engine.version-mismatch`). The same declared project, the same
+`engineVersion` and the same extension identities therefore produce the same artifact bytes and
+`inputDigest` regardless of the directory the engine was launched from (§8.1).
+
+The runtime mapping is a documented M1 assumption: it is process-global, keyed by the normalized
+profile directory, and the runtime resolver is installed once per process. One build at a time
+per process is assumed; concurrent builds in one process — especially two that share a profile
+directory but use different engine roots — are not supported (§8.2).
+
 ---
 
 ## 6. Validation guarantees and boundaries
@@ -866,7 +946,7 @@ may override within the limits the profile allows.
 
 ### 7.1 Code registry
 
-Every code is declared in the profile's `diagnostics` catalog:
+Every profile or project check code is declared in the profile's `diagnostics` catalog:
 
 ```ts
 interface DiagnosticCatalog {
@@ -889,6 +969,15 @@ namespacing lands in M2 with an explicit mapping.
 claim about an entity without a direct binding, or for a malformed status, method, outcome or
 source digest. It validates the record's shape and digest consistency only; it never asserts
 that the verification result is true.
+
+Engine boundary failures are not catalog entries; the core emits them directly. M1 uses
+`core.path.outside-root` (an invalid or escaping engine root or module path),
+`core.engine.version-mismatch` (the root's version cannot be read or differs from the running
+engine), `core.engine.root-unavailable` (the runtime cannot remap profile imports to the engine
+root), `core.extension.unpinned-dependency` (a non-relative, ambiguous or unpinned import),
+`core.manifest.invalid` (more than one declared source) and the legacy `ERR_UNKNOWN_REF` for an
+absent or empty `sources` array. They follow the M1 code-string policy above; namespacing remains
+M2 work.
 
 ### 7.2 Exit codes
 
@@ -940,12 +1029,24 @@ interface Artifact {
 > Same `engineVersion` + `inputDigest` + the identity of every executable extension ⇒
 > byte-identical artifacts, **provided every extension honours its deterministic contract**.
 
+The complete equality key is the triple **`engineVersion` + `inputDigest` + every executable
+extension identity** `{ id, version, closureDigest }`. Each extension's `closureDigest` is folded
+into `inputDigest`; the result's `identity.extensions` publishes only `{ kind, id, version }`.
+`inputDigest` alone is not the equality key: it carries neither the engine version nor the
+extension identities as separately comparable values, and the engine version selects the code
+that executes. `engineVersion` is read from the explicit engine root (§5.7), not from the
+directory the process happens to run in.
+
 `inputDigest` covers:
 
 - the canonicalized manifest, including `external` flags;
 - all text input bytes normalized to LF (JSON, YAML, Markdown, templates); binary sources
   hashed as raw bytes;
-- `profileDigest` — the profile extension, including its hook module;
+- `profileDigest` — the profile extension closure, including its hook module and every profile
+  artifact the engine executes or consumes: `view`, `validator`, `diagnostics`, every
+  `schemas[*]` entry, and the manifest's `render.template` and `render.labels`. Each must be
+  declared in `profile.files`; otherwise the build fails closed with
+  `core.extension.unpinned-dependency` before any profile module is imported;
 - for every source adapter used: `{ id, version, closureDigest }`;
 - for every renderer used: `{ id, version, closureDigest }`.
 
@@ -954,7 +1055,14 @@ extension's declared files and its **complete dependency closure** as recorded i
 (name, exact version, integrity). For a profile this includes the hook module and everything
 the hook can import; a dependency absent from the lockfile is
 `core.extension.unpinned-dependency`. Code outside the declared closure is an author violation
-the engine cannot detect.
+the engine cannot detect. Engine-owned imports are not extension files: they are resolved
+against `spec/lib` under the explicit engine root and covered by `engineVersion`, not by
+`closureDigest`.
+
+**Portability.** The same declared project, the same `engineVersion` and the same extension
+identities produce the same `inputDigest` and the same artifact bytes regardless of the
+directory the engine is launched from. Copying a project does not change which engine code
+executes, because engine-owned imports are resolved against the explicit `engineRoot` (§5.7).
 
 Determinism is **conditional**: adapters, renderers and profile hooks are trusted executable
 extensions. They run in-process, are not sandboxed, and the engine cannot enforce that they
@@ -964,10 +1072,13 @@ extension violates its deterministic contract, byte-identical output is not guar
 Excluded from `inputDigest`: clock, locale, environment variables, absolute paths, file
 mtimes, user identity, network state.
 
-`inputDigest` is the authoritative build identity. `identity.extensions` lists every profile,
-adapter and renderer used, so a consumer can inspect what produced the artifact without the
-closure hashes being duplicated; the singular `renderer` field of earlier drafts is removed
-because a build may use several.
+`inputDigest` is the authoritative digest of the declared project and its extension closures,
+not the whole equality key. `identity.extensions` lists every profile, adapter and renderer
+used as `{ kind, id, version }`, so a consumer can identify what produced the artifact; the
+per-extension `closureDigest` values are not repeated there because each one is folded into
+`inputDigest`. The singular `renderer` field of earlier drafts is removed because a build may
+use several. A consumer comparing builds must compare `engineVersion` and `inputDigest`, never
+`inputDigest` alone.
 
 ### 8.2 Controls
 
@@ -975,6 +1086,18 @@ because a build may use several.
 - artifacts are UTF-8 with LF line endings and exactly one trailing newline;
 - no timestamps, hostnames, absolute paths, or environment data in artifacts;
 - renderers are pure functions of the model, options and template;
+- engine-owned imports are resolved lexically against the explicit engine root and loaded from
+  its `spec/lib`; absolute, `file:` and other non-`node:` URL schemes are rejected, bare packages
+  must be declared and lockfile-pinned, and a realpath escape is rejected. The root must be
+  absolute, contain `spec/lib` and `package.json`, and declare the running engine's version: an
+  invalid root is `core.path.outside-root`, an unreadable or different version is
+  `core.engine.version-mismatch`, and a runtime without import remapping is
+  `core.engine.root-unavailable`. These checks run before the project is loaded (§5.7);
+- one build at a time per process is assumed. The import mapping is process-global, keyed by the
+  normalized profile directory, and the runtime resolver is installed once per process; concurrent
+  builds in one process are not supported, and two concurrent builds that share a profile
+  directory but use different engine roots could observe each other's mapping. Removing this
+  assumption is follow-up work, not an M1 guarantee;
 - `check` compares bytes and reports the differing file. The M1 implementation reports it as the
   legacy code `ERR_OUTPUT_STALE`; `core.artifact.drift` is its namespaced M2 name. §7.1 keeps M1
   code strings verbatim and the M1 plan records that policy (§9.2), so this is a recorded mapping,
@@ -1318,10 +1441,11 @@ general-purpose expression language.
    *Changed by:* a second consumer needing shared profiles earlier.
 3. **Runtime matrix.** *Default:* library targets Node 20+, development/CI on Bun; no
    Bun-only APIs in the library. *Changed by:* maintainers deciding Bun-only.
-4. **Profile hook.** *Default:* a trusted, digest-pinned profile validator hook is allowed in
-   0.x for checks the primitives cannot express; determinism is an author obligation, data-only
-   remains preferred. *Changed by:* a second profile showing the hook is unnecessary, or a
-   requirement to isolate execution.
+4. **Profile hook.** *Default:* a trusted, digest-pinned profile validator hook is required in
+   M1 and allowed in 0.x for checks the primitives cannot express; determinism is an author
+   obligation. Data-only profiles are not supported in M1 (ODR-ENG-001 B3) and require their own
+   decision. *Changed by:* a second profile showing the hook is unnecessary, a decision to
+   implement data-only profiles, or a requirement to isolate execution.
 5. **Self-hosting depth.** *Default:* manifest schema + diagnostic registry + rule kinds are
    self-described; the full document pipeline is not. *Changed by:* M5 scope decision.
 
@@ -1368,6 +1492,10 @@ without the decision.
 | D31 | Path and trust boundary | A (rev. §4) | root-contained by default; explicit `external: true`; outputs always contained | implicit relative paths | prevents silent traversal and symlink escape | manifest flags, `core.path.outside-root` | yes |
 | D32 | Isolated hook execution | D | not in 0.x; hooks run in-process | sandbox/worker isolation | no implementation in this PR | revisit if isolation is required | no |
 | D33 | Provenance binding versus verification | A (#37) | binding is structural; verification is a separate recorded result with `verified`/`failed`/`unavailable`/`stale` and a `VerificationRecord` | one boolean "verified" flag; treat a binding as evidence | consumers must be able to tell a well-formed binding from a checked result | `Entity.verification`, optional profile `verifyProvenance` hook, output provenance section; source digest records what was checked, not a declared pin | no |
+
+D21 is superseded for M1 by ODR-ENG-001 B4: the array shape stays for forward compatibility, but
+M1 rejects more than one source during manifest validation (§5.3). Multi-source remains a future
+design, not an M1 capability.
 
 D33 is accepted by the maintainer's Issue [#37](https://github.com/agent-federation/contract-builder/issues/37)
 task comment (2026-11-02), which directs the binding/verification split; it is not part of the
