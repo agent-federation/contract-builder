@@ -64,7 +64,8 @@ with a fixed `--now`, a hostile `TZ`/`LC_ALL`, a producer-free `PATH` with
 sentinel `bun`/`node`/`contract-builder` shims, and asserts:
 
 - exit code, verdict, constrained dimensions, check outcomes and effective limits;
-- required diagnostic and limitation code sets;
+- required diagnostic and limitation code sets, with PASS and extended-corpus
+  cases asserting the complete diagnostic set exactly;
 - coverage and package-identity relations;
 - Appendix C schema validity of every verify report;
 - JCS-canonical stdout and deterministic repeated output;
@@ -85,7 +86,8 @@ the record-identity and E.10 mutation tests.
 `fixtures/pap-v0.1/` is the static corpus described by RFC §12:
 
 - `base/` — the Appendix F package, byte-identical to the E.1/E.2 vectors;
-- `F01-…` through `F61-…` — one complete static package copy per case;
+- `F01-…` through `F80-…` — one static package copy per case (empty directory
+  for CLI-only variations that target `../base`);
 - `trust-policy/` — the fixed Appendix B policy fixtures, including
   `relations-only-lowered.json` for F61;
 - `signatures/` — the shared trusted, unknown-key and corrupted DSSE envelopes;
