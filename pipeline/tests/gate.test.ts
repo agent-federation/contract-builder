@@ -490,6 +490,20 @@ test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", a
   assert.ok(rejectedDecision.reasons.length > 0);
 });
 
+test("gate CLI rejects a positional report together with --report", () => {
+  const result = run([
+    "run",
+    "gate:core000",
+    "--report",
+    baselineReportPath,
+    "--policy",
+    POLICY,
+    "stray.json",
+  ]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /unexpected argument: stray\.json/);
+});
+
 test("the gate has no verifier implementation dependency", async () => {
   const source = await readFile(path.join(root, "pipeline", "gate.ts"), "utf8");
   assert.equal(

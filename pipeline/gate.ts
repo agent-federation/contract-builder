@@ -856,6 +856,9 @@ function parseArgs(argv: readonly string[]): CliOptions {
     positionals.push(argument);
   }
 
+  if (reportPath !== undefined && positionals.length > 0) {
+    throw new Error(`unexpected argument: ${positionals[0]}`);
+  }
   if (positionals.length > 1) {
     throw new Error(`unexpected argument: ${positionals[1]}`);
   }
