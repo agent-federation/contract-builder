@@ -17,7 +17,7 @@ import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
 import type { LocatorResult, SourceAdapter } from "../spec/lib/source.js";
 import { verifyProvenance } from "../profiles/core001/checks/verification.js";
 import { renderer } from "../profiles/core001/renderer.js";
-import { fragment, modelWith, TEST_RENDERERS } from "./support.js";
+import { fragment, modelWith, TEST_IDENTITY, TEST_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const specDir = path.join(root, "spec");
@@ -274,6 +274,7 @@ async function render(model: ProjectModel): Promise<string> {
     templates: { entry: "core001.md.j2", files: { "core001.md.j2": template } },
     labels,
     diagnostics: [],
+    identity: TEST_IDENTITY,
   });
   return new TextDecoder().decode(artifacts[0]!.bytes);
 }

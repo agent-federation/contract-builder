@@ -419,13 +419,14 @@ test("example: changing a declared renderer closure file moves the digests", asy
   assert.notEqual(afterBuild.inputDigest, beforeBuild.inputDigest);
 });
 
-test("example: build identity is not embedded in the artifact", async () => {
+test("example: the example renderer does not embed the build identity", async () => {
   const result = await runBuild(options(exampleProjectDir));
   assert.equal(result.exitCode, 0, failure(result));
   assert.ok(result.identity !== null);
   const markdown = result.markdown;
   assert.ok(markdown !== null);
 
+  // The identity is available in RenderOptions; this profile's renderer chooses not to render it.
   assert.equal(markdown.includes(result.identity.inputDigest), false);
   assert.equal(markdown.includes("sha256:"), false);
   assert.equal(markdown.includes("inputDigest"), false);

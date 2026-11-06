@@ -421,12 +421,12 @@ claims:
 
   - id: C000-CT-010
     author: "it-start"
-    statement: "Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; it is not rendered into the artifact."
+    statement: "Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; a successful build passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it."
     class: requirement
     status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
     authority: engine
     lifecycle: active
-    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`; `tests/identity.test.ts`"
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`, `spec/lib/render.ts`, `spec/lib/build.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`"
     scope: "CORE-000 accepted design §4.2 row C000-CT-010 at the accepted design baseline"
     subject_kind: interface
     relations:
@@ -436,6 +436,7 @@ claims:
         - DEC-DESIGN-51
       evidencedBy:
         - EV-CODE-SPEC-LIB-IDENTITY-TS
+        - EV-CODE-SPEC-LIB-RENDER-TS
         - EV-TEST-TESTS-IDENTITY-TEST-TS
 
   - id: C000-CT-011
@@ -756,12 +757,12 @@ claims:
 
   - id: C000-IM-005
     author: "it-start"
-    statement: "Build identity is computed after load/validation, is `null` when the build stops early, and is never rendered."
+    statement: "Build identity is computed after load/validation, is `null` when the build stops early, and is passed to renderers on a successful build."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external
     lifecycle: active
-    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`; `tests/identity.test.ts`; BI"
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`, `spec/lib/render.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`; BI"
     scope: "CORE-000 accepted design §4.2 row C000-IM-005 at the accepted design baseline"
     subject_kind: interface
     relations:
@@ -769,6 +770,7 @@ claims:
         - IF-BUILD-IDENTITY
       evidencedBy:
         - EV-TRUST-CODE
+        - EV-CODE-SPEC-LIB-RENDER-TS
         - EV-TEST-TESTS-IDENTITY-TEST-TS
 
   - id: C000-IM-006

@@ -690,10 +690,12 @@ test("identity: a missing declared closure file fails the build", async () => {
   assert.ok(codes(result).includes("core.extension.unpinned-dependency"));
 });
 
-test("identity: identity is not rendered into the artifact", async () => {
+test("identity: the build identity is rendered into the artifact", async () => {
   const result = await runBuild(base(specDir));
   assert.ok(result.identity !== null);
   assert.ok(result.markdown !== null);
-  assert.equal(result.markdown.includes(result.identity.inputDigest), false);
-  assert.equal(result.markdown.includes("inputDigest"), false);
+  assert.ok(result.markdown.includes(result.identity.inputDigest));
+  assert.ok(result.markdown.includes(result.identity.engineVersion));
+  assert.ok(result.markdown.includes(result.identity.manifestVersion));
+  assert.ok(result.markdown.includes("`inputDigest`"));
 });
