@@ -2145,6 +2145,161 @@
         "coverageFull": false,
         "diagnosticCodesExact": true
       }
+    },
+    {
+      "caseId": "F81-signature-underdeclared-met",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/signature-required-underdeclared.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {
+          "signature.validity": "VALID",
+          "trust.policyDecision": "ACCEPTED"
+        },
+        "diagnosticCodes": [],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "coverageRequiredDimensions": [
+          "integrity",
+          "sources",
+          "signature",
+          "trust",
+          "checks"
+        ],
+        "identityRelations": {
+          "packageIdentity": "equals-base"
+        },
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F82-signature-underdeclared-unmet",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/signature-quorum-two-underdeclared.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 2,
+        "verdict": "INCOMPLETE",
+        "dimensions": {
+          "signature.validity": "VALID",
+          "trust.signerIdentity": "TRUSTED",
+          "trust.policyDecision": "NOT_EVALUATED"
+        },
+        "diagnosticCodes": [
+          "pap.signature.absent"
+        ],
+        "limitationCodes": [
+          "pap.signature.absent"
+        ],
+        "coverageFull": false,
+        "coverageRequiredDimensions": [
+          "integrity",
+          "sources",
+          "signature",
+          "trust",
+          "checks"
+        ],
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F83-review-underdeclared",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/review-underdeclared.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 0,
+        "verdict": "PASS",
+        "dimensions": {
+          "humanReview.status": "PASS"
+        },
+        "diagnosticCodes": [
+          "pap.review.unbound"
+        ],
+        "limitationCodes": [],
+        "coverageFull": true,
+        "coverageRequiredDimensions": [
+          "integrity",
+          "sources",
+          "checks",
+          "humanReview"
+        ],
+        "humanReviewBasis": "unbound-claim",
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F84-proto-member",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "integrity.package": "FAIL",
+          "integrity.artifacts": "NOT_EVALUATED",
+          "sources.integrity": "NOT_EVALUATED"
+        },
+        "diagnosticCodes": [
+          "pap.package.unknown-field",
+          "pap.check.not-evaluated"
+        ],
+        "limitationCodes": [],
+        "coverageFull": false,
+        "identityRelations": {
+          "packageIdentity": "differs-from-base"
+        },
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F85-policy-enum-array",
+      "command": [
+        "verify",
+        "../base",
+        "--trust-policy",
+        "../trust-policy/strict-enum.json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "noReport": true,
+      "stderrCodes": [
+        "pap.trust.policy-invalid"
+      ],
+      "expect": {
+        "exitCode": 64
+      }
     }
   ]
 }

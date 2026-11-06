@@ -1,0 +1,528 @@
+{
+  "fixtureSetVersion": "0.1",
+  "codes": {
+    "pap.check.failed": [
+      "F02-artifact-byte",
+      "F03-source-byte",
+      "F04-input-byte",
+      "F05-quote-span",
+      "F06-relation-edge",
+      "F20-producer-mismatch",
+      "F46-inverse-not-reciprocal",
+      "F59-relation-duplicate",
+      "F71-integrity-claim-mismatch",
+      "F73-check-span-out-of-range",
+      "F74-claim-binding-duplicate",
+      "F75-claim-duplicate-entity",
+      "F76-claim-relation-unknown",
+      "F77-claim-relation-kind-mismatch",
+      "F78-claim-inverse-missing",
+      "F79-claim-inverse-kind-mismatch"
+    ],
+    "pap.check.not-evaluated": [
+      "F10-newer-minor",
+      "F22-path-traversal",
+      "F23-symlink",
+      "F24-case-duplicate",
+      "F26-missing-artifact",
+      "F27-referenced-source",
+      "F30-unknown-field",
+      "F44-no-provenance",
+      "F45-no-relations",
+      "F52-lowered-limits",
+      "F53-check-version",
+      "F57-major-version",
+      "F58-undeclared-source",
+      "F61-relations-only-lowered",
+      "F69-package-non-regular",
+      "F70-package-duplicate-id",
+      "F80-claim-unsupported-version-dependent",
+      "F84-proto-member"
+    ],
+    "pap.check.quote-mismatch": [
+      "F05-quote-span"
+    ],
+    "pap.check.span-out-of-range": [
+      "F73-check-span-out-of-range"
+    ],
+    "pap.check.unsupported": [
+      "F07-unknown-check",
+      "F09-newer-check"
+    ],
+    "pap.claim.binding-duplicate": [
+      "F74-claim-binding-duplicate"
+    ],
+    "pap.claim.duplicate-entity": [
+      "F75-claim-duplicate-entity"
+    ],
+    "pap.claim.edge-unknown-entity": [
+      "F06-relation-edge"
+    ],
+    "pap.claim.inverse-kind-mismatch": [
+      "F79-claim-inverse-kind-mismatch"
+    ],
+    "pap.claim.inverse-missing": [
+      "F78-claim-inverse-missing"
+    ],
+    "pap.claim.inverse-not-reciprocal": [
+      "F46-inverse-not-reciprocal"
+    ],
+    "pap.claim.relation-duplicate": [
+      "F59-relation-duplicate"
+    ],
+    "pap.claim.relation-kind-mismatch": [
+      "F77-claim-relation-kind-mismatch"
+    ],
+    "pap.claim.relation-unknown": [
+      "F76-claim-relation-unknown"
+    ],
+    "pap.claim.unsupported-version": [
+      "F72-claim-unsupported-version",
+      "F80-claim-unsupported-version-dependent"
+    ],
+    "pap.claims.producer-mismatch": [
+      "F20-producer-mismatch"
+    ],
+    "pap.cli.unknown-check": [
+      "F39-explain-unknown"
+    ],
+    "pap.cli.usage": [
+      "F25-archive",
+      "F37-inspect-usage",
+      "F38-explain-usage"
+    ],
+    "pap.compat.minor-newer": [
+      "F10-newer-minor"
+    ],
+    "pap.compat.version-unsupported": [
+      "F57-major-version"
+    ],
+    "pap.extension.critical-unsupported": [
+      "F08-critical-extension"
+    ],
+    "pap.extension.ignored": [
+      "F32-optional-extension"
+    ],
+    "pap.feature.unsupported": [
+      "F33-required-feature"
+    ],
+    "pap.integrity.artifact-mismatch": [
+      "F02-artifact-byte",
+      "F20-producer-mismatch"
+    ],
+    "pap.integrity.claim-mismatch": [
+      "F71-integrity-claim-mismatch"
+    ],
+    "pap.integrity.input-mismatch": [
+      "F04-input-byte"
+    ],
+    "pap.integrity.source-mismatch": [
+      "F03-source-byte"
+    ],
+    "pap.limit.lowered": [
+      "F52-lowered-limits",
+      "F61-relations-only-lowered"
+    ],
+    "pap.package.claim-invalid": [
+      "F58-undeclared-source"
+    ],
+    "pap.package.declared-file-missing": [
+      "F22-path-traversal",
+      "F23-symlink",
+      "F24-case-duplicate",
+      "F26-missing-artifact",
+      "F61-relations-only-lowered",
+      "F69-package-non-regular"
+    ],
+    "pap.package.duplicate-id": [
+      "F70-package-duplicate-id"
+    ],
+    "pap.package.duplicate-key": [
+      "F29-duplicate-key"
+    ],
+    "pap.package.empty-check-specs": [
+      "F54-all-optional"
+    ],
+    "pap.package.io": [
+      "F60-missing-manifest"
+    ],
+    "pap.package.limit-exceeded": [
+      "F35-manifest-limit",
+      "F52-lowered-limits",
+      "F61-relations-only-lowered"
+    ],
+    "pap.package.manifest-json": [
+      "F21-truncated-manifest",
+      "F50-bom",
+      "F51-exponent-number"
+    ],
+    "pap.package.non-regular": [
+      "F69-package-non-regular"
+    ],
+    "pap.package.path-duplicate": [
+      "F24-case-duplicate"
+    ],
+    "pap.package.path-invalid": [
+      "F22-path-traversal"
+    ],
+    "pap.package.schema": [
+      "F53-check-version"
+    ],
+    "pap.package.symlink": [
+      "F23-symlink"
+    ],
+    "pap.package.undeclared-file": [
+      "F22-path-traversal",
+      "F24-case-duplicate",
+      "F27-referenced-source",
+      "F31-undeclared-file",
+      "F69-package-non-regular"
+    ],
+    "pap.package.unknown-field": [
+      "F30-unknown-field",
+      "F84-proto-member"
+    ],
+    "pap.review.missing": [
+      "F28-review-missing"
+    ],
+    "pap.review.unbound": [
+      "F55-review-approved",
+      "F83-review-underdeclared"
+    ],
+    "pap.signature.absent": [
+      "F19-required-signature-absent",
+      "F82-signature-underdeclared-unmet"
+    ],
+    "pap.signature.duplicate-signer": [
+      "F56-optional-mixed"
+    ],
+    "pap.signature.envelope-invalid": [
+      "F66-signature-envelope-invalid"
+    ],
+    "pap.signature.invalid": [
+      "F12-invalid-signature",
+      "F56-optional-mixed"
+    ],
+    "pap.signature.payload-mismatch": [
+      "F68-signature-payload-mismatch"
+    ],
+    "pap.signature.unsupported-format": [
+      "F67-signature-unsupported-format"
+    ],
+    "pap.source.unavailable": [
+      "F27-referenced-source",
+      "F61-relations-only-lowered"
+    ],
+    "pap.trust.checker-unknown": [
+      "F63-checker-unknown"
+    ],
+    "pap.trust.package-not-allowed": [
+      "F17-package-not-allowed"
+    ],
+    "pap.trust.policy-absent": [
+      "F14-no-policy",
+      "F54-all-optional"
+    ],
+    "pap.trust.policy-invalid": [
+      "F41-invalid-policy",
+      "F85-policy-enum-array"
+    ],
+    "pap.trust.policy-not-yet-valid": [
+      "F62-policy-not-yet-valid"
+    ],
+    "pap.trust.policy-stale": [
+      "F15-stale-policy",
+      "F49-policy-one-second-after"
+    ],
+    "pap.trust.profile-unknown": [
+      "F43-profile-mismatch"
+    ],
+    "pap.trust.profile-untrusted": [
+      "F65-profile-untrusted"
+    ],
+    "pap.trust.signer-unknown": [
+      "F16-unknown-signer",
+      "F18-two-envelopes"
+    ],
+    "pap.trust.signer-untrusted": [
+      "F11-untrusted-role"
+    ]
+  },
+  "unitOnlyCodes": {
+    "pap.check.partial": {
+      "unitTest": {
+        "file": "vectors.test.ts",
+        "marker": "pap.check.partial"
+      },
+      "reason": "a witness-budget partial check needs an oversized in-process witness payload"
+    },
+    "pap.claims.spoofed-result": {
+      "unitTest": {
+        "file": "hostile.test.ts",
+        "marker": "pap.claims.spoofed-result"
+      },
+      "reason": "a claim that tries to spoof a verifier result is exercised by the hostile claim suite"
+    },
+    "pap.internal.error": {
+      "reason": "last-resort verifier-bug signal; no package data may produce it"
+    },
+    "pap.io.error": {
+      "unitTest": {
+        "file": "cli.test.ts",
+        "marker": "pap.io.error"
+      },
+      "reason": "stdout write failure needs an in-process write stub; a spawn cannot provoke it reliably"
+    },
+    "pap.package.manifest-self-reference": {
+      "unitTest": {
+        "file": "hostile.test.ts",
+        "marker": "pap.package.manifest-self-reference"
+      },
+      "reason": "requires a generated manifest identity cycle, which a static package copy cannot carry"
+    },
+    "pap.package.not-found": {
+      "unitTest": {
+        "file": "cli.test.ts",
+        "marker": "pap.package.not-found"
+      },
+      "reason": "the missing-package branch is a CLI preflight path, not package data"
+    },
+    "pap.package.path-escape": {
+      "unitTest": {
+        "file": "paths.test.ts",
+        "marker": "pap.package.path-escape"
+      },
+      "reason": "the CLI canonicalizes the package root, so a static package cannot make a declared path resolve outside it; paths.test.ts feeds a non-canonical root to the signature resolver and asserts the mapped diagnostic"
+    },
+    "pap.package.undeclared-scan-incomplete": {
+      "unitTest": {
+        "file": "scan-incomplete.test.ts",
+        "marker": "pap.package.undeclared-scan-incomplete"
+      },
+      "reason": "requires an enumeration budget or an unreadable subdirectory"
+    },
+    "pap.review.binding-invalid": {
+      "unitTest": {
+        "file": "branches.test.ts",
+        "marker": "pap.review.binding-invalid"
+      },
+      "reason": "requires generated review claims bound outside the declared scope"
+    },
+    "pap.review.stale": {
+      "unitTest": {
+        "file": "branches.test.ts",
+        "marker": "pap.review.stale"
+      },
+      "reason": "requires a generated approval older than the policy max age"
+    },
+    "pap.review.unknown-reviewer": {
+      "unitTest": {
+        "file": "branches.test.ts",
+        "marker": "pap.review.unknown-reviewer"
+      },
+      "reason": "requires a generated reviewer identity that no policy signer enrolls"
+    },
+    "pap.signature.keyid-missing": {
+      "unitTest": {
+        "file": "branches.test.ts",
+        "marker": "pap.signature.keyid-missing"
+      },
+      "reason": "requires mutating a shared envelope, which the static corpus forbids"
+    },
+    "pap.trust.checker-untrusted": {
+      "unitTest": {
+        "file": "trust.test.ts",
+        "marker": "pap.trust.checker-untrusted"
+      },
+      "reason": "RFC §12.1 forbids pinning the reference checker identity in a static fixture"
+    },
+    "pap.trust.review-required": {
+      "unitTest": {
+        "file": "branches.test.ts",
+        "marker": "pap.trust.review-required"
+      },
+      "reason": "requires generated review claims plus a review-required policy"
+    }
+  },
+  "requirements": {
+    "R1": [
+      "F01-unchanged",
+      "F13-trusted-signature",
+      "F34-noncanonical",
+      "F36-determinism",
+      "F50-bom",
+      "F51-exponent-number",
+      "F57-major-version"
+    ],
+    "R2": [
+      "F01-unchanged",
+      "F34-noncanonical",
+      "F36-determinism"
+    ],
+    "R3": [
+      "F01-unchanged",
+      "F11-untrusted-role",
+      "F13-trusted-signature",
+      "F55-review-approved",
+      "F56-optional-mixed"
+    ],
+    "R4": [
+      "F07-unknown-check",
+      "F10-newer-minor",
+      "F19-required-signature-absent",
+      "F35-manifest-limit",
+      "F54-all-optional",
+      "F62-policy-not-yet-valid"
+    ],
+    "R5": [
+      "F20-producer-mismatch",
+      "F58-undeclared-source",
+      "F71-integrity-claim-mismatch"
+    ],
+    "R6": [
+      "F01-unchanged",
+      "F02-artifact-byte",
+      "F42-explain-positive"
+    ],
+    "R7": [
+      "F01-unchanged",
+      "F25-archive",
+      "F36-determinism",
+      "F37-inspect-usage",
+      "F38-explain-usage",
+      "F39-explain-unknown",
+      "F42-explain-positive"
+    ],
+    "R8": [
+      "F21-truncated-manifest",
+      "F22-path-traversal",
+      "F23-symlink",
+      "F24-case-duplicate",
+      "F29-duplicate-key",
+      "F30-unknown-field",
+      "F35-manifest-limit",
+      "F50-bom",
+      "F69-package-non-regular",
+      "F84-proto-member"
+    ],
+    "R9": [
+      "F11-untrusted-role",
+      "F13-trusted-signature",
+      "F14-no-policy",
+      "F19-required-signature-absent",
+      "F56-optional-mixed"
+    ],
+    "R10": [
+      "F01-unchanged",
+      "F02-artifact-byte",
+      "F13-trusted-signature"
+    ],
+    "R11": [
+      "F40-producer-free"
+    ],
+    "R12": [
+      "F01-unchanged",
+      "F13-trusted-signature",
+      "F14-no-policy"
+    ]
+  },
+  "requirementNotes": {
+    "R12": "The verifiable half of R12 is Gate 0's minimum trust boundary: unsigned packages are useful and signatures are optional (F01, F13, F14). The process half (RFC reviewed and accepted before Phase 2, Gate 0 recorded met) is resolved by the document status and RFC §2.4/§16, not by a verifier case."
+  },
+  "verdictCause": {
+    "pap.check.failed": "checks",
+    "pap.check.not-evaluated": "checks",
+    "pap.check.quote-mismatch": "checks",
+    "pap.check.span-out-of-range": "checks",
+    "pap.check.unsupported": "checks",
+    "pap.claim.binding-duplicate": "checks",
+    "pap.claim.duplicate-entity": "checks",
+    "pap.claim.edge-unknown-entity": "checks",
+    "pap.claim.inverse-kind-mismatch": "checks",
+    "pap.claim.inverse-missing": "checks",
+    "pap.claim.inverse-not-reciprocal": "checks",
+    "pap.claim.relation-duplicate": "checks",
+    "pap.claim.relation-kind-mismatch": "checks",
+    "pap.claim.relation-unknown": "checks",
+    "pap.claim.unsupported-version": "checks",
+    "pap.claims.producer-mismatch": "checks",
+    "pap.compat.minor-newer": "checks",
+    "pap.compat.version-unsupported": "checks",
+    "pap.extension.critical-unsupported": "checks",
+    "pap.feature.unsupported": "checks",
+    "pap.integrity.artifact-mismatch": "integrity",
+    "pap.integrity.claim-mismatch": "integrity",
+    "pap.integrity.input-mismatch": "integrity",
+    "pap.integrity.source-mismatch": "sources",
+    "pap.limit.lowered": [
+      "integrity",
+      "sources",
+      "checks"
+    ],
+    "pap.package.claim-invalid": "integrity",
+    "pap.package.declared-file-missing": "integrity",
+    "pap.package.duplicate-id": [
+      "integrity",
+      "sources"
+    ],
+    "pap.package.duplicate-key": "integrity",
+    "pap.package.empty-check-specs": "checks",
+    "pap.package.io": "integrity",
+    "pap.package.limit-exceeded": [
+      "integrity",
+      "sources",
+      "checks"
+    ],
+    "pap.package.manifest-json": "integrity",
+    "pap.package.non-regular": "integrity",
+    "pap.package.path-duplicate": "integrity",
+    "pap.package.path-invalid": "integrity",
+    "pap.package.schema": [
+      "integrity",
+      "sources"
+    ],
+    "pap.package.symlink": "integrity",
+    "pap.package.undeclared-file": "integrity",
+    "pap.package.unknown-field": [
+      "integrity",
+      "sources"
+    ],
+    "pap.review.missing": "humanReview",
+    "pap.signature.absent": [
+      "signature",
+      "trust"
+    ],
+    "pap.signature.duplicate-signer": [
+      "signature",
+      "trust"
+    ],
+    "pap.signature.envelope-invalid": [
+      "signature",
+      "trust"
+    ],
+    "pap.signature.invalid": [
+      "signature",
+      "trust"
+    ],
+    "pap.signature.payload-mismatch": [
+      "signature",
+      "trust"
+    ],
+    "pap.source.unavailable": "sources",
+    "pap.trust.package-not-allowed": "trust",
+    "pap.trust.policy-absent": "trust",
+    "pap.trust.policy-not-yet-valid": "trust",
+    "pap.trust.policy-stale": "trust",
+    "pap.trust.profile-unknown": "trust",
+    "pap.trust.signer-unknown": [
+      "signature",
+      "trust"
+    ],
+    "pap.trust.signer-untrusted": "trust"
+  },
+  "verdictCauseExceptions": {
+    "F08-critical-extension": "UNSUPPORTED is raised by an unsupported critical extension; every required dimension was evaluated positive, so no dimension state carries the cause.",
+    "F33-required-feature": "UNSUPPORTED is raised by a required feature the verifier does not implement; every required dimension was evaluated positive, so no dimension state carries the cause.",
+    "F54-all-optional": "the required set is empty by construction; RFC §7.4 rule 4 makes that INCOMPLETE and pap.package.empty-check-specs names the cause even though no dimension is required."
+  }
+}

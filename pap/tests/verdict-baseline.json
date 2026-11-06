@@ -74,6 +74,10 @@
     "F77-claim-relation-kind-mismatch": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
     "F78-claim-inverse-missing": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
     "F79-claim-inverse-kind-mismatch": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
-    "F80-claim-unsupported-version-dependent": "sha256:c582cc45ab1e5366f96797ce8a1b58d92abeaf5a7ef3b911d9931f75497b5550"
+    "F80-claim-unsupported-version-dependent": "sha256:c582cc45ab1e5366f96797ce8a1b58d92abeaf5a7ef3b911d9931f75497b5550",
+    "F81-signature-underdeclared-met": "sha256:f7df79d8cdf5a514c5398a0c7f4a9458f0e112b3ac7394326e7e8ea905d5114b",
+    "F82-signature-underdeclared-unmet": "sha256:2a8edb2c2170e7b29418116969b4f0832d3265f6c7058cd88159af0aeb8b6ada",
+    "F83-review-underdeclared": "sha256:2fcd215428b69ce3dad3d107996173b62ce73dccc4ccd4b95edf0ec7369ec2f6",
+    "F84-proto-member": "sha256:8ca6806b2898bc8456cdcf9067cb4cefcca4152808d94c858195a379280621f2"
   }
 }

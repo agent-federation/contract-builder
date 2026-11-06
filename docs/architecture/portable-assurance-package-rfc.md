@@ -3031,23 +3031,28 @@ only within one verifier build; diagnostic messages are never compared across im
 fixtures/pap-v0.1/
   README.md               fixture policy and how to run the matrix
   cases.json              machine-readable case index and expected assertions
+  requirements.json       code/requirement/verdict-cause map (ODR-PAP-006 A6)
   base/                   canonical valid package; bytes equal to Appendix F
     assurance-package.json  artifacts/ACME-SUPPLIER.draft.md  inputs/project.yml
     sources/acme-policy.md  claims/{provenance,relations,producer-report}.json
-  F01-unchanged/ … F80-…/ one complete static package copy per case
+  F01-unchanged/ … F85-…/ one complete static package copy per case
   trust-policy/           unsigned-valid.json  signature-required.json
                           signature-optional.json  expired.json  invalid.json
                           not-authorized-role.json  package-not-allowed.json
                           unknown-signer.json  profile-pinned.json  review-required.json
                           lowered-limits.json  not-yet-valid.json
                           checker-unknown.json  profile-untrusted.json
+                          signature-required-underdeclared.json
+                          signature-quorum-two-underdeclared.json
+                          review-underdeclared.json  strict-enum.json
   signatures/             trusted.dsse.json  untrusted.dsse.json  invalid.dsse.json
 ```
 
 `cases.json` references the Appendix E literals directly, so no separate `vectors/` copy is
 needed. The trust-policy fixtures have these normative semantics. Each is one fixed file: a
 fixture is normative data, so an "either shape is allowed" description would be a conformance
-defect. The F62-F80 cases extend the corpus for diagnostic-code coverage; their expected
+defect. The F62-F80 cases extend the corpus for diagnostic-code coverage; F81-F85 pin the
+S3 required-dimension derivation and the remaining hostile-input boundaries. Their expected
 statuses, diagnostics and coverage are recorded in `cases.json` and enforced by the same harness.
 
 | Fixture | Required content and behaviour |
@@ -3066,6 +3071,10 @@ statuses, diagnostics and coverage are recorded in `cases.json` and enforced by 
 | `not-yet-valid.json` | Same shape as `unsigned-valid.json` but `issuedAt` after the fixture `--now`; policy state `STALE`, verdict `INCOMPLETE` (`pap.trust.policy-not-yet-valid`, F62). |
 | `checker-unknown.json` | `unsigned-valid.json` plus `checkers[]` pinning a synthetic checker id/version; `checkerRecognition: UNSUPPORTED` and `pap.trust.checker-unknown`; `PASS` while trust is not required (F63). |
 | `profile-untrusted.json` | `unsigned-valid.json` plus `profiles[]` pinning `acme-supplier@0.1.0` with a closure digest different from the package declaration; `profileRecognition: UNTRUSTED` and `pap.trust.profile-untrusted`; `PASS` while trust is not required (F65). |
+| `signature-required-underdeclared.json` | Same shape as `signature-required.json` but `requiredDimensions: ["integrity"]`; I1/E2 derivation still requires `signature` and `trust`, and the one valid envelope yields `PASS` with `coverage.full: true` (F81). |
+| `signature-quorum-two-underdeclared.json` | `signature-required-underdeclared.json` plus a second configured signer and `minimumValidSigners: 2`; one valid envelope leaves `trust.policyDecision: NOT_EVALUATED`, `coverage.full: false` and `INCOMPLETE` (F82). |
+| `review-underdeclared.json` | Same shape as `review-required.json` but `requiredDimensions: ["integrity"]`; `humanReview.required: true` still derives the dimension, and the fresh in-scope approval yields `PASS` (F83). |
+| `strict-enum.json` | `unsigned-valid.json` with `signature.mode: ["required"]`; a non-string enum is invalid policy input, so the verifier fails closed with exit 64 and no report (F85). |
 
 Rules:
 

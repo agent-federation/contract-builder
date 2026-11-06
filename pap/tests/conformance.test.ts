@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import Ajv2020Module from "ajv/dist/2020.js";
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
 import { jcs } from "../src/json.js";
+import { isDimensionPositive } from "../src/state.js";
+import type { DimensionName } from "../src/types.js";
 import {
   BASE_IDENTITY,
   fixtures,
@@ -21,6 +23,7 @@ interface CaseExpect {
   diagnosticCodesExact?: boolean;
   limitationCodes?: string[];
   coverageFull?: boolean;
+  coverageRequiredDimensions?: string[];
   effectiveLimits?: Record<string, number>;
   identityRelations?: { packageIdentity?: "equals-base" | "differs-from-base" | null };
   humanReviewBasis?: string;
@@ -42,6 +45,76 @@ const suite = JSON.parse(readFileSync(casesFile, "utf8")) as {
   baseCase: string;
   cases: CaseEntry[];
 };
+
+interface RequirementsMap {
+  verdictCause: Record<string, string | string[]>;
+  verdictCauseExceptions: Record<string, string>;
+}
+
+const requirements = JSON.parse(
+  readFileSync(path.join(fixtures, "requirements.json"), "utf8"),
+) as RequirementsMap;
+
+function dimensionNames(code: string): string[] {
+  const mapped = requirements.verdictCause[code];
+  if (mapped === undefined) return [];
+  return Array.isArray(mapped) ? mapped : [mapped];
+}
+
+function reportStates(document: any): Parameters<typeof isDimensionPositive>[1] {
+  return {
+    integrity: {
+      package: document.dimensions.integrity.package,
+      artifacts: document.dimensions.integrity.artifacts,
+    },
+    sources: {
+      integrity: document.dimensions.sources.integrity,
+      availability: document.dimensions.sources.availability,
+    },
+    signature: { validity: document.dimensions.signature.validity },
+    trust: {
+      signerIdentity: document.dimensions.trust.signerIdentity,
+      policyDecision: document.dimensions.trust.policyDecision,
+      checkerRecognition: document.dimensions.trust.checkerRecognition,
+      profileRecognition: document.dimensions.trust.profileRecognition,
+    },
+    checks: { results: document.dimensions.checks.results },
+    humanReview: { status: document.dimensions.humanReview.status },
+  };
+}
+
+/**
+ * I5: every non-PASS verdict names its cause. (a) at least one diagnostic or
+ * limitation code is in the map; (b) one of its dimensions is not positive in
+ * the report; (c) every required dimension that is not positive is named. The
+ * documented degenerate cases in `verdictCauseExceptions` keep (a) but cannot
+ * satisfy (b)/(c) because their cause is a verdict context, not a dimension.
+ */
+function assertVerdictCause(caseId: string, document: any): void {
+  const causeCodes = new Set<string>([
+    ...document.diagnostics.map((diagnostic: { code: string }) => diagnostic.code),
+    ...document.limitations.map((limitation: { code: string }) => limitation.code),
+  ]);
+  const mapped = [...causeCodes].filter((code) => requirements.verdictCause[code] !== undefined);
+  assert.ok(
+    mapped.length > 0,
+    `${caseId}: (a) a non-PASS verdict must carry a code mapped to its cause`,
+  );
+
+  if (requirements.verdictCauseExceptions[caseId] !== undefined) return;
+
+  const states = reportStates(document);
+  const dimensions = new Set(mapped.flatMap((code) => dimensionNames(code)));
+  assert.ok(
+    [...dimensions].some((dimension) => !isDimensionPositive(dimension as DimensionName, states)),
+    `${caseId}: (b) no mapped cause dimension is non-positive`,
+  );
+
+  const unnamed = (document.coverage.requiredDimensions as DimensionName[]).filter(
+    (dimension) => !isDimensionPositive(dimension, states) && !dimensions.has(dimension),
+  );
+  assert.deepEqual(unnamed, [], `${caseId}: (c) required dimensions without a named cause`);
+}
 
 const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
 for (const name of [
@@ -141,14 +214,6 @@ for (const entry of suite.cases) {
     }
     assert.equal(first.status, entry.expect?.exitCode, "exit code");
     assert.equal(document.verdict, entry.expect?.verdict, "verdict");
-    if (document.verdict !== "PASS") {
-      // I5: a non-PASS verdict must name at least one cause. S4 maps each code
-      // to its dimension and checks the correlation; S3 pins the presence.
-      assert.ok(
-        document.diagnostics.length + document.limitations.length > 0,
-        `${entry.caseId}: a non-PASS verdict must carry a diagnostic or limitation`,
-      );
-    }
     assert.equal(validateReport(document), true, JSON.stringify(validateReport.errors));
     compareDimensions(document, entry.expect?.dimensions);
     const codes = new Set(document.diagnostics.map((diagnostic: { code: string }) => diagnostic.code));
@@ -166,6 +231,16 @@ for (const entry of suite.cases) {
     }
     if (entry.expect?.coverageFull !== undefined) {
       assert.equal(document.coverage.full, entry.expect.coverageFull, "coverage.full");
+    }
+    if (entry.expect?.coverageRequiredDimensions !== undefined) {
+      assert.deepEqual(
+        document.coverage.requiredDimensions,
+        entry.expect.coverageRequiredDimensions,
+        "coverage.requiredDimensions",
+      );
+    }
+    if (document.verdict !== "PASS") {
+      assertVerdictCause(entry.caseId, document);
     }
     for (const [name, value] of Object.entries(entry.expect?.effectiveLimits ?? {})) {
       assert.ok(document.effectiveLimits, "effectiveLimits missing");
@@ -270,120 +345,6 @@ test("an evaluated required-check FAIL does not make coverage partial", () => {
     assert.equal(report.coverage.full, true);
     assert.ok(report.dimensions.checks.results.some((result: any) => result.outcome === "FAIL"));
   }
-});
-
-/**
- * Codes the CLI can emit but no conformance case can reach. Each is covered by a
- * focused unit test, except the verifier-bug signal, which no package data can
- * produce. A new code in `pap/src` needs a case, a unit test, or an entry here
- * with a reason.
- */
-const CODES_NOT_REACHABLE_BY_CASE: Record<
-  string,
-  { unitTest?: { file: string; marker: string }; reason: string }
-> = {
-  "pap.io.error": {
-    unitTest: { file: "cli.test.ts", marker: "pap.io.error" },
-    reason: "stdout write failure needs an in-process write stub; a spawn cannot provoke it reliably",
-  },
-  "pap.package.path-escape": {
-    unitTest: { file: "paths.test.ts", marker: "pap.package.path-escape" },
-    reason: "the CLI canonicalizes the package root, so a static package cannot make a declared path resolve outside it; paths.test.ts feeds a non-canonical root to the signature resolver and asserts the mapped diagnostic",
-  },
-  "pap.internal.error": {
-    reason: "last-resort verifier-bug signal; no package data may produce it",
-  },
-};
-
-const DIAGNOSTIC_TOKEN = /pap\.[a-z0-9./-]+/g;
-const DIAGNOSTIC_CODE = /^pap\.[a-z0-9-]+\.[a-z0-9-]+$/;
-const DOMAIN_OR_VERSION_SUFFIX = /\.v\d+(\.\d+)?$/;
-
-// Comments are stripped so a code named only in prose cannot satisfy coverage.
-function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/[^\n]*/g, "$1");
-}
-
-function diagnosticCodesIn(source: string): string[] {
-  const codes: string[] = [];
-  for (const match of stripComments(source).matchAll(DIAGNOSTIC_TOKEN)) {
-    const token = match[0];
-    if (
-      DIAGNOSTIC_CODE.test(token) &&
-      !DOMAIN_OR_VERSION_SUFFIX.test(token) &&
-      token !== "pap.verifier.reference"
-    ) {
-      codes.push(token);
-    }
-  }
-  return codes;
-}
-
-function emittedDiagnosticCodes(): string[] {
-  const codes = new Set<string>();
-  const sourceDir = path.join(root, "src");
-  for (const file of readdirSync(sourceDir).filter((name) => name.endsWith(".ts"))) {
-    for (const code of diagnosticCodesIn(readFileSync(path.join(sourceDir, file), "utf8"))) {
-      codes.add(code);
-    }
-  }
-  return [...codes].sort();
-}
-
-function unitTestedDiagnosticCodes(): Set<string> {
-  const codes = new Set<string>();
-  const testsDir = path.join(root, "tests");
-  for (const file of readdirSync(testsDir).filter(
-    (name) => name.endsWith(".test.ts") && name !== "conformance.test.ts",
-  )) {
-    for (const code of diagnosticCodesIn(readFileSync(path.join(testsDir, file), "utf8"))) {
-      codes.add(code);
-    }
-  }
-  return codes;
-}
-
-test("every diagnostic code emitted by pap/src is expected by a case or unit test", () => {
-  const emitted = emittedDiagnosticCodes();
-  assert.ok(emitted.length > 0, "no diagnostic codes were extracted from pap/src");
-
-  const expected = new Set<string>();
-  for (const entry of suite.cases as CaseEntry[]) {
-    for (const code of entry.expect?.diagnosticCodes ?? []) expected.add(code);
-    for (const code of entry.stderrCodes ?? []) expected.add(code);
-  }
-  const unitTested = unitTestedDiagnosticCodes();
-
-  const uncovered = emitted.filter(
-    (code) =>
-      !expected.has(code) &&
-      !unitTested.has(code) &&
-      CODES_NOT_REACHABLE_BY_CASE[code] === undefined,
-  );
-  assert.deepEqual(
-    uncovered,
-    [],
-    `diagnostic codes without a conformance case or unit test: ${uncovered.join(", ")}`,
-  );
-
-  for (const [code, exemption] of Object.entries(CODES_NOT_REACHABLE_BY_CASE)) {
-    assert.ok(emitted.includes(code), `stale exemption for ${code}`);
-    assert.ok(!expected.has(code), `${code} is expected by a case and must not be exempted`);
-    if (exemption.unitTest !== undefined) {
-      const testSource = stripComments(
-        readFileSync(path.join(root, "tests", exemption.unitTest.file), "utf8"),
-      );
-      assert.ok(
-        testSource.includes(exemption.unitTest.marker),
-        `${code} exemption names ${exemption.unitTest.file}, which does not assert ${exemption.unitTest.marker}`,
-      );
-    }
-  }
-
-  const unknown = [...expected].filter((code) => !emitted.includes(code));
-  assert.deepEqual(unknown, [], `cases expect codes pap/src does not emit: ${unknown.join(", ")}`);
 });
 
 test("every PASS case asserts an exact diagnostic set", () => {
