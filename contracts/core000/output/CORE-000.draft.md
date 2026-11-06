@@ -1570,7 +1570,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:3c72ab8803dc2904d9c3b84990ae11e833c7b0cb42453d658642a9e474f2afbf`
+- Source digest: `sha256:0d5a8204e2d78fc8ea07e92eda4904141bd79589db28729cd2d0d9a55941c5fc`
 - Quote: The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**
 
 ### SRC-MANIFEST-001
@@ -1581,7 +1581,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:3c72ab8803dc2904d9c3b84990ae11e833c7b0cb42453d658642a9e474f2afbf`
+- Source digest: `sha256:0d5a8204e2d78fc8ea07e92eda4904141bd79589db28729cd2d0d9a55941c5fc`
 - Quote: `render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred.
 
 ### SRC-PROVENANCE-001
@@ -1592,7 +1592,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:3c72ab8803dc2904d9c3b84990ae11e833c7b0cb42453d658642a9e474f2afbf`
+- Source digest: `sha256:0d5a8204e2d78fc8ea07e92eda4904141bd79589db28729cd2d0d9a55941c5fc`
 - Quote: A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit.
 
 ## Evidence
