@@ -270,16 +270,19 @@ test("I3: a required FAIL wins over every other state", () => {
   assert.equal(computeVerdict(value, context(value)), "FAIL");
 });
 
-test("I3: an unmet quorum is INCOMPLETE even when requiredDimensions omits trust", () => {
+test("I3: an unmet quorum is INCOMPLETE because trust is derived required", () => {
   const value = states({
     signature: { validity: "VALID" },
     trust: { ...POSITIVE_STATES.trust, policyDecision: "NOT_EVALUATED" },
   });
-  const ctx = context(value, {
-    requiredDimensions: ["integrity", "sources", "checks"],
-    signatureMode: "required",
-  });
-  assert.equal(ctx.coverageFull, true);
+  const requiredDimensions = deriveRequiredDimensions(
+    policy({ signature: { mode: "required" } }),
+    [...CHECK_IDS],
+  );
+  assert.ok(requiredDimensions.includes("signature"));
+  assert.ok(requiredDimensions.includes("trust"));
+  const ctx = context(value, { requiredDimensions, signatureMode: "required" });
+  assert.equal(ctx.coverageFull, false);
   assert.equal(computeVerdict(value, ctx), "INCOMPLETE");
 });
 

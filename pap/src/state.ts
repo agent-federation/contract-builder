@@ -107,6 +107,11 @@ export interface PolicyRequirementInput {
 export interface VerdictContext {
   requiredChecks: string[];
   requiredDimensions: DimensionName[];
+  /**
+   * Policy fields the caller used to derive `requiredDimensions` and
+   * `coverageFull`. They are carried for traceability; the fold reads the
+   * derived requirement set, never these fields as hidden requirements.
+   */
   signatureMode: "disabled" | "optional" | "required";
   humanReviewRequired: boolean;
   policyState: "FRESH" | "STALE" | "ABSENT";
@@ -489,6 +494,14 @@ function nonPositiveVerdict(dimension: DimensionName, states: DimensionStates): 
  * NOT_EVALUATED → PASS. An empty required set is INCOMPLETE, never
  * NOT_EVALUATED; `NOT_EVALUATED` is the degenerate report where no required
  * check could be evaluated at all.
+ *
+ * S3 wiring: the caller derives `requiredDimensions` from the policy and the
+ * required checks (I1/erratum E2) and computes `coverageFull` from the same
+ * requirement set (I4). The fold therefore reads no policy field as a hidden
+ * requirement: `signatureMode` and `humanReviewRequired` stay in the context
+ * for traceability, but `signature.mode: required` reaches the fold as
+ * `signature` + `trust` in `requiredDimensions`, and an unmet quorum reaches it
+ * as an undecided `trust` dimension (the targeted #154 special case is gone).
  */
 export function computeVerdict(states: DimensionStates, context: VerdictContext): Verdict {
   const requiredOutcomes = resolveRequiredCheckOutcomes(states, context.requiredChecks);
@@ -498,19 +511,26 @@ export function computeVerdict(states: DimensionStates, context: VerdictContext)
       dimension === "trust.checkerRecognition" ||
       dimension === "trust.profileRecognition",
   );
+  const signatureRequired =
+    context.requiredDimensions.includes("signature") ||
+    context.requiredDimensions.includes("signature.validity");
 
-  // 1. FAIL
+  // 1. FAIL — an evaluated negative result: a failed required check, an
+  // integrity/source failure (those dimensions cannot be skipped), or a
+  // required signature that evaluated to INVALID.
   if (
     requiredOutcomes.includes("FAIL") ||
     states.integrity.package === "FAIL" ||
     states.integrity.artifacts === "FAIL" ||
     states.sources.integrity === "FAIL" ||
-    (context.signatureMode === "required" && states.signature.validity === "INVALID")
+    (signatureRequired && states.signature.validity === "INVALID")
   ) {
     return "FAIL";
   }
 
-  // 2. UNTRUSTED
+  // 2. UNTRUSTED — an evaluated-and-rejected trust input. An explicit rejection
+  // is affirmative evidence even when the operator did not list `trust`; a
+  // recognition only counts when the policy requires recognition.
   if (
     states.trust.signerIdentity === "UNTRUSTED" ||
     states.trust.policyDecision === "REJECTED" ||
@@ -533,23 +553,18 @@ export function computeVerdict(states: DimensionStates, context: VerdictContext)
     return "UNSUPPORTED";
   }
 
-  // 4. INCOMPLETE
+  // 4. INCOMPLETE — a required input was not evaluated (or was decided but is
+  // not positive), coverage is partial, or the context records an incomplete
+  // evaluation. There is no per-policy special case here: signature quorum,
+  // stale policy and required human review all arrive as required dimensions or
+  // as the I4 coverage flag.
   if (
     context.policyState === "STALE" ||
     context.limitStopped ||
     context.emptyRequiredSet ||
     !context.coverageFull ||
-    requiredOutcomes.some(
-      (outcome) =>
-        outcome === "NOT_EVALUATED" || outcome === "UNSUPPORTED" || outcome === "FAIL",
-    ) ||
-    // `signature.mode: required` is the operator's trust requirement on its own:
-    // a valid envelope that does not meet `minimumValidSigners` leaves the
-    // policy decision unevaluated, and the verdict must not depend on the
-    // unrelated `requiredDimensions` list also naming signature/trust.
-    (context.signatureMode === "required" && states.signature.validity === "NOT_EVALUATED") ||
-    (context.signatureMode === "required" && states.trust.policyDecision !== "ACCEPTED") ||
-    (context.humanReviewRequired && states.humanReview.status !== "PASS") ||
+    requiredOutcomes.includes("NOT_EVALUATED") ||
+    requiredOutcomes.includes("UNSUPPORTED") ||
     context.requiredDimensions.some((dimension) => !isDimensionDecided(dimension, states))
   ) {
     return "INCOMPLETE";
@@ -562,6 +577,9 @@ export function computeVerdict(states: DimensionStates, context: VerdictContext)
 
   // 6. PASS requires every required dimension to be in its applicable positive
   // state; any other decided-but-negative state maps to its precedence class.
+  // This guard is the fold's only PASS gate: S3 re-derived it for the derived
+  // required set (a decided-but-non-positive status such as `STALE` reaches
+  // here), and it also protects a caller-built context from a vacuous PASS.
   let verdict: Verdict = "PASS";
   for (const dimension of context.requiredDimensions) {
     if (isDimensionPositive(dimension, states)) continue;

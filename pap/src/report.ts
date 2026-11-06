@@ -8,7 +8,7 @@
 
 import { domainHash } from "./digest.js";
 import { jcsBytes } from "./json.js";
-import type { DimensionStates, DimensionStatus } from "./state.js";
+import type { DimensionStatus, VerdictContext } from "./state.js";
 import {
   computeVerdict as foldVerdict,
   isCoverageFull,
@@ -17,7 +17,6 @@ import {
 } from "./state.js";
 import type {
   CheckOutcome,
-  CheckRecord,
   Diagnostic,
   DimensionName,
   Limitation,
@@ -26,7 +25,12 @@ import type {
 } from "./types.js";
 import { ZERO_DIGEST } from "./types.js";
 
-export { computeRequiredDimensions, impliedDimensions } from "./state.js";
+export {
+  computeRequiredDimensions,
+  deriveRequiredDimensions,
+  impliedDimensions,
+} from "./state.js";
+export type { VerdictContext } from "./state.js";
 
 export function statusForDimension(
   report: VerificationReport,
@@ -73,37 +77,12 @@ export function computeCoverage(
 }
 
 /**
- * S1 adapter: the pure fold in `state.ts` receives the currently reported
- * required set and evaluation-completeness flag. S3 replaces those inputs with
- * the I1 derivation and I4 coverage computation.
+ * S3 adapter: `verify.ts` normalizes the policy-derived requirement set, the I4
+ * coverage result and the remaining verdict inputs into one `VerdictContext`;
+ * the pure fold in `state.ts` receives it once and reads no report metadata.
  */
-export function computeVerdict(
-  report: VerificationReport,
-  options: {
-    requiredChecks: string[];
-    requiredDimensions: DimensionName[];
-    signatureMode: "disabled" | "optional" | "required";
-    humanReviewRequired: boolean;
-    policyState: "FRESH" | "STALE" | "ABSENT";
-    limitStopped: boolean;
-    unsupportedVersion: boolean;
-    unsupportedFeature: boolean;
-    emptyRequiredSet: boolean;
-  },
-): Verdict {
-  const states: DimensionStates = report.dimensions;
-  return foldVerdict(states, {
-    requiredChecks: options.requiredChecks,
-    requiredDimensions: options.requiredDimensions,
-    signatureMode: options.signatureMode,
-    humanReviewRequired: options.humanReviewRequired,
-    policyState: options.policyState,
-    limitStopped: options.limitStopped,
-    unsupportedVersion: options.unsupportedVersion,
-    unsupportedFeature: options.unsupportedFeature,
-    emptyRequiredSet: options.emptyRequiredSet,
-    coverageFull: report.coverage.full,
-  });
+export function computeVerdict(report: VerificationReport, context: VerdictContext): Verdict {
+  return foldVerdict(report.dimensions, context);
 }
 
 export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
@@ -166,8 +145,4 @@ export function verificationRecordIdentity(report: VerificationReport): string {
   }
   form.identities.verificationRecordIdentity = ZERO_DIGEST;
   return domainHash("pap.report.v1", jcsBytes(form as never));
-}
-
-export function countCheckRecords(records: CheckRecord[]): number {
-  return records.length;
 }
