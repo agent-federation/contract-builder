@@ -1,238 +1,241 @@
-# CORE-001 spec builder (MVP)
+# Contract Builder
 
-Сборщик машинно-читаемой нормативной спецификации. Источник истины — структурированные файлы в `spec/`; Markdown — генерируемый артефакт.
+**Declared contracts in. Deterministic artifacts and independently verifiable assurance out.**
 
-Демонстрационный срез — реальный фрагмент `CORE-001.legacy.md` §10.1–10.2 (Temporal Reference Model). Предметная логика CORE-001 не реализуется: прототип проверяет архитектуру и гарантии сборки на настоящем нормативном материале.
+This repository is a research-grade reference implementation of two composable pieces:
 
-Правила для контрибьюторов и агентов: [AGENTS.md](AGENTS.md). Краткий гайд для внешних контрибьюторов: [CONTRIBUTING.md](CONTRIBUTING.md). Кодекс поведения: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+1. **Contract Builder** — an engine that compiles an explicitly declared contract model
+   (structured inputs plus a domain profile) into a deterministic artifact with provenance
+   bindings, review gates and a build identity. It enforces consistency of what is declared; it
+   never infers normative meaning.
+2. **PAP v0.1** — a Portable Assurance Package format and an independent verifier CLI. A package
+   carries an artifact, its declared inputs, its sources and its claims; the verifier recomputes
+   every digest and check itself and reports a verdict without trusting the producer.
 
-## Быстрый старт
+Two verticals exercise the engine: `CORE-001`, a demo slice of a real normative document
+(`CORE-001.legacy.md` §10.1–10.2, Temporal Reference Model), and `CORE-000`, the engine's own
+public contract declared as a contract and compiled by the same engine.
+
+> **Status:** research prototype, actively developed. Read
+> [what is proven and what is not](#status-what-is-proven-and-what-is-not) before relying on it.
+
+## Why
+
+Three distinctions are the whole point:
+
+| Distinction | What it means |
+|---|---|
+| **build ≠ verification** | A successful build says the declared data is internally consistent. It does not say the contract is correct. |
+| **provenance ≠ proof** | A provenance binding says where a statement is claimed to come from. Only an independent recomputation says whether that is true. |
+| **PASS ≠ truth** | A verifier can prove integrity and provenance of packaged bytes. It cannot prove semantic truth, safety, legitimacy or consent — and it says so in the report. |
+
+If you have to answer *"what produced this artifact, from which declared inputs, and can I check
+it without trusting the producer"*, this repository is built for that question. The nearest
+audiences are software supply-chain and assurance work, agent identity and governance, and
+normative specifications kept as data rather than prose.
+
+## 60-second demo
+
+Requires [Bun](https://bun.sh/) 1.4+.
 
 ```bash
-bun install
-bun run build          # draft → spec/output/CORE-001.draft.md
-bun test               # тесты сборщика
-bun run check          # артефакт соответствует модели?
-bun run build:release  # release (сейчас намеренно заблокирован)
+bun install --frozen-lockfile
+bun run pap -- verify pap/fixtures/pap-v0.1/base
 ```
 
-Требуется Bun 1.4+. Зависимости ставятся и код запускается через Bun; тесты написаны на API `node:test`, который Bun исполняет.
+```text
+VERDICT: PASS
+package: sha256:77a8d1d0…4020 (papVersion 0.1)
+verifier: pap 0.1.0  policy: none state: ABSENT
+dimensions
+  integrity.package PASS
+  integrity.artifacts PASS
+  sources.integrity PASS
+  sources.availability PASS
+  …
+checks
+  pap.check.digest-integrity/1 PASS
+  pap.check.source-quote/1 PASS
+  pap.check.relation-consistency/1 PASS
+coverage: checksEvaluated 3, checksPassed 3, checksFailed 0, … full: true
+limitations
+  pap.trust.policy-absent — no trust policy supplied
+PRODUCER CLAIMS (UNTRUSTED — NOT VERIFICATION RESULTS)
+  pap.check.digest-integrity/1 claimed PASS independent PASS AGREES
+  pap.check.source-quote/1 claimed PASS independent PASS AGREES
+```
 
-`bun run build`, `bun run build:release` и `bun run check` передают
-`--allow-executable-profile`: профиль CORE-001 поставляет исполняемые модули
-(`view.ts`, `validator.ts`). Прямой запуск `bun spec/build.ts` без этого флага
-завершается ошибкой `core.profile.consent-required` до импорта кода профиля.
+Now break one byte of a declared artifact and verify the same way:
 
-## Команды
+```bash
+bun run pap -- verify pap/fixtures/pap-v0.1/F02-artifact-byte; echo "exit=$?"
+```
 
-| Команда | Что делает |
+```text
+VERDICT: FAIL
+NOT A PASS — a declared artifact does not match its declaration
+dimensions
+  integrity.package PASS
+  integrity.artifacts FAIL
+  …
+checks
+  pap.check.digest-integrity/1 FAIL
+  pap.check.source-quote/1 PASS
+  pap.check.relation-consistency/1 PASS
+limitations
+  pap.check.failed — a required check failed
+  pap.claims.producer-mismatch — producer claim disagrees with the independent check outcome
+  pap.integrity.artifact-mismatch — artifact artifact:acme-supplier declares
+  sha256:5f521a…/80 bytes but computed sha256:23dfa7…/80
+  pap.trust.policy-absent — no trust policy supplied
+PRODUCER CLAIMS (UNTRUSTED — NOT VERIFICATION RESULTS)
+  pap.check.digest-integrity/1 claimed PASS independent FAIL DISAGREES
+  pap.check.source-quote/1 claimed PASS independent PASS AGREES
+exit=1
+```
+
+*(Output trimmed for the README; digests abbreviated.)*
+
+The verifier imports only `node:` built-ins and its own modules. It never imports the builder,
+never executes package code, never opens a network socket, and treats package content as hostile
+input: paths are validated before any filesystem call, symlinks and non-regular files are
+rejected, and resource limits are enforced while reading.
+
+To build the artifact a package would carry:
+
+```bash
+bun run build     # draft: writes spec/output/CORE-001.draft.md
+bun run check     # rebuilds in memory and compares against the committed artifact
+```
+
+The build is byte-deterministic: no clock and no absolute paths in the output, fixed ordering, so
+rebuilding an unchanged specification leaves the working tree clean.
+
+## What is in the repository
+
+| Path | What it is |
 |---|---|
-| `bun run build` | `--mode draft`: собирает и записывает `spec/output/CORE-001.draft.md`, exit 0 при отсутствии ERROR |
-| `bun run build:release` | `--mode release`: пишет `spec/output/CORE-001.md` только если нет ERROR и REVIEW_REQUIRED |
-| `bun run check` | собирает в память и сравнивает с сохранённым артефактом |
-| `bun test` | тесты сборщика и PAP-верификатора |
+| `spec/`, `profiles/` | the CORE-001 vertical: declared inputs, builder core, profile checks and renderer |
+| `contracts/core000/` | the CORE-000 self-contract: declared inputs, harness, generated artifact |
+| `pap/` | PAP v0.1 verifier: CLI, schemas, conformance corpus, fixtures |
+| `pipeline/` | producer side: deterministic CORE-000 PAP packer (in progress, #135) |
+| `docs/` | engine public contract, RFCs, decision records, implementation status |
+| `tests/` | builder, profile, provenance, identity and self-contract tests |
+| `fixtures/` | intentionally broken specifications used by tests and examples |
+| `CORE-001.legacy.md` | read-only source document the CORE-001 slice quotes |
+
+Full path-by-path tree: [docs/repository-map.md](docs/repository-map.md).
+
+## How the pieces fit
+
+```text
+declared inputs ──▶ Contract Builder ──▶ artifact + BuildIdentity + diagnostics
+(spec/, profiles/)          │                        │
+                            │                        ▼
+                            │             pipeline/ packer (CORE-000, in progress)
+                            │                        │
+                            │                        ▼
+                            │             assurance package (PAP v0.1)
+                            │                        │
+                            └───────────▶ pap verify ◀┘
+                                                     │
+                                                     ▼
+                       report: PASS / FAIL / INCOMPLETE / UNSUPPORTED
+                       with dimensions, witnesses and explicit limitations
+```
+
+The producer never declares its own package identity: the verifier computes it from the canonical
+manifest, so a package cannot self-digest. A producer's claimed `PASS` cannot override an
+independent `FAIL`.
+
+## Guarantees
+
+The engine's public contract is
+[docs/architecture/engine-public-contract.md](docs/architecture/engine-public-contract.md). The
+short version:
+
+| Guarantee | How it is checked |
+|---|---|
+| stable unique identifiers | global duplicate check, `ERR_DUPLICATE_ID` |
+| reference integrity | terms, fragments, decisions, provisions, cases — `ERR_UNKNOWN_REF` |
+| provenance binding and separate verification | a binding is not a verification: `verified` means the quote was found in the declared locator of the current source; `failed`, `unavailable` and `stale` stay distinct, and an unverified record is blocked by `ERR_PROVENANCE_NOT_VERIFIED` |
+| quote found, and in the declared place | profile checks resolve `source_ref` to a section, table row or list item |
+| modality is never upgraded | `source_modality × normative_effect` matrix, `ERR_MODALITY_UPGRADE` |
+| paraphrase is marked | text comparison plus explicit `explications[]`, `ERR_UNEXPLAINED_PARAPHRASE` |
+| an open decision cannot become a norm | `REVIEW_OPEN_NORMATIVE_DEPENDENCY`, release gate |
+| determinism | no clock, no absolute paths, fixed ordering, byte-for-byte comparison |
+| no invented content | required fields, `throwOnUndefined`, verbatim substrings, no defaults |
+
+`bun run build:release` currently exits 1 on purpose: the demo slice carries five
+`REVIEW_REQUIRED` diagnostics (unconfirmed normalizations, inferred cases, editorial
+classification). **The gate is the feature** — do not loosen it to get a green release run.
+
+## Status: what is proven and what is not
+
+Proven enough to rely on:
+
+- the builder engine (M1), its profiles, provenance plumbing and build identity are implemented and
+  covered by the test suite in CI;
+- the CORE-000 self-contract builds itself, and its committed artifact is verified by a dedicated
+  test (`S2.2 artifact verification`);
+- PAP v0.1 Gate 3 is **PASSED for Phase 2a**: three independently written implementations (Go,
+  Python, Rust; two model families) agree field-by-field on a frozen case set. Scope and caveats —
+  six later-phase cases excluded, no Tier B or full-PAP claim, one owner/harness — are recorded in
+  [ODR-PAP-005](docs/decisions/ODR-PAP-005-gate-3-closure-phase-2a.md).
+
+Not proven and not claimed:
+
+- no semantic truth, safety, legitimacy or authorization;
+- no signed human-review approval: PAP v0.1 carries review as an explicitly unbound claim;
+- no standalone, published verifier release yet (the RFC §9.1 packaging boundary is open);
+- no in-toto mapping, archive transport, online revocation or Sigstore/SCITT integration (outside
+  PAP v0.1);
+- the demo slice's source document and its rendered artifact are in Russian; the engine and the
+  verifier are language-neutral, but engine diagnostics are currently Russian-only (follow-up).
+
+A snapshot of the full implementation status lives in
+[docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `bun run build` | draft build: writes `spec/output/CORE-001.draft.md` |
+| `bun run build:release` | release build: writes `spec/output/CORE-001.md` only if there is no ERROR and no REVIEW_REQUIRED (currently blocked by design) |
+| `bun run check` | builds in memory and compares with the committed artifact |
+| `bun test` | builder, verifier and pipeline tests |
 | `bun run typecheck` | `tsc --noEmit` |
-| `bun run pap -- verify <PACKAGE>` | независимый PAP v0.1 verifier: `verify`, `inspect`, `explain` |
-| `bun spec/build.ts --spec <dir> --no-write --json --allow-executable-profile` | сборка произвольной спецификации с машиночитаемой диагностикой |
-| `bun spec/build.ts --spec <dir> --engine-root <engine-dir> ...` | сборка против явно заданного корня движка (см. «Явный корень движка») |
+| `bun run pap -- verify <PACKAGE>` | PAP v0.1 verifier: `verify`, `inspect`, `explain` |
+| `bun run pap:test` | PAP vectors, conformance corpus, hostile input, CLI |
+| `bun run pack:core000` | deterministic CORE-000 PAP packer (producer side) |
 
-The independent Portable Assurance Package v0.1 verifier lives under `pap/`.
-It does not import the builder, profiles or renderers; see `pap/README.md` for the
-CLI, the 61-case conformance corpus and the test commands.
+CI runs `bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`; all four
+must be green before a pull request can land.
 
-## Профиль: данные и код
+## Relation to adjacent work
 
-M1 принимает только исполняемый профиль: модули `view.ts` и `validator.ts` обязательны. Профиль без них (data-only) отклоняется при загрузке проекта с `core.profile.invalid` и указанием на требование M1 — до проверки согласия и до импорта кода профиля; поддержка data-only профилей отложена отдельным решением. Исполняемые модули (с их импортами) загружаются через `import()` и выполняются в процессе сборщика с его правами: файловая система, окружение, сеть. Это доверенный код, а не песочница.
+- **in-toto, SLSA, Sigstore, SCITT** describe attestations, build provenance and transparency for
+  software supply chains. PAP v0.1 is a self-contained package plus an offline verifier with an
+  explicit verdict model: it does not require a transparency log or trusting the producer, and
+  in-toto mapping is out of scope for v0.1. It is not a drop-in replacement for any of them.
+- **OpenAPI, JSON Schema and contract testing** describe API shapes and compatibility. The
+  "contract" here is a normative specification with provenance and review state, not an API
+  schema.
+- **TLA+, Alloy and model checkers** prove properties of a model. The builder does not prove
+  properties: it checks that declared data is consistent and refuses to infer normative meaning.
+- **SBOM formats (SPDX, CycloneDX)** inventory components. PAP packages an artifact together with
+  its inputs, sources and claims; it is not a component inventory.
 
-Согласие задаёт вызывающий: `runBuild({ ..., allowExecutableProfile: true })` в API или `--allow-executable-profile` в CLI. Манифест и профиль не могут выдать согласие сами себе. CLI проверяет объявленный profile closure и импортирует встроенный CORE-001 renderer только если выбранный проект объявляет профиль `core001` и renderer `core001-markdown`: одного флага недостаточно. Если `bun.lock` не читается, preflight завершается `ERR_IO`, и renderer не импортируется. Без согласия сборка профиля останавливается с `core.profile.consent-required` до первого `import()`.
+## Contributing
 
-Согласие — разрешение выполнить доверенный код, не изоляция. Изоляция процесса или WASM с ограниченными возможностями отложена (D32). Идентичность сборки и статическое сканирование импортов — механизмы целостности и учёта, не граница безопасности, и они не заменяют согласие. Данные профиля не «безопасны по умолчанию»: парсинг, схемы и исчерпание ресурсов — отдельные риски.
+[AGENTS.md](AGENTS.md) is the detailed workflow for humans and automated agents,
+[CONTRIBUTING.md](CONTRIBUTING.md) the short onboarding guide, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) governs participation. Pull requests are in English and
+follow Conventional Commits. The automated agent account may open pull requests but never merges;
+a human maintainer merges every change.
 
-## Явный корень движка
+Русская версия README: [README.ru.md](README.ru.md).
 
-`runBuild({ engineRoot })` и CLI-флаг `--engine-root <dir>` задают каталог движка — каталог, содержащий `spec/lib` и `package.json`. По умолчанию используется корень запущенного движка. Профильные импорты вида `../../spec/lib/*.js` разрешаются и загружаются из этого корня, а `engineVersion` читается из его `package.json`; поэтому копия проекта собирается и исполняет тот же код движка независимо от каталога запуска. Корень должен быть абсолютным и содержать `spec/lib` и `package.json`, а его версия — совпадать с версией запущенного движка; иначе сборка останавливается (`core.path.outside-root`, `core.engine.version-mismatch`, `core.engine.root-unavailable`). Подробности — в контракте, §5.7 и §8.
+## License
 
-## Структура
-
-```text
-.github/workflows/ci.yml        typecheck + tests + --check
-bun.lock                        lockfile Bun
-CORE-001.legacy.md              исходный документ, только читается
-spec/
-  contract-builder.json         манифест проекта: входы, источник, профиль, выходы
-  build.ts                      CLI
-  lib/
-    build.ts                    оркестрация сборки
-    manifest.ts                 манифест, профиль и границы проекта
-    load.ts                     чтение объявленных входов
-    schema.ts                   JSON Schema (ajv): документы и виды сущностей
-    ir.ts                       общий IR: сущности, индексы, извлечение
-    relations.ts                объявления и разрешение связей
-    provenance.ts               привязки и записи проверки происхождения
-    hook.ts                     контракт хука и разрешение находок
-    extension.ts                extension closure: объявление, lockfile и импорт-скан
-    identity.ts                 идентичность сборки: inputDigest и profileDigest
-    render.ts                   граница рендерера и нормализация артефакта
-    diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
-    guards.ts                   общие проверки типов
-    source.ts                   SourceDocument и SourceAdapter
-    adapters/markdown.ts        локаторы markdown и адаптер источника
-    adapters/index.ts           реестр встроенных адаптеров
-  sources.yml                   границы среза и дословные фрагменты
-  ontology.yml                  документ и термины
-  semantics.json                нормативные положения
-  decisions.yml                 открытые и решённые вопросы
-  conformance/cases.yml         декларативные векторы
-  output/CORE-001.draft.md      сгенерированный артефакт
-profiles/core001/
-  profile.json                  виды, связи, происхождение, привязки документов
-  view.ts                       представление CORE-001 и производные значения
-  context.ts                    CheckContext: то, что видит проверка профиля
-  slice.ts                      проверки границ среза
-  text.ts                       текстовые нормализации для проверок
-  validator.ts                  агрегатор проверок профиля
-  checks/*.ts                   проверки CORE-001 по семействам
-  checks/verification.ts        проверка происхождения CORE-001
-  catalog.json                  коды, важность и сообщения диагностик
-  renderer.ts                   рендерер CORE-001 (Markdown)
-  labels.ru.json                метки представления
-  templates/core001.md.j2       шаблон
-  schemas/*.schema.json         схемы документов и схемы видов сущностей
-profiles/core000/               профиль самоконтракта CORE-000: view, validator, checks, renderer, schemas
-profiles/example/               синтетический не-CORE-001 профиль для проверки общности ядра
-contracts/core000/
-  contract-builder.json         проект самоконтракта CORE-000
-  claims.yml                    реестр 78 claims, evidence и decisions
-  structure.yml                 компоненты, интерфейсы, фазы и границы доверия
-  run.ts                        harness: временное рабочее пространство и сборка
-  mutations.ts                  именованные мутации для негативных тестов
-  output/CORE-000.draft.md      сгенерированный артефакт (только через harness)
-tests/build.test.ts
-tests/manifest.test.ts          манифест и границы проекта
-tests/ir.test.ts                IR, связи и происхождение
-tests/checks.test.ts            проверки профиля по модулям
-tests/hook.test.ts              каталог, находки и порядок модулей
-tests/provenance.test.ts        привязка ≠ проверка, статусы и записи
-tests/genericity.test.ts        защита ядра от лексики CORE-001
-tests/renderer.test.ts          выбор рендерера и нормализация
-tests/golden.test.ts            эталонная сборка CORE-001
-tests/identity.test.ts          идентичность сборки и extension closure
-tests/example-profile.test.ts   синтетический профиль end-to-end
-tests/consent.test.ts           согласие на исполняемый профиль
-tests/core000.test.ts           самоконтракт CORE-000 (S1, S2.1, S2.2)
-tests/docs-freshness.test.ts    свежесть документации: число claims против claims.yml
-fixtures/
-  broken-modality/              violated выведен из permission
-  broken-source-drift/          цитата не найдена в legacy
-  open-decision/                положение зависит от открытого решения
-docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md
-docs/architecture/implementation-status.md
-```
-
-## Модель в одном экране
-
-| Ось | Поле | Смысл |
-|---|---|---|
-| источник | `source_quote`, `source_ref`, `fragment` | дословный текст и его место |
-| лексика | `source_modality` + `modality_marker` | MUST / MAY / «не означает» и точный маркер из цитаты |
-| эффект | `normative_effect` | обязанность, запрет, разрешение, отрицание вывода, семантическое ограничение, утверждение об области |
-| основание | `classification_basis.kind` + `quote` | дословно или редакторский вывод, с точной цитатой |
-| нормализация | `normalization_status` (derived) | `verbatim`, `paraphrase_reviewed`, `paraphrase_pending` |
-| применимость | `applicability` (derived) | `determined` или `decision_dependent` |
-| решение | `decision_dependencies` / `decision_mentions` | зависимость ≠ упоминание |
-
-Кейс описывается двумя осями: `expected_outcome` (satisfied / violated) и `source_determination` (determined / inferred / underdetermined / not_asserted_by_source).
-
-`normalized_statement` может отличаться от источника только с явными `explications[]`; иначе — `ERR_UNEXPLAINED_PARAPHRASE`.
-
-## Гарантии
-
-| Гарантия | Как проверяется |
-|---|---|
-| стабильные уникальные ID | глобальная проверка дубликатов, `ERR_DUPLICATE_ID` |
-| целостность ссылок | термины, фрагменты, решения, положения, кейсы, `ERR_UNKNOWN_REF` |
-| структурная привязка происхождения | `ProvenanceBinding`: три селектора непусты, источник объявлен; это не проверка доказательства |
-| проверка происхождения | отдельный `ProvenanceVerification`; `verified` — метод нашёл цитату в объявленном локаторе текущего источника; `failed`, `unavailable` и `stale` различимы; источник проверяется один раз на привязку, а непроверенная запись блокируется `ERR_PROVENANCE_NOT_VERIFIED` |
-| запись проверки | verifier, method, версия источника, SHA-256 байтов источника и outcome; время проверки недоступно (нет доверенных часов) |
-| цитата найдена в источнике (профильная проверка) | поиск в legacy без учёта пробелов, `ERR_SOURCE_QUOTE_NOT_FOUND` |
-| цитата находится в объявленном месте (профильная проверка) | `source_ref` разбирается как раздел / строка таблицы / пункт списка, `ERR_SOURCE_LOCATOR_MISMATCH`, `ERR_SOURCE_LOCATOR_UNKNOWN` |
-| срез не расширяется молча | `slice.includes` / `slice.excludes`, `ERR_OUT_OF_SLICE_CONTENT` |
-| модальность не усиливается | матрица `source_modality × normative_effect`, `ERR_MODALITY_UPGRADE` |
-| violated не выводится из MAY | отдельная проверка кейсов, `ERR_MODALITY_UPGRADE` |
-| пересказ помечен | сравнение текста + `explications[]`, `ERR_UNEXPLAINED_PARAPHRASE` |
-| открытое решение не становится нормой | `REVIEW_OPEN_NORMATIVE_DEPENDENCY`, release-гейт |
-| детерминизм | нет времени и путей в выводе, фиксированный порядок, побайтовое сравнение |
-| отсутствие «додумывания» | обязательные поля, `throwOnUndefined`, дословные подстроки, никаких значений по умолчанию |
-
-## Трассируемость
-
-```text
-CORE-001.legacy.md
-  └─ FRAG-10.2-P4-5-REVOCATION        дословная цитата, проверена по файлу
-       └─ REQ-REVOCATION-NOT-AUTO-INVALID
-            ├─ DEC-TRUSTED-TIME        упоминание, не зависимость
-            ├─ CASE-…-POS-1 / UNDET-1 / UNDET-2 / NAS-1
-            └─ раздел «REQ-REVOCATION-NOT-AUTO-INVALID» в CORE-001.draft.md
-```
-
-Матрица `фрагмент → source_ref → положение → решения → векторы` печатается в приложении A сгенерированного документа. Приложение B — диагностика сборки.
-
-## Режимы
-
-- **draft** — допускает открытые решения и неподтверждённую нормализацию; каждое такое положение помечено в документе. Exit 0, если нет ERROR.
-- **release** — запрещает выпуск при ERROR, при `REVIEW_REQUIRED` (открытая нормативная зависимость, неподтверждённый пересказ, редакторская классификация, логический вывод в кейсе). Артефакт не записывается.
-
-Сейчас `release` заблокирован намеренно: в срезе 5 диагностик `REVIEW_REQUIRED` (2 неподтверждённые нормализации, 2 выведенных кейса, 1 редакторская классификация). Это демонстрация того, что сборщик не выдаёт неподтверждённое за норму.
-
-## Пример намеренно повреждённой спецификации
-
-```bash
-bun spec/build.ts --spec fixtures/broken-modality/spec --no-write
-```
-
-Ожидаемый результат (exit code 1):
-
-```text
-Сборка: mode=draft · spec=fixtures/broken-modality/spec
-DIAG: ERROR=1 · REVIEW_REQUIRED=5 · WARNING=9
-
-ERROR ERR_MODALITY_UPGRADE conformance/cases.yml#/cases/4/expected_outcome
-  Кейс "CASE-REQ-REVOCATION-NOT-AUTO-INVALID-UNDET-2" ожидает violated, опираясь на permission. Это превращает разрешение или утверждение об области в обязанность.
-
-Результат: сборка остановлена. Артефакт не записан.
-```
-
-Другие фикстуры:
-
-- `fixtures/broken-source-drift/spec` → `ERR_SOURCE_QUOTE_NOT_FOUND` (цитата в spec не совпадает с источником);
-- `fixtures/open-decision/spec` → draft проходит с `REVIEW_OPEN_NORMATIVE_DEPENDENCY`, release блокируется.
-
-## Ограничения MVP
-
-- Conformance-векторы декларативны и не исполняются. Это осознанно: исполнитель потребовал бы языка правил внутри JSON.
-- Нормативный эффект классифицирует человек; сборщик проверяет только согласованность и требует ревью для спорных случаев.
-- Локатор источника привязан к разделу (и строке таблицы / пункту списка), но не к диапазону строк и не к хешу содержимого. Цитата внутри одного раздела может пересекать границу абзацев.
-- Проверка происхождения не является независимой: `verified` означает совпадение цитаты с объявленным локатором текущего источника, а не подлинность, криптографическую подпись или правильность выбора цитаты. `unavailable` (включая not checked) и `stale` никогда не выдаются за `verified`.
-- `checkedAt` в записи проверки недоступен: сборка детерминирована и не читает часы. Доверенное время — открытое решение `DEC-TRUSTED-TIME`.
-- SHA-256 в записи проверки фиксирует байты, против которых выполнялась проверка. Объявленный `identity.sha256` и его проверка — отдельный принятый RFC (#4), в этой сборке не реализован.
-- Ровно один источник: больше одного — `core.manifest.invalid` при валидации манифеста; отсутствие или пустой массив — `ERR_UNKNOWN_REF`. Multi-source не поддерживается.
-- M1 требует исполняемый профиль (`view` + `validator`); data-only профили не поддерживаются.
-- Манифест требует ровно одно объявление `render[]`; ноль или несколько — `core.manifest.invalid`. Multi-target рендеринг не поддерживается.
-- Один `review.status` подтверждает нормализацию, классификацию и интерпретацию кейса сразу. Разделение этих подтверждений — следующий шаг.
-- `Credential` упоминается в §10.2, но определён в §4 — вне среза, поэтому не моделируется и даёт WARNING.
-- `source_ref` для таблиц и списков — конвенция (`#10/table/<name>`, `#15/5`), а не схема.
-- Ревью фиксируется строкой `reviewed_by`, без криптографической привязки.
-
-Полный список нерешённых вопросов — в [design doc](docs/superpowers/specs/2026-11-01-core001-spec-builder-design.md).
-
-Архитектурный контракт движка: [docs/architecture/engine-public-contract.md](docs/architecture/engine-public-contract.md).
-
-План первого этапа реализации (M1): [docs/architecture/m1-implementation-plan.md](docs/architecture/m1-implementation-plan.md).
-
-Детерминированная идентичность сборки: [docs/architecture/build-identity.md](docs/architecture/build-identity.md).
-
-Статус реализации архитектуры и публичного контракта (снимок на `07cbf5b`, 2026-11-02; дельты CORE-000 S2 до `f89a53f`, 2026-11-05, и E1/E2/аудит до `1f1ac26`, 2026-11-06): [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
-
-## Лицензия
-
-Распространяется под лицензией [Apache License 2.0](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE).
