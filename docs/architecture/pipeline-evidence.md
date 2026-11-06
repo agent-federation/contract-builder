@@ -15,7 +15,7 @@ required comparison record, not a certification, a gate decision or a claim of s
 | Trust-policy digest (verifier-reported) | `e7dc5f2928ef0cf0825dbaf4384ed32a26a342d71f16a1a33e1b998ee65cda58` |
 | Independent-verifier provenance | [`agent-federation/blind-lab@e5da9ac404547579d184d2f47d33c1e1ac866495`](https://github.com/agent-federation/blind-lab/commit/e5da9ac404547579d184d2f47d33c1e1ac866495) ([PR #42](https://github.com/agent-federation/blind-lab/pull/42)) |
 | Provenance handoff | `audit/c6-independent-2026-11-07` |
-| Machine-readable batch | retained as the `pipeline-independent-evidence` CI artifact (90 days) |
+| Machine-readable batch | The CI job retains its own run's `batch.json` and reports as the `pipeline-independent-evidence` artifact (90 days). The values in this record are from the run commit above, not from that artifact. |
 
 The three independent implementations are the blind-lab Gate 3 Phase 2a set. This run
 builds them from their pinned public commit archives, verifies each archive's SHA-256
@@ -103,10 +103,18 @@ agree with the reference on the same package bytes.
 ### Path-dependent hashes
 
 Verifier reports include the absolute `package.path` and `policy.path`, so the report
-SHA-256 values in section 3 depend on the run directory. They are hashes of the actual
-retained reports for the run recorded in section 1; CI regenerates them for its own
-paths. This is why the committed evidence records report hashes rather than committing
-the path-bearing report bytes.
+SHA-256 values in section 3 depend on the run directory. They are hashes of the reports
+produced by the run recorded in section 1. The raw reports are not committed because they
+carry those absolute paths; this record pins their hashes instead. The CI job retains a
+separate run's reports for 90 days; that run packs its own commit, so its identity and
+report hashes differ from this record and from any other checkout.
+
+### Report retention
+
+The report hashes above are the permanent pin for the recorded run. The raw reports and
+`batch.json` for a CI run are retained only as the 90-day `pipeline-independent-evidence`
+artifact. Neither the committed hashes nor the artifact is portable to another checkout:
+both the run commit and the absolute paths change.
 
 ## 6. Reproduce
 
