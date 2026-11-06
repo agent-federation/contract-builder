@@ -400,10 +400,12 @@ function hasExecutableProfileConsent(
 ): boolean {
   if (options.allowExecutableProfile === true) return true;
 
+  // `validateProfile` rejects a data-only profile during project loading (ODR-ENG-001 B3),
+  // so a project that reaches this gate always declares at least one executable module: there
+  // is no "nothing to execute" path that could silently skip consent.
   const executable = [project.profile.view, project.profile.validator].filter(
     (relative): relative is string => relative !== undefined,
   );
-  if (executable.length === 0) return true;
 
   diags.error(
     "core.profile.consent-required",
