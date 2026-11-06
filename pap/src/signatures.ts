@@ -306,16 +306,17 @@ export async function evaluateSignatures(options: {
     }
   }
 
-  // RFC §4.3.4 / errata E1: a resource limit makes the signature scope
-  // unverifiable, not invalid. The dimension must not carry a failing state
-  // even when another envelope in the same directory was structurally invalid.
-  const validity = envelopeLimitHit ? "NOT_EVALUATED" : aggregateValidity(entries, options.mode);
-  const signerIdentity = envelopeLimitHit
-    ? "NOT_EVALUATED"
-    : aggregateSignerIdentity(entries, options.policy, authorizationStates);
-  const policyDecision = envelopeLimitHit
-    ? "NOT_EVALUATED"
-    : options.policy === undefined
+  // RFC §4.3.4 / errata E1 with §11.5 aggregation: a resource limit stops only
+  // the affected envelope, so the aggregate dimensions come from the entries
+  // that were evaluated. The `envelopeLimitHit` flag still caps the verdict at
+  // INCOMPLETE through the report's `limitStopped` context; it must not mask
+  // another envelope's evaluated INVALID/REJECTED/VALID outcome. The count-limit
+  // path above is the only override: there the verifier read no envelope at all
+  // and returns NOT_EVALUATED directly.
+  const validity = aggregateValidity(entries, options.mode);
+  const signerIdentity = aggregateSignerIdentity(entries, options.policy, authorizationStates);
+  const policyDecision =
+    options.policy === undefined
       ? "NOT_EVALUATED"
       : aggregatePolicyDecision(
           entries,

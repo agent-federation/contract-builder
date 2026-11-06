@@ -47,6 +47,20 @@ function verify(dir: string, extra: string[] = []): { status: number; stdout: st
   return runPap(["verify", ".", "--format", "json", "--now", NOW, ...extra], dir);
 }
 
+/** Write a valid envelope wrapped in 70 levels of nesting, over the JSON limit. */
+function writeDeepEnvelope(dir: string, name: string): void {
+  const trusted = readFileSync(path.join(fixtures, "signatures", "trusted.dsse.json"), "utf8");
+  let nested = trusted;
+  for (let index = 0; index < 70; index += 1) nested = `{"a":${nested}}`;
+  writeFileSync(path.join(dir, "signatures", name), nested);
+}
+
+function signaturePolicy(): any {
+  return JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
+  );
+}
+
 test("manifest JSON nesting limit yields a FAIL report, not a crash", () => {
   const dir = tempPackage();
   const value = manifest(dir);
@@ -121,14 +135,8 @@ test("signature envelope count limit reads none and leaves trust unevaluated", (
 test("a deep-nesting signature envelope is a limit, not envelope-invalid", () => {
   const dir = tempPackage();
   mkdirSync(path.join(dir, "signatures"));
-  const trusted = readFileSync(path.join(fixtures, "signatures", "trusted.dsse.json"), "utf8");
-  let nested = trusted;
-  for (let index = 0; index < 70; index += 1) nested = `{"a":${nested}}`;
-  writeFileSync(path.join(dir, "signatures", "deep.dsse.json"), nested);
-  const policy = JSON.parse(
-    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
-  );
-  const file = writePolicy("policy.json", policy);
+  writeDeepEnvelope(dir, "deep.dsse.json");
+  const file = writePolicy("policy.json", signaturePolicy());
   const result = verify(dir, ["--trust-policy", file]);
   assert.equal(result.status, 2, result.stdout);
   const report = JSON.parse(result.stdout);
@@ -146,9 +154,7 @@ test("a deep-nesting signature envelope is a limit, not envelope-invalid", () =>
 test("an oversized signature envelope is a limit, not envelope-invalid", () => {
   const dir = tempPackage();
   cpSync(path.join(fixtures, "signatures"), path.join(dir, "signatures"), { recursive: true });
-  const policy = JSON.parse(
-    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
-  );
+  const policy = signaturePolicy();
   policy.id = "policy-envelope-bytes";
   policy.limits = { fileBytes: 1_024 };
   const file = writePolicy("policy.json", policy);
@@ -174,10 +180,7 @@ test("a structurally malformed envelope keeps the INVALID path", () => {
   );
   trusted.signatures[0].sig = "AAAA";
   writeFileSync(path.join(dir, "signatures", "malformed.dsse.json"), JSON.stringify(trusted));
-  const policy = JSON.parse(
-    readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
-  );
-  const file = writePolicy("policy.json", policy);
+  const file = writePolicy("policy.json", signaturePolicy());
   const result = verify(dir, ["--trust-policy", file]);
   assert.equal(result.status, 1, result.stdout);
   const report = JSON.parse(result.stdout);
@@ -185,6 +188,63 @@ test("a structurally malformed envelope keeps the INVALID path", () => {
   assert.equal(report.dimensions.signature.validity, "INVALID");
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
   assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+});
+
+test("a limit on one envelope does not mask an evaluated INVALID envelope", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  cpSync(
+    path.join(fixtures, "signatures", "invalid.dsse.json"),
+    path.join(dir, "signatures", "a-invalid.dsse.json"),
+  );
+  writeDeepEnvelope(dir, "b-deep.dsse.json");
+  const file = writePolicy("policy.json", signaturePolicy());
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "FAIL");
+  assert.equal(report.dimensions.signature.validity, "INVALID");
+  assert.equal(report.coverage.full, false);
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"));
+});
+
+test("a limit on one envelope does not mask a rejected signer", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  cpSync(
+    path.join(fixtures, "signatures", "unknown.dsse.json"),
+    path.join(dir, "signatures", "a-unknown.dsse.json"),
+  );
+  writeDeepEnvelope(dir, "b-deep.dsse.json");
+  const file = writePolicy("policy.json", signaturePolicy());
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 3, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "UNTRUSTED");
+  assert.equal(report.dimensions.trust.signerIdentity, "UNKNOWN");
+  assert.equal(report.dimensions.trust.policyDecision, "REJECTED");
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+});
+
+test("a limit on one envelope does not mask a valid signature", () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  cpSync(
+    path.join(fixtures, "signatures", "trusted.dsse.json"),
+    path.join(dir, "signatures", "a-trusted.dsse.json"),
+  );
+  writeDeepEnvelope(dir, "b-deep.dsse.json");
+  const file = writePolicy("policy.json", signaturePolicy());
+  const result = verify(dir, ["--trust-policy", file]);
+  assert.equal(result.status, 2, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.signature.validity, "VALID");
+  assert.equal(report.dimensions.trust.signerIdentity, "TRUSTED");
+  assert.equal(report.dimensions.trust.policyDecision, "ACCEPTED");
+  assert.equal(report.coverage.full, false);
+  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
 });
 
 test("a policy limit above the verifier default fails closed", () => {
