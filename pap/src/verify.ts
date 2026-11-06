@@ -40,13 +40,14 @@ import { evaluateSignatures } from "./signatures.js";
 import type { SignatureEvaluation } from "./signatures.js";
 import {
   computeCoverage,
-  computeRequiredDimensions,
   computeVerdict,
+  deriveRequiredDimensions,
   sortDiagnostics,
   sortLimitations,
   statusForDimension,
   verificationRecordIdentity,
 } from "./report.js";
+import type { VerdictContext } from "./report.js";
 import { formatRfc3339, parseRfc3339, systemClock } from "./time.js";
 import type { Instant } from "./time.js";
 import { CHECKER, checkerIdentity } from "./version.js";
@@ -62,7 +63,6 @@ import type {
   CheckRecord,
   ClaimKind,
   Diagnostic,
-  DimensionName,
   Limits,
   Limitation,
   SignatureEntry,
@@ -450,8 +450,13 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     diag,
   );
 
-  const requiredDimensions = computeRequiredDimensions(requiredChecks, loadedPolicy?.policy.requiredDimensions ?? []);
+  // I1/erratum E2: requirements are derived from the policy and the required
+  // checks. The operator's `requiredDimensions` can only add to the derived set,
+  // so an omitted `signature`/`trust`/`humanReview` no longer under-evaluates
+  // the package.
+  const requiredDimensions = deriveRequiredDimensions(loadedPolicy?.policy ?? null, requiredChecks);
   const signatureMode = loadedPolicy?.policy.signature.mode ?? "optional";
+  const humanReviewRequired = loadedPolicy?.policy.humanReview.required === true;
   const emptyRequiredSet = requiredChecks.length === 0 && requiredDimensions.length === 0;
   if (emptyRequiredSet) {
     diag(
@@ -521,20 +526,26 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     diagnostics: [],
   };
 
+  // S3: normalize every verdict input once, then hand the pure fold a single
+  // `VerdictContext`. `coverageFull` is the I4 evaluation-completeness result
+  // over the same derived requirement set, so the verdict and the coverage
+  // counters cannot disagree about what was required.
   const limitStopped = payloads.limitHit || signatureEvaluation.envelopeLimitHit;
   report.coverage = computeCoverage(report, requiredChecks, requiredDimensions, limitStopped, scanIncomplete);
-  report.verdict = computeVerdict(report, {
+  const verdictContext: VerdictContext = {
     requiredChecks,
     requiredDimensions,
     signatureMode,
-    humanReviewRequired: loadedPolicy?.policy.humanReview.required === true,
+    humanReviewRequired,
     policyState: report.policy.state,
     limitStopped,
     unsupportedVersion: validation.compat !== null,
     unsupportedFeature:
       validation.unsupportedFeatures.length > 0 || validation.unsupportedCriticalExtensions.length > 0,
     emptyRequiredSet,
-  });
+    coverageFull: report.coverage.full,
+  };
+  report.verdict = computeVerdict(report, verdictContext);
 
   report.limitations = buildLimitations(diagnostics);
   report.diagnostics = sortDiagnostics(diagnostics);
