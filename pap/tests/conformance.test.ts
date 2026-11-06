@@ -279,8 +279,8 @@ const CODES_NOT_REACHABLE_BY_CASE: Record<
     reason: "stdout write failure needs an in-process write stub; a spawn cannot provoke it reliably",
   },
   "pap.package.path-escape": {
-    unitTest: { file: "paths.test.ts", marker: "path-escape" },
-    reason: "the reader rejects a symlinked or non-confined declared path as symlink/non-regular before realpath can observe an escape; static fixtures cannot express a mount",
+    unitTest: { file: "paths.test.ts", marker: "pap.package.path-escape" },
+    reason: "the CLI canonicalizes the package root, so a static package cannot make a declared path resolve outside it; paths.test.ts feeds a non-canonical root to the signature resolver and asserts the mapped diagnostic",
   },
   "pap.internal.error": {
     reason: "last-resort verifier-bug signal; no package data may produce it",
@@ -291,9 +291,16 @@ const DIAGNOSTIC_TOKEN = /pap\.[a-z0-9./-]+/g;
 const DIAGNOSTIC_CODE = /^pap\.[a-z0-9-]+\.[a-z0-9-]+$/;
 const DOMAIN_OR_VERSION_SUFFIX = /\.v\d+(\.\d+)?$/;
 
+// Comments are stripped so a code named only in prose cannot satisfy coverage.
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+}
+
 function diagnosticCodesIn(source: string): string[] {
   const codes: string[] = [];
-  for (const match of source.matchAll(DIAGNOSTIC_TOKEN)) {
+  for (const match of stripComments(source).matchAll(DIAGNOSTIC_TOKEN)) {
     const token = match[0];
     if (
       DIAGNOSTIC_CODE.test(token) &&
@@ -357,9 +364,8 @@ test("every diagnostic code emitted by pap/src is expected by a case or unit tes
     assert.ok(emitted.includes(code), `stale exemption for ${code}`);
     assert.ok(!expected.has(code), `${code} is expected by a case and must not be exempted`);
     if (exemption.unitTest !== undefined) {
-      const testSource = readFileSync(
-        path.join(root, "tests", exemption.unitTest.file),
-        "utf8",
+      const testSource = stripComments(
+        readFileSync(path.join(root, "tests", exemption.unitTest.file), "utf8"),
       );
       assert.ok(
         testSource.includes(exemption.unitTest.marker),

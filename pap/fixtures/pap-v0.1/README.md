@@ -1,13 +1,13 @@
 # PAP v0.1 conformance corpus
 
 This directory is the static corpus from RFC §12. Each `F<NN>-<slug>/` directory
-is a complete package copy, except CLI-only variations (such as `F42`, `F62`–`F64`)
+is a complete package copy, except CLI-only variations (such as `F42`)
 whose directory is empty and whose command targets `../base`; nothing is generated
 or mutated at test time.
 
 - `base/` — the Appendix F package. Its package identity, artifact/source/quote,
   input and claim digests are the Appendix E.1/E.2 literals.
-- `F01-…`–`F79-…` — one package per normative case. A case differs from `base/`
+- `F01-…`–`F80-…` — one package per normative case. A case differs from `base/`
   only in the defect or variation it names. `F62` and later cover the diagnostic
   codes the original corpus never asserted.
 - `trust-policy/` — the fixed Appendix B policies. `invalid.json` is intentionally
@@ -16,9 +16,10 @@ or mutated at test time.
   key is committed. `trusted.dsse.json` and `unknown.dsse.json` are signed over
   the base canonical manifest; `invalid.dsse.json` has one corrupted signature.
 - `cases.json` — the case index consumed by
-  `pap/tests/conformance.test.ts`. Report cases assert their complete diagnostic
-  code set (`diagnosticCodesExact`); no-report cases assert the exact exit code
-  and stderr code set.
+  `pap/tests/conformance.test.ts`. PASS cases and the F62+ cases assert their
+  complete diagnostic code set (`diagnosticCodesExact`); F02-F05 keep the
+  RFC-mandated subset because `pap.claims.producer-mismatch` is MAY-level.
+  No-report cases assert the exact exit code and stderr code set.
 
 Run the corpus:
 

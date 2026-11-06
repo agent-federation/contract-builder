@@ -61,7 +61,7 @@
     },
     "producerReport": {
       "path": "claims/producer-report.json",
-      "digest": "sha256:f45a69883bed0d0e62c69c7ff0105e902f86006e89c56d77cef1cc9630846e95"
+      "digest": "sha256:d62715e03d626cdee237972b2f75a36ff55da8b209c86030e7c2026a0e36ec41"
     }
   },
   "profile": {

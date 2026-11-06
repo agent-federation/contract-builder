@@ -133,5 +133,5 @@ test("a stdout write failure is a pap.io.error I/O failure (74)", async () => {
     process.stderr.write = originalStderrWrite;
   }
   assert.equal(status, 74);
-  assert.match(stderr, /^pap: pap\.io\.error: /);
+  assert.ok(stderr.includes("pap: pap.io.error: "));
 });

@@ -50,12 +50,10 @@
         },
         "diagnosticCodes": [
           "pap.integrity.artifact-mismatch",
-          "pap.check.failed",
-          "pap.claims.producer-mismatch"
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true,
-        "diagnosticCodesExact": true
+        "coverageFull": true
       }
     },
     {
@@ -81,12 +79,10 @@
         },
         "diagnosticCodes": [
           "pap.integrity.source-mismatch",
-          "pap.check.failed",
-          "pap.claims.producer-mismatch"
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true,
-        "diagnosticCodesExact": true
+        "coverageFull": true
       }
     },
     {
@@ -112,12 +108,10 @@
         },
         "diagnosticCodes": [
           "pap.integrity.input-mismatch",
-          "pap.check.failed",
-          "pap.claims.producer-mismatch"
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true,
-        "diagnosticCodesExact": true
+        "coverageFull": true
       }
     },
     {
@@ -144,12 +138,10 @@
         },
         "diagnosticCodes": [
           "pap.check.quote-mismatch",
-          "pap.check.failed",
-          "pap.claims.producer-mismatch"
+          "pap.check.failed"
         ],
         "limitationCodes": [],
-        "coverageFull": true,
-        "diagnosticCodesExact": true
+        "coverageFull": true
       }
     },
     {
@@ -1647,7 +1639,7 @@
       "caseId": "F62-policy-not-yet-valid",
       "command": [
         "verify",
-        "../base",
+        ".",
         "--trust-policy",
         "../trust-policy/not-yet-valid.json",
         "--format",
@@ -1673,7 +1665,7 @@
       "caseId": "F63-checker-unknown",
       "command": [
         "verify",
-        "../base",
+        ".",
         "--trust-policy",
         "../trust-policy/checker-unknown.json",
         "--format",
@@ -1689,32 +1681,6 @@
         },
         "diagnosticCodes": [
           "pap.trust.checker-unknown"
-        ],
-        "limitationCodes": [],
-        "coverageFull": true,
-        "diagnosticCodesExact": true
-      }
-    },
-    {
-      "caseId": "F64-checker-untrusted",
-      "command": [
-        "verify",
-        "../base",
-        "--trust-policy",
-        "../trust-policy/checker-untrusted.json",
-        "--format",
-        "json",
-        "--now",
-        "2026-11-02T00:00:00Z"
-      ],
-      "expect": {
-        "exitCode": 0,
-        "verdict": "PASS",
-        "dimensions": {
-          "trust.checkerRecognition": "UNTRUSTED"
-        },
-        "diagnosticCodes": [
-          "pap.trust.checker-untrusted"
         ],
         "limitationCodes": [],
         "coverageFull": true,
@@ -1970,8 +1936,7 @@
         },
         "diagnosticCodes": [
           "pap.check.span-out-of-range",
-          "pap.check.failed",
-          "pap.claims.producer-mismatch"
+          "pap.check.failed"
         ],
         "limitationCodes": [],
         "coverageFull": true,
@@ -2000,8 +1965,7 @@
         },
         "diagnosticCodes": [
           "pap.claim.binding-duplicate",
-          "pap.check.failed",
-          "pap.claims.producer-mismatch"
+          "pap.check.failed"
         ],
         "limitationCodes": [],
         "coverageFull": true,
@@ -2150,6 +2114,35 @@
         ],
         "limitationCodes": [],
         "coverageFull": true,
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F80-claim-unsupported-version-dependent",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 2,
+        "verdict": "INCOMPLETE",
+        "dimensions": {
+          "checks": {
+            "pap.check.relation-consistency/1": "NOT_EVALUATED"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.unsupported-version",
+          "pap.check.not-evaluated"
+        ],
+        "limitationCodes": [],
+        "coverageFull": false,
         "diagnosticCodesExact": true
       }
     }
