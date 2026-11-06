@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -17,7 +17,6 @@ import {
 } from "../spec/lib/identity.js";
 import type { Renderer } from "../spec/lib/render.js";
 import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
-import { rewriteProfileCoreImports } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const profilesDir = path.join(root, "profiles");
@@ -81,15 +80,14 @@ async function copyExampleProject(
 ): Promise<{ projectDir: string; profileDir: string }> {
   const base = await mkdtemp(path.join(tmpdir(), `example-${name}-`));
   const projectDir = path.join(base, "project");
-  const profileDir = path.join(base, "profile");
+  const profileDir = path.join(base, "profiles", "example");
 
   await cp(exampleProjectDir, projectDir, { recursive: true });
   await cp(exampleProfileDir, profileDir, { recursive: true });
-  await rewriteProfileCoreImports(profileDir);
 
   const manifestPath = path.join(projectDir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as ManifestShape;
-  manifest.profile.source = "../profile";
+  manifest.profile.source = "../profiles/example";
   manifest.profile.external = true;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
@@ -373,13 +371,18 @@ test("example: changing a profile/validator closure file moves the digests", asy
 
 test("example: changing a declared renderer closure file moves the digests", async () => {
   const { projectDir } = await copyExampleProject("identity-renderer");
-  const rendererDir = await mkdtemp(path.join(tmpdir(), "example-renderer-"));
+  // Keep the committed layout so the renderer's relative `../../spec/lib` imports resolve:
+  // the engine-import rule maps them to the repository engine during closure validation, and
+  // the symlinked checkout satisfies the direct import this test performs.
+  const rendererBase = await mkdtemp(path.join(tmpdir(), "example-renderer-"));
+  await mkdir(path.join(rendererBase, "profiles", "example"), { recursive: true });
+  await symlink(path.join(root, "spec"), path.join(rendererBase, "spec"));
+  const rendererDir = path.join(rendererBase, "profiles", "example");
   const rendererFile = path.join(rendererDir, "renderer.ts");
   await cp(path.join(exampleProfileDir, "renderer.ts"), rendererFile);
   await cp(path.join(exampleProfileDir, "templates"), path.join(rendererDir, "templates"), {
     recursive: true,
   });
-  await rewriteProfileCoreImports(rendererDir);
 
   const imported = (await import(pathToFileURL(rendererFile).href)) as {
     renderer: Renderer;

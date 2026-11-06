@@ -14,7 +14,7 @@ import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
 import type { Profile } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { rewriteProfileCoreImports, TEST_RENDERERS } from "./support.js";
+import { TEST_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const specDir = path.join(root, "spec");
@@ -65,14 +65,13 @@ async function copyProject(name: string, withProfile = false): Promise<string> {
   await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), { recursive: true });
 
   if (withProfile) {
-    await cp(profileDir, path.join(dir, "profile"), { recursive: true });
-    await rewriteProfileCoreImports(path.join(dir, "profile"));
+    await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
   }
 
   await editManifest(dir, (manifest) => {
     manifest.sources[0]!.path = legacyPath;
     if (withProfile) {
-      manifest.profile.source = "./profile";
+      manifest.profile.source = "./profiles/core001";
       delete manifest.profile.external;
     } else {
       manifest.profile.source = profileDir;
@@ -93,7 +92,7 @@ async function editManifest(
 }
 
 async function editProfile(dir: string, mutate: (profile: MutableProfile) => void): Promise<void> {
-  const file = path.join(dir, "profile", "profile.json");
+  const file = path.join(dir, "profiles", "core001", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableProfile;
   mutate(profile);
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
@@ -194,7 +193,7 @@ test("ir: a declaration with an unknown to kind stops before resolution, even wh
 test("ir: an ordinary field named like a relation stays in fields", async () => {
   const dir = await copyProject("ordinary-field", true);
 
-  const schemaPath = path.join(dir, "profile", "schemas", "provision.schema.json");
+  const schemaPath = path.join(dir, "profiles", "core001", "schemas", "provision.schema.json");
   const schema = JSON.parse(await readFile(schemaPath, "utf8")) as {
     $defs: { base: { properties: Record<string, unknown> } };
   };
@@ -287,7 +286,7 @@ test("ir: only fragment and decision have direct provenance", async () => {
 test("ir: a duplicate id across kinds is ERR_DUPLICATE_ID", async () => {
   const dir = await copyProject("duplicate-cross-kind", true);
 
-  const schemaPath = path.join(dir, "profile", "schemas", "term.schema.json");
+  const schemaPath = path.join(dir, "profiles", "core001", "schemas", "term.schema.json");
   const schema = JSON.parse(await readFile(schemaPath, "utf8")) as {
     $defs: { base: { properties: { id: { pattern: string } } } };
   };

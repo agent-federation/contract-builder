@@ -106,7 +106,7 @@ test("hook: the aggregator order is explicit", () => {
 test("hook: an unknown finding code fails the build", async () => {
   const dir = await copyProjectWithProfile("unknown-code");
   await writeFile(
-    path.join(dir, "profile", "validator.ts"),
+    path.join(dir, "profiles", "core001", "validator.ts"),
     'export async function validate() {\n  return [{ code: "UNKNOWN", location: { file: "x", pointer: "" } }];\n}\n',
     "utf8",
   );
@@ -127,7 +127,7 @@ test("hook: an unknown finding code fails the build", async () => {
 
 test("hook: a view module without buildView fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-view");
-  await writeFile(path.join(dir, "profile", "view.ts"), "export const nope = 1;\n", "utf8");
+  await writeFile(path.join(dir, "profiles", "core001", "view.ts"), "export const nope = 1;\n", "utf8");
 
   const result = await runBuild({
     specDir: dir,
@@ -145,7 +145,7 @@ test("hook: a view module without buildView fails the build", async () => {
 
 test("hook: a validator without validate fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-validator");
-  await writeFile(path.join(dir, "profile", "validator.ts"), "export const nope = 1;\n", "utf8");
+  await writeFile(path.join(dir, "profiles", "core001", "validator.ts"), "export const nope = 1;\n", "utf8");
 
   const result = await runBuild({
     specDir: dir,
@@ -164,7 +164,7 @@ test("hook: a validator without validate fails the build", async () => {
 test("hook: a malformed catalog fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-catalog");
   await writeFile(
-    path.join(dir, "profile", "catalog.json"),
+    path.join(dir, "profiles", "core001", "catalog.json"),
     '{"codes": "nope"}\n',
     "utf8",
   );
