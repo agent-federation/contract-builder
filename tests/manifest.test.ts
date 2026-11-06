@@ -11,7 +11,7 @@ import { loadSchemas } from "../spec/lib/schema.js";
 import { buildProjectModel } from "../spec/lib/ir.js";
 import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { rewriteProfileCoreImports, TEST_RENDERERS } from "./support.js";
+import { TEST_RENDERERS } from "./support.js";
 
 /**
  * PR 2 acceptance: manifest, project boundary and declared-input loading.
@@ -209,16 +209,15 @@ test("manifest: a source outside the project root without external is rejected",
 
 test("manifest: a profile without a sources binding fails without crashing", async () => {
   const dir = await copyProject("no-sources-binding");
-  await cp(path.join(root, "profiles", "core001"), path.join(dir, "profile"), {
+  await cp(path.join(root, "profiles", "core001"), path.join(dir, "profiles", "core001"), {
     recursive: true,
   });
-  await rewriteProfileCoreImports(path.join(dir, "profile"));
   await editManifest(dir, (manifest) => {
-    manifest.profile.source = "./profile";
+    manifest.profile.source = "./profiles/core001";
     delete manifest.profile.external;
   });
 
-  const profilePath = path.join(dir, "profile", "profile.json");
+  const profilePath = path.join(dir, "profiles", "core001", "profile.json");
   const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
     documents: Array<{ key: string }>;
   };
@@ -239,14 +238,13 @@ test("manifest: containment handles the filesystem root and shared prefixes", as
 
 test("manifest: a profile whose id or version differs from the pin is rejected", async () => {
   const dir = await copyProject("profile-mismatch");
-  await cp(profileDir, path.join(dir, "profile"), { recursive: true });
-  await rewriteProfileCoreImports(path.join(dir, "profile"));
+  await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
   await editManifest(dir, (manifest) => {
-    manifest.profile.source = "./profile";
+    manifest.profile.source = "./profiles/core001";
     delete manifest.profile.external;
   });
 
-  const profilePath = path.join(dir, "profile", "profile.json");
+  const profilePath = path.join(dir, "profiles", "core001", "profile.json");
   const original = JSON.parse(await readFile(profilePath, "utf8")) as Record<string, unknown>;
 
   await writeFile(profilePath, `${JSON.stringify({ ...original, version: "9.9.9" }, null, 2)}\n`);
@@ -290,10 +288,9 @@ interface MutableRelationsProfile {
 
 async function copyProjectWithProfile(name: string): Promise<string> {
   const dir = await copyProject(name);
-  await cp(profileDir, path.join(dir, "profile"), { recursive: true });
-  await rewriteProfileCoreImports(path.join(dir, "profile"));
+  await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
   await editManifest(dir, (manifest) => {
-    manifest.profile.source = "./profile";
+    manifest.profile.source = "./profiles/core001";
     delete manifest.profile.external;
   });
   return dir;
@@ -303,7 +300,7 @@ async function editRelations(
   dir: string,
   mutate: (relations: Array<Record<string, unknown>>) => void,
 ): Promise<void> {
-  const file = path.join(dir, "profile", "profile.json");
+  const file = path.join(dir, "profiles", "core001", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableRelationsProfile;
   mutate(profile.relations);
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");

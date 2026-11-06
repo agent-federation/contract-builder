@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -163,21 +163,14 @@ export function fragment(): Entity {
 }
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const libDir = path.join(root, "spec", "lib");
 const profileDir = path.join(root, "profiles", "core001");
 const legacyPath = path.join(root, "CORE-001.legacy.md");
 
-async function walkTs(dir: string): Promise<string[]> {
-  const files: string[] = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...(await walkTs(full)));
-    else if (entry.name.endsWith(".ts")) files.push(full);
-  }
-  return files;
-}
-
-/** Copies the project and profile into a temp dir, rewriting the profile's core imports. */
+/**
+ * Copies the project and profile into a temp dir, preserving the committed layout: with the
+ * profile under `profiles/core001`, its `../../spec/lib/...` imports stay project-relative and
+ * are resolved from the engine root by the build (no source rewriting).
+ */
 export async function copyProjectWithProfile(name: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), `hook-${name}-`));
   for (const file of [
@@ -192,31 +185,18 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
   await cp(path.join(root, "spec", "conformance"), path.join(dir, "conformance"), {
     recursive: true,
   });
-  await cp(profileDir, path.join(dir, "profile"), { recursive: true });
-  await rewriteProfileCoreImports(path.join(dir, "profile"));
+  await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
 
   const manifestPath = path.join(dir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
     profile: { source: string; external?: boolean };
     sources: Array<{ path: string; external?: boolean }>;
   };
-  manifest.profile.source = "./profile";
+  manifest.profile.source = "./profiles/core001";
   delete manifest.profile.external;
   manifest.sources[0]!.path = legacyPath;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   return dir;
-}
-
-/**
- * Rewrites a copied profile's `../../spec/lib/...` imports to the repository engine directory.
- * A profile copied to an arbitrary temporary location no longer resolves those paths, and the
- * engine treats an unresolved outside import as an unpinned dependency.
- */
-export async function rewriteProfileCoreImports(profilePath: string): Promise<void> {
-  for (const file of await walkTs(profilePath)) {
-    const text = await readFile(file, "utf8");
-    await writeFile(file, text.replace(/(?:\.\.\/)+spec\/lib\//g, `${libDir}/`), "utf8");
-  }
 }
 
 /** Consumer-supplied renderer registry, as the CLI wires it. */

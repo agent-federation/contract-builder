@@ -1,5 +1,9 @@
 import { Diagnostics } from "./lib/diagnostics.js";
-import { validateProfileClosure } from "./lib/identity.js";
+import {
+  createEngineImportMapping,
+  defaultEngineRoot,
+  validateProfileClosure,
+} from "./lib/identity.js";
 import { loadManifest, type ResolvedProject } from "./lib/manifest.js";
 import type { Renderer } from "./lib/render.js";
 
@@ -14,6 +18,18 @@ export type ProfileClosureValidator = (
   project: ResolvedProject,
   diagnostics: Diagnostics,
 ) => Promise<boolean>;
+
+export interface ProfileRendererOptions {
+  /** Renderer importer injection; defaults to the built-in CORE-001 renderer module. */
+  importRenderer?: RendererImporter;
+  /** Closure validator injection; defaults to `validateProfileClosure`. */
+  validateClosure?: ProfileClosureValidator;
+  /**
+   * Engine root the preflight validates against. The CLI resolves it once and passes it here
+   * so the preflight cannot disagree with `runBuild({ engineRoot })`.
+   */
+  engineRoot?: string;
+}
 
 const importCore001Renderer: RendererImporter = async () => {
   const { renderer } = await import("../profiles/core001/renderer.js");
@@ -31,10 +47,20 @@ const importCore001Renderer: RendererImporter = async () => {
 export async function loadProfileRenderers(
   allow: boolean,
   specDir: string,
-  importRenderer: RendererImporter = importCore001Renderer,
-  validateClosure: ProfileClosureValidator = validateProfileClosure,
+  options: ProfileRendererOptions = {},
 ): Promise<Record<string, Renderer>> {
   if (!allow) return {};
+  const importRenderer = options.importRenderer ?? importCore001Renderer;
+  const engineRoot = options.engineRoot ?? defaultEngineRoot();
+  const validateClosure: ProfileClosureValidator =
+    options.validateClosure ??
+    ((project, diagnostics) =>
+      validateProfileClosure(
+        project,
+        diagnostics,
+        undefined,
+        createEngineImportMapping(project, engineRoot),
+      ));
 
   // Read and validate the manifest/profile declaration before importing profile code. This
   // is declarative data only; no executable module is loaded by `loadManifest`.
@@ -44,9 +70,9 @@ export async function loadProfileRenderers(
   if (project.profile.id !== CORE001_PROFILE_ID) return {};
   if (project.manifest.render[0]?.renderer !== CORE001_RENDERER_ID) return {};
 
-  // Preflight the same profile closure `runBuild` validates. CORE-001 declares renderer.ts
-  // and view.ts in profile.files, so this covers the modules imported below (their imports
-  // and dependency pins) before any executable profile code runs.
+  // Preflight the same profile closure `runBuild` validates, against the same engine root.
+  // CORE-001 declares renderer.ts and view.ts in profile.files, so this covers the modules
+  // imported below (their imports and dependency pins) before any executable profile code runs.
   if (!(await validateClosure(project, diagnostics))) return {};
 
   const renderer = await importRenderer();
