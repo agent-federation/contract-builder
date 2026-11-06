@@ -3034,19 +3034,21 @@ fixtures/pap-v0.1/
   base/                   canonical valid package; bytes equal to Appendix F
     assurance-package.json  artifacts/ACME-SUPPLIER.draft.md  inputs/project.yml
     sources/acme-policy.md  claims/{provenance,relations,producer-report}.json
-  F01-unchanged/ … F61-…/ one complete static package copy per case
+  F01-unchanged/ … F80-…/ one complete static package copy per case
   trust-policy/           unsigned-valid.json  signature-required.json
                           signature-optional.json  expired.json  invalid.json
                           not-authorized-role.json  package-not-allowed.json
                           unknown-signer.json  profile-pinned.json  review-required.json
-                          lowered-limits.json
+                          lowered-limits.json  not-yet-valid.json
+                          checker-unknown.json  profile-untrusted.json
   signatures/             trusted.dsse.json  untrusted.dsse.json  invalid.dsse.json
 ```
 
 `cases.json` references the Appendix E literals directly, so no separate `vectors/` copy is
 needed. The trust-policy fixtures have these normative semantics. Each is one fixed file: a
 fixture is normative data, so an "either shape is allowed" description would be a conformance
-defect.
+defect. The F62-F80 cases extend the corpus for diagnostic-code coverage; their expected
+statuses, diagnostics and coverage are recorded in `cases.json` and enforced by the same harness.
 
 | Fixture | Required content and behaviour |
 |---|---|
@@ -3061,6 +3063,9 @@ defect.
 | `profile-pinned.json` | `signature.mode: "disabled"`, `requiredDimensions` containing `trust`, and `profiles[]` pinning `{id: "acme-supplier", version: "0.1.0"}`; a package declaring another profile version gets `profileRecognition: UNSUPPORTED` (F43). |
 | `review-required.json` | `signature.mode: "disabled"`, the three mechanical checks in `requiredChecks`, `requiredDimensions: ["integrity","sources","checks","humanReview"]`, `humanReview: {required: true, maxAgeSeconds: 2592000}`, and a `signers[]` entry with `allowedRoles: ["reviewer"]` matching the reviewer identity in `claims/reviews.json` (F55). |
 | `lowered-limits.json` | `signature.mode: "disabled"`, `limits: {fileBytes: 64}`; F52 reports `effectiveLimits.fileBytes: 64`, `pap.limit.lowered`, `integrity.artifacts: NOT_EVALUATED` and `INCOMPLETE`. |
+| `not-yet-valid.json` | Same shape as `unsigned-valid.json` but `issuedAt` after the fixture `--now`; policy state `STALE`, verdict `INCOMPLETE` (`pap.trust.policy-not-yet-valid`, F62). |
+| `checker-unknown.json` | `unsigned-valid.json` plus `checkers[]` pinning a synthetic checker id/version; `checkerRecognition: UNSUPPORTED` and `pap.trust.checker-unknown`; `PASS` while trust is not required (F63). |
+| `profile-untrusted.json` | `unsigned-valid.json` plus `profiles[]` pinning `acme-supplier@0.1.0` with a closure digest different from the package declaration; `profileRecognition: UNTRUSTED` and `pap.trust.profile-untrusted`; `PASS` while trust is not required (F65). |
 
 Rules:
 

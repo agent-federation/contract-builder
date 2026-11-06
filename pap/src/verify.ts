@@ -1104,7 +1104,7 @@ function emptyCheckRecord(
   };
 }
 
-function evaluateTrust(options: {
+export function evaluateTrust(options: {
   policy: TrustPolicy | undefined;
   state: "FRESH" | "STALE" | "ABSENT";
   signature: SignatureEvaluation;
