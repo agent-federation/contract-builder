@@ -1,6 +1,6 @@
 # End-to-end SDLC pipeline — producer, package and acceptance gate (stream C)
 
-**Status:** proposal for maintainer decision (design note). No code is prescribed here; decisions D1–D6 at the end are the ones to accept or change before implementation.
+**Status:** proposal for maintainer decision (design note). No code is prescribed here; decisions D1–D7 at the end are the ones to accept or change before implementation.
 **Scope:** the producer side of PAP v0.1 and the acceptance step around the existing verifier: a deterministic package assembler for CORE-000, the CORE-000 trust policy, the acceptance gate, and the CI job that exercises the chain. The artifact-presentation envelope from #130 is included as a separate, later slice.
 **Related:** audit umbrella #137, architecture streams #170 (stream C), CORE-000 producer issue #135, artifact envelope #130, PAP RFC (`docs/architecture/portable-assurance-package-rfc.md`), verifier `pap/`, engine contract §8, CORE-000 harness `contracts/core000/run.ts`.
 
@@ -111,7 +111,7 @@ A complete minimal schema-valid policy (the Appendix B schema requires `trustPol
 
 Independent verification is **not optional** in stream C (#135 acceptance criteria; #170 stream definition). It is separate from the reference-verifier gate:
 
-- **Definition:** a verifier implementation that is not this repository's `pap/` (the blind-lab independent verifiers), run offline against the same package bytes and a pinned `--now`.
+- **Definition:** a verifier implementation that is not this repository's `pap/` (the blind-lab independent verifiers), run offline against the same package bytes and a pinned `--now`. A **successful run** means the verifier executed to completion and produced a retained report; it does **not** mean the report verdict is `PASS`. Success is execution + retained evidence; the verdict (including `UNSUPPORTED`/`INCOMPLETE`) is evaluated separately under D5b.
 - **Deliverable C6 (required):** at least one successful independent-verifier run for the CORE-000 package, plus a committed evidence record `docs/architecture/pipeline-evidence.md` containing: commit, `packageIdentity`, package manifest digest, verifier identities (`id`, `version`, `implementationDigest`), verdict and dimension/check matrix, differences and limitations, and the report file hashes. The `implementation-status.md` H2/H3 rows are updated in the same change; an `UNSUPPORTED`/`INCOMPLETE` independent result is reported explicitly and never recorded as a pass.
 - **CI:** a separate `pipeline-independent` job runs the pinned independent verifier artifact when it is available in CI; it is **not** a required status for the reference-verifier pipeline and never blocks it. When the artifact is unavailable the job records `NOT_PERFORMED` explicitly. Stream C is not closed on `NOT_PERFORMED`: the required evidence record must exist (it may be produced out-of-band and committed).
 - **Retention:** CI uploads the reference report, the independent report and both decision documents (90-day artifact retention); the committed `pipeline-evidence.md` summary is permanent. This is the "evidence retention" half of #170's independent-verification requirement.
@@ -170,7 +170,7 @@ Scripts: `bun run pack:core000`, `bun run gate:core000`, `bun run pipeline:test`
 | C5 | Artifact envelope (#130) decision + implementation | common elements decided; templates/regenerated artifacts + goldens updated; no domain merge |
 | C6 (required) | Independent-verifier evidence and comparison matrix | at least one independent verifier run; committed `docs/architecture/pipeline-evidence.md` + `implementation-status.md` H2/H3 update; differences/limitations explicit; `NOT_PERFORMED` does not close the stream |
 
-## 9. Decisions requested (D1–D6)
+## 9. Decisions requested (D1–D7)
 
 - **D1 — producer location and commands.** Recommend `pipeline/` with `bun run pack:core000` / `gate:core000`; no new published package in v0.1.
 - **D2 — mapping scope and classification.** Recommend artifacts+inputs+source for C1, provenance+relations for C2, **no producer-report** in v0.1; and accept the classification `CORE-000.draft.md` = artifact, `claims.yml`/`structure.yml` = inputs (records the difference from #135's initial wording).
