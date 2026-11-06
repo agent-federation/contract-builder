@@ -60,23 +60,10 @@ export class PolicyInvalid extends Error {
   }
 }
 
-export const DIMENSION_ORDER: DimensionName[] = [
-  "integrity",
-  "integrity.package",
-  "integrity.artifacts",
-  "sources",
-  "sources.integrity",
-  "sources.availability",
-  "signature",
-  "signature.validity",
-  "trust",
-  "trust.signerIdentity",
-  "trust.policyDecision",
-  "trust.checkerRecognition",
-  "trust.profileRecognition",
-  "checks",
-  "humanReview",
-];
+// The verdict model owns the canonical order; re-exported here for the policy API.
+import { DIMENSION_ORDER } from "./state.js";
+
+export { DIMENSION_ORDER };
 
 export const EVALUABLE_DIMENSIONS = new Set<DimensionName>(DIMENSION_ORDER);
 

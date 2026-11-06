@@ -1,11 +1,20 @@
 /**
- * Dimension aggregation, verdict precedence, coverage and report identity
- * (RFC §5.9, §7.3–§7.5).
+ * Report identity, coverage and the verdict adapter (RFC §5.9, §7.3–§7.5).
+ *
+ * The verdict model itself lives in `state.ts`; this module normalizes a report
+ * and its options into `DimensionStates`/`VerdictContext` and delegates, and
+ * keeps the report-level coverage and identity helpers.
  */
 
 import { domainHash } from "./digest.js";
 import { jcsBytes } from "./json.js";
-import { DIMENSION_ORDER } from "./policy.js";
+import type { DimensionStates, DimensionStatus } from "./state.js";
+import {
+  computeVerdict as foldVerdict,
+  isCoverageFull,
+  isDimensionDecided,
+  statusForDimension as stateStatusForDimension,
+} from "./state.js";
 import type {
   CheckOutcome,
   CheckRecord,
@@ -17,141 +26,13 @@ import type {
 } from "./types.js";
 import { ZERO_DIGEST } from "./types.js";
 
-const IMPLIED: Record<string, DimensionName[]> = {
-  "pap.check.digest-integrity/1": ["integrity", "checks"],
-  "pap.check.source-quote/1": ["sources", "checks"],
-  "pap.check.relation-consistency/1": ["checks"],
-};
-
-export function impliedDimensions(checkId: string): DimensionName[] {
-  return IMPLIED[checkId] ?? ["checks"];
-}
-
-export function computeRequiredDimensions(
-  requiredChecks: string[],
-  policyDimensions: DimensionName[],
-): DimensionName[] {
-  const required = new Set<DimensionName>(policyDimensions);
-  for (const checkId of requiredChecks) {
-    for (const dimension of impliedDimensions(checkId)) {
-      required.add(dimension);
-    }
-  }
-  return DIMENSION_ORDER.filter((dimension) => required.has(dimension));
-}
+export { computeRequiredDimensions, impliedDimensions } from "./state.js";
 
 export function statusForDimension(
   report: VerificationReport,
   dimension: DimensionName,
-): string {
-  switch (dimension) {
-    case "integrity":
-      return report.dimensions.integrity.package;
-    case "integrity.package":
-      return report.dimensions.integrity.package;
-    case "integrity.artifacts":
-      return report.dimensions.integrity.artifacts;
-    case "sources":
-      return report.dimensions.sources.integrity;
-    case "sources.integrity":
-      return report.dimensions.sources.integrity;
-    case "sources.availability":
-      return report.dimensions.sources.availability;
-    case "signature":
-      return report.dimensions.signature.validity;
-    case "signature.validity":
-      return report.dimensions.signature.validity;
-    case "trust":
-      return report.dimensions.trust.signerIdentity;
-    case "trust.signerIdentity":
-      return report.dimensions.trust.signerIdentity;
-    case "trust.policyDecision":
-      return report.dimensions.trust.policyDecision;
-    case "trust.checkerRecognition":
-      return report.dimensions.trust.checkerRecognition;
-    case "trust.profileRecognition":
-      return report.dimensions.trust.profileRecognition;
-    case "checks":
-      return report.dimensions.checks.results.every(
-        (result) => !result.required || result.outcome === "PASS" || result.outcome === "FAIL",
-      )
-        ? "PASS"
-        : "NOT_EVALUATED";
-    case "humanReview":
-      return report.dimensions.humanReview.status;
-  }
-}
-
-function decided(dimension: DimensionName, report: VerificationReport): boolean {
-  switch (dimension) {
-    case "integrity":
-      return (
-        isDecidedIntegrity(report.dimensions.integrity.package) &&
-        isDecidedIntegrity(report.dimensions.integrity.artifacts)
-      );
-    case "integrity.package":
-      return isDecidedIntegrity(report.dimensions.integrity.package);
-    case "integrity.artifacts":
-      return isDecidedIntegrity(report.dimensions.integrity.artifacts);
-    case "sources":
-      return (
-        isDecidedSource(report.dimensions.sources.integrity) &&
-        isDecidedAvailability(report.dimensions.sources.availability)
-      );
-    case "sources.integrity":
-      return isDecidedSource(report.dimensions.sources.integrity);
-    case "sources.availability":
-      return isDecidedAvailability(report.dimensions.sources.availability);
-    case "signature":
-    case "signature.validity":
-      return isDecidedSignature(report.dimensions.signature.validity);
-    case "trust":
-      return (
-        isDecidedSigner(report.dimensions.trust.signerIdentity) &&
-        isDecidedPolicyDecision(report.dimensions.trust.policyDecision) &&
-        isDecidedRecognition(report.dimensions.trust.checkerRecognition) &&
-        isDecidedRecognition(report.dimensions.trust.profileRecognition)
-      );
-    case "trust.signerIdentity":
-      return isDecidedSigner(report.dimensions.trust.signerIdentity);
-    case "trust.policyDecision":
-      return isDecidedPolicyDecision(report.dimensions.trust.policyDecision);
-    case "trust.checkerRecognition":
-      return isDecidedRecognition(report.dimensions.trust.checkerRecognition);
-    case "trust.profileRecognition":
-      return isDecidedRecognition(report.dimensions.trust.profileRecognition);
-    case "checks":
-      return report.dimensions.checks.results
-        .filter((result) => result.required !== false)
-        .every((result) => result.outcome === "PASS" || result.outcome === "FAIL");
-    case "humanReview":
-      return (
-        report.dimensions.humanReview.status === "PASS" ||
-        report.dimensions.humanReview.status === "NOT_APPLICABLE"
-      );
-  }
-}
-
-function isDecidedIntegrity(status: string): boolean {
-  return status === "PASS" || status === "FAIL";
-}
-function isDecidedSource(status: string): boolean {
-  return status === "PASS" || status === "FAIL";
-}
-function isDecidedAvailability(status: string): boolean {
-  return status === "PASS" || status === "NOT_APPLICABLE";
-}
-function isDecidedSignature(status: string): boolean {
-  return status === "VALID" || status === "INVALID" || status === "NOT_APPLICABLE";
-}
-function isDecidedSigner(status: string): boolean {
-  return status === "TRUSTED" || status === "UNTRUSTED" || status === "NOT_APPLICABLE";
-}
-function isDecidedPolicyDecision(status: string): boolean {
-  return status === "ACCEPTED" || status === "REJECTED" || status === "STALE";
-}
-function isDecidedRecognition(status: string): boolean {
-  return status === "PASS" || status === "UNTRUSTED" || status === "NOT_APPLICABLE";
+): DimensionStatus {
+  return stateStatusForDimension(report.dimensions, dimension);
 }
 
 export function computeCoverage(
@@ -169,15 +50,9 @@ export function computeCoverage(
   const failed = counts("FAIL");
   const unsupported = counts("UNSUPPORTED");
   const notEvaluated = counts("NOT_EVALUATED");
-  const dimensionsEvaluated = requiredDimensions.filter((dimension) => decided(dimension, report)).length;
-  const emptyRequiredSet = requiredChecks.length === 0 && requiredDimensions.length === 0;
-  const full =
-    !limitStopped &&
-    !scanIncomplete &&
-    !emptyRequiredSet &&
-    unsupported === 0 &&
-    notEvaluated === 0 &&
-    dimensionsEvaluated === requiredDimensions.length;
+  const dimensionsEvaluated = requiredDimensions.filter((dimension) =>
+    isDimensionDecided(dimension, report.dimensions),
+  ).length;
   return {
     requiredChecks,
     checksEvaluated: passed + failed,
@@ -187,10 +62,21 @@ export function computeCoverage(
     checksNotEvaluated: notEvaluated,
     requiredDimensions,
     dimensionsEvaluated,
-    full,
+    full: isCoverageFull(
+      report.dimensions,
+      requiredChecks,
+      requiredDimensions,
+      limitStopped,
+      scanIncomplete,
+    ),
   };
 }
 
+/**
+ * S1 adapter: the pure fold in `state.ts` receives the currently reported
+ * required set and evaluation-completeness flag. S3 replaces those inputs with
+ * the I1 derivation and I4 coverage computation.
+ */
 export function computeVerdict(
   report: VerificationReport,
   options: {
@@ -205,94 +91,19 @@ export function computeVerdict(
     emptyRequiredSet: boolean;
   },
 ): Verdict {
-  const results = new Map(
-    report.dimensions.checks.results.map((result) => [result.checkId, result.outcome]),
-  );
-  const requiredOutcomes = options.requiredChecks.map((checkId) => results.get(checkId) ?? "NOT_EVALUATED");
-
-  // 1. FAIL
-  if (
-    requiredOutcomes.includes("FAIL") ||
-    report.dimensions.integrity.package === "FAIL" ||
-    report.dimensions.integrity.artifacts === "FAIL" ||
-    report.dimensions.sources.integrity === "FAIL" ||
-    (options.signatureMode === "required" && report.dimensions.signature.validity === "INVALID")
-  ) {
-    return "FAIL";
-  }
-
-  // 2. UNTRUSTED
-  const trustRequired =
-    options.requiredDimensions.includes("trust") ||
-    options.requiredDimensions.includes("trust.signerIdentity") ||
-    options.requiredDimensions.includes("trust.policyDecision") ||
-    options.requiredDimensions.includes("trust.checkerRecognition") ||
-    options.requiredDimensions.includes("trust.profileRecognition");
-  const recognitionRequired =
-    options.requiredDimensions.includes("trust") ||
-    options.requiredDimensions.includes("trust.checkerRecognition") ||
-    options.requiredDimensions.includes("trust.profileRecognition");
-  if (
-    report.dimensions.trust.signerIdentity === "UNTRUSTED" ||
-    report.dimensions.trust.policyDecision === "REJECTED" ||
-    (recognitionRequired &&
-      (report.dimensions.trust.checkerRecognition === "UNTRUSTED" ||
-        report.dimensions.trust.profileRecognition === "UNTRUSTED"))
-  ) {
-    return "UNTRUSTED";
-  }
-
-  // 3. UNSUPPORTED
-  if (
-    requiredOutcomes.includes("UNSUPPORTED") ||
-    options.unsupportedVersion ||
-    options.unsupportedFeature ||
-    (recognitionRequired &&
-      (report.dimensions.trust.checkerRecognition === "UNSUPPORTED" ||
-        report.dimensions.trust.profileRecognition === "UNSUPPORTED"))
-  ) {
-    return "UNSUPPORTED";
-  }
-
-  // 4. INCOMPLETE
-  const incompleteStatuses = new Set([
-    "NOT_EVALUATED",
-    "UNKNOWN",
-    "UNAVAILABLE",
-    "STALE",
-    "INCOMPLETE",
-  ]);
-  if (
-    options.policyState === "STALE" ||
-    options.limitStopped ||
-    options.emptyRequiredSet ||
-    !report.coverage.full ||
-    requiredOutcomes.some((outcome) => outcome === "NOT_EVALUATED") ||
-    requiredOutcomes.some((outcome) => outcome === "UNSUPPORTED") ||
-    requiredOutcomes.some((outcome) => outcome === "FAIL") ||
-    (options.signatureMode === "required" &&
-      report.dimensions.signature.validity === "NOT_EVALUATED") ||
-    // `signature.mode: required` is the operator's trust requirement on its own:
-    // a valid envelope that does not meet `minimumValidSigners` leaves the
-    // policy decision unevaluated, and the verdict must not depend on the
-    // unrelated `requiredDimensions` list also naming signature/trust.
-    (options.signatureMode === "required" &&
-      report.dimensions.trust.policyDecision !== "ACCEPTED") ||
-    (options.humanReviewRequired && report.dimensions.humanReview.status !== "PASS") ||
-    options.requiredDimensions.some((dimension) =>
-      incompleteStatuses.has(statusForDimension(report, dimension)),
-    )
-  ) {
-    return "INCOMPLETE";
-  }
-
-  // 5. NOT_EVALUATED — degenerate report.
-  if (requiredOutcomes.length === 0) {
-    return "NOT_EVALUATED";
-  }
-
-  // 6. PASS
-  return "PASS";
+  const states: DimensionStates = report.dimensions;
+  return foldVerdict(states, {
+    requiredChecks: options.requiredChecks,
+    requiredDimensions: options.requiredDimensions,
+    signatureMode: options.signatureMode,
+    humanReviewRequired: options.humanReviewRequired,
+    policyState: options.policyState,
+    limitStopped: options.limitStopped,
+    unsupportedVersion: options.unsupportedVersion,
+    unsupportedFeature: options.unsupportedFeature,
+    emptyRequiredSet: options.emptyRequiredSet,
+    coverageFull: report.coverage.full,
+  });
 }
 
 export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
