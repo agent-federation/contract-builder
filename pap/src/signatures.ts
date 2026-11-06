@@ -9,9 +9,9 @@
 import { opendir } from "node:fs/promises";
 import path from "node:path";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
-import { canonicalBase64Decode, utf8 } from "./digest.js";
+import { utf8 } from "./digest.js";
+import { decodeSignatureEnvelope } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
-import { isObject } from "./manifest.js";
 import { readPackageFile } from "./paths.js";
 import type { PackageRoot } from "./paths.js";
 import type { TrustPolicy } from "./policy.js";
@@ -408,45 +408,13 @@ function parseEnvelope(relative: string, bytes: Uint8Array, limits: Limits): Par
     }
     return invalid(error instanceof JsonParseError ? error.message : "envelope is not valid JSON");
   }
-  if (!isObject(value)) return invalid("envelope must be a JSON object");
-  for (const key of Object.keys(value)) {
-    if (!["payloadType", "payload", "signatures"].includes(key)) {
-      return invalid(`unknown envelope field ${key}`);
-    }
-  }
-  if (
-    typeof value.payloadType !== "string" ||
-    typeof value.payload !== "string" ||
-    !Array.isArray(value.signatures) ||
-    value.signatures.length === 0
-  ) {
-    return invalid("envelope is missing payloadType, payload or signatures");
-  }
-  const payload = canonicalBase64Decode(value.payload);
-  if (payload === null) return invalid("envelope payload is not canonical base64");
-  const signatures: EnvelopeSignature[] = [];
-  for (let index = 0; index < value.signatures.length; index += 1) {
-    const raw = value.signatures[index];
-    if (!isObject(raw)) return invalid(`signatures[${index}] must be an object`);
-    for (const key of Object.keys(raw)) {
-      if (!["keyid", "sig"].includes(key)) {
-        return invalid(`unknown signature field ${key}`);
-      }
-    }
-    if (typeof raw.keyid !== "string" || typeof raw.sig !== "string") {
-      return invalid(`signatures[${index}] must carry keyid and sig`);
-    }
-    const sig = canonicalBase64Decode(raw.sig);
-    if (sig === null || sig.length !== 64) {
-      return invalid(`signatures[${index}].sig must be 64 canonical base64 bytes`);
-    }
-    signatures.push({ keyId: raw.keyid, sig });
-  }
+  const decoded = decodeSignatureEnvelope(value);
+  if (!decoded.ok) return invalid(decoded.message);
   return {
     ok: true,
-    payloadType: value.payloadType,
-    payload,
-    signatures,
+    payloadType: decoded.payloadType,
+    payload: decoded.payload,
+    signatures: decoded.signatures,
   };
 }
 
