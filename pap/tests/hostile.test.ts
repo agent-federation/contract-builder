@@ -408,6 +408,35 @@ test("an unreadable signature directory fails the package", () => {
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.io"));
 });
 
+test("a symlinked signature directory outside the package is not enumerated", () => {
+  const dir = tempPackage();
+  const outside = mkdtempSync(path.join(tmpdir(), "pap-signatures-outside-"));
+  try {
+    writeFileSync(path.join(outside, "evil.dsse.json"), "{}\n");
+    writeFileSync(path.join(outside, "readme.txt"), "external\n");
+    symlinkSync(outside, path.join(dir, "signatures"));
+    const policy = JSON.parse(
+      readFileSync(path.join(fixtures, "trust-policy", "signature-optional.json"), "utf8"),
+    );
+    const file = writePolicy("policy.json", policy);
+    const result = verify(dir, ["--trust-policy", file]);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.dimensions.integrity.package, "FAIL");
+    assert.equal(report.dimensions.signature.signatures, undefined);
+    const symlink = report.diagnostics.find(
+      (diagnostic: any) => diagnostic.code === "pap.package.symlink",
+    );
+    assert.ok(symlink, "the symlinked directory must be reported as a package symlink");
+    assert.equal(symlink.scope, "signatures");
+    assert.equal(symlink.severity, "error");
+    assert.ok(!result.stdout.includes("evil.dsse.json"), "a name outside the package must not be reported");
+    assert.ok(!result.stdout.includes("readme.txt"), "a name outside the package must not be reported");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 test("inspect reports structure without producing a verdict", () => {
   const result = runPap(["inspect", ".", "--format", "json"], base);
   assert.equal(result.status, 0);
