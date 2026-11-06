@@ -45,7 +45,7 @@ async function editProfile(
   dir: string,
   mutate: (profile: MutableProfile) => void,
 ): Promise<void> {
-  const file = path.join(dir, "profile", "profile.json");
+  const file = path.join(dir, "profiles", "core001", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableProfile;
   mutate(profile);
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
