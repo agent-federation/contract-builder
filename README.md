@@ -118,7 +118,7 @@ rebuilding an unchanged specification leaves the working tree clean.
 | `spec/`, `profiles/` | the CORE-001 vertical: declared inputs, builder core, profile checks and renderer |
 | `contracts/core000/` | the CORE-000 self-contract: declared inputs, harness, generated artifact |
 | `pap/` | PAP v0.1 verifier: CLI, schemas, conformance corpus, fixtures |
-| `pipeline/` | producer side: deterministic CORE-000 PAP packer (in progress, #135) |
+| `pipeline/` | producer side: deterministic CORE-000 PAP packer (in progress, [#135](https://github.com/agent-federation/contract-builder/issues/135)) |
 | `docs/` | engine public contract, RFCs, decision records, implementation status |
 | `tests/` | builder, profile, provenance, identity and self-contract tests |
 | `fixtures/` | intentionally broken specifications used by tests and examples |
@@ -191,7 +191,8 @@ Not proven and not claimed:
 - no in-toto mapping, archive transport, online revocation or Sigstore/SCITT integration (outside
   PAP v0.1);
 - the demo slice's source document and its rendered artifact are in Russian; the engine and the
-  verifier are language-neutral, but engine diagnostics are currently Russian-only (follow-up).
+  verifier are language-neutral, but engine diagnostics are currently Russian-only
+  ([#208](https://github.com/agent-federation/contract-builder/issues/208)).
 
 A snapshot of the full implementation status lives in
 [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
