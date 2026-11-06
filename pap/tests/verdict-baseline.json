@@ -56,6 +56,24 @@
     "F58-undeclared-source": "sha256:7ddbb998cf3ede2b9f491c63b3249052957a898445e61694ff272c01b58a5544",
     "F59-relation-duplicate": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
     "F60-missing-manifest": "sha256:f8e8fabe8da8594b0dca46edcf5335954034f564fe9c958d408f565b862cba33",
-    "F61-relations-only-lowered": "sha256:512958b2b1f84df16d84e402fe205f726719625afac2abdd6d9752e4bdb0dc5f"
+    "F61-relations-only-lowered": "sha256:512958b2b1f84df16d84e402fe205f726719625afac2abdd6d9752e4bdb0dc5f",
+    "F62-policy-not-yet-valid": "sha256:98663e828ef5eb0552379b4d7d4f5b05d3a1a76506255e97f3a66823dbf5d391",
+    "F63-checker-unknown": "sha256:76ca5a5a82635da50de5c0404a179faecebbcee01fad267041958da69bc81ad1",
+    "F65-profile-untrusted": "sha256:17cb250f89b13713a3a3114549a49eb4037d4a17ff00177dd88bbe17dc61d459",
+    "F66-signature-envelope-invalid": "sha256:a4c3317d790a3753e0766a2d26a751e08d6198c6a1886071328d18e085de1129",
+    "F67-signature-unsupported-format": "sha256:b93b3019ae24f1c24747cd8b6a5daa94e8814f257de2a40209e49342b13fe2fc",
+    "F68-signature-payload-mismatch": "sha256:a4c3317d790a3753e0766a2d26a751e08d6198c6a1886071328d18e085de1129",
+    "F69-package-non-regular": "sha256:1cd434aae3dfd9bc341a0cc1b143af21bff5fad2df38642f4d9a4a65da15b4f2",
+    "F70-package-duplicate-id": "sha256:bd4b65e8c3697df06fbdb0c75ac56d34015a56e0eb8ed181af60020e24a57453",
+    "F71-integrity-claim-mismatch": "sha256:1c450540941e89c900716b3b2a6fd7f755072e72647f9497589d720e63a6e5c1",
+    "F72-claim-unsupported-version": "sha256:3a43a547f34aed8720724be53092d96fca44724f6c9e0665677e8c6069369e30",
+    "F73-check-span-out-of-range": "sha256:0cc97f7b7d25320257bb0ef904fe6bf3a90d464039ea19a7328cdb1f236e5a91",
+    "F74-claim-binding-duplicate": "sha256:0cc97f7b7d25320257bb0ef904fe6bf3a90d464039ea19a7328cdb1f236e5a91",
+    "F75-claim-duplicate-entity": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
+    "F76-claim-relation-unknown": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
+    "F77-claim-relation-kind-mismatch": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
+    "F78-claim-inverse-missing": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
+    "F79-claim-inverse-kind-mismatch": "sha256:dbbdcf49b3c5c859574f970847a7b8dedf68b04fa37fef1973766d7d950c79bb",
+    "F80-claim-unsupported-version-dependent": "sha256:c582cc45ab1e5366f96797ce8a1b58d92abeaf5a7ef3b911d9931f75497b5550"
   }
 }
