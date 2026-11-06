@@ -3,6 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Diagnostic } from "./diagnostics.js";
 import type { ExtensionClosureDeclaration } from "./extension.js";
+import type { BuildIdentity } from "./identity.js";
 import type { ProjectModel } from "./ir.js";
 import type { Diagnostics } from "./diagnostics.js";
 import {
@@ -30,6 +31,13 @@ export interface RenderOptions {
    * artifact a pure function of the model, the options and the template.
    */
   diagnostics: readonly Diagnostic[];
+  /**
+   * The deterministic build identity computed before rendering: project, engine and manifest
+   * versions, the authoritative `inputDigest` and the extensions used. The engine always passes
+   * it on a successful build, so a renderer may render the identity without fabricating values;
+   * artifact bytes stay outside the digest.
+   */
+  identity: BuildIdentity;
 }
 
 export interface Artifact {

@@ -311,6 +311,7 @@ async function buildResolvedProject(
       templates: renderInputs.templates,
       ...(renderInputs.labels !== undefined ? { labels: renderInputs.labels } : {}),
       diagnostics: diags.sorted(),
+      identity,
     });
     if (artifacts.length !== 1) {
       diags.error(

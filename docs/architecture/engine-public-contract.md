@@ -206,6 +206,11 @@ interface ReviewPolicy {
 
 The profile carries **no project content**. Two projects can share one profile.
 
+A renderer receives the profile's id and version through the model (`model.profile`) and its own
+id and version as static metadata. On a successful build the engine also passes the computed
+build identity in `RenderOptions.identity` (§11), so an artifact can state the profile, renderer
+and build that produced it without fabricating values.
+
 **M1 requires an executable profile.** Both `view` and `validator` are mandatory. A profile that
 supplies only validated data — schemas, relations, declarative rules, the diagnostic catalogue,
 labels and templates — is rejected during project loading with `core.profile.invalid` at `/view`
@@ -1037,6 +1042,11 @@ extension identities as separately comparable values, and the engine version sel
 that executes. `engineVersion` is read from the explicit engine root (§5.7), not from the
 directory the process happens to run in.
 
+On a successful build the engine passes the computed identity to the renderer as
+`RenderOptions.identity` (§11). Rendering it does not feed the artifact back into `inputDigest`:
+artifact bytes are excluded, so the identity remains a pure function of the declared inputs and
+extension closures.
+
 `inputDigest` covers:
 
 - the canonicalized manifest, including `external` flags;
@@ -1252,6 +1262,7 @@ interface RenderOptions {
   templates: TemplateSet;
   labels?: Record<string, string>;
   diagnostics: readonly Diagnostic[];
+  identity: BuildIdentity;             // §8: computed before rendering, never null here
 }
 ```
 
@@ -1265,6 +1276,11 @@ produced up to the render phase, in rendered order (`Diagnostic[]`). It is suppl
 artifact may embed the diagnostics report, and passing it keeps that artifact a pure function of
 the model, the options and the template. A renderer that does not embed diagnostics may ignore
 the field.
+
+`identity` is **required**: the engine computes `BuildResult.identity` before rendering and passes
+it here, so a renderer may render the profile, renderer, engine and manifest versions and the
+authoritative `inputDigest` without fabricating them. A renderer that does not embed the
+identity may ignore the field. The engine never injects identity values into the model.
 
 Adapters and renderers are **trusted executable extensions**: they run in-process, are not
 sandboxed, and must honour the deterministic contract. They are resolved by id from registries

@@ -191,7 +191,8 @@ test("engine-root: a distinct same-version root's modules are the ones executed"
   const project = await copyProjectWithProfile("distinct-root-execution");
   const result = await runBuild(base(project, { engineRoot }));
   assert.equal(result.exitCode, 0, failure(result));
-  assert.equal(result.markdown, await readFile(draftPath, "utf8"));
+  assert.ok(result.markdown?.includes("UIA-CORE-001"));
+  assert.ok(result.markdown?.includes(result.identity!.inputDigest));
   assert.equal(await readFile(markerPath, "utf8"), "loaded");
 });
 

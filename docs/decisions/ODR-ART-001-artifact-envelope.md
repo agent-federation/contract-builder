@@ -110,6 +110,26 @@ The mapping is a baseline snapshot. C5b updates the statuses as it closes the ga
 
 Both artifacts are currently valid **drafts**, but neither is envelope-conformant. C5 makes no claim that they are; it records what is missing so C5b can close it without touching the bodies.
 
+### 3.4 C5b closure
+
+C5b closes the gaps recorded above. The §3.1–3.2 tables remain the pre-C5b baseline snapshot;
+this table records the post-C5b state of each element.
+
+| Element | CORE-000 | CORE-001 |
+|---|---|---|
+| Document/project identity + revision | present | present |
+| Generated/source-of-truth notice | present | present |
+| Build mode + scope/exclusions | present | present |
+| Profile/renderer identity + build identity | present | present |
+| Diagnostic/gating summary | present | present |
+| Stable section order | present (recommended) | present (recommended) |
+| Substantive body | profile-specific | profile-specific |
+
+CORE-001 keeps `SLICE-CORE001-10` and the §4.4.2/#15 exclusions; C5b adds no CORE-001 body
+section. CORE-000 renders emitted severity counts and the release gate conclusion, not the
+catalog size. `tests/envelope.test.ts` asserts the mandatory elements, the slice statement and
+the profile-specific bodies.
+
 ## 4. Consequences
 
 - The envelope is a shared presentation contract, not a shared document. CORE-000 and CORE-001 keep their own bodies, vocabulary, language and section order.
@@ -120,6 +140,9 @@ Both artifacts are currently valid **drafts**, but neither is envelope-conforman
 - The decision does not create a new release gate or change `build:release`; the release mode remains blocked by the existing `REVIEW_REQUIRED` diagnostics.
 
 ## 5. C5b — separate follow-up
+
+**Status:** implemented by C5b (#215); §3.4 records the post-C5b element status and
+`tests/envelope.test.ts` is the artifact check.
 
 C5b is the template/artifact implementation slice. It is explicitly **not** part of C5 and must not be folded into this documentation change.
 
