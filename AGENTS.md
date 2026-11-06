@@ -121,6 +121,14 @@ changes the register.
   merges every pull request. Branch protection makes this technical: the agent
   can push branches and open pull requests, but it cannot merge, and its
   approval cannot satisfy the Code Owner review requirement.
+- Before merge, code pull requests (changes under `pap/`, `spec/lib/`,
+  `profiles/` or `contracts/`) need an independent-family pre-review with
+  GLM-5.3 (`opencode-go` route, `glm-5.3` model) following
+  `docs/agents/pre-review.md`; record the reviewer, the reviewed head, the
+  findings and their dispositions in the pull request. The review is advisory:
+  CI, the Code Owner review and the human merge remain the gates, and P1/P2
+  findings must be verified before they block. Documentation-only changes may
+  skip it.
 - Keep the change focused; do not mix refactors or reformatting into a
   documentation or fix pull request.
 
