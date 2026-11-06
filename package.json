@@ -21,6 +21,8 @@
     "pap:test": "bun test pap/tests",
     "pack:core000": "bun pipeline/pack.ts",
     "gate:core000": "bun pipeline/gate.ts",
+    "pipeline:independent": "bun pipeline/independent.ts",
+    "pipeline:evidence": "bun pipeline/evidence.ts",
     "pipeline:test": "bun test pipeline/tests",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
