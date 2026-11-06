@@ -16,6 +16,7 @@ import {
   normalizedInputSetDigest,
   rawSourceDigest,
 } from "../mapping.js";
+import { REPO_ROOT, assertOutsideRepository } from "../pack.js";
 
 const Ajv2020 = Ajv2020Module as unknown as new (
   options: Record<string, unknown>,
@@ -136,7 +137,7 @@ async function checkPackageTree(packageDir: string): Promise<void> {
   assert.equal(manifest.package.id, "urn:pap:contract-builder:core000");
   assert.equal(
     manifest.package.title,
-    "CORE-000 engine self-contract assurance package",
+    "Contract Builder Engine public self-contract assurance package",
   );
   assert.deepEqual(manifest.package.producer, {
     name: "contract-builder",
@@ -322,6 +323,18 @@ test("pack:core000 produces the C1 layout and both runs are byte-identical", asy
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test("REPO_ROOT is the checkout, so only the checkout is refused", () => {
+  assert.equal(path.resolve(REPO_ROOT), path.resolve(root), "REPO_ROOT is the repository root");
+  assert.throws(
+    () => assertOutsideRepository(path.join(root, "pipeline", "tmp-package")),
+    /inside the repository/,
+  );
+  assert.doesNotThrow(
+    () => assertOutsideRepository(path.join(root, "..", "outside-package")),
+    "a sibling of the checkout is a valid package destination",
+  );
 });
 
 test("pack:core000 refuses to write inside the checkout before building", async () => {

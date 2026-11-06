@@ -111,6 +111,11 @@ test("Appendix E.5: CRLF normalization and the per-file/set input vectors", () =
   );
 });
 
+test("JCS rejects -0 instead of normalizing it to 0", () => {
+  assert.throws(() => canonicalJson(-0), /-0/);
+  assert.equal(canonicalJson(0), "0");
+});
+
 test("LF normalization keeps binary fallback bytes and CRLF is not hashed as LF for sources", () => {
   const binary = new Uint8Array([0x61, 0x00, 0x0d, 0x0a]);
   assert.deepEqual(normalizeLf(binary), binary);

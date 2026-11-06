@@ -269,6 +269,9 @@ export function canonicalJson(value: unknown): string {
     case "string":
       return JSON.stringify(value);
     case "number":
+      if (Object.is(value, -0)) {
+        throw new Error("JCS rejects -0");
+      }
       if (!Number.isSafeInteger(value)) {
         throw new Error(`JCS only admits safe integers, got ${String(value)}`);
       }

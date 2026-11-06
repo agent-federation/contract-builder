@@ -26,7 +26,7 @@ import {
   type SourcePayload,
 } from "./mapping.js";
 
-export const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+export const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** CORE-000 input declarations copied into `inputs/`, in package path order. */
 const INPUT_FILES = [
@@ -64,7 +64,6 @@ const SOURCE = {
 } as const;
 
 const PACKAGE_ID = "urn:pap:contract-builder:core000";
-const PACKAGE_TITLE = "CORE-000 engine self-contract assurance package";
 
 export interface PackOptions {
   readonly outDir: string;
@@ -149,7 +148,7 @@ export async function packCore000(options: PackOptions): Promise<PackResult> {
       },
       declaration: {
         id: PACKAGE_ID,
-        title: PACKAGE_TITLE,
+        title: `${project.project.title} assurance package`,
         producer: {
           name: "contract-builder",
           version: identity.engineVersion,
