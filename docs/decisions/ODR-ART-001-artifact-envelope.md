@@ -108,7 +108,7 @@ The mapping is a baseline snapshot. C5b updates the statuses as it closes the ga
 | Stable section order | present | present |
 | Substantive body | profile-specific | profile-specific |
 
-Both artifacts are currently valid **drafts**, but neither is envelope-conformant. C5 makes no claim that they are; it records what is missing so C5b can close it without touching the bodies.
+Both artifacts are valid **drafts**. Before C5b neither was envelope-conformant: C5 makes no claim that they were; it records what was missing so C5b can close it without touching the bodies, and §3.4 records the closure.
 
 ### 3.4 C5b closure
 
@@ -135,7 +135,7 @@ the profile-specific bodies.
 - The envelope is a shared presentation contract, not a shared document. CORE-000 and CORE-001 keep their own bodies, vocabulary, language and section order.
 - The CORE-001 artifact remains a slice artifact: `SLICE-CORE001-10`, §10.1–10.2, exclusions #4.4.2/#15. Envelope work must not turn it into a complete-CORE-001 claim, and `CORE-001.legacy.md` is unchanged.
 - CORE-000's header currently gives a diagnostic-catalog count, not an emitted-diagnostic count; the envelope requires the emitted severity counts and the gate conclusion in the summary. The body already records release blocking in two claim statements, but not as a summary element. That is a presentation change only; the underlying diagnostics and gate semantics do not change.
-- Rendering profile/renderer/build identity is a new artifact field. The engine already computes `BuildResult.identity`; C5b must make it available to the renderers (or record the unavailable subset) and update the implementation-status statement that currently says the identity is never rendered (B1) so the documentation and the artifact agree.
+- Rendering profile/renderer/build identity is a new artifact field. The engine already computes `BuildResult.identity`; C5b makes it available to the renderers (or records the unavailable subset) and updates the implementation-status B1 statement that said the identity was never rendered, so the documentation and the artifact agree.
 - Because `contracts/core000/output/CORE-000.draft.md` is packaged as the PAP artifact, C5b's new bytes change that artifact's digest and the package identity derived from it. No committed CORE-000 artifact digest is currently pinned in tests (the pipeline tests rebuild the artifact), but C5b must rerun the packaging/determinism checks and update any evidence that quotes the old bytes.
 - The decision does not create a new release gate or change `build:release`; the release mode remains blocked by the existing `REVIEW_REQUIRED` diagnostics.
 

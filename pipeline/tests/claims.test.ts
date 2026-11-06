@@ -210,7 +210,7 @@ test("relations: the real CORE-000 graph is complete, deterministic and inverse-
   const claim = first.relations.value;
   assert.equal(claim.entities.length, 195);
   assert.equal(claim.relations.length, 25);
-  assert.equal(claim.edges.length, 556);
+  assert.equal(claim.edges.length, 560);
 
   const entities = new Map(claim.entities.map((entity) => [entity.id, entity]));
   assert.equal(entities.size, claim.entities.length, "entity ids are unique");

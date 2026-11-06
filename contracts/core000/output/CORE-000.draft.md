@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:a1d825af2337ee9b945171efabd598effc35fc50cf553405b660092235610d1b` |
+| inputDigest | `sha256:971b95db2a37658035f2daf2aa9deeaa7acdfec1fa29a64a1e02bee85d5acbf6` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -604,14 +604,14 @@ _28 claims: 20 accepted, 6 proposed, 2 deferred, 0 none_
 - Status: decision=`accepted`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `engine`
 - Lifecycle: `active`
-- Statement: Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; it is not rendered into the artifact.
+- Statement: Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; a successful build passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it.
 
 - Scope: CORE-000 accepted design §4.2 row C000-CT-010 at the accepted design baseline
-- Verification method: Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`; `tests/identity.test.ts`
+- Verification method: Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`, `spec/lib/render.ts`, `spec/lib/build.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`
 
 - Subjects: `IF-BUILD-IDENTITY` (interface)
 
-- Evidence: `EV-CODE-SPEC-LIB-IDENTITY-TS` (code: spec/lib/identity.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
+- Evidence: `EV-CODE-SPEC-LIB-IDENTITY-TS` (code: spec/lib/identity.ts), `EV-CODE-SPEC-LIB-RENDER-TS` (code: spec/lib/render.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
 
 - Decisions: `DEC-DESIGN-51` (accepted)
 
@@ -1129,14 +1129,14 @@ _6 claims: 0 accepted, 0 proposed, 0 deferred, 6 none_
 - Status: decision=`none`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `external`
 - Lifecycle: `active`
-- Statement: Build identity is computed after load/validation, is `null` when the build stops early, and is never rendered.
+- Statement: Build identity is computed after load/validation, is `null` when the build stops early, and is passed to renderers on a successful build.
 
 - Scope: CORE-000 accepted design §4.2 row C000-IM-005 at the accepted design baseline
-- Verification method: Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`; `tests/identity.test.ts`; BI
+- Verification method: Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`, `spec/lib/render.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`; BI
 
 - Subjects: `IF-BUILD-IDENTITY` (interface)
 
-- Evidence: `EV-TRUST-CODE` (code: spec/lib/build.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
+- Evidence: `EV-TRUST-CODE` (code: spec/lib/build.ts), `EV-CODE-SPEC-LIB-RENDER-TS` (code: spec/lib/render.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
 
 ### C000-IM-006
 
