@@ -67,6 +67,17 @@ The PAP verifier fixes merged in the same period (#152, #154, #156, #157, #163, 
 engine-matrix material (#159's split). This update promotes no row to `independently_verified`,
 changes no claim status and does not close H2, H3 or X3.
 
+**Snapshot update for C6 independent verification (#216).** The `pipeline-independent` job now
+runs the reference verifier and the three blind-lab Phase 2a implementations against one
+CORE-000 package, with one pinned `--now` and one absolute trust-policy path; all four agree on
+`packageIdentity`. The three independent reports are `UNSUPPORTED` (exit 4) because the three
+required checks are Phase 2b scope, so the result is executed-not-evaluated and is never a pass.
+H3 therefore moves from `NOT_PERFORMED` to `EXECUTED / UNSUPPORTED` for the package/integrity
+dimensions; H2 cross-environment reproducibility remains `NOT_TESTED`, and no CORE-000 claim
+becomes `independently_verified`. The run commit, `packageIdentity`, verifier identities,
+matrix and report hashes are in [pipeline-evidence.md](pipeline-evidence.md); §4.4 records the
+delta.
+
 **CORE-000 register freshness.** `contracts/core000/claims.yml` declares
 **78 claims**; `tests/docs-freshness.test.ts` fails when this number and the register disagree.
 
@@ -323,8 +334,9 @@ not authorized by this status update; it required its own bounded implementation
 maintainer approval.
 
 **Later status.** S2.1 and S2.2 were subsequently authorized and merged (#105, #123, #127);
-§4.2 records what they delivered. S2.3 (focused tests and evidence), S3 and S4 remain not
-started.
+§4.2 records what they delivered. S2.3 (focused tests and evidence) and S3 remain not
+started. C6 (§4.4) executed the independent-verification batch: H2 remains `NOT_TESTED` and
+H3 is `EXECUTED / UNSUPPORTED`, never pass.
 
 ---
 
@@ -344,7 +356,9 @@ repository root.
 
 **Not delivered by this delta.** S2.3 focused tests/evidence, the S3 N1–N18 negative matrix and
 S4 H2/H3 work remain not started. No row in §3 moves to `independently_verified`; X3a keeps its
-bounded-S1 wording, and X3 (full self-hosting) stays `deferred`.
+bounded-S1 wording, and X3 (full self-hosting) stays `deferred`. H3 was later executed for the
+CORE-000 PAP package by C6; §4.4 records that result, which is `UNSUPPORTED` for the Phase 2b
+checks and never a pass.
 
 ---
 
@@ -366,6 +380,27 @@ in the PAP component record, not here (#159's split). Files are relative to the 
 change requires. The run covers the engine-root, profile-closure and unsupported-configuration
 tests; it is not independent verification of the behavior (no row moves to
 `independently_verified`).
+
+---
+
+## 4.4 C6 independent-verification delta (#216)
+
+This is the C6 delta against the S1/S2 snapshot, not a re-audit of the engine. It records the
+first independent-verification batch for the CORE-000 PAP package.
+
+| Item | Delivered | What it proves | What it does not prove |
+|---|---|---|---|
+| C6 batch runner | [`pipeline/independent.ts`](../../pipeline/independent.ts) packs CORE-000 once and runs the reference verifier plus the three blind-lab Phase 2a implementations from their pinned public commit archives. It verifies each archive's SHA-256 before extraction, asserts each report's self-reported `{id, version, implementationDigest}` against the pin, and requires all four `packageIdentity`s to agree. Missing or unparseable reports and identity mismatches fail the batch. | The four verifiers execute against the same package bytes with one pinned `--now` and one absolute trust-policy path, and the pinned independent implementations are the ones that produced the reports. | The truth or completeness of CORE-000 claims; the three required checks (Phase 2b) are not independently evaluated; cross-environment reproducibility (H2). |
+| Evidence record | [pipeline-evidence.md](pipeline-evidence.md), rendered by [`pipeline/evidence.ts`](../../pipeline/evidence.ts) from a real batch at run commit [`0317a0c`](https://github.com/agent-federation/contract-builder/commit/0317a0c0d6476317785c4aa36ddbf3f0a9a876a8). `packageIdentity` `sha256:b5a3bdfa...`; reference `PASS`, the three independent verifiers `UNSUPPORTED` (exit 4). | All four reports agree on `packageIdentity`, and the reference plus independent runs agree on package/artifact/source integrity and availability; the report hashes are retained. | That `UNSUPPORTED` is a pass, or that the report hashes are portable: they depend on the absolute package/policy paths and on the run commit. |
+| CI job | `.github/workflows/ci.yml` job `pipeline-independent`: builds the pinned archives, runs the batch and uploads `batch.json` plus the four reports with 90-day retention. It is not a required status and does not gate `pipeline`. | The evidence batch is regenerated for the PR's own checkout, and the job fails closed on a missing report or an identity disagreement. | That CI's `packageIdentity` or report hashes equal the committed record's: both are bound to the run commit and the run paths. |
+
+**H2/H3 status after C6.** H2 cross-environment reproducibility remains `NOT_TESTED`: C6
+verifies one package built from one checkout, not two independent build environments. H3
+independent verification is `EXECUTED / UNSUPPORTED`, not PASS: the reference verifier
+evaluates the three required checks and PASSes, while the three independent Phase 2a
+implementations report `UNSUPPORTED` because check implementations are Phase 2b scope. All
+four agree on `packageIdentity` and on package/artifact/source integrity and availability.
+No CORE-000 claim moves to `independently_verified`.
 
 ---
 

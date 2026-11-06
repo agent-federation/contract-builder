@@ -137,6 +137,21 @@ identity. The evidence pin is the run commit stated here, not a constant.
 |---|---|---|---|---|---|---|
 ${batch.verifiers.map(verifierRow).join("\n")}
 
+### Pinned independent sources
+
+| Verifier | Repository | Commit | Tag | Archive SHA-256 | Build |
+|---|---|---|---|---|---|
+${batch.verifiers
+  .filter((entry) => entry.source.kind === "pinned-source-tarball")
+  .map(
+    (entry) =>
+      `| ${entry.verifier} | \`${entry.source.repository}\` | \`${dash(entry.source.commit)}\` | \`${dash(entry.source.tag)}\` | \`${dash(entry.source.tarballSha256)}\` | \`${dash(entry.source.build)}\` |`,
+  )
+  .join("\n")}
+
+Each archive is checked against the recorded SHA-256 before extraction, including a
+cached archive; the self-reported \`implementationDigest\` above is a second pin.
+
 An \`UNSUPPORTED\` verdict (exit 4) means the verifier executed and retained a report;
 it does **not** mean PASS. A report's verdict is never rewritten or converted here.
 

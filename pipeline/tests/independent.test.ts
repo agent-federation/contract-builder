@@ -375,6 +375,8 @@ test("the evidence record is deterministic and states the trust boundary", () =>
   assert.match(markdown, new RegExp(IDENTITY));
   assert.match(markdown, new RegExp(MANIFEST_DIGEST));
   assert.match(markdown, /e5da9ac404547579d184d2f47d33c1e1ac866495/);
+  assert.match(markdown, /0539d883aed7a07fe19a3e83187c6a172daf1e4a7637231de6c64339a0f33b68/);
+  assert.match(markdown, /0b31dac728fbfdfab4f2948ccede3b5957b17fc9/);
   assert.match(markdown, /Phase 2b/);
   assert.match(markdown, /UNSUPPORTED/);
   assert.match(markdown, /path-dependent/);
