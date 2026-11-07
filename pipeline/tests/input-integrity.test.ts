@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -76,6 +76,7 @@ test("a verifier process that mutates package bytes is detected", async () => {
       policyPath,
       manifestText: MANIFEST,
       packageFileDigests: snapshot.packageFiles,
+      packageFileTypes: snapshot.packageFileTypes,
       executions: executionsForPaths(packageDir, policyPath),
       inputIntegrity: { readOnlyDuringRuns: true, mutations: changes },
     });
@@ -138,6 +139,35 @@ test("a verifier process that removes or adds a package file is detected", async
     );
     assert.ok(
       changes.some((change) => change.includes("package file was added")),
+      changes.join("\n"),
+    );
+  } finally {
+    await makeInputsWritable(packageDir, policyPath);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a package file replaced by a symlink is a type change, not a clean file", async () => {
+  const { root, packageDir, policyPath, artifactPath } = await fixture();
+  try {
+    const target = path.join(root, "same-bytes-target");
+    await writeFile(target, "original");
+    const snapshot = await snapshotInputs(packageDir, policyPath);
+    assert.equal(snapshot.packageFileTypes["artifact.bin"], "file");
+    await makeInputsReadOnly(packageDir, policyPath);
+    runMutator(
+      `chmod u+w "${packageDir}" && rm "${artifactPath}" && ln -s "${target}" "${artifactPath}"`,
+    );
+    const changes = await verifyInputsUnchanged(
+      snapshot,
+      packageDir,
+      policyPath,
+      "fake-verifier",
+    );
+    assert.ok(
+      changes.some((change) =>
+        change.includes("package file type changed: artifact.bin (file -> symlink)"),
+      ),
       changes.join("\n"),
     );
   } finally {

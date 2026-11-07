@@ -183,6 +183,10 @@ export function optionsWith(
       "assurance-package.json": MANIFEST_DIGEST,
       "artifacts/CORE-000.draft.md": `sha256:${"f".repeat(64)}`,
     },
+    packageFileTypes: {
+      "assurance-package.json": "file",
+      "artifacts/CORE-000.draft.md": "file",
+    },
     executions,
   };
 }
