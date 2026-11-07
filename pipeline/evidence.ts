@@ -69,6 +69,9 @@ function bulletList(items: readonly string[]): string {
  * Phase 2a verifiers executed, but the three required checks are Phase 2b scope.
  */
 export function renderEvidenceMarkdown(batch: C6Batch): string {
+  if (batch.ok !== true) {
+    throw new Error("refusing to render evidence from a batch that is not ok");
+  }
   const commitUrl = `${REPOSITORY_URL}/commit/${batch.contractBuilderCommit}`;
   const provenanceUrl = `https://github.com/${batch.provenance.repository}/commit/${batch.provenance.commit}`;
   const provenancePull = `https://github.com/${batch.provenance.repository}/pull/${batch.provenance.pullRequest}`;
@@ -238,7 +241,10 @@ records the resolved value. The \`pipeline-independent\` CI job runs this comman
 separate, non-blocking job: it is not a required status and does not gate the reference
 \`pipeline\` job. It uploads \`batch.json\`, the four reports and the package manifest for
 90 days. A missing report, an unparseable report, a pinned-identity mismatch, a
-\`packageIdentity\` disagreement or an input mutation fails the job explicitly.
+\`packageIdentity\` disagreement, a genuine check-level disagreement, a
+verdict/check-outcome contradiction or an input mutation fails the job explicitly.
+An invalid batch keeps its \`batch.json\` and reports for audit, but is never
+rendered as evidence Markdown.
 
 ## 7. What this does and does not establish
 

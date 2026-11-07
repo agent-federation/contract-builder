@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:a4efd7ea4d8ed3667c58e817f61651316f35842067005f5d93f7998c3c694506` |
+| inputDigest | `sha256:bd32d09bfd96992453043b0a91c3110e6774dc9de9ab58587b4260e9b060d498` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 

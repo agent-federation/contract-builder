@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -91,6 +92,41 @@ test("Appendix E.6: domain separation and framing ambiguity vectors", () => {
     domainHash("pap.test.v1", frameRecord("x", ["a", "bc"])),
     "sha256:19777dd70824683c8483961510324f7656c03378f3a4b64192e8bee7ff0ecff2",
   );
+});
+
+test("Appendix E.9: JCS UTF-16 key order and minimal string escaping", () => {
+  const plainSha256 = (value: string): string =>
+    `sha256:${createHash("sha256").update(utf8(value)).digest("hex")}`;
+
+  const ordered = canonicalJson({ a: 1, "😀": 2, "�": 3, A: 4, b: 5 });
+  assert.equal(ordered, '{"A":4,"a":1,"b":5,"😀":2,"�":3}');
+  assert.equal(utf8(ordered).length, 36);
+  assert.equal(
+    plainSha256(ordered),
+    "sha256:9267454f732ed7ef9939b28dc1e451c88c2967ff4a6b1746bf638d313e72b508",
+  );
+
+  const escaped = canonicalJson({ s: "\u0001\t\n\"\\é😀" });
+  assert.equal(escaped, '{"s":"\\u0001\\t\\n\\"\\\\é😀"}');
+  assert.equal(utf8(escaped).length, 28);
+  assert.equal(
+    plainSha256(escaped),
+    "sha256:9033f8f21bc1c3367ebcad55e2298bf113b63f9e5f21c20678de00e760c5ff5d",
+  );
+});
+
+test("Appendix E.9: JCS number subset is safe integers only", () => {
+  assert.equal(canonicalJson(9007199254740991), "9007199254740991");
+  assert.equal(canonicalJson(-9007199254740991), "-9007199254740991");
+  for (const invalid of [
+    9007199254740992,
+    -9007199254740992,
+    1.5,
+    Number.POSITIVE_INFINITY,
+    Number.NaN,
+  ]) {
+    assert.throws(() => canonicalJson(invalid), /safe integers/, String(invalid));
+  }
 });
 
 test("Appendix E.5: CRLF normalization and the per-file/set input vectors", () => {
