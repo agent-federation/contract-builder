@@ -19,10 +19,18 @@ const SHORT = new Map<string, string>([
   ["\r", "\\r"],
 ]);
 
+// BMP controls keep the fixed-width `\uXXXX` form. A code point above the BMP
+// needs more than four hex digits, so it is emitted in the self-delimiting
+// `\u{...}` form instead of a variable-width `\ue0001` that cannot be parsed
+// back without knowing the original value.
 function safe(value: string): string {
   return value.replace(CONTROL, (char) => {
     const short = SHORT.get(char);
-    return short ?? `\\u${(char.codePointAt(0) as number).toString(16).padStart(4, "0")}`;
+    if (short !== undefined) return short;
+    const codePoint = char.codePointAt(0) as number;
+    return codePoint <= 0xffff
+      ? `\\u${codePoint.toString(16).padStart(4, "0")}`
+      : `\\u{${codePoint.toString(16)}}`;
   });
 }
 
@@ -36,7 +44,7 @@ export function renderVerifyText(report: VerificationReport): string {
     `package: ${safe(report.package.identity ?? "null")} (papVersion ${safe(report.package.papVersion ?? "unknown")})`,
   );
   lines.push(
-    `verifier: pap ${report.verifier.version}  policy: ${safe(report.policy.id ?? "none")} state: ${report.policy.state}  evaluatedAt: ${report.evaluatedAt}`,
+    `verifier: pap ${report.verifier.version}  policy: ${safe(report.policy.id ?? "none")} digest: ${safe(report.policy.digest ?? "none")} state: ${report.policy.state}  evaluatedAt: ${report.evaluatedAt}`,
   );
   if (report.effectiveLimits !== undefined) {
     lines.push(

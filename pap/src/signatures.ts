@@ -10,6 +10,7 @@ import { opendir } from "node:fs/promises";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { utf8 } from "./digest.js";
 import { decodeSignatureEnvelope } from "./decode.js";
+import type { EnvelopeSignature } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { readPackageFile, resolvePackageDirectory } from "./paths.js";
 import type { PackageRoot } from "./paths.js";
@@ -31,12 +32,13 @@ export interface SignatureEvaluation {
   policyDecision: "ACCEPTED" | "REJECTED" | "STALE" | "NOT_EVALUATED";
   envelopeLimitHit: boolean;
   discoveryFailure: boolean;
+  /**
+   * True when the envelope-count limit stopped discovery before the verifier
+   * read any envelope. The signature scope is then NOT_EVALUATED rather than
+   * legitimately absent; callers must not infer this from `entries.length`.
+   */
+  readNone: boolean;
   diagnostics: Diagnostic[];
-}
-
-interface EnvelopeSignature {
-  keyId: string;
-  sig: Uint8Array;
 }
 
 interface ParsedEnvelope {
@@ -64,12 +66,13 @@ export async function evaluateSignatures(options: {
     });
   }
   const empty = (): SignatureEvaluation => ({
-    validity: options.mode === "disabled" ? "NOT_APPLICABLE" : "NOT_APPLICABLE",
+    validity: "NOT_APPLICABLE",
     entries,
     signerIdentity: "NOT_APPLICABLE",
     policyDecision: "NOT_EVALUATED",
     envelopeLimitHit: false,
     discoveryFailure: false,
+    readNone: false,
     diagnostics,
   });
   if (options.mode === "disabled") {
@@ -99,6 +102,7 @@ export async function evaluateSignatures(options: {
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: true,
       discoveryFailure: false,
+      readNone: true,
       diagnostics,
     };
   }
@@ -127,7 +131,7 @@ export async function evaluateSignatures(options: {
           code: "pap.package.limit-exceeded",
           severity: "error",
           scope: relative,
-          message: read.message ?? "signature envelope exceeds a configured resource limit",
+          message: `signature envelope exceeds the configured byte limit: ${relative}`,
         });
         continue;
       }
@@ -333,6 +337,7 @@ export async function evaluateSignatures(options: {
     policyDecision,
     envelopeLimitHit,
     discoveryFailure: discovered.error !== null,
+    readNone: false,
     diagnostics,
   };
 }

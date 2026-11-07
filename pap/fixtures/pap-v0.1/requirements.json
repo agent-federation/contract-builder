@@ -78,7 +78,8 @@
     ],
     "pap.claim.unsupported-version": [
       "F72-claim-unsupported-version",
-      "F80-claim-unsupported-version-dependent"
+      "F80-claim-unsupported-version-dependent",
+      "F86-provenance-claim-unsupported-version"
     ],
     "pap.claims.producer-mismatch": [
       "F20-producer-mismatch"
@@ -124,7 +125,8 @@
       "F61-relations-only-lowered"
     ],
     "pap.package.claim-invalid": [
-      "F58-undeclared-source"
+      "F58-undeclared-source",
+      "F87-claim-version-non-string"
     ],
     "pap.package.declared-file-missing": [
       "F22-path-traversal",
@@ -149,7 +151,8 @@
     "pap.package.limit-exceeded": [
       "F35-manifest-limit",
       "F52-lowered-limits",
-      "F61-relations-only-lowered"
+      "F61-relations-only-lowered",
+      "F88-signature-envelope-count-limit"
     ],
     "pap.package.manifest-json": [
       "F21-truncated-manifest",
@@ -372,7 +375,9 @@
       "F19-required-signature-absent",
       "F35-manifest-limit",
       "F54-all-optional",
-      "F62-policy-not-yet-valid"
+      "F62-policy-not-yet-valid",
+      "F86-provenance-claim-unsupported-version",
+      "F88-signature-envelope-count-limit"
     ],
     "R5": [
       "F20-producer-mismatch",
@@ -523,6 +528,7 @@
   "verdictCauseExceptions": {
     "F08-critical-extension": "UNSUPPORTED is raised by an unsupported critical extension; every required dimension was evaluated positive, so no dimension state carries the cause.",
     "F33-required-feature": "UNSUPPORTED is raised by a required feature the verifier does not implement; every required dimension was evaluated positive, so no dimension state carries the cause.",
-    "F54-all-optional": "the required set is empty by construction; RFC §7.4 rule 4 makes that INCOMPLETE and pap.package.empty-check-specs names the cause even though no dimension is required."
+    "F54-all-optional": "the required set is empty by construction; RFC §7.4 rule 4 makes that INCOMPLETE and pap.package.empty-check-specs names the cause even though no dimension is required.",
+    "F88-signature-envelope-count-limit": "the envelope-count limit stops signature evaluation before any envelope is read; the §4.3.4 limit code names the cause and every required dimension stays positive."
   }
 }

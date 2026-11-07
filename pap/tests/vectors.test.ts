@@ -201,6 +201,7 @@ test("E.10 identity mutation vectors", () => {
 
   const diagnostic = JSON.parse(JSON.stringify(baseline));
   diagnostic.checks[1].diagnostics.push({ code: "pap.check.partial", severity: "warning" });
+  assert.equal(diagnostic.checks[1].diagnostics[0].code, "pap.check.partial");
   assert.equal(hash(diagnostic), "sha256:635dcc4a65d44e5e011f8193705e9eb6c62eae8e553fd8068b60bc2ca59fc9e3");
 
   const quote = JSON.parse(JSON.stringify(baseline));

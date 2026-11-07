@@ -2,9 +2,11 @@
  * PAP v0.1 path grammar and package-root-confined streaming reads.
  *
  * Declared paths are validated before any filesystem access. Every path
- * component is checked for a symlink; the final object must be a regular file;
- * reads stay under the package root and are streamed through a bounded reader.
- * Payload hashing consumes chunks and never buffers the whole file.
+ * component is checked for a symlink; the final component must be a regular
+ * file when reading a payload and a directory when resolving a package
+ * directory. Reads stay under the package root and are streamed through a
+ * bounded reader. Payload hashing consumes chunks and never buffers the whole
+ * file.
  */
 
 import { constants } from "node:fs";

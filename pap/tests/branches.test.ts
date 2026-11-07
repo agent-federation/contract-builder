@@ -309,6 +309,19 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
     "checks",
   ]);
   assert.equal(report.coverage.full, false);
+  // Discriminating coverage: every required check is still evaluated; only the
+  // derived `trust` dimension is undecided. A comparison case that collapsed
+  // checks or dimensions would fail these counts even though `full` is false.
+  assert.deepEqual(report.coverage.requiredChecks, [
+    "pap.check.digest-integrity/1",
+    "pap.check.source-quote/1",
+    "pap.check.relation-consistency/1",
+  ]);
+  assert.equal(report.coverage.checksEvaluated, report.coverage.requiredChecks.length);
+  assert.equal(report.coverage.checksPassed, report.coverage.requiredChecks.length);
+  assert.equal(report.coverage.checksNotEvaluated, 0);
+  assert.equal(report.coverage.checksUnsupported, 0);
+  assert.equal(report.coverage.dimensionsEvaluated, report.coverage.requiredDimensions.length - 1);
   assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"));
   assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.signature.absent"));
 
@@ -321,6 +334,15 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
   assert.equal(metReport.verdict, "PASS");
   assert.equal(metReport.dimensions.trust.policyDecision, "ACCEPTED");
   assert.equal(metReport.coverage.full, true);
+  assert.deepEqual(metReport.coverage.requiredDimensions, [
+    "integrity",
+    "sources",
+    "signature",
+    "trust",
+    "checks",
+  ]);
+  assert.equal(metReport.coverage.checksEvaluated, metReport.coverage.requiredChecks.length);
+  assert.equal(metReport.coverage.dimensionsEvaluated, metReport.coverage.requiredDimensions.length);
 });
 
 test("human review: an array-valued decision is a claim-invalid, not an approval", () => {
