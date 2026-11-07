@@ -83,6 +83,13 @@ becomes `independently_verified`. The run commit, `packageIdentity`, verifier id
 matrix and report hashes are in [pipeline-evidence.md](pipeline-evidence.md); §4.4 records the
 delta.
 
+**Snapshot update for the zero/absent-source decision (#229, #233).** `bf5f544` (#233) changes
+`validateSources` to reject `undefined`, `[]` and more than one source with
+`core.manifest.invalid` at `/sources` during manifest validation, implementing ODR-ENG-001 B4;
+the legacy build-path `ERR_UNKNOWN_REF` is no longer reachable for a loaded manifest. A2 and §6
+record the implemented rule. Multi-source is still unimplemented and no new semantics are
+introduced.
+
 **CORE-000 register freshness.** `contracts/core000/claims.yml` declares
 **78 claims**; `tests/docs-freshness.test.ts` fails when this number and the register disagree.
 
@@ -249,7 +256,7 @@ carries it.
 | # | Capability | Decision | Implementation | Tests | Independent verification | Evidence |
 |---|---|---|---|---|---|---|
 | A1 | `SourceAdapter` interface (load + verifyQuote), one built-in `markdown` adapter, and an injectable adapter registry | `accepted` | `implemented` | `tested` | `—` | Contract [§11](engine-public-contract.md); [source.ts:13](../../spec/lib/source.ts#L13), [adapters/index.ts](../../spec/lib/adapters/index.ts); [build.test.ts:113](../../tests/build.test.ts#L113), [identity.test.ts:159](../../tests/identity.test.ts#L159) |
-| A2 | Multi-source projects (N sources, a provenance binding naming exactly one) | `proposed` | `—` | `—` | `—` | D21 `proposed`, M4 (#5); M1 rejects `sources.length > 1` during manifest validation with `core.manifest.invalid` ([manifest.ts:386](../../spec/lib/manifest.ts#L386)); absent or empty `sources` still fails later with legacy `ERR_UNKNOWN_REF` ([build.ts:154](../../spec/lib/build.ts#L154)); tests [unsupported-configurations.test.ts:133](../../tests/unsupported-configurations.test.ts#L133) multi-source, [:162](../../tests/unsupported-configurations.test.ts#L162) absent/empty. Multi-source itself remains unimplemented. The 2026-11-07 decision (contract [§5.3](engine-public-contract.md), ODR-ENG-001 B4) makes absent/empty a manifest-validation error too; [#229](https://github.com/agent-federation/contract-builder/issues/229) aligns the code and replaces the legacy expectation. |
+| A2 | Multi-source projects (N sources, a provenance binding naming exactly one) | `proposed` | `—` | `—` | `—` | D21 `proposed`, M4 (#5); M1 rejects a manifest that does not declare exactly one source during manifest validation with `core.manifest.invalid` at `/sources` ([manifest.ts:379](../../spec/lib/manifest.ts#L379) absent/empty, [:393](../../spec/lib/manifest.ts#L393) multiple), before the model, identity or renderer runs; the legacy build-path `ERR_UNKNOWN_REF` guard ([build.ts:154](../../spec/lib/build.ts#L154)) is unreachable for a validated manifest. Tests [unsupported-configurations.test.ts:133](../../tests/unsupported-configurations.test.ts#L133) multi-source, [:162](../../tests/unsupported-configurations.test.ts#L162) absent/empty. This implements the 2026-11-07 decision (contract [§5.3](engine-public-contract.md), ODR-ENG-001 B4) via [#233](https://github.com/agent-federation/contract-builder/pull/233) (`bf5f544`, closing [#229](https://github.com/agent-federation/contract-builder/issues/229)). Multi-source itself remains unimplemented. |
 | A3 | Extension trust boundary: profiles, adapters, renderers and hooks are trusted in-process code; executable profile modules require explicit caller consent (H5); `external: true` is an explicit trust declaration; declared closures participate in identity | `accepted` | `implemented` | `tested` | `—` | D28, D31; contract [§3.3](engine-public-contract.md), [§5.7](engine-public-contract.md), [§8.1](engine-public-contract.md); [build-identity.md](build-identity.md); [identity.test.ts:427](../../tests/identity.test.ts#L427), [identity.test.ts:554](../../tests/identity.test.ts#L554), [consent.test.ts:58](../../tests/consent.test.ts#L58) |
 | A4 | A second real profile (HTTP API) and an OpenAPI adapter | `deferred` | `—` | `—` | `—` | M3 (plan [§17](m1-implementation-plan.md), contract [§16.3](engine-public-contract.md)); only the synthetic `profiles/example` exists |
 | A5 | A synthetic non-CORE-001 profile builds through the same core path (M1 PR 7) | `accepted` | `implemented` | `tested` | `—` | Approved plan PR 7 (plan [§13](m1-implementation-plan.md)); issue #33 acceptance; [profiles/example](../../profiles/example); [example-profile.test.ts:146](../../tests/example-profile.test.ts#L146), [example-profile.test.ts:167](../../tests/example-profile.test.ts#L167), [example-profile.test.ts:195](../../tests/example-profile.test.ts#L195), [example-profile.test.ts:206](../../tests/example-profile.test.ts#L206) |
@@ -376,7 +383,7 @@ in the PAP component record, not here (#159's split). Files are relative to the 
 | Item | Merged as | Delivered | What it proves | What it does not prove |
 |---|---|---|---|---|
 | #145 / #158 profile closure | `70f6311` | `requiredProfileFiles` requires `view`, `validator`, `diagnostics`, every `schemas[*]` entry and the manifest's `render.template`/`render.labels` in `profile.files`; `resolveProfileClosure` fails closed with `core.extension.unpinned-dependency` before profile code is imported | An executable or consumed profile file can no longer escape the closure digest and the import scan | Completeness of the consumed set when the profile schema grows: the enumeration is manual and ODR-ENG-001 B1's recursive schema-walk test is not implemented (B6); nor that the static scan sees computed imports (B4) |
-| #179 data-only and multi-source | `213a57b` | `validateProfile` rejects a profile without `view`/`validator` with `core.profile.invalid` naming the M1 requirement; `validateSources` rejects `sources.length > 1` with `core.manifest.invalid` before the model, identity or renderer runs; absent/empty `sources` keeps legacy `ERR_UNKNOWN_REF` | Unsupported configurations now fail with an explicit diagnostic instead of degrading partially | That data-only profiles or multi-source semantics exist; the 2026-11-07 decision closes the zero/absent deviation by making it `core.manifest.invalid` too (contract §5.3, ODR-ENG-001 B4), and [#229](https://github.com/agent-federation/contract-builder/issues/229) implements it (A2, R6) |
+| #179 data-only and multi-source | `213a57b` | `validateProfile` rejects a profile without `view`/`validator` with `core.profile.invalid` naming the M1 requirement; `validateSources` rejects `sources.length > 1` with `core.manifest.invalid` before the model, identity or renderer runs (the absent/empty case was extended to the same manifest-validation error by [#233](https://github.com/agent-federation/contract-builder/pull/233)/`bf5f544`, see A2) | Unsupported configurations now fail with an explicit diagnostic instead of degrading partially | That data-only profiles or multi-source semantics exist; the 2026-11-07 decision closes the zero/absent deviation by making it `core.manifest.invalid` too (contract §5.3, ODR-ENG-001 B4), and [#233](https://github.com/agent-federation/contract-builder/pull/233) implements it (A2, R6) |
 | #181 engine-root portability | `9d4e623` | `runBuild({ engineRoot })` and CLI `--engine-root`; lexical `spec/lib` mapping and loading from the root (single occurrence, subpath rules, realpath containment, non-relative dispositions); `engineVersion` read from the root with a running-engine match check; CORE-000 harness passes the root instead of rewriting imports | A copied project builds without rewriting imports, and the executed engine module comes from the supplied root; the same declared project + version + extension identities are independent of launch location | Cross-platform byte equality, import-scan completeness for computed specifiers, or safe concurrent builds in one process (B5, §6 item 13) |
 
 **Recorded run for this delta (2026-11-06, local checkout).** `bun test` → 566 pass, 0 fail
@@ -419,7 +426,7 @@ of it. These are different kinds of claim and are not interchangeable:
   [G2](#36-diagnostics-shape-codes-and-phases), H3), provenance hardening (accepted 2026-11-02;
   V4).
 - **Proposed but not implemented:** `BuildStatus` and exit code 2 (D18), code namespacing (D17),
-  rule primitives (D15; R4), multi-source (D21; A2 — M1 now rejects more than one source), typed
+  rule primitives (D15; R4), multi-source (D21; A2 — M1 now rejects a manifest without exactly one source), typed
   review dimensions (D24; R5), packaging and publication (D14, D20, D29; X1–X2), runtime matrix
   (D19; X4).
 - **A code comment is no longer staler than the contract (fixed).** `RenderOptions.diagnostics`
@@ -462,10 +469,10 @@ Each item is a limitation of this commit, not a task list. Evidence is linked.
    extensions remains an author obligation (B3, B4;
    [build-identity.md](build-identity.md) "Static import scan").
 6. **One source is the only supported source.** The manifest type keeps an array, but M1 rejects
-   `sources.length > 1` with `core.manifest.invalid`; the 2026-11-07 decision makes an absent or
-   empty array `core.manifest.invalid` too (contract §5.3), while the current code still reports
-   the legacy `ERR_UNKNOWN_REF` until [#229](https://github.com/agent-federation/contract-builder/issues/229)
-   lands; multi-source behavior remains unimplemented (A2).
+   an absent, empty or multiple-entry `sources` array with `core.manifest.invalid` at `/sources`
+   during manifest validation (contract §5.3, ODR-ENG-001 B4; [#233](https://github.com/agent-federation/contract-builder/pull/233),
+   closing [#229](https://github.com/agent-federation/contract-builder/issues/229)). The legacy
+   build-path `ERR_UNKNOWN_REF` is historical only; multi-source behavior remains unimplemented (A2).
 7. **Multi-source, review dimensions, typed `ReviewState`, per-code blocking, rule primitives and
    conformance execution are absent from the code**, not merely undocumented (R4, R5, H3, N2, A2).
 8. **Diagnostics are narrower than the contract and carry legacy strings.** No `disposition`,
