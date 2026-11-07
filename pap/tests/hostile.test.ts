@@ -168,7 +168,15 @@ test("an oversized signature envelope is a limit, not envelope-invalid", () => {
   assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
   assert.equal(report.coverage.full, false);
   assert.equal(report.effectiveLimits.fileBytes, 1_024);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  const limit = report.diagnostics.find(
+    (diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded",
+  );
+  assert.ok(limit);
+  assert.match(
+    limit.message,
+    /^signature envelope exceeds the configured byte limit: /,
+    "the operator-facing limit message must name a signature envelope, not a declared file",
+  );
   assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
 });
 
@@ -432,9 +440,39 @@ test("a symlinked signature directory outside the package is not enumerated", ()
     assert.equal(symlink.severity, "error");
     assert.ok(!result.stdout.includes("evil.dsse.json"), "a name outside the package must not be reported");
     assert.ok(!result.stdout.includes("readme.txt"), "a name outside the package must not be reported");
+    assert.ok(
+      !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"),
+      "a refused discovery is not a legitimately unsigned package",
+    );
+    assert.ok(
+      !report.limitations.some((limitation: any) => limitation.code === "pap.signature.absent"),
+      "the absence limitation must not survive a discovery failure",
+    );
   } finally {
     rmSync(outside, { recursive: true, force: true });
   }
+});
+
+test("a dangling signatures symlink fails closed as pap.package.symlink", () => {
+  const dir = tempPackage();
+  symlinkSync(path.join(dir, "does-not-exist"), path.join(dir, "signatures"));
+  const policy = JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "signature-optional.json"), "utf8"),
+  );
+  const result = verify(dir, ["--trust-policy", writePolicy("policy.json", policy)]);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  const symlink = report.diagnostics.find(
+    (diagnostic: any) => diagnostic.code === "pap.package.symlink",
+  );
+  assert.ok(symlink, "a dangling signatures symlink must be reported as a symlink");
+  assert.equal(symlink.scope, "signatures");
+  assert.equal(symlink.severity, "error");
+  assert.ok(
+    !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"),
+    "a dangling symlink must not be reported as legitimately unsigned",
+  );
 });
 
 test("inspect reports structure without producing a verdict", () => {

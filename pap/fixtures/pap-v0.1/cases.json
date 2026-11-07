@@ -2300,6 +2300,121 @@
       "expect": {
         "exitCode": 64
       }
+    },
+    {
+      "caseId": "F86-provenance-claim-unsupported-version",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 2,
+        "verdict": "INCOMPLETE",
+        "dimensions": {
+          "signature.validity": "NOT_APPLICABLE",
+          "checks": {
+            "pap.check.source-quote/1": "NOT_EVALUATED"
+          }
+        },
+        "diagnosticCodes": [
+          "pap.claim.unsupported-version",
+          "pap.check.not-evaluated"
+        ],
+        "limitationCodes": [
+          "pap.claim.unsupported-version",
+          "pap.check.not-evaluated"
+        ],
+        "coverageFull": false,
+        "coverageRequiredDimensions": [
+          "integrity",
+          "sources",
+          "checks"
+        ],
+        "identityRelations": {
+          "packageIdentity": "differs-from-base"
+        },
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F87-claim-version-non-string",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/unsigned-valid.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 1,
+        "verdict": "FAIL",
+        "dimensions": {
+          "integrity.package": "FAIL"
+        },
+        "diagnosticCodes": [
+          "pap.package.claim-invalid"
+        ],
+        "limitationCodes": [
+          "pap.package.claim-invalid"
+        ],
+        "coverageFull": true,
+        "identityRelations": {
+          "packageIdentity": "differs-from-base"
+        },
+        "diagnosticCodesExact": true
+      }
+    },
+    {
+      "caseId": "F88-signature-envelope-count-limit",
+      "command": [
+        "verify",
+        ".",
+        "--trust-policy",
+        "../trust-policy/signature-envelope-count.json",
+        "--format",
+        "json",
+        "--now",
+        "2026-11-02T00:00:00Z"
+      ],
+      "expect": {
+        "exitCode": 2,
+        "verdict": "INCOMPLETE",
+        "dimensions": {
+          "signature.validity": "NOT_EVALUATED",
+          "trust.signerIdentity": "NOT_EVALUATED",
+          "trust.policyDecision": "NOT_EVALUATED"
+        },
+        "diagnosticCodes": [
+          "pap.package.limit-exceeded",
+          "pap.limit.lowered"
+        ],
+        "limitationCodes": [
+          "pap.package.limit-exceeded",
+          "pap.limit.lowered"
+        ],
+        "coverageFull": false,
+        "coverageRequiredDimensions": [
+          "integrity",
+          "sources",
+          "checks"
+        ],
+        "effectiveLimits": {
+          "signatureEnvelopes": 1
+        },
+        "identityRelations": {
+          "packageIdentity": "equals-base"
+        },
+        "diagnosticCodesExact": true
+      }
     }
   ]
 }

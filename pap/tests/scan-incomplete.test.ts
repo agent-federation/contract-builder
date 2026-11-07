@@ -38,6 +38,9 @@ function assertScanIncompleteReport(report: any, result: { status: number }): vo
   assert.equal(report.dimensions.integrity.artifacts, "PASS");
   const scan = report.diagnostics.filter((diagnostic: any) => diagnostic.code === scanIncompleteCode);
   assert.equal(scan.length >= 1, true);
+  assert.ok(
+    scan.every((diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete"),
+  );
   assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
   assert.ok(scan.every((diagnostic: any) => diagnostic.scope === "package"));
   assert.ok(report.limitations.some((limitation: any) => limitation.code === scanIncompleteCode));

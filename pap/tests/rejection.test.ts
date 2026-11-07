@@ -129,6 +129,24 @@ for (const fieldCase of POLICY_CASES) {
   }
 }
 
+for (const [label, limits] of [
+  ["prototype-chain key", { toString: 1 }],
+  ["unknown plain key", { noSuchLimit: 1 }],
+] as const) {
+  test(`policy limits rejects a ${label}: exit 64, no report`, () => {
+    // Appendix B `limits` is a closed map: membership must not fall through to
+    // Object.prototype, and an unexpected key must fail closed like any other
+    // unknown policy field.
+    const policy = policyFixture("unsigned-valid.json");
+    policy.limits = limits;
+    const result = verify(tempPackage(), ["--trust-policy", writePolicy(policy)]);
+    assert.equal(result.status, 64, result.stdout);
+    assert.equal(result.stdout, "");
+    assert.ok(result.stderr.includes("pap: pap.trust.policy-invalid:"), result.stderr);
+    assert.ok(result.stderr.includes("unknown limit"), result.stderr);
+  });
+}
+
 interface ManifestCase {
   field: string;
   mutate: (value: any, fieldValue: unknown) => void;

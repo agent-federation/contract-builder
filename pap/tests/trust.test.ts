@@ -39,6 +39,7 @@ test("checker implementation mismatch is pap.trust.checker-untrusted", () => {
     policyDecision: "NOT_EVALUATED",
     envelopeLimitHit: false,
     discoveryFailure: false,
+    readNone: false,
     diagnostics: [],
   };
   const diagnostics: Diagnostic[] = [];

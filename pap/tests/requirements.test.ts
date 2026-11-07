@@ -100,6 +100,80 @@ function unitTestSource(file: string): string {
   return stripComments(readFileSync(path.join(root, "tests", file), "utf8"));
 }
 
+/**
+ * Character spans of every `assert`/`assert.*(...)` call in the stripped
+ * source. Parentheses inside string and template literals are ignored so a
+ * literal such as `"("` cannot unbalance the scan.
+ */
+function assertionSpans(source: string): [number, number][] {
+  const spans: [number, number][] = [];
+  const isWordChar = (char: string | undefined): boolean =>
+    char !== undefined && /[A-Za-z0-9_$]/.test(char);
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index] as string;
+    if (char === '"' || char === "'" || char === "`") {
+      const quote = char;
+      index += 1;
+      while (index < source.length && source[index] !== quote) {
+        if (source[index] === "\\") index += 1;
+        index += 1;
+      }
+      index += 1;
+      continue;
+    }
+    if (
+      source.startsWith("assert", index) &&
+      !isWordChar(source[index - 1]) &&
+      !isWordChar(source[index + "assert".length])
+    ) {
+      let cursor = index + "assert".length;
+      while (cursor < source.length && /\s/.test(source[cursor] as string)) cursor += 1;
+      if (source[cursor] === ".") {
+        cursor += 1;
+        while (cursor < source.length && /[A-Za-z0-9_$]/.test(source[cursor] as string)) cursor += 1;
+      }
+      while (cursor < source.length && /\s/.test(source[cursor] as string)) cursor += 1;
+      if (source[cursor] === "(") {
+        let depth = 0;
+        let end = cursor;
+        while (end < source.length) {
+          const token = source[end] as string;
+          if (token === '"' || token === "'" || token === "`") {
+            const quote = token;
+            end += 1;
+            while (end < source.length && source[end] !== quote) {
+              if (source[end] === "\\") end += 1;
+              end += 1;
+            }
+          } else if (token === "(") {
+            depth += 1;
+          } else if (token === ")") {
+            depth -= 1;
+            if (depth === 0) break;
+          }
+          end += 1;
+        }
+        spans.push([cursor, end]);
+        index = end;
+        continue;
+      }
+    }
+    index += 1;
+  }
+  return spans;
+}
+
+/** The code-shaped marker must occur inside an `assert` call, not merely in a
+ * string literal that the test builds without asserting it. */
+function assertionContains(source: string, marker: string): boolean {
+  const spans = assertionSpans(source);
+  for (let index = source.indexOf(marker); index !== -1; index = source.indexOf(marker, index + 1)) {
+    if (spans.some(([start, end]) => index > start && index < end)) return true;
+  }
+  return false;
+}
+
 test("requirements.json covers every diagnostic code pap/src emits", () => {
   const emitted = emittedDiagnosticCodes();
   assert.ok(emitted.length > 0, "no diagnostic codes were extracted from pap/src");
@@ -158,9 +232,15 @@ test("unit-only codes name a focused unit test and no case", () => {
         existsSync(path.join(root, "tests", exemption.unitTest.file)),
         `${code} names a missing unit test file`,
       );
+      const source = unitTestSource(exemption.unitTest.file);
       assert.ok(
-        unitTestSource(exemption.unitTest.file).includes(exemption.unitTest.marker),
+        assertionContains(source, exemption.unitTest.marker),
         `${code} exemption names ${exemption.unitTest.file}, which does not assert ${exemption.unitTest.marker}`,
+      );
+      assert.equal(
+        source.includes(exemption.unitTest.marker),
+        true,
+        `${code} marker must still occur in ${exemption.unitTest.file}`,
       );
     }
   }

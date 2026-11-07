@@ -333,6 +333,34 @@ test("I3: PASS requires every required dimension in its positive state", () => {
   assert.equal(computeVerdict(stale, staleCtx), "INCOMPLETE");
 });
 
+test("I3 rule 1: optional mode with an operator-required signature FAILs on INVALID", () => {
+  // #175 S3 finding: the FAIL rule keys on the derived required set, not on
+  // `signature.mode`. An operator who lists `signature` in requiredDimensions
+  // makes an INVALID envelope a FAIL even though the policy mode is optional.
+  const value = states({ signature: { validity: "INVALID" } });
+  const ctx = context(value, {
+    requiredChecks: [],
+    requiredDimensions: ["signature"],
+    signatureMode: "optional",
+  });
+  assert.equal(ctx.coverageFull, true);
+  assert.equal(computeVerdict(value, ctx), "FAIL");
+});
+
+test("I3: the NOT_EVALUATED fold branch is pinned for a signature-only requirement", () => {
+  // `verify.ts` normally reports the empty requirement set as INCOMPLETE, so
+  // this branch is defense in depth rather than a wired outcome. Pin it so a
+  // future caller-built context cannot silently turn it into PASS.
+  const value = states({ signature: { validity: "NOT_APPLICABLE" } });
+  const ctx = context(value, {
+    requiredChecks: [],
+    requiredDimensions: ["signature"],
+  });
+  assert.deepEqual(ctx.requiredChecks, []);
+  assert.equal(ctx.coverageFull, true);
+  assert.equal(computeVerdict(value, ctx), "NOT_EVALUATED");
+});
+
 function makeRng(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
