@@ -51,13 +51,13 @@ The CLI contract is RFC §9: `verify`, `inspect`, `explain`; exit codes
 run writes nothing to stderr.
 
 **Timestamp grammar.** `--now` and every timestamp the verifier compares use PAP
-v0.1's own grammar: uppercase `T` and `Z`, 1–9 fractional digits, numeric
-`±HH:MM` offsets and no leap seconds. This is an intentional PAP restriction,
-stricter than RFC 3339, which also permits lowercase `t`/`z`. Lowercase input is
-rejected rather than normalised: an unparsable `--now` is a usage error (64), an
-invalid policy fails closed (64, no report), and a package timestamp is invalid
-package input. The pipeline gate applies the same grammar when it re-derives
-policy freshness.
+v0.1's own grammar: an uppercase `T`, 1–9 fractional digits, an offset that is
+uppercase `Z` or numeric `±HH:MM`, and no leap seconds. This is an intentional PAP
+restriction, stricter than RFC 3339, which also permits lowercase `t`/`z`. Lowercase
+input is rejected rather than normalised: an unparsable `--now` is a usage error
+(64), an invalid policy fails closed (64, no report), and a package timestamp is
+invalid package input. The pipeline gate applies the same grammar when it
+re-derives policy freshness.
 
 ## Tests
 

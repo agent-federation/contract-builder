@@ -2402,12 +2402,12 @@ verification result.
   error (64, `pap.cli.usage`). `evaluatedAt` is the normalised UTC instant rendered with `Z`, with
   the fraction preserved and trailing zeros stripped; without `--now` it is the local clock read
   once per run, rendered the same way.
-  **This grammar is PAP-specific, not plain RFC 3339.** Uppercase `T` and `Z` are required;
-  lowercase `t`/`z` (valid RFC 3339) and a missing numeric offset are rejected. This is an
-  intentional restriction of the profile above, not a claim that RFC 3339 requires uppercase.
-  Accepting the full RFC 3339 case grammar would be a coordinated parser/conformance change that
-  must move the verifier and the pipeline gate together. The pipeline gate re-derives policy
-  freshness from `report.evaluatedAt` and applies the same grammar.
+  **This grammar is PAP-specific, not plain RFC 3339.** Uppercase `T` is always required, and the
+  offset is either uppercase `Z` or a numeric `±HH:MM`; lowercase `t`/`z` (valid RFC 3339) and a
+  missing offset are rejected. This is an intentional restriction of the profile above, not a claim
+  that RFC 3339 requires uppercase. Accepting the full RFC 3339 case grammar would be a coordinated
+  parser/conformance change that must move the verifier and the pipeline gate together. The
+  pipeline gate re-derives policy freshness from `report.evaluatedAt` and applies the same grammar.
 - Policy issuance/expiry and review freshness use the evaluation clock (§5.11). `--now` exists for
   deterministic tests and reproductions; production use is an open question (§16.1(6)), not made
   safe by this format. Package timestamps are records of claims, never evidence about when
@@ -3316,7 +3316,7 @@ pins the missing-manifest branch of §9.7/Appendix J.1. F61 pins the rule that a
 payload evaluation forces `INCOMPLETE`, even when the affected dimension is not required (§4.3.4,
 §7.4 rule 4).
 
-Every case in this matrix is normative; §12.4 records the original F01–F61 matrix. The extended
+Every case in this matrix is normative; the matrix is the original F01–F61 corpus. The extended
 corpus (F62–F63 and F65–F85) is enumerated normatively in `cases.json` under the same harness and
 rules; F64 is intentionally absent. Phase 3 may add cases but may not remove one to let an
 implementation pass.
@@ -4237,10 +4237,10 @@ something no conforming verifier can produce, so it is rejected as `pap.trust.po
 rather than silently weakening the requirement.
 
 Schemas use `format: "date-time"`; implementations that assert formats must use PAP's timestamp
-grammar (§9.8), which is RFC 3339-shaped but deliberately stricter: uppercase `T`/`Z`, 1–9 fraction
-digits, numeric offsets and no leap seconds. The example below illustrates a policy that pins one
-checker implementation and one profile and requires the three mechanical checks and no signature.
-The `unsigned-valid.json` fixture omits
+grammar (§9.8), which is RFC 3339-shaped but deliberately stricter: uppercase `T`, an offset that
+is uppercase `Z` or numeric `±HH:MM`, 1–9 fraction digits and no leap seconds. The example below
+illustrates a policy that pins one checker implementation and one profile and requires the three
+mechanical checks and no signature. The `unsigned-valid.json` fixture omits
 `checkers[]`/`profiles[]` so that recognition is `NOT_APPLICABLE` for every implementation
 (§12.1); pinning the reference implementation's digest would make the fixture fail for an
 independent verifier.
