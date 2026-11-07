@@ -78,6 +78,9 @@
     "F81-signature-underdeclared-met": "sha256:f7df79d8cdf5a514c5398a0c7f4a9458f0e112b3ac7394326e7e8ea905d5114b",
     "F82-signature-underdeclared-unmet": "sha256:2a8edb2c2170e7b29418116969b4f0832d3265f6c7058cd88159af0aeb8b6ada",
     "F83-review-underdeclared": "sha256:2fcd215428b69ce3dad3d107996173b62ce73dccc4ccd4b95edf0ec7369ec2f6",
-    "F84-proto-member": "sha256:8ca6806b2898bc8456cdcf9067cb4cefcca4152808d94c858195a379280621f2"
+    "F84-proto-member": "sha256:8ca6806b2898bc8456cdcf9067cb4cefcca4152808d94c858195a379280621f2",
+    "F86-provenance-claim-unsupported-version": "sha256:fec1abaa4699c00cd356aef7eca2ba3fc386c1c6e22ce0e7e7d2393942bd6cee",
+    "F87-claim-version-non-string": "sha256:63ade4463540130ce412fd2189005d5614acf187f65e1d7c1a2bbc05e3b66327",
+    "F88-signature-envelope-count-limit": "sha256:7260e2335ac65d23c31cf9fa63c5dc6f44ecc6fd32fdc09438bcef6af76a8f04"
   }
 }

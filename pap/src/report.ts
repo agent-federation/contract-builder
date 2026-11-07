@@ -13,6 +13,7 @@ import {
   computeVerdict as foldVerdict,
   isCoverageFull,
   isDimensionDecided,
+  resolveRequiredCheckOutcomes,
   statusForDimension as stateStatusForDimension,
 } from "./state.js";
 import type {
@@ -25,11 +26,7 @@ import type {
 } from "./types.js";
 import { ZERO_DIGEST } from "./types.js";
 
-export {
-  computeRequiredDimensions,
-  deriveRequiredDimensions,
-  impliedDimensions,
-} from "./state.js";
+export { deriveRequiredDimensions, impliedDimensions, isEmptyRequiredSet } from "./state.js";
 export type { VerdictContext } from "./state.js";
 
 export function statusForDimension(
@@ -46,8 +43,7 @@ export function computeCoverage(
   limitStopped: boolean,
   scanIncomplete: boolean = false,
 ): VerificationReport["coverage"] {
-  const results = new Map(report.dimensions.checks.results.map((result) => [result.checkId, result.outcome]));
-  const outcomes = requiredChecks.map((checkId) => results.get(checkId) ?? "NOT_EVALUATED");
+  const outcomes = resolveRequiredCheckOutcomes(report.dimensions, requiredChecks);
   const counts = (outcome: CheckOutcome): number =>
     outcomes.filter((candidate) => candidate === outcome).length;
   const passed = counts("PASS");
