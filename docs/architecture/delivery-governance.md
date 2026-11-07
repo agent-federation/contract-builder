@@ -97,7 +97,8 @@ The high-value debt is concentrated:
 - `pap/src/verify.ts` (1515 lines) → orchestration + phases: package read/limits, manifest/claims decode, checks, trust/signature evaluation, report assembly; keep the CLI thin and the report model separate;
 - `spec/lib/identity.ts` (1761) → digest/envelope framing, engine-root resolution/import mapping, profile/adapter/renderer closure, build identity assembly;
 - shared helpers: one `text()`/`isObject()` in a single module per boundary (`pap` must not import `spec/`; keep a `pap/src/guards.ts` and use `spec/lib/guards.ts` for the engine);
-- renderer scaffolding: `MemoryLoader`, `finalize`, `countSeverity` belong in one shared profile-support module, not copied in each renderer.
+- renderer scaffolding: `MemoryLoader`, `finalize`, `countSeverity` belong in one shared profile-support module, not copied in each renderer;
+- test temp directories: stop the leak the audit measured (~221 dirs / ~466 MB per full run) with one centralized temp-directory helper/teardown across `tests/` and `pipeline/tests/`, and assert a clean `/tmp` delta after the suite.
 
 Sequencing: D2 format baseline first (so refactor diffs are clean), then split modules in separate PRs behind the existing tests and S2.2/golden checks; no behaviour change in the split PRs.
 
@@ -122,7 +123,7 @@ Until then, keep the enforced boundary (no imports of `spec/`, `profiles/`, prod
 | D4 | `docs-freshness` extensions (status-matrix hash, diagnostic codes) | tests bite on a deliberate contract/code change |
 | D5 | PR/issue templates + branch/size rules | templates used by the next PR; size guideline documented |
 | D6 | `debt` label + register convention + first triage | label exists; triage list linked from #170 |
-| D7 | Structural splits (verify, identity, helpers, renderer support) | behaviour-preserving PRs, tests/goldens green, no artifact byte change |
+| D7 | Structural splits (verify, identity, helpers, renderer support) + temp-dir lifecycle | behaviour-preserving PRs, tests/goldens green, no artifact byte change; full suite leaves no leaked temp dirs |
 | D8 | Verifier packaging decision recorded | trigger conditions in the RFC/ODR; no physical split until they hold |
 
 ## 5. Decisions requested (D1–D8)
