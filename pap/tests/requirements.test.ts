@@ -101,9 +101,55 @@ function unitTestSource(file: string): string {
 }
 
 /**
+ * Skip one quoted string or template literal starting at `start` (a quote or a
+ * backtick) and return the index just past it. A template placeholder
+ * (`${...}`) is skipped recursively, so a nested quote, backtick or bracket
+ * inside it cannot terminate the literal early.
+ */
+function skipQuoted(source: string, start: number): number {
+  const quote = source[start] as string;
+  let index = start + 1;
+  while (index < source.length) {
+    const char = source[index] as string;
+    if (char === "\\") {
+      index += 2;
+      continue;
+    }
+    if (char === quote) return index + 1;
+    if (quote === "`" && char === "$" && source[index + 1] === "{") {
+      index = skipTemplatePlaceholder(source, index + 2);
+      continue;
+    }
+    index += 1;
+  }
+  return index;
+}
+
+function skipTemplatePlaceholder(source: string, start: number): number {
+  let depth = 1;
+  let index = start;
+  while (index < source.length) {
+    const char = source[index] as string;
+    if (char === '"' || char === "'" || char === "`") {
+      index = skipQuoted(source, index);
+      continue;
+    }
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return index + 1;
+    }
+    index += 1;
+  }
+  return index;
+}
+
+/**
  * Character spans of every `assert`/`assert.*(...)` call in the stripped
- * source. Parentheses inside string and template literals are ignored so a
- * literal such as `"("` cannot unbalance the scan.
+ * source. Parentheses inside strings and template literals are ignored so a
+ * literal such as `"("` cannot unbalance the scan; template placeholders are
+ * followed so nested literals cannot end a literal early.
  */
 function assertionSpans(source: string): [number, number][] {
   const spans: [number, number][] = [];
@@ -113,13 +159,7 @@ function assertionSpans(source: string): [number, number][] {
   while (index < source.length) {
     const char = source[index] as string;
     if (char === '"' || char === "'" || char === "`") {
-      const quote = char;
-      index += 1;
-      while (index < source.length && source[index] !== quote) {
-        if (source[index] === "\\") index += 1;
-        index += 1;
-      }
-      index += 1;
+      index = skipQuoted(source, index);
       continue;
     }
     if (
@@ -140,13 +180,10 @@ function assertionSpans(source: string): [number, number][] {
         while (end < source.length) {
           const token = source[end] as string;
           if (token === '"' || token === "'" || token === "`") {
-            const quote = token;
-            end += 1;
-            while (end < source.length && source[end] !== quote) {
-              if (source[end] === "\\") end += 1;
-              end += 1;
-            }
-          } else if (token === "(") {
+            end = skipQuoted(source, end);
+            continue;
+          }
+          if (token === "(") {
             depth += 1;
           } else if (token === ")") {
             depth -= 1;
@@ -173,6 +210,18 @@ function assertionContains(source: string, marker: string): boolean {
   }
   return false;
 }
+
+test("assertionContains follows nested template placeholders", () => {
+  // A nested backtick in a placeholder used to end the literal early and could
+  // hide the closing parenthesis of the assert call (Gemini review, PR #231).
+  const asserted =
+    'assert.equal(value, `prefix ${fn(`)`)} suffix "pap.example.asserted-code"`);';
+  assert.equal(assertionContains(asserted, "pap.example.asserted-code"), true);
+  assert.equal(
+    assertionContains('const code = "pap.example.unasserted-code";', "pap.example.unasserted-code"),
+    false,
+  );
+});
 
 test("requirements.json covers every diagnostic code pap/src emits", () => {
   const emitted = emittedDiagnosticCodes();

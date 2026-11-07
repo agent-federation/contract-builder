@@ -66,7 +66,7 @@ export async function evaluateSignatures(options: {
     });
   }
   const empty = (): SignatureEvaluation => ({
-    validity: options.mode === "disabled" ? "NOT_APPLICABLE" : "NOT_APPLICABLE",
+    validity: "NOT_APPLICABLE",
     entries,
     signerIdentity: "NOT_APPLICABLE",
     policyDecision: "NOT_EVALUATED",

@@ -39,7 +39,10 @@ function assertScanIncompleteReport(report: any, result: { status: number }): vo
   const scan = report.diagnostics.filter((diagnostic: any) => diagnostic.code === scanIncompleteCode);
   assert.equal(scan.length >= 1, true);
   assert.ok(
-    scan.every((diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete"),
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete",
+    ),
+    "the scan-incomplete diagnostic must be reported",
   );
   assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
   assert.ok(scan.every((diagnostic: any) => diagnostic.scope === "package"));

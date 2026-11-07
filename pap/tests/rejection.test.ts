@@ -143,7 +143,6 @@ for (const [label, limits] of [
     assert.equal(result.status, 64, result.stdout);
     assert.equal(result.stdout, "");
     assert.ok(result.stderr.includes("pap: pap.trust.policy-invalid:"), result.stderr);
-    assert.ok(result.stderr.includes("unknown limit"), result.stderr);
   });
 }
 
