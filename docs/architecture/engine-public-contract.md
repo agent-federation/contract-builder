@@ -370,11 +370,14 @@ isolation remains deferred (`D32`). Build identity and the static import scan ar
 integrity/accounting mechanisms, not security boundaries, and they neither grant consent nor
 isolate execution. Consumer-supplied adapters and renderers are imported by the consumer and
 are trusted by construction; the M1 CLI imports a renderer module the consumer names explicitly
-(`--renderer-module`), only on the same consent flag, when the module resolves inside the
-selected project's profile directory and is declared in `profile.files`, when its reported id
-equals the manifest's declared `render[].renderer`, and after successful validation of the
-selected profile's declared closure. It therefore imports no renderer the consumer did not name
-and imports no profile code before the closure is validated. An unreadable lockfile is not treated as a pass: the closure is
+(`--renderer-module`) only after four pre-import gates: the same consent flag; realpath
+containment inside the selected project's profile directory; declaration in `profile.files`;
+and successful validation of the selected profile's declared closure. The import evaluates the
+module. After the import, and before registration, the module's reported id must equal the
+manifest's declared `render[].renderer`; a mismatch prevents registration, not execution, so
+the id is a post-import validation rather than an authorization gate. The CLI therefore imports
+no renderer the consumer did not name and imports no profile code before the closure is
+validated. An unreadable lockfile is not treated as a pass: the closure is
 unverifiable, so the preflight returns false and the build fails closed with `ERR_IO` before
 profile code is imported.
 
@@ -1211,12 +1214,14 @@ contract-builder check    [root] [--json]
 
 The M1 CLI exposes `--allow-executable-profile`; without it a build whose profile declares
 executable modules fails closed with `core.profile.consent-required` and imports no profile
-code. The CLI ships no renderer of its own: it loads the module named by `--renderer-module
-<path>` only when that module resolves inside the selected project's profile directory and is
-declared in `profile.files`, when its reported id equals the manifest's declared
-`render[].renderer`, and when the profile's declared closure validates. Consent alone never
-selects executable code, and without the flag no renderer is registered, so the build fails
-with `core.registry.missing` rather than falling back to a built-in one. The contract CLI must
+code. The CLI ships no renderer of its own: it imports the module named by `--renderer-module
+<path>` only after four pre-import gates — the module resolves inside the selected project's
+profile directory, it is declared in `profile.files`, the profile's declared closure validates,
+and the caller passed the consent flag. The import evaluates the module; after it, and before
+registration, the module's reported id must equal the manifest's declared `render[].renderer`,
+so a mismatch prevents registration but not execution. Consent alone never selects executable
+code, and without the flag no renderer is registered, so the build fails with
+`core.registry.missing` rather than falling back to a built-in one. The contract CLI must
 carry an equivalent explicit consent and renderer-module surface when it is implemented;
 consent must never be supplied by a manifest, profile or environment variable alone.
 
@@ -1296,9 +1301,10 @@ consent option governs profile modules it loads from the manifest; a consumer th
 adapter or renderer before calling the engine has made its own trust decision. The M1 CLI must
 not import a renderer module unless the caller passed the consent flag, the module is the one
 the consumer named with `--renderer-module`, it resolves inside the selected project's profile
-directory and is declared in `profile.files`, its reported id equals the manifest's
-`render[].renderer`, and the selected profile's declared closure has validated. The engine ships
-no renderer of its own, so consent without a named module registers nothing.
+directory, it is declared in `profile.files`, and the selected profile's declared closure has
+validated. The import evaluates the module; the manifest's `render[].renderer` id is compared
+after the import and only gates registration, not execution. The engine ships no renderer of its
+own, so consent without a named module registers nothing.
 
 Provenance verification belongs to the adapter because locator grammar is format-specific
 (`#10.2`, `#/paths/~1orders/get`). The core only knows that a quote must resolve to
@@ -1515,7 +1521,7 @@ without the decision.
 | D31 | Path and trust boundary | A (rev. §4) | root-contained by default; explicit `external: true`; outputs always contained | implicit relative paths | prevents silent traversal and symlink escape | manifest flags, `core.path.outside-root` | yes |
 | D32 | Isolated hook execution | D | not in 0.x; hooks run in-process | sandbox/worker isolation | no implementation in this PR | revisit if isolation is required | no |
 | D33 | Provenance binding versus verification | A (#37) | binding is structural; verification is a separate recorded result with `verified`/`failed`/`unavailable`/`stale` and a `VerificationRecord` | one boolean "verified" flag; treat a binding as evidence | consumers must be able to tell a well-formed binding from a checked result | `Entity.verification`, optional profile `verifyProvenance` hook, output provenance section; source digest records what was checked, not a declared pin | no |
-| D34 | Renderer wiring | A (#223, ODR-ENG-002) | the engine ships no renderer; the CLI imports one consumer-named module (`--renderer-module`), gated on consent, profile-directory containment, `profile.files` declaration, the declared renderer id and closure validation | built-in renderer selected by the project's profile id | the engine must carry no CORE-001 id; the project owns its renderer wiring | CLI flag, `tests/consent.test.ts` | yes |
+| D34 | Renderer wiring | A (#223, ODR-ENG-002) | the engine ships no renderer; the CLI imports one consumer-named module (`--renderer-module`) behind four pre-import gates (consent, profile-directory containment, `profile.files` declaration, closure validation); the declared renderer id is compared after the import, before registration | built-in renderer selected by the project's profile id | the engine must carry no CORE-001 id; the project owns its renderer wiring | CLI flag, `tests/consent.test.ts` | yes |
 
 D21 is superseded for M1 by ODR-ENG-001 B4: the array shape stays for forward compatibility, but
 M1 rejects more than one source during manifest validation (§5.3). Multi-source remains a future

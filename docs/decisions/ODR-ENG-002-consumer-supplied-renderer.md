@@ -14,13 +14,13 @@ Keeping that hardcode blocks the CORE-001 extraction (#220): once the project mo
 ## 2. Decision
 
 - **The engine ships no renderer.** Renderer wiring is owned by the consumer: the CLI caller (a project script or harness).
-- The CLI accepts `--renderer-module <path>` and loads that module only when all of the following hold:
+- The CLI accepts `--renderer-module <path>`. **Pre-import gates** — all four must pass before the module is imported:
   1. the caller passed `--allow-executable-profile` (the existing consent gate);
   2. the module resolves inside the selected project's profile directory (realpath-contained);
   3. the module is declared in the profile's `files`, so the profile closure digest and the import scan cover the code that will execute;
-  4. the profile's declared closure validates (the same preflight as `runBuild`, against the same engine root);
-  5. the imported module's reported id equals the manifest's declared `render[].renderer`.
-  If any condition fails, nothing is registered and the build fails closed with `core.registry.missing` — there is no silent fallback.
+  4. the profile's declared closure validates (the same preflight as `runBuild`, against the same engine root).
+- **Post-import validation.** Importing the module evaluates it. Only after the import, and before registration, the module's reported id must equal the manifest's declared `render[].renderer`. A mismatch prevents registration, not execution: the module body has already run. The id is a validation before registration, not an authorization gate.
+- If any gate fails, nothing is registered and the build fails closed with `core.registry.missing` — there is no silent fallback. An import failure propagates with its real cause (syntax error, missing dependency).
 - **CORE-001 wiring moves to the project.** `package.json` `build`, `build:release` and `check` pass `--renderer-module profiles/core001/renderer.ts`; the CORE-000 harness already uses the same pattern (`contracts/core000/run.ts` imports its renderer and passes the registry to `runBuild`).
 - **The genericity guard covers the whole `spec/` tree**, not only `spec/lib`.
 
@@ -34,7 +34,7 @@ Keeping that hardcode blocks the CORE-001 extraction (#220): once the project mo
 
 - **Behaviour change:** consent alone no longer produces a renderer. A build without `--renderer-module` fails with `core.registry.missing`; scripts were updated, and the committed CORE-001 artifact is unchanged (`bun run check`; golden `sha256:504bdc5b…`).
 - Contract §3.3, §10 and §11 updated; decision D34 added; CORE-000 claims `C000-IM-004`, `C000-IM-006`, `C000-GAP-004` and the consent evidence descriptions updated; `contracts/core000/output/CORE-000.draft.md` regenerated with the Q9 procedure.
-- The CLI carries no domain token; a project can only use a renderer module that lives inside its own profile directory, is declared in `profile.files`, and reports the id the manifest declares.
+- The CLI carries no domain token; a project can only use a renderer module that lives inside its own profile directory and is declared in `profile.files`. The module body executes on import; the declared renderer id is compared afterwards and only gates registration.
 
 ## 5. Verification
 

@@ -78,12 +78,14 @@ async function resolveRendererModule(
 
 /**
  * Wires the one renderer declared by the selected project. The CLI, as the consumer, imports
- * a module the consumer names explicitly, only when (a) the caller passed the same explicit
- * consent flag that `runBuild` requires, (b) the module resolves inside the selected project's
- * profile directory and is declared in `profile.files`, (c) its reported id matches the
- * manifest's declared `render[].renderer`, and (d) the selected profile's declared closure
- * validates. The closure is checked before the dynamic import, so an invalid or unverifiable
- * profile cannot cause its renderer/view modules to run first.
+ * a module the consumer names explicitly. Pre-import gates, all required before the import:
+ * (a) the caller passed the same explicit consent flag that `runBuild` requires, (b) the module
+ * resolves inside the selected project's profile directory (realpath containment), (c) it is
+ * declared in `profile.files`, and (d) the selected profile's declared closure validates. The
+ * import evaluates the module. After the import, and before registration, the module's reported
+ * id must equal the manifest's declared `render[].renderer`: a mismatch prevents registration,
+ * not execution. The closure is checked before the dynamic import, so an invalid or
+ * unverifiable profile cannot cause its renderer/view modules to run first.
  */
 export async function loadProfileRenderers(
   allow: boolean,

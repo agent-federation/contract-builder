@@ -775,7 +775,7 @@ claims:
 
   - id: C000-IM-006
     author: "it-start"
-    statement: "The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, when its reported id equals the manifest's declared `render[].renderer`, and after the profile closure validates; without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile."
+    statement: "The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, and only after the profile closure validates — all before the import; the import evaluates the module, and its reported id is compared with the manifest's declared `render[].renderer` after the import and before registration, so a mismatch prevents registration but not execution. Without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external

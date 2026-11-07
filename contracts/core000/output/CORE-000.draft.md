@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:f18069d5bd38288d9b82435702d767ec20a6a0e5e591e4014b6c20f9fd83492f` |
+| inputDigest | `sha256:a4efd7ea4d8ed3667c58e817f61651316f35842067005f5d93f7998c3c694506` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -1144,7 +1144,7 @@ _6 claims: 0 accepted, 0 proposed, 0 deferred, 6 none_
 - Status: decision=`none`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `external`
 - Lifecycle: `active`
-- Statement: The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, when its reported id equals the manifest's declared `render[].renderer`, and after the profile closure validates; without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile.
+- Statement: The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, and only after the profile closure validates — all before the import; the import evaluates the module, and its reported id is compared with the manifest's declared `render[].renderer` after the import and before registration, so a mismatch prevents registration but not execution. Without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile.
 
 - Scope: CORE-000 accepted design §4.2 row C000-IM-006 at the accepted design baseline
 - Verification method: Accepted design §4.2 evidence/method column for C000-IM-006 at the accepted design baseline: `spec/cli-renderers.ts`; `tests/consent.test.ts`
@@ -1587,7 +1587,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:25f3dc129c404f7b184920339211c010f8d34d2bca5b7bbd6e5e13659a0addc3`
+- Source digest: `sha256:ce99264a0c96397ac51f2814d6166cf1acb47f7bc6dc1cc1cb8d095632e550d1`
 - Quote: The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**
 
 ### SRC-MANIFEST-001
@@ -1598,7 +1598,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:25f3dc129c404f7b184920339211c010f8d34d2bca5b7bbd6e5e13659a0addc3`
+- Source digest: `sha256:ce99264a0c96397ac51f2814d6166cf1acb47f7bc6dc1cc1cb8d095632e550d1`
 - Quote: `render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred.
 
 ### SRC-PROVENANCE-001
@@ -1609,7 +1609,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:25f3dc129c404f7b184920339211c010f8d34d2bca5b7bbd6e5e13659a0addc3`
+- Source digest: `sha256:ce99264a0c96397ac51f2814d6166cf1acb47f7bc6dc1cc1cb8d095632e550d1`
 - Quote: A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit.
 
 ## Evidence

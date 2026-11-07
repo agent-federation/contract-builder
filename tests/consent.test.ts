@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -329,6 +329,31 @@ test("consent: a module exporting a null renderer fails loudly", async () => {
     loadProfileRenderers(true, dir, { rendererModule: module }),
     /не экспортирует renderer/,
   );
+});
+
+test("consent: the CLI preflight rejects a renderer module reached through a symlink out of the profile directory", async () => {
+  const dir = await copyProjectWithProfile("preflight-symlink");
+  const outside = path.join(dir, "outside-renderer.ts");
+  await writeFile(
+    outside,
+    'export const renderer = { id: "core001-markdown", version: "0.1.0", render: async () => [] };\n',
+    "utf8",
+  );
+  const link = path.join(dir, "profiles", "core001", "link-renderer.ts");
+  await symlink(outside, link);
+  await declareProfileFile(dir, "link-renderer.ts");
+
+  let imported = 0;
+  const renderers = await loadProfileRenderers(true, dir, {
+    rendererModule: link,
+    importRenderer: async () => {
+      imported += 1;
+      return FAKE_RENDERER;
+    },
+  });
+
+  assert.equal(imported, 0, "a symlinked module escaping the profile directory was imported");
+  assert.deepEqual(renderers, {});
 });
 
 test("consent: the CLI preflight does not import the renderer when the lockfile is unreadable", async () => {
