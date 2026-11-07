@@ -1,3 +1,6 @@
+import { realpath } from "node:fs/promises";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { Diagnostics } from "./lib/diagnostics.js";
 import {
   createEngineImportMapping,
@@ -7,11 +10,11 @@ import {
 import { loadManifest, type ResolvedProject } from "./lib/manifest.js";
 import type { Renderer } from "./lib/render.js";
 
-const CORE001_PROFILE_ID = "core001";
-const CORE001_RENDERER_ID = "core001-markdown";
-
-/** Loads the built-in renderer module. Injectable so tests can observe the import order. */
-export type RendererImporter = () => Promise<Renderer>;
+/**
+ * Loads one renderer module from an absolute path. Injectable so tests can observe the
+ * import order without executing the real module.
+ */
+export type RendererImporter = (modulePath: string) => Promise<Renderer>;
 
 /** The closure preflight. Injectable so tests can simulate an unavailable lockfile. */
 export type ProfileClosureValidator = (
@@ -20,7 +23,12 @@ export type ProfileClosureValidator = (
 ) => Promise<boolean>;
 
 export interface ProfileRendererOptions {
-  /** Renderer importer injection; defaults to the built-in CORE-001 renderer module. */
+  /**
+   * Absolute path of the consumer-supplied renderer module. The engine ships no renderer of
+   * its own and has no default: without this option no executable renderer is registered.
+   */
+  rendererModule?: string;
+  /** Renderer importer injection; defaults to a dynamic import of `rendererModule`. */
   importRenderer?: RendererImporter;
   /** Closure validator injection; defaults to `validateProfileClosure`. */
   validateClosure?: ProfileClosureValidator;
@@ -31,18 +39,51 @@ export interface ProfileRendererOptions {
   engineRoot?: string;
 }
 
-const importCore001Renderer: RendererImporter = async () => {
-  const { renderer } = await import("../profiles/core001/renderer.js");
-  return renderer;
+const importRendererModule: RendererImporter = async (modulePath) => {
+  const loaded = (await import(pathToFileURL(modulePath).href)) as { renderer?: Renderer };
+  if (loaded.renderer === undefined) {
+    throw new Error(`Модуль рендерера "${modulePath}" не экспортирует renderer`);
+  }
+  return loaded.renderer;
 };
 
 /**
- * The built-in CORE-001 renderer is an executable profile-owned module. The CLI, as the
- * consumer that wires it, imports it only when (a) the caller passed the same explicit
- * consent flag that `runBuild` requires, (b) the selected project declares the CORE-001
- * profile and this renderer, and (c) the selected profile's declared closure validates.
- * The closure is checked before the dynamic import, so an invalid or unverifiable profile
- * cannot cause its renderer/view modules to run first.
+ * Resolves a consumer-supplied renderer module against the selected project. The module must
+ * be a regular file inside the profile directory and be declared in `profile.files`, so the
+ * profile closure digest and the import scan cover the code that is about to run. A module
+ * outside that boundary is never imported.
+ */
+async function resolveRendererModule(
+  project: ResolvedProject,
+  modulePath: string,
+): Promise<string | null> {
+  if (!path.isAbsolute(modulePath)) return null;
+  const module = await realpath(modulePath).catch(() => null);
+  const profileDir = await realpath(project.profileDir).catch(() => null);
+  if (module === null || profileDir === null) return null;
+
+  const relative = path.relative(profileDir, module);
+  if (
+    relative.length === 0 ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return null;
+  }
+  const posixRelative = relative.split(path.sep).join("/");
+  if (project.profile.files?.includes(posixRelative) !== true) return null;
+  return module;
+}
+
+/**
+ * Wires the one renderer declared by the selected project. The CLI, as the consumer, imports
+ * a module the consumer names explicitly, only when (a) the caller passed the same explicit
+ * consent flag that `runBuild` requires, (b) the module resolves inside the selected project's
+ * profile directory and is declared in `profile.files`, (c) its reported id matches the
+ * manifest's declared `render[].renderer`, and (d) the selected profile's declared closure
+ * validates. The closure is checked before the dynamic import, so an invalid or unverifiable
+ * profile cannot cause its renderer/view modules to run first.
  */
 export async function loadProfileRenderers(
   allow: boolean,
@@ -50,7 +91,7 @@ export async function loadProfileRenderers(
   options: ProfileRendererOptions = {},
 ): Promise<Record<string, Renderer>> {
   if (!allow) return {};
-  const importRenderer = options.importRenderer ?? importCore001Renderer;
+  const importRenderer = options.importRenderer ?? importRendererModule;
   const engineRoot = options.engineRoot ?? defaultEngineRoot();
   const validateClosure: ProfileClosureValidator =
     options.validateClosure ??
@@ -67,14 +108,23 @@ export async function loadProfileRenderers(
   const diagnostics = new Diagnostics();
   const project = await loadManifest(specDir, diagnostics);
   if (project === null) return {};
-  if (project.profile.id !== CORE001_PROFILE_ID) return {};
-  if (project.manifest.render[0]?.renderer !== CORE001_RENDERER_ID) return {};
+
+  const declaredRenderer = project.manifest.render[0]?.renderer;
+  if (declaredRenderer === undefined) return {};
+
+  if (options.rendererModule === undefined) return {};
+  const modulePath = await resolveRendererModule(project, options.rendererModule);
+  if (modulePath === null) return {};
 
   // Preflight the same profile closure `runBuild` validates, against the same engine root.
-  // CORE-001 declares renderer.ts and view.ts in profile.files, so this covers the modules
-  // imported below (their imports and dependency pins) before any executable profile code runs.
   if (!(await validateClosure(project, diagnostics))) return {};
 
-  const renderer = await importRenderer();
+  let renderer: Renderer;
+  try {
+    renderer = await importRenderer(modulePath);
+  } catch {
+    return {};
+  }
+  if (renderer.id !== declaredRenderer) return {};
   return { [renderer.id]: renderer };
 }

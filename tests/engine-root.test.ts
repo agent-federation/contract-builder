@@ -56,6 +56,44 @@ async function copyEngineProject(name: string): Promise<string> {
   return dir;
 }
 
+/**
+ * Adds a dependency-free renderer module to a copied project and declares it in the profile.
+ * Temp copies have no `node_modules`, so the copied profile renderer (which imports `nunjucks`)
+ * cannot be imported there; this module needs only a `node:` builtin.
+ */
+async function addProbeRenderer(projectDir: string): Promise<string> {
+  const profileDir = path.join(projectDir, "profiles", "core001");
+  const modulePath = path.join(profileDir, "probe-renderer.ts");
+  await writeFile(
+    modulePath,
+    [
+      'import { createHash } from "node:crypto";',
+      'import { fileURLToPath } from "node:url";',
+      "const bytes = new TextEncoder().encode(\"probe\\n\");",
+      'const sha256 = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;',
+      "export const renderer = {",
+      '  id: "core001-markdown",',
+      '  version: "0.1.0",',
+      "  closure: {",
+      '    root: fileURLToPath(new URL(".", import.meta.url)),',
+      '    files: ["probe-renderer.ts"],',
+      "    dependencies: {},",
+      "  },",
+      "  async render() {",
+      '    return [{ path: "output/CORE-001.draft.md", bytes, sha256 }];',
+      "  },",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  const profilePath = path.join(profileDir, "profile.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files?: string[] };
+  profile.files = [...(profile.files ?? []), "probe-renderer.ts"];
+  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  return modulePath;
+}
+
 /** A temp engine checkout: same layout and version, with a real `spec/lib` copy. */
 async function copyEngineRoot(name: string, version?: string): Promise<string> {
   const engine = await mkdtemp(path.join(tmpdir(), `engine-root-checkout-${name}-`));
@@ -106,6 +144,7 @@ test("engine-root: a copied project builds from the supplied root without rewrit
 
 test("engine-root: the CLI accepts --engine-root for a copied project", async () => {
   const copied = await copyEngineProject("cli");
+  const rendererModule = await addProbeRenderer(copied);
   const cli = spawnSync(
     process.execPath,
     [
@@ -114,6 +153,8 @@ test("engine-root: the CLI accepts --engine-root for a copied project", async ()
       path.join(copied, "spec"),
       "--engine-root",
       root,
+      "--renderer-module",
+      rendererModule,
       "--no-write",
       "--json",
       "--allow-executable-profile",
@@ -151,6 +192,7 @@ test("engine-root: the CLI preflight validates against --engine-root, not the ru
   profile.dependencies = { ...(profile.dependencies ?? {}), "engine-root-probe": "1.0.0" };
   await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 
+  const rendererModule = await addProbeRenderer(project);
   const cli = spawnSync(
     process.execPath,
     [
@@ -159,6 +201,8 @@ test("engine-root: the CLI preflight validates against --engine-root, not the ru
       project,
       "--engine-root",
       engineRoot,
+      "--renderer-module",
+      rendererModule,
       "--no-write",
       "--json",
       "--allow-executable-profile",
