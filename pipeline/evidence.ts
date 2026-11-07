@@ -230,11 +230,11 @@ both the run commit and the absolute paths change.
 
 \`\`\`bash
 bun install --frozen-lockfile
-bun run pipeline:independent --out "$RUNNER_TEMP/pipeline-independent" \\
-  --now ${batch.pinnedNow}
+bun run pipeline:independent --out "$RUNNER_TEMP/pipeline-independent"
 \`\`\`
 
-The \`pipeline-independent\` CI job runs this command on every pull request. It is a
+The script reads the pinned \`--now\` from \`pipeline/pinned-now.txt\`; the batch
+records the resolved value. The \`pipeline-independent\` CI job runs this command on every pull request. It is a
 separate, non-blocking job: it is not a required status and does not gate the reference
 \`pipeline\` job. It uploads \`batch.json\`, the four reports and the package manifest for
 90 days. A missing report, an unparseable report, a pinned-identity mismatch, a

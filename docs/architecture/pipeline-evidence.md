@@ -8,7 +8,7 @@ required comparison record, not a certification, a gate decision or a claim of s
 
 | Field | Value |
 |---|---|
-| Contract-builder run commit | [`542052d781edc92e2583f7bd0e47f596aa7c19f4`](https://github.com/agent-federation/contract-builder/commit/542052d781edc92e2583f7bd0e47f596aa7c19f4) |
+| Contract-builder run commit | [`469887637784457cb5256417064920b93e051554`](https://github.com/agent-federation/contract-builder/commit/469887637784457cb5256417064920b93e051554) |
 | Pinned `--now` | `2026-11-06T00:00:00Z` |
 | Trust policy | `policy-core000-unsigned-2026-11` |
 | Trust-policy path used by all four runs | Run-local copy of `pipeline/policy/core000-trust-policy.json` (identical bytes; the same absolute path for all four runs; retained in `batch.json`) |
@@ -27,8 +27,8 @@ blind-lab handoff reports are provenance, not the source of truth.
 
 | Field | Value |
 |---|---|
-| `packageIdentity` | `sha256:57280f75156896cb899981a4d5455f3a6bc761f4f07bfb0ebcf4a80268339bbb` |
-| Manifest SHA-256 (`assurance-package.json`) | `339d40a6502a66471212fb746e4a86bef74c91695ca069294c9a6d5610e142e6` |
+| `packageIdentity` | `sha256:7fb4b660c62257ada1f86dd46f653497a45d1982b6f73ac13768eb8913f194b8` |
+| Manifest SHA-256 (`assurance-package.json`) | `d0394ff23962ac691142353fa2581363aeb3610cc7e4fea27325cbee796f9d5b` |
 | PAP version | `0.1` |
 | Build `engineVersion` | `0.1.0` |
 | Build `manifestVersion` | `0.1` |
@@ -40,7 +40,7 @@ blind-lab handoff reports are provenance, not the source of truth.
 
 **Commit binding.** `packageIdentity` is commit-bound: the manifest's
 `sources[].acquisition.revision` is the packing checkout's git HEAD, so the identity
-above is valid for `542052d781edc92e2583f7bd0e47f596aa7c19f4` only. A CI run packs its own
+above is valid for `469887637784457cb5256417064920b93e051554` only. A CI run packs its own
 checkout (on a pull request, the merge commit) and therefore records a different
 identity. The evidence pin is the run commit stated here, not a constant.
 
@@ -48,10 +48,10 @@ identity. The evidence pin is the run commit stated here, not a constant.
 
 | Verifier | id | version | implementationDigest | verdict | exit | report SHA-256 |
 |---|---|---|---|---|---|---|
-| reference | pap.verifier.reference | 0.1.0 | `sha256:fc9478c781922d37458efc7f2aef8e5fcb4d38d3e74a94778790a6db40a5081e` | PASS | 0 | `b42392158e6bf99df01a6872a2f5b641ad843604d2f6dbe0e10e48ebaee550ed` |
-| rust | pap.verifier.rust | 0.1.0 | `sha256:e5d6ab21a1ea94d17e0ed60f1873ca622db03b2fac70ebda0f172f24c4c1454d` | UNSUPPORTED | 4 | `9256c7c36c812a40632c88cbe0d5b457b5c753bc0b14dac1766aeef6b01121fc` |
-| go | pap.verifier.go | 0.1.0 | `sha256:f386a6f8712bdb290be2b272d93bc70bfb589d6c4289bfbd9044b2b118c7dc14` | UNSUPPORTED | 4 | `b00a21010a428e048f74d561f8e1230c29e81859692890f69aea795e39a0c3b6` |
-| python | pap.verifier.python | 0.1.0 | `sha256:367c40ff74b93d34b927485035000cbeb465f8e4ebcde8cd85c61743efd41393` | UNSUPPORTED | 4 | `cd2d341202965ca236c78a8452ce9b5045e4eb2bdfb9ee860ca88301ce3fa76e` |
+| reference | pap.verifier.reference | 0.1.0 | `sha256:fc9478c781922d37458efc7f2aef8e5fcb4d38d3e74a94778790a6db40a5081e` | PASS | 0 | `79e676235106e4798e63c148e6788a041b0315b637016688865289877493a5bc` |
+| rust | pap.verifier.rust | 0.1.0 | `sha256:e5d6ab21a1ea94d17e0ed60f1873ca622db03b2fac70ebda0f172f24c4c1454d` | UNSUPPORTED | 4 | `9ad3a87ce9b7bb77d601c8ed01529319d03bffafea084643911bbdc905a65b81` |
+| go | pap.verifier.go | 0.1.0 | `sha256:f386a6f8712bdb290be2b272d93bc70bfb589d6c4289bfbd9044b2b118c7dc14` | UNSUPPORTED | 4 | `3b0060bae2098b680e678a9d34fd7b731e1f4d9d31bc44166017eae2128eded9` |
+| python | pap.verifier.python | 0.1.0 | `sha256:367c40ff74b93d34b927485035000cbeb465f8e4ebcde8cd85c61743efd41393` | UNSUPPORTED | 4 | `7a04194fa66c3403648bc7b161d24228b9bc23ddd98e6d0159c1f51a2c2d16c7` |
 
 ### Pinned independent sources
 
@@ -81,25 +81,23 @@ it does **not** mean PASS. A report's verdict is never rewritten or converted he
 | `pap.check.source-quote/1` | PASS | UNSUPPORTED | UNSUPPORTED | UNSUPPORTED |
 | `pap.check.relation-consistency/1` | PASS | UNSUPPORTED | UNSUPPORTED | UNSUPPORTED |
 
-The reference verifier evaluates all three required checks. The three independent
-implementations are PAP v0.1 **Phase 2a** only (walker, manifest schema, JCS, digests,
-report and exit codes); the three required check implementations are **Phase 2b**, which
-is out of scope for this evidence record. The independent verdict is therefore
-`UNSUPPORTED`; the package/artifact/source integrity and availability dimensions still
-agree with the reference on the same package bytes.
+The reference verifier reports `PASS` (exit 0)
+on the three required checks. The independent verdicts are rust: UNSUPPORTED, go: UNSUPPORTED, python: UNSUPPORTED.
+The three independent implementations are PAP v0.1 **Phase 2a** only (walker, manifest schema, JCS, digests, report and exit codes); the three required check implementations are **Phase 2b**, which is out of scope for this evidence record, so the independent check outcomes are not evaluated. Package/artifact/source integrity and source availability agree across the four runs.
 
 ## 5. Differences and limitations
 
-- The independent runs agree with the reference on packageIdentity and on package/artifact/source integrity and source availability; they do not evaluate the CORE-000 required checks, which are Phase 2b scope and out of scope for C6.
+- The independent runs agree with the reference on packageIdentity and on package/artifact/source integrity and source availability.
 - The package is commit-bound: packageIdentity includes sources[].acquisition.revision, the packing checkout's git HEAD. Re-running from another commit, including the CI merge commit, produces a different identity.
 - Verifier reports carry absolute package and policy paths, so the report SHA-256 values are path-dependent. The hashes in this batch are for the recorded run paths; CI regenerates them for its own checkout.
 - All three independent implementations were produced in blind-lab by one owner/harness (two model families). This supports implementation independence, not team independence (the Gate 3 caveat).
+- The independent implementations are PAP v0.1 Phase 2a only; the required checks are not evaluated there and are Phase 2b scope, out of scope for C6.
 - No CORE-000 claim is promoted to independently_verified; H3 is executed-not-evaluated for the Phase 2b checks.
 
 ### Recorded differences
 
-- The reference verifier evaluates the three required checks and reports PASS (exit 0).
-- The three independent implementations implement PAP v0.1 Phase 2a only: the three required checks are UNSUPPORTED (exit 4), so their verdict is UNSUPPORTED and never PASS.
+- The reference verifier reports PASS on the three required checks.
+- The independent verdicts are rust UNSUPPORTED, go UNSUPPORTED, python UNSUPPORTED. A non-PASS independent verdict is recorded as-is and is never converted to PASS.
 
 ### Path-dependent hashes
 
@@ -121,11 +119,11 @@ both the run commit and the absolute paths change.
 
 ```bash
 bun install --frozen-lockfile
-bun run pipeline:independent --out "$RUNNER_TEMP/pipeline-independent" \
-  --now 2026-11-06T00:00:00Z
+bun run pipeline:independent --out "$RUNNER_TEMP/pipeline-independent"
 ```
 
-The `pipeline-independent` CI job runs this command on every pull request. It is a
+The script reads the pinned `--now` from `pipeline/pinned-now.txt`; the batch
+records the resolved value. The `pipeline-independent` CI job runs this command on every pull request. It is a
 separate, non-blocking job: it is not a required status and does not gate the reference
 `pipeline` job. It uploads `batch.json`, the four reports and the package manifest for
 90 days. A missing report, an unparseable report, a pinned-identity mismatch, a
