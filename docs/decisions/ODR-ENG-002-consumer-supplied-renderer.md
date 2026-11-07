@@ -35,12 +35,14 @@ Keeping that hardcode blocks the CORE-001 extraction (#220): once the project mo
 - **Behaviour change:** consent alone no longer produces a renderer. A build without `--renderer-module` fails with `core.registry.missing`; scripts were updated, and the committed CORE-001 artifact is unchanged (`bun run check`; golden `sha256:504bdc5b…`).
 - Contract §3.3, §10 and §11 updated; decision D34 added; CORE-000 claims `C000-IM-004`, `C000-IM-006`, `C000-GAP-004` and the consent evidence descriptions updated; `contracts/core000/output/CORE-000.draft.md` regenerated with the Q9 procedure.
 - The CLI carries no domain token; a project can only use a renderer module that lives inside its own profile directory and is declared in `profile.files`. The module body executes on import; the declared renderer id is compared afterwards and only gates registration.
+- **Residual assumption (TOCTOU).** Containment resolves the module path and the profile directory once, before the closure preflight and the import; a file swapped between the check and the import is outside the guarantee. This is the engine's existing trust model — integrity and accounting mechanisms are not a security boundary, and process/isolation is deferred (contract §3.3, D32) — and it applies equally to the engine's own profile imports.
+- **Import failure under `--json`.** A renderer import failure is a configuration error, not a build result: the CLI writes the real cause to stderr and exits 1, and `--json` emits no result object on this path. Missing, unnamed, undeclared or mismatched modules still produce `core.registry.missing` through the normal result object.
 
 ## 5. Verification
 
 - `bun run typecheck`, `bun test`, `bun run check` green.
 - `spec/output/CORE-001.draft.md` byte-identical (golden hash unchanged).
-- New consent tests: no-module fallback, module outside the profile directory, module not declared in `profile.files`, id mismatch, closure-before-import, unreadable lockfile.
+- New consent tests: no-module fallback, module outside the profile directory, module not declared in `profile.files`, id mismatch (injected and end-to-end), closure-before-import, unreadable lockfile, null export, import failure, symlink escape, and `--renderer-module` without consent.
 - CORE-000 `S2.2 artifact verification` green after regeneration.
 
 ## 6. Follow-ups

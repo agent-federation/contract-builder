@@ -1,4 +1,4 @@
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Diagnostics } from "./lib/diagnostics.js";
@@ -59,8 +59,11 @@ async function resolveRendererModule(
 ): Promise<string | null> {
   if (!path.isAbsolute(modulePath)) return null;
   const module = await realpath(modulePath).catch(() => null);
+  if (module === null) return null;
+  const info = await stat(module).catch(() => null);
+  if (info === null || !info.isFile()) return null;
   const profileDir = await realpath(project.profileDir).catch(() => null);
-  if (module === null || profileDir === null) return null;
+  if (profileDir === null) return null;
 
   const relative = path.relative(profileDir, module);
   if (

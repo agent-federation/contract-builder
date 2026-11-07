@@ -971,7 +971,8 @@ a separate maintainer decision.
 
 - The generic CLI’s profile selection, flag wiring and renderer selection. `spec/cli-renderers.ts`
   only wires the CORE-001 renderer (`profile core001`, renderer `core001-markdown`); a CORE-000
-  project through the CLI would fail with `core.registry.missing` (G4).
+  project through the CLI would fail with `core.registry.missing` (G4). **Amended 2026-11-07:**
+  the CLI now imports the consumer-named renderer module ([ODR-ENG-002](../decisions/ODR-ENG-002-consumer-supplied-renderer.md), #223).
 - The public `loadProject`/`validateProject`/`buildProject`/`renderModel`/`checkArtifacts` API and
   package exports, which do not exist yet (K2/M2). The harness imports the engine’s internal
   `runBuild` module directly.

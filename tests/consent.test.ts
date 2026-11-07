@@ -297,6 +297,32 @@ test("consent: the CLI preflight rejects a renderer module not declared in profi
   assert.deepEqual(renderers, {});
 });
 
+/** Writes a dependency-free renderer module with the given id into a copied profile. */
+async function addRendererModule(dir: string, id: string): Promise<string> {
+  const name = `probe-renderer-${id}.ts`;
+  const module = path.join(dir, "profiles", "core001", name);
+  const source = [
+    'import { fileURLToPath } from "node:url";',
+    'const bytes = new TextEncoder().encode("probe");',
+    "export const renderer = {",
+    `  id: ${JSON.stringify(id)},`,
+    '  version: "0.1.0",',
+    "  closure: {",
+    '    root: fileURLToPath(new URL(".", import.meta.url)),',
+    `    files: [${JSON.stringify(name)}],`,
+    "    dependencies: {},",
+    "  },",
+    "  async render() {",
+    '    return [{ path: "output/CORE-001.draft.md", bytes, sha256: "sha256:0" }];',
+    "  },",
+    "};",
+    "",
+  ].join("\n");
+  await writeFile(module, source, "utf8");
+  await declareProfileFile(dir, name);
+  return module;
+}
+
 /** Adds a file to the copied project's declared profile closure. */
 async function declareProfileFile(dir: string, name: string): Promise<void> {
   const file = path.join(dir, "profiles", "core001", "profile.json");
@@ -354,6 +380,54 @@ test("consent: the CLI preflight rejects a renderer module reached through a sym
 
   assert.equal(imported, 0, "a symlinked module escaping the profile directory was imported");
   assert.deepEqual(renderers, {});
+});
+
+test("consent: --renderer-module does not bypass the consent gate", async () => {
+  const cli = spawnSync(
+    process.execPath,
+    [
+      cliPath,
+      "--spec",
+      path.join(root, "spec"),
+      "--no-write",
+      "--json",
+      "--renderer-module",
+      path.join(root, "profiles", "core001", "renderer.ts"),
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+
+  assert.equal(cli.status, 1, cli.stderr);
+  const output = JSON.parse(cli.stdout) as CliJson;
+  assert.equal(output.exitCode, 1);
+  assert.ok(output.diagnostics.some((item) => item.code === "core.profile.consent-required"));
+  assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
+});
+
+test("consent: a real renderer module whose id mismatches is imported but not registered", async () => {
+  const dir = await copyProjectWithProfile("e2e-id-mismatch");
+  const module = await addRendererModule(dir, "other-markdown");
+
+  const cli = spawnSync(
+    process.execPath,
+    [
+      cliPath,
+      "--spec",
+      dir,
+      "--no-write",
+      "--json",
+      "--allow-executable-profile",
+      "--renderer-module",
+      module,
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+
+  assert.equal(cli.status, 1, cli.stderr);
+  const output = JSON.parse(cli.stdout) as CliJson;
+  assert.equal(output.exitCode, 1);
+  assert.ok(output.diagnostics.some((item) => item.code === "core.registry.missing"));
+  assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
 });
 
 test("consent: the CLI preflight does not import the renderer when the lockfile is unreadable", async () => {
