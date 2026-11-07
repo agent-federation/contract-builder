@@ -159,7 +159,7 @@ test("E2: a multi-source manifest is rejected before the model, identity or rend
   assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
 });
 
-test("E2: missing or empty sources keeps the existing source-not-declared error", async () => {
+test("E2: missing or empty sources is rejected before the model, identity or renderer", async () => {
   for (const variant of ["missing", "empty"] as const) {
     const dir = await copyProjectWithProfile(`e2-${variant}-sources`);
     await editManifest(dir, (manifest) => {
@@ -167,11 +167,27 @@ test("E2: missing or empty sources keeps the existing source-not-declared error"
       else manifest.sources = [];
     });
 
-    const result = await runBuild(base(dir));
+    const result = await runBuild(base(dir, { write: true }));
     assert.equal(result.exitCode, 1, variant);
     assert.equal(result.blockedBy, "errors", variant);
-    assert.ok(codes(result).includes("ERR_UNKNOWN_REF"), `${variant}: ${summary(result)}`);
-    assert.equal(codes(result).includes("core.manifest.invalid"), false, variant);
+    assert.equal(result.written, false, variant);
+    assert.equal(result.markdown, null, variant);
+    assert.equal(result.identity, null, variant);
+    // The sole diagnostic proves the manifest was rejected during validation, before the
+    // model phase; the legacy build-path ERR_UNKNOWN_REF must not be reported.
+    assert.deepEqual(codes(result), ["core.manifest.invalid"], `${variant}: ${summary(result)}`);
+
+    const diagnostic = result.diagnostics[0]!;
+    assert.equal(diagnostic.file, "contract-builder.json", variant);
+    assert.equal(diagnostic.pointer, "/sources", variant);
+    assert.match(diagnostic.message, /M1 supports exactly one source/, variant);
+    assert.match(
+      diagnostic.message,
+      /zero-source manifests are not supported by M1/,
+      variant,
+    );
+    assert.equal(codes(result).includes("ERR_UNKNOWN_REF"), false, variant);
+    assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false, variant);
   }
 });
 

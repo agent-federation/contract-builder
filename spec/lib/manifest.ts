@@ -39,7 +39,7 @@ export interface Manifest {
   project: { id: string; title?: string; revision?: string };
   profile: { id: string; version: string; source: string; external?: boolean };
   inputs: ManifestInput[];
-  /** M1 supports exactly one source; more than one is rejected by `validateSources`. */
+  /** M1 supports exactly one source; zero, absent or multiple entries are rejected by `validateSources`. */
   sources?: ManifestSource[];
   /** M1 supports exactly one render declaration; zero or many are rejected by the loader. */
   render: ManifestRender[];
@@ -324,7 +324,7 @@ function validateManifest(value: unknown, diags: Diagnostics): Manifest | null {
       ...(profile.external === true ? { external: true } : {}),
     },
     inputs,
-    ...(sources !== undefined ? { sources } : {}),
+    sources,
     render,
     ...(output !== undefined ? { output } : {}),
   };
@@ -375,14 +375,21 @@ function validateInputs(
 function validateSources(
   value: unknown,
   fail: (pointer: string, message: string) => null,
-): ManifestSource[] | undefined | null {
-  if (value === undefined) return undefined;
+): ManifestSource[] | null {
+  if (value === undefined || (Array.isArray(value) && value.length === 0)) {
+    return fail(
+      "/sources",
+      "M1 supports exactly one source: manifest.sources must contain exactly one entry; " +
+        "zero-source manifests are not supported by M1 (declared 0)",
+    );
+  }
   if (!Array.isArray(value)) return fail("/sources", "sources должен быть массивом");
 
-  // M1 supports exactly one source (ODR-ENG-001 B4). Reject more than one here, during
-  // manifest validation, so neither the model, the identity nor the renderer sees a
-  // multi-source manifest. An absent or empty array keeps the existing "source not
-  // declared" error reported by the build path (ERR_UNKNOWN_REF).
+  // M1 supports exactly one source (ODR-ENG-001 B4). Reject zero, absent and multiple
+  // sources here, during manifest validation, so neither the model, the identity nor the
+  // renderer sees a manifest without exactly one source. Historically an absent or empty
+  // array passed this check and failed later on the build path with ERR_UNKNOWN_REF; that
+  // legacy behaviour is not the policy for this structural violation.
   if (value.length > 1) {
     return fail(
       "/sources",
