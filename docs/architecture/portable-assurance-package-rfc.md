@@ -76,7 +76,7 @@ implementations, and it deliberately does not implement either side.
 | CLI | `pap verify`, `pap inspect`, `pap explain`; explicit exit codes; machine-readable report | §9 |
 | Threats | directory-only parsing, no symlinks, ASCII paths, resource limits, no producer or profile execution | §10 |
 | Signatures | optional DSSE/Ed25519 adapter; in-toto mapping; Sigstore/SCITT/OCI deferred | §11 |
-| Conformance | 61 normative fixture cases with expected dimensions, verdict, exit code and diagnostics | §12 |
+| Conformance | 84 normative fixture cases (F01–F63, F65–F85) with expected dimensions, verdict, exit code and diagnostics | §12 |
 | Independence | second implementation from this RFC, schemas and vectors only; first demo unsigned | §13 |
 
 The package is a **transport and evidence envelope**, not the engine's internal IR. It carries
@@ -133,7 +133,7 @@ here are therefore the same identities the provenance RFC measured at `e8c917f`.
 
 | Surface | Behaviour at `f1ddcf7` | Verified at | PAP bearing |
 |---|---|---|---|
-| Build identity result | `BuildResult.identity` has exactly `projectId`, `engineVersion`, `manifestVersion`, `inputDigest`, `extensions[]` (kind/id/version of used profile, adapters, renderer). It is `null` when the build stops before identity. At `f1ddcf7` it was not rendered; C5b passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it. | `spec/lib/identity.ts:29–35`; `spec/lib/build.ts:45–54`, `:309–314`; `spec/lib/render.ts:23–40`; `tests/identity.test.ts:693`; `tests/envelope.test.ts:50`; `docs/architecture/build-identity.md:37–40` | The PAP `build` block MAY carry the engine version, manifest version, input digest and extension list as producer claims. PAP's `packageIdentity` is not this value. |
+| Build identity result | `BuildResult.identity` has exactly `projectId`, `engineVersion`, `manifestVersion`, `inputDigest`, `extensions[]` (kind/id/version of used profile, adapters, renderer). It is `null` when the build stops before identity. At `f1ddcf7` it was not rendered; C5b passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it. | `f1ddcf7`: `spec/lib/identity.ts:29–35`, `spec/lib/build.ts:45–54`. C5b, head-relative (line numbers at the C5b head, not `f1ddcf7`): `spec/lib/build.ts:309–314`, `spec/lib/render.ts:24–40`, `tests/identity.test.ts:693`, `tests/envelope.test.ts:50`, `docs/architecture/build-identity.md:37–40` | The PAP `build` block MAY carry the engine version, manifest version, input digest and extension list as producer claims. PAP's `packageIdentity` is not this value. |
 | `inputDigest` | One SHA-256 over the ASCII envelope `contract-builder/input-digest/v1\n` and length-prefixed records in fixed order: canonical manifest; each loaded declared input (declared path, LF-normalized bytes) in manifest order; each loaded source (`id`, adapter id, LF-normalized bytes) in manifest order; profile (`id`, `version`, `profileDigest`); distinct adapters sorted by id; the renderer. Emitted as `sha256:<hex>`. | `spec/lib/identity.ts:358–477` (envelope `:70–71`, framing `:151–164`, digest `:474`); `docs/architecture/build-identity.md:32–50` | A single producer-side build identity. PAP separates package identity, normalized inputs and extension closures (§5); the verifier cannot recompute this digest (Appendix I). |
 | Canonical manifest | Object keys are sorted recursively (the build-identity record calls this code-point order), arrays keep declared order and are never sorted, absent optional properties are omitted, `external: true` is preserved. Declared paths stay manifest-relative; the project root is not inserted; there is no insignificant whitespace. | `spec/lib/identity.ts:143–149`, `:1118–1130`; `docs/architecture/build-identity.md:52–62` | PAP defines its own canonical form, RFC 8785 JCS over an I-JSON subset (§5). The engine does not claim JCS, so PAP identities are never computed from the engine's canonical form. |
 | LF normalization | Declared text inputs and extension files are UTF-8 decoded (fatal) and `CRLF`/`CR` become `LF`. Source documents follow the same rule when their bytes decode as UTF-8 and contain no NUL; otherwise they are hashed raw (binary fallback). Declared input paths become POSIX and lose a leading `./`. | `spec/lib/identity.ts:124–141`; `docs/architecture/build-identity.md:63–72` | PAP's `normalizedInputDigest` covers packaged inputs only and uses its own domain; PAP's `rawSourceDigest` covers raw bytes separately (§5, Appendix I). |
@@ -2402,6 +2402,12 @@ verification result.
   error (64, `pap.cli.usage`). `evaluatedAt` is the normalised UTC instant rendered with `Z`, with
   the fraction preserved and trailing zeros stripped; without `--now` it is the local clock read
   once per run, rendered the same way.
+  **This grammar is PAP-specific, not plain RFC 3339.** Uppercase `T` and `Z` are required;
+  lowercase `t`/`z` (valid RFC 3339) and a missing numeric offset are rejected. This is an
+  intentional restriction of the profile above, not a claim that RFC 3339 requires uppercase.
+  Accepting the full RFC 3339 case grammar would be a coordinated parser/conformance change that
+  must move the verifier and the pipeline gate together. The pipeline gate re-derives policy
+  freshness from `report.evaluatedAt` and applies the same grammar.
 - Policy issuance/expiry and review freshness use the evaluation clock (§5.11). `--now` exists for
   deterministic tests and reproductions; production use is an open question (§16.1(6)), not made
   safe by this format. Package timestamps are records of claims, never evidence about when
@@ -3031,29 +3037,34 @@ only within one verifier build; diagnostic messages are never compared across im
 fixtures/pap-v0.1/
   README.md               fixture policy and how to run the matrix
   cases.json              machine-readable case index and expected assertions
+  cases-phase2a.json      Phase 2a experiment-scope subset; not §12 normative material
   requirements.json       code/requirement/verdict-cause map (ODR-PAP-006 A6)
+  archive.tar             regular-file input for the F25 CLI usage case
   base/                   canonical valid package; bytes equal to Appendix F
     assurance-package.json  artifacts/ACME-SUPPLIER.draft.md  inputs/project.yml
     sources/acme-policy.md  claims/{provenance,relations,producer-report}.json
-  F01-unchanged/ … F85-…/ one complete static package copy per case
+  F01-unchanged/ … F85-…/ one complete static package copy per case (F64 is absent; see below)
   trust-policy/           unsigned-valid.json  signature-required.json
                           signature-optional.json  expired.json  invalid.json
                           not-authorized-role.json  package-not-allowed.json
                           unknown-signer.json  profile-pinned.json  review-required.json
-                          lowered-limits.json  not-yet-valid.json
+                          relations-only-lowered.json  lowered-limits.json  not-yet-valid.json
                           checker-unknown.json  profile-untrusted.json
                           signature-required-underdeclared.json
                           signature-quorum-two-underdeclared.json
                           review-underdeclared.json  strict-enum.json
-  signatures/             trusted.dsse.json  untrusted.dsse.json  invalid.dsse.json
+  signatures/             trusted.dsse.json  unknown.dsse.json  invalid.dsse.json
 ```
 
 `cases.json` references the Appendix E literals directly, so no separate `vectors/` copy is
 needed. The trust-policy fixtures have these normative semantics. Each is one fixed file: a
 fixture is normative data, so an "either shape is allowed" description would be a conformance
-defect. The F62-F80 cases extend the corpus for diagnostic-code coverage; F81-F85 pin the
-S3 required-dimension derivation and the remaining hostile-input boundaries. Their expected
-statuses, diagnostics and coverage are recorded in `cases.json` and enforced by the same harness.
+defect. The corpus has 84 cases: F01–F63 and F65–F85. F64 is intentionally absent — the IDs are
+stable labels, not a dense sequence, and no normative case was removed — so the F62–F63 and
+F65–F80 cases extend the corpus for diagnostic-code coverage and F81–F85 pin the S3
+required-dimension derivation and the remaining hostile-input boundaries. Their expected
+statuses, diagnostics and coverage are recorded in `cases.json` and enforced by the same harness;
+§12.4 records the original F01–F61 matrix.
 
 | Fixture | Required content and behaviour |
 |---|---|
@@ -3125,9 +3136,10 @@ A JCS JSON document: `{"fixtureSetVersion": "0.1", "baseCase": "F01", "cases": [
 - `expect.effectiveLimits` is an optional object of limit name → integer. Each named limit MUST
   equal the report's `effectiveLimits[name]`; a report with no `effectiveLimits` fails the case.
   Limits not named are unconstrained. F52 uses it to pin a lowered limit.
-- `expect.coverageRequiredDimensions` is an optional exact, ordered list; when present, the
-  report's `coverage.requiredDimensions` MUST equal it. F81-F83 use it to pin the I1/E2
-  derivation when the policy under-declares the derived dimensions.
+- `expect.coverageRequiredDimensions` is an optional exact list in the verifier's canonical
+  `DIMENSION_ORDER` (`pap/src/state.ts`); when present, the report's
+  `coverage.requiredDimensions` MUST equal it exactly, including order. F81-F83 use it to pin the
+  I1/E2 derivation when the policy under-declares the derived dimensions.
 - `noReport: true` marks exit 64/70/74 cases: no document, and `stderrCodes` MUST appear on
   stderr. Cases for `inspect`/`explain` name `"document": "inspection"|"explanation"` and use
   `inspection` / `checkOutcome` instead of `verdict`.
@@ -3304,8 +3316,10 @@ pins the missing-manifest branch of §9.7/Appendix J.1. F61 pins the rule that a
 payload evaluation forces `INCOMPLETE`, even when the affected dimension is not required (§4.3.4,
 §7.4 rule 4).
 
-Every case above is normative; the set is F01–F61. Phase 3 may add cases but may not remove one
-to let an implementation pass.
+Every case in this matrix is normative; §12.4 records the original F01–F61 matrix. The extended
+corpus (F62–F63 and F65–F85) is enumerated normatively in `cases.json` under the same harness and
+rules; F64 is intentionally absent. Phase 3 may add cases but may not remove one to let an
+implementation pass.
 
 ### 12.5 Acceptance rules
 
@@ -4222,9 +4236,11 @@ dimensions are always `NOT_EVALUATED` in v0.1, and a policy that required them w
 something no conforming verifier can produce, so it is rejected as `pap.trust.policy-invalid`
 rather than silently weakening the requirement.
 
-Schemas use `format: "date-time"`; implementations that assert formats must use RFC 3339. The
-example below illustrates a policy that pins one checker implementation and one profile and
-requires the three mechanical checks and no signature. The `unsigned-valid.json` fixture omits
+Schemas use `format: "date-time"`; implementations that assert formats must use PAP's timestamp
+grammar (§9.8), which is RFC 3339-shaped but deliberately stricter: uppercase `T`/`Z`, 1–9 fraction
+digits, numeric offsets and no leap seconds. The example below illustrates a policy that pins one
+checker implementation and one profile and requires the three mechanical checks and no signature.
+The `unsigned-valid.json` fixture omits
 `checkers[]`/`profiles[]` so that recognition is `NOT_APPLICABLE` for every implementation
 (§12.1); pinning the reference implementation's digest would make the fixture fail for an
 independent verifier.

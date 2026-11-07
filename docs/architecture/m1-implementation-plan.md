@@ -550,6 +550,12 @@ For CORE-001 the resolved value is `projectId: "uia-core-001"`, `engineVersion: 
 Excluded: clock, locale, environment, absolute paths, file mtimes, user identity, network state.
 `identity` is computed but **not rendered**, so it cannot move the artifact.
 
+**Amendment 2026-11-07 (C5b, #215/#218).** This §11 text records the M1 slice. C5b now passes the
+computed identity to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001
+envelopes render it. Rendering does not feed artifact bytes back into `inputDigest`, so the
+identity remains a pure function of the declared inputs and extension closures
+(`engine-public-contract.md` §8.1).
+
 **Implementation choice (closure declaration).** The contract says an extension's closure is its
 declared files plus its lockfile dependencies but does not say where the declaration lives. M1
 puts it in `profiles/core001/profile.json` as `files: string[]` and
@@ -762,11 +768,13 @@ the relation inventory, the provenance choice and the PR sequence.
 
 - `lib/identity.ts`: canonical manifest, LF-normalized inputs, `profileDigest`, extension
   closures, static import scan, `core.extension.unpinned-dependency`.
-- `BuildResult.identity` populated (not rendered).
+- `BuildResult.identity` populated (not rendered at M1; C5b later exposes and renders it — see the
+  §11 amendment).
 
 **Acceptance tests**
 
-1. Golden hash unchanged; identity is absent from the artifact.
+1. Golden hash unchanged; identity is absent from the artifact. (M1 acceptance; C5b later changes
+   the golden hash intentionally when the envelopes render the identity.)
 2. Two consecutive builds produce the same `inputDigest`.
 3. A one-byte change in any declared input changes `inputDigest`.
 4. A change to any file in the profile's declared closure changes `profileDigest` and

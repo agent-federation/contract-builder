@@ -50,6 +50,15 @@ The CLI contract is RFC §9: `verify`, `inspect`, `explain`; exit codes
 `--format json` writes exactly one JCS document plus one LF to stdout. A report
 run writes nothing to stderr.
 
+**Timestamp grammar.** `--now` and every timestamp the verifier compares use PAP
+v0.1's own grammar: uppercase `T` and `Z`, 1–9 fractional digits, numeric
+`±HH:MM` offsets and no leap seconds. This is an intentional PAP restriction,
+stricter than RFC 3339, which also permits lowercase `t`/`z`. Lowercase input is
+rejected rather than normalised: an unparsable `--now` is a usage error (64), an
+invalid policy fails closed (64, no report), and a package timestamp is invalid
+package input. The pipeline gate applies the same grammar when it re-derives
+policy freshness.
+
 ## Tests
 
 ```bash
@@ -87,7 +96,9 @@ the record-identity and E.10 mutation tests.
 
 - `base/` — the Appendix F package, byte-identical to the E.1/E.2 vectors;
 - `F01-…` through `F85-…` — one static package copy per case (empty directory
-  for CLI-only variations that target `../base`);
+  for CLI-only variations that target `../base`). `F64` is intentionally absent:
+  the IDs are stable labels, not a dense sequence, so 84 directories cover
+  `F01–F63` and `F65–F85`;
 - `trust-policy/` — the fixed Appendix B policy fixtures, including
   `relations-only-lowered.json` for F61 and the `*-underdeclared.json` policies
   that prove I1/E2 derivation;

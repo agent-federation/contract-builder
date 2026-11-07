@@ -2161,6 +2161,12 @@ YAML inputs are the machine-readable surface. Priority: medium; depends on M2.
 **Observation.** The contract describes N sources; M1 exercises one. The loader loops over sources,
 but the CORE-001 hook consumes `sources[0]`, and no test builds a two-source project (M:A2).
 
+**Amended 2026-11-07 (E2/#179; ODR-ENG-001 B4 decision).** M1 now rejects more than one source
+during manifest validation with `core.manifest.invalid`, and the 2026-11-07 decision makes an absent
+or empty source array the same manifest-validation error (code and tests in #229). Multi-source
+*semantics* remain unimplemented, so the one-source workaround below still stands; the observation's
+"no test builds a two-source project" is superseded by the rejection test.
+
 **Impact.** CORE-000 cannot quote the contract, the matrix and the build-identity note as three
 provenance sources. It uses one source (the contract) and treats the other documents as evidence
 references. Claims about the matrix or the identity note are not provenance-verified.
