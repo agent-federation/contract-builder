@@ -92,6 +92,7 @@ The three independent implementations are PAP v0.1 **Phase 2a** only (walker, ma
 - Verifier reports carry absolute package and policy paths, so the report SHA-256 values are path-dependent. The hashes in this batch are for the recorded run paths; CI regenerates them for its own checkout.
 - All three independent implementations were produced in blind-lab by one owner/harness (two model families). This supports implementation independence, not team independence (the Gate 3 caveat).
 - The independent implementations are PAP v0.1 Phase 2a only; the required checks are not evaluated there and are Phase 2b scope, out of scope for C6.
+- The check outcomes above are not a check-level disagreement: the reference evaluated DI/SQ/RC, while the independent implementations report `UNSUPPORTED` because those checks are Phase 2b scope. Under the 2026-11-07 decision a `UNSUPPORTED`, `NOT_EVALUATED` or `ABSENT` outcome is not a disagreement by itself; a genuine disagreement between two evaluated outcomes fails the batch ([sdlc-pipeline.md §5.1](sdlc-pipeline.md); #225).
 - No CORE-000 claim is promoted to independently_verified; H3 is executed-not-evaluated for the Phase 2b checks.
 
 ### Recorded differences
@@ -127,7 +128,8 @@ records the resolved value. The `pipeline-independent` CI job runs this command 
 separate, non-blocking job: it is not a required status and does not gate the reference
 `pipeline` job. It uploads `batch.json`, the four reports and the package manifest for
 90 days. A missing report, an unparseable report, a pinned-identity mismatch, a
-`packageIdentity` disagreement or an input mutation fails the job explicitly.
+`packageIdentity` disagreement, a check-level disagreement between two evaluated outcomes
+(2026-11-07 decision; #225) or an input mutation fails the job explicitly.
 
 ## 7. What this does and does not establish
 
