@@ -306,6 +306,14 @@ test("quote resolution: exact matches win and normalized matches map back to raw
   const exact = resolveExactQuote(utf8("intro unique quote outro"), "unique quote");
   assert.equal(decoder.decode(utf8("intro unique quote outro").subarray(exact.start, exact.end)), "unique quote");
 
+  // The rule is intentionally strict: a whitespace variant elsewhere makes the
+  // declaration ambiguous even when the exact bytes occur only once.
+  const variant = utf8("exact alpha beta here\nvariant alpha\n  beta there\n");
+  assert.throws(
+    () => resolveExactQuote(variant, "alpha beta"),
+    /ambiguous in the source \(2 whitespace-normalized matches\)/,
+  );
+
   const wrapped = utf8("intro alpha\n  beta gamma\noutro");
   const normalized = resolveExactQuote(wrapped, "alpha beta gamma");
   assert.equal(decoder.decode(wrapped.subarray(normalized.start, normalized.end)), "alpha\n  beta gamma");
