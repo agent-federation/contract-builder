@@ -36,6 +36,8 @@ The CORE-000 harness passes the root instead of rewriting imports.
 
 **B4 — M1 supports exactly one source.** A manifest with `sources.length !== 1` is `core.manifest.invalid`. The current implementation is mixed — the M1 hook consumes the first source while other build/provenance paths index all `model.sources` by ID — so multi-source M1 behaviour is not established and must not be inferred from the accepted array. A sources map (registry, per-source verification/render semantics) is a future design tracked separately.
 
+**B4 decision, 2026-11-07 (zero/absent source).** "Exactly one source" includes the zero case: an absent or empty `sources` array and a multiple-entry array are all `core.manifest.invalid` at manifest validation, before the model, identity or renderer is built. The current implementation still rejects only `length > 1` and keeps the legacy `ERR_UNKNOWN_REF` for absent/empty; [#229](https://github.com/agent-federation/contract-builder/issues/229) aligns the code and tests, and `ERR_UNKNOWN_REF` is historical implementation behaviour for this structural violation, not the policy. The contract wording is `engine-public-contract.md` §5.3 and §7.1.
+
 ## 3. Consequences
 
 - Identity becomes a property of the declared project plus the explicit engine root, not of the launch location; the copy-and-build test is the enforcement.
