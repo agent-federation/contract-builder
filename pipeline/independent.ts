@@ -27,6 +27,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  readlink,
   realpath,
   rename,
   rm,
@@ -655,10 +656,10 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     policyPath,
   };
   const packageFileTypes: Readonly<Record<string, string>> =
-    options.packageFileTypes ??
-    Object.fromEntries(
-      Object.keys(options.packageFileDigests).map((file) => [file, "file"]),
-    );
+    options.packageFileTypes ?? {};
+  if (options.packageFileTypes === undefined) {
+    problems.push("package file types were not recorded");
+  }
   for (const [file, type] of Object.entries(packageFileTypes)) {
     if (type !== "file") {
       problems.push(`package file is not a regular file: ${file} (${type})`);
@@ -1110,9 +1111,11 @@ async function listTar(archive: string, flag: string): Promise<string[]> {
 
 /**
  * A pinned archive is extracted with `--strip-components=1`. Reject absolute
- * paths and parent-directory entries before extraction, and reject any entry
- * that is not a regular file or directory (symbolic and hard links included):
- * an escaped symlink is exactly what a future re-pin must not introduce.
+ * paths and parent-directory entries before extraction, and reject entry types
+ * other than regular files, directories and symlinks. Symbolic links are allowed
+ * because the pinned test corpus carries deliberate fixtures, but an absolute
+ * link target is rejected here and every link is containment-checked after
+ * extraction. Hard links are not needed by the pinned archives and fail closed.
  */
 async function assertArchiveSafe(archive: string): Promise<void> {
   for (const name of await listTar(archive, "-tzf")) {
@@ -1125,21 +1128,35 @@ async function assertArchiveSafe(archive: string): Promise<void> {
   }
   for (const line of await listTar(archive, "-tvzf")) {
     const type = line.charAt(0);
-    if (type !== "-" && type !== "d") {
-      const kind =
-        type === "l"
-          ? "a symbolic link"
-          : type === "h"
-            ? "a hard link"
-            : `entry type ${JSON.stringify(type)}`;
+    if (line.includes(" link to ")) {
       throw new Error(
-        `archive contains ${kind}, only regular files and directories are allowed: ${line.slice(0, 200)}`,
+        `archive contains a hard link, only regular files, directories and contained symlinks are allowed: ${line.slice(0, 200)}`,
       );
+    }
+    if (type !== "-" && type !== "d" && type !== "l") {
+      const kind =
+        type === "h"
+          ? "a hard link"
+          : `entry type ${JSON.stringify(type)}`;
+      throw new Error(
+        `archive contains ${kind}, only regular files, directories and contained symlinks are allowed: ${line.slice(0, 200)}`,
+      );
+    }
+    if (type === "l") {
+      const target = line.split(" -> ").pop();
+      if (
+        target !== undefined &&
+        (target.startsWith("/") || /^[A-Za-z]:[\\/]/.test(target))
+      ) {
+        throw new Error(
+          `archive symbolic link has an absolute target: ${line.slice(0, 200)}`,
+        );
+      }
     }
   }
 }
 
-/** Re-check the extracted tree: no symlinks, only regular files/directories, contained. */
+/** Re-check the extracted tree: contained symlinks, regular files/directories only. */
 async function assertExtractedTree(destination: string): Promise<void> {
   const root = await realpath(destination);
   const walk = async (directory: string, prefix: string): Promise<void> => {
@@ -1148,7 +1165,20 @@ async function assertExtractedTree(destination: string): Promise<void> {
       const full = path.join(directory, name);
       const info = await lstat(full);
       if (info.isSymbolicLink()) {
-        throw new Error(`archive extraction created a symbolic link: ${relative}`);
+        const target = await readlink(full);
+        if (target.startsWith("/") || /^[A-Za-z]:[\\/]/.test(target)) {
+          throw new Error(
+            `archive extraction created a symbolic link with an absolute target: ${relative} -> ${target}`,
+          );
+        }
+        const resolved = path.resolve(directory, target);
+        const within = path.relative(root, resolved);
+        if (within.startsWith("..") || path.isAbsolute(within)) {
+          throw new Error(
+            `archive extraction created a symbolic link that escapes its destination: ${relative} -> ${target}`,
+          );
+        }
+        continue;
       }
       if (info.isDirectory()) {
         await walk(full, relative);

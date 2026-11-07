@@ -242,7 +242,8 @@ separate, non-blocking job: it is not a required status and does not gate the re
 \`pipeline\` job. It uploads \`batch.json\`, the four reports and the package manifest for
 90 days. A missing report, an unparseable report, a pinned-identity mismatch, a
 \`packageIdentity\` disagreement, a genuine check-level disagreement, a
-verdict/check-outcome contradiction or an input mutation fails the job explicitly.
+verdict/check-outcome contradiction, an unsafe pinned archive (absolute path,
+escaping link or unsupported entry type) or an input mutation fails the job explicitly.
 An invalid batch keeps its \`batch.json\` and reports for audit, but is never
 rendered as evidence Markdown.
 

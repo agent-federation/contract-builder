@@ -306,6 +306,18 @@ test("the batch records package input file types", () => {
   });
 });
 
+test("a batch without recorded package file types fails closed", () => {
+  const { packageFileTypes: _omitted, ...withoutTypes } = optionsWith(
+    defaultExecutions(),
+  );
+  const { batch, problems } = assembleBatch(withoutTypes);
+  assert.equal(batch.ok, false);
+  assert.ok(
+    problems.some((problem) => problem.includes("package file types were not recorded")),
+    problems.join("\n"),
+  );
+});
+
 test("evidence rendering refuses an invalid batch", () => {
   const executions = replaceExecution(
     defaultExecutions(),
@@ -446,10 +458,10 @@ function tar(args: readonly string[], cwd: string): void {
 }
 
 test(
-  "archive extraction rejects a symbolic link before writing",
+  "archive extraction rejects an absolute symbolic-link target before writing",
   { skip: process.platform === "win32" },
   async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-"));
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-abs-"));
     try {
       const source = path.join(root, "source", "owner-repo-sha");
       await mkdir(source, { recursive: true });
@@ -461,11 +473,59 @@ test(
       const destination = path.join(root, "extracted");
       await assert.rejects(
         extractArchive(archive, destination),
-        /archive contains a symbolic link/,
+        /archive symbolic link has an absolute target/,
       );
       await assert.rejects(
         access(destination),
         "a rejected archive must not create the destination",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "archive extraction rejects a relative symbolic link that escapes the destination",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-rel-"));
+    try {
+      const source = path.join(root, "source", "owner-repo-sha");
+      await mkdir(source, { recursive: true });
+      await writeFile(path.join(source, "real.txt"), "real\n");
+      await symlink("../../outside-target", path.join(source, "escape"));
+      const archive = path.join(root, "evil.tar.gz");
+      tar(["-czf", archive, "owner-repo-sha"], path.join(root, "source"));
+
+      await assert.rejects(
+        extractArchive(archive, path.join(root, "extracted")),
+        /symbolic link that escapes its destination/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "archive extraction allows a contained symbolic link",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-ok-"));
+    try {
+      const source = path.join(root, "source", "owner-repo-sha");
+      await mkdir(source, { recursive: true });
+      await writeFile(path.join(source, "real.txt"), "real\n");
+      await symlink("real.txt", path.join(source, "inside"));
+      const archive = path.join(root, "regular.tar.gz");
+      tar(["-czf", archive, "owner-repo-sha"], path.join(root, "source"));
+
+      const destination = path.join(root, "extracted");
+      await extractArchive(archive, destination);
+      assert.equal(
+        await readFile(path.join(destination, "inside"), "utf8"),
+        "real\n",
       );
     } finally {
       await rm(root, { recursive: true, force: true });

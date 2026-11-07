@@ -76,6 +76,7 @@ test("a verifier process that mutates package bytes is detected", async () => {
       policyPath,
       manifestText: MANIFEST,
       packageFileDigests: snapshot.packageFiles,
+      packageFileTypes: snapshot.packageFileTypes,
       executions: executionsForPaths(packageDir, policyPath),
       inputIntegrity: { readOnlyDuringRuns: true, mutations: changes },
     });
