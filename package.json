@@ -13,9 +13,9 @@
     "pap": "pap/bin/pap"
   },
   "scripts": {
-    "build": "bun spec/build.ts --mode draft --allow-executable-profile",
-    "build:release": "bun spec/build.ts --mode release --allow-executable-profile",
-    "check": "bun spec/build.ts --mode draft --check --allow-executable-profile",
+    "build": "bun spec/build.ts --mode draft --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
+    "build:release": "bun spec/build.ts --mode release --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
+    "check": "bun spec/build.ts --mode draft --check --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
     "check:all": "bun run check && bun test tests/core000.test.ts -t \"S2.2 artifact verification\"",
     "pap": "bun pap/src/cli.ts",
     "pap:test": "bun test pap/tests",

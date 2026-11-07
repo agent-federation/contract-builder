@@ -14,10 +14,11 @@ interface CliOptions {
   json: boolean;
   allowExecutableProfile: boolean;
   engineRoot?: string;
+  rendererModule?: string;
 }
 
 const USAGE =
-  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--engine-root <dir>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
+  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--engine-root <dir>] [--renderer-module <path>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
@@ -53,6 +54,13 @@ function parseArgs(argv: string[]): CliOptions {
         const value = argv[i + 1];
         if (value === undefined) throw new Error("--engine-root требует путь к каталогу движка");
         options.engineRoot = path.resolve(value);
+        i += 1;
+        break;
+      }
+      case "--renderer-module": {
+        const value = argv[i + 1];
+        if (value === undefined) throw new Error("--renderer-module требует путь к модулю");
+        options.rendererModule = path.resolve(value);
         i += 1;
         break;
       }
@@ -148,6 +156,7 @@ async function main(): Promise<void> {
   try {
     renderers = await loadProfileRenderers(cli.allowExecutableProfile, cli.specDir, {
       engineRoot: engine.root,
+      rendererModule: cli.rendererModule,
     });
   } catch (error) {
     console.error(

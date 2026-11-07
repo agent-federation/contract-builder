@@ -366,7 +366,9 @@ N14 runs through the CLI without `--allow-executable-profile`:
 
 - `spec/cli-renderers.ts` imports the built-in renderer only when the selected project declares
   profile `core001` and renderer `core001-markdown`; a CORE-000 project leaves the registry empty,
-  and no CORE-000 renderer is loaded by the CLI.
+  and no CORE-000 renderer is loaded by the CLI. **Amended 2026-11-07:** superseded by
+  [ODR-ENG-002](../decisions/ODR-ENG-002-consumer-supplied-renderer.md) / [#223](https://github.com/agent-federation/contract-builder/issues/223);
+  the CLI now imports the consumer-named renderer module and registers nothing without it.
 - `runBuild` checks consent after loading the manifest/profile and before the closure scan and any
   profile `import()`, so `view` and `validator` are not evaluated.
 - The N14 test copies the positive project/profile to a temporary directory, adds a
@@ -622,7 +624,7 @@ implement them.
 
 | ID | Observation / exact evidence | Effect on this plan | Workaround in the plan | Separate proposal |
 |---|---|---|---|---|
-| G4 | The CLI wires only the CORE-001 renderer (`spec/cli-renderers.ts`: profile `core001`, renderer `core001-markdown`); there is no generic profile-selection CLI and the package is private (`package.json`). The PAP verifier under `pap/` is a separate product boundary and does not provide a CORE-000 CLI or renderer selection. | A positive CORE-000 build cannot run through the CLI. | Use `contracts/core000/run.ts` / `tests/core000.test.ts` as the consumer harness. | Implement the M2 public API/CLI and generic renderer selection. |
+| G4 | The CLI wires only the CORE-001 renderer (`spec/cli-renderers.ts`: profile `core001`, renderer `core001-markdown`); **amended 2026-11-07 — the CLI now imports the consumer-named renderer module, see [ODR-ENG-002](../decisions/ODR-ENG-002-consumer-supplied-renderer.md) / #223**; there is no generic profile-selection CLI and the package is private (`package.json`). The PAP verifier under `pap/` is a separate product boundary and does not provide a CORE-000 CLI or renderer selection. | A positive CORE-000 build cannot run through the CLI. | Use `contracts/core000/run.ts` / `tests/core000.test.ts` as the consumer harness. | Implement the M2 public API/CLI and generic renderer selection. |
 | G1 | `inputDigest` covers declared inputs, sources, profile closure and extension closures (`spec/lib/identity.ts`); it does not cover code/test files cited as evidence. | Code/test evidence can go stale without changing the digest. | Pin evidence revisions; external review re-checks them; do not treat evidence as build-covered. | Add evidence-file inputs or a raw-file adapter with digest coverage. |
 | G2 | No declarative cross-entity rule primitives are implemented; the profile hook is the M1 mechanism (`spec/lib/hook.ts`). | CORE-000 policy lives in a trusted in-process hook. | Profile hook `validate`; no core change. | Revisit primitives after the M3 second profile. |
 | G3 | Markdown locators are section/table/item only; the declared source-byte pin and paragraph locators are accepted but unimplemented (V4; `spec/lib/adapters/markdown.ts`, `spec/lib/manifest.ts`). | Claim provenance is coarse; `sourceDigest` records bytes checked but is not a declared pin. | Use current locators; label precision; external review checks context. | Implement provenance hardening (#4/#45) separately. |

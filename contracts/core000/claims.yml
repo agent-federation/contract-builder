@@ -743,7 +743,7 @@ claims:
 
   - id: C000-IM-004
     author: "it-start"
-    statement: "profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine's renderer is consumer-supplied, and the CLI imports the CORE-001 renderer conditionally."
+    statement: "profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine ships no renderer, and the CLI imports the consumer-named renderer module only after the same consent and closure gates."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external
@@ -775,7 +775,7 @@ claims:
 
   - id: C000-IM-006
     author: "it-start"
-    statement: "The CLI dynamically imports the CORE-001 renderer only with explicit consent, a matching profile `core001`/renderer `core001-markdown` declaration and a valid profile closure; there is no generic profile-selection CLI."
+    statement: "The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, and only after the profile closure validates — all before the import; the import evaluates the module, and its reported id is compared with the manifest's declared `render[].renderer` after the import and before registration, so a mismatch prevents registration but not execution. Without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external
@@ -1280,7 +1280,7 @@ claims:
 
   - id: C000-GAP-004
     author: "it-start"
-    statement: "The public API/CLI are not generic; the experiment needs a consumer harness, and the CLI only conditionally wires the CORE-001 renderer rather than selecting arbitrary profiles."
+    statement: "The public API still needs a consumer harness to supply a renderer; the CLI wires one consumer-named renderer module per run, gates it on consent, containment, `profile.files` and closure, and selects no profile; a generic profile-selection CLI does not exist."
     class: proposal
     status: { decision: proposed, implementation: none, tests: none, verification: none }
     authority: external
@@ -1460,7 +1460,7 @@ evidence:
     kind: test
     locator: "tests/consent.test.ts"
     revision: "dffdaa2"
-    description: "Consent tests cover API/CLI rejection and success and renderer isolation."
+    description: "Consent tests cover API/CLI rejection and success and renderer module gating."
     producer: "repository"
     independence: author
     availability: available
@@ -1469,7 +1469,7 @@ evidence:
     kind: code
     locator: "spec/lib/build.ts; spec/build.ts; spec/cli-renderers.ts"
     revision: "dffdaa2"
-    description: "allowExecutableProfile gate, CLI flag and conditional CORE-001 renderer preflight."
+    description: "allowExecutableProfile gate, CLI flag and consumer-supplied renderer preflight."
     producer: "repository"
     independence: author
     availability: available
@@ -1478,7 +1478,7 @@ evidence:
     kind: test
     locator: "tests/consent.test.ts"
     revision: "dffdaa2"
-    description: "API/CLI rejection, success, renderer isolation, closure preflight and lockfile cases."
+    description: "API/CLI rejection, success, renderer module gating, closure preflight and lockfile cases."
     producer: "repository"
     independence: author
     availability: available

@@ -8,6 +8,13 @@ CORE-000 as a self-contract for the Contract Builder Engine».
 **Task:** `CB-A2A-012` (A2A/0.1 envelope, `docs/agents/task-envelope.md`).
 **Design baseline:** `cf0722b14fa6ac514e66b08d58465d4137690d13` (`main` after #49).
 **Current-main reconciliation:** `260de897455699262bc6558555ecdaac5d426321` (after #50, #52, #55 and #56); the design and its evidence mapping are updated to this state.
+**Amendment 2026-11-07:** the renderer-wiring statements recorded here for `C000-IM-004`,
+`C000-IM-006`, `C000-GAP-004` and the consent evidence entries describe the baseline CLI that
+static-imported the CORE-001 renderer. That behaviour was replaced by a consumer-supplied
+renderer module (`--renderer-module`) in the M0.0 slice of the CORE-001 extraction; the live
+register in `contracts/core000/claims.yml` carries the updated statements and this design record
+keeps its baseline meaning. Decision: [ODR-ENG-002](../decisions/ODR-ENG-002-consumer-supplied-renderer.md),
+Issue [#223](https://github.com/agent-federation/contract-builder/issues/223).
 **Implementation status:** not started. No code, schema, fixture or generated artifact is
 changed by this document.
 **Normative status of CORE-000:** a working project identifier. It is not an adopted UIA

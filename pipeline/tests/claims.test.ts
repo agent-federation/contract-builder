@@ -171,7 +171,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
         id: "binding:SRC-PROVENANCE-001",
         entityId: "SRC-PROVENANCE-001",
         sourceId: "SRC-ENGINE-CONTRACT",
-        locator: { kind: "byte-range", start: 24263, end: 24501 },
+        locator: { kind: "byte-range", start: 24629, end: 24867 },
         quote: {
           normalization: "none",
           digest: "sha256:c45bbddfaf5a7d81d9591b1da778e55e6b3b716b0d7af97a501f70702aa7bad5",

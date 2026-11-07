@@ -12,7 +12,8 @@ const root = fileURLToPath(new URL("..", import.meta.url));
  * quoted kind/relation names, unquoted domain words (except the TypeScript `case`
  * keyword), the CORE-001 token, CORE-001 assets, profile/fixture paths, and CORE-001
  * Russian labels. It is a ratchet, not a proof: an arbitrary identifier or template
- * expression could still carry domain meaning without matching.
+ * expression could still carry domain meaning without matching. The scan covers the whole
+ * `spec/` tree, not only `spec/lib`, so the CLI cannot reintroduce a domain-specific name.
  */
 const QUOTED_KIND = /["'](fragment|term|provision|decision|case|dependsOn|mentions|vectors)["']/;
 const UNQUOTED_KIND = /\b(fragment|term|provision|decision|dependsOn|mentions|vectors)\b/;
@@ -53,8 +54,8 @@ export async function scanEngine(dir: string): Promise<string[]> {
   return offenders.sort();
 }
 
-test("genericity: the engine carries no CORE-001 domain tokens", async () => {
-  assert.deepEqual(await scanEngine(path.join(root, "spec", "lib")), []);
+test("genericity: the engine and its CLI carry no CORE-001 domain tokens", async () => {
+  assert.deepEqual(await scanEngine(path.join(root, "spec")), []);
 });
 
 test("genericity: the guard catches a forbidden reference", async () => {
