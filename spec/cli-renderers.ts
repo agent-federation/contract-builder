@@ -41,7 +41,7 @@ export interface ProfileRendererOptions {
 
 const importRendererModule: RendererImporter = async (modulePath) => {
   const loaded = (await import(pathToFileURL(modulePath).href)) as { renderer?: Renderer };
-  if (loaded.renderer === undefined) {
+  if (loaded.renderer === undefined || loaded.renderer === null) {
     throw new Error(`Модуль рендерера "${modulePath}" не экспортирует renderer`);
   }
   return loaded.renderer;
@@ -119,12 +119,10 @@ export async function loadProfileRenderers(
   // Preflight the same profile closure `runBuild` validates, against the same engine root.
   if (!(await validateClosure(project, diagnostics))) return {};
 
-  let renderer: Renderer;
-  try {
-    renderer = await importRenderer(modulePath);
-  } catch {
-    return {};
-  }
+  // An import failure is a configuration error, not a missing renderer: let it propagate so the
+  // CLI reports the real cause (syntax error, missing dependency) instead of collapsing it into
+  // `core.registry.missing`.
+  const renderer = await importRenderer(modulePath);
   if (renderer.id !== declaredRenderer) return {};
   return { [renderer.id]: renderer };
 }

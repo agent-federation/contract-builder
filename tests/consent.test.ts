@@ -297,6 +297,40 @@ test("consent: the CLI preflight rejects a renderer module not declared in profi
   assert.deepEqual(renderers, {});
 });
 
+/** Adds a file to the copied project's declared profile closure. */
+async function declareProfileFile(dir: string, name: string): Promise<void> {
+  const file = path.join(dir, "profiles", "core001", "profile.json");
+  const profile = JSON.parse(await readFile(file, "utf8")) as { files?: string[] };
+  profile.files = [...(profile.files ?? []), name];
+  await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+}
+
+test("consent: an import failure is reported instead of a generic missing renderer", async () => {
+  const dir = await copyProjectWithProfile("preflight-import-error");
+
+  await assert.rejects(
+    loadProfileRenderers(true, dir, {
+      rendererModule: rendererModuleOf(dir),
+      importRenderer: async () => {
+        throw new Error("renderer module failed to compile");
+      },
+    }),
+    /renderer module failed to compile/,
+  );
+});
+
+test("consent: a module exporting a null renderer fails loudly", async () => {
+  const dir = await copyProjectWithProfile("preflight-null-renderer");
+  const module = path.join(dir, "profiles", "core001", "null-renderer.ts");
+  await writeFile(module, "export const renderer = null;\n", "utf8");
+  await declareProfileFile(dir, "null-renderer.ts");
+
+  await assert.rejects(
+    loadProfileRenderers(true, dir, { rendererModule: module }),
+    /не экспортирует renderer/,
+  );
+});
+
 test("consent: the CLI preflight does not import the renderer when the lockfile is unreadable", async () => {
   const dir = await copyProjectWithProfile("lockfile-unavailable");
   let imported = 0;
