@@ -192,6 +192,44 @@ test("a report without package.papVersion is a problem", () => {
   );
 });
 
+test("an out-of-expected independent verdict fails the batch", () => {
+  for (const [verdict, exitCode] of [
+    ["FAIL", 1],
+    ["UNTRUSTED", 3],
+  ] as const) {
+    const executions = replaceExecution(
+      defaultExecutions(),
+      executionFor("rust", reportFor("rust", { verdict }), exitCode),
+    );
+    const { batch, problems } = assembleBatch(optionsWith(executions));
+    assert.equal(batch.ok, false);
+    assert.ok(
+      problems.some((problem) =>
+        problem.includes("outside the expected Phase 2a set"),
+      ),
+      problems.join("\n"),
+    );
+  }
+});
+
+test("an independent dimension disagreement fails the batch", () => {
+  const broken = reportFor("go") as {
+    dimensions: { integrity: { artifacts: string } };
+  } & Record<string, unknown>;
+  broken.dimensions.integrity.artifacts = "FAIL";
+  const executions = replaceExecution(
+    defaultExecutions(),
+    executionFor("go", broken, 4),
+  );
+  const { batch, problems } = assembleBatch(optionsWith(executions));
+  assert.equal(batch.ok, false);
+  assert.equal(batch.comparison.integrityAndSourcesAgreement, false);
+  assert.ok(
+    problems.some((problem) => problem.includes("do not agree")),
+    problems.join("\n"),
+  );
+});
+
 test("all four runs must use the same pinned --now", () => {
   const executions = replaceExecution(
     defaultExecutions(),
@@ -243,6 +281,27 @@ test("parseVerifierReport rejects empty and invalid output", () => {
   assert.throws(() => parseVerifierReport("{not json", "rust"), /not valid JSON/);
 });
 
+test("the evidence prose follows an independent PASS verdict", () => {
+  const executions = defaultExecutions().map((execution) =>
+    execution.name === "reference"
+      ? execution
+      : executionFor(
+          execution.name,
+          reportFor(execution.name, {
+            verdict: "PASS",
+            checkOutcome: "PASS",
+          }),
+          0,
+        ),
+  );
+  const { batch, problems } = assembleBatch(optionsWith(executions));
+  assert.deepEqual(problems, []);
+  assert.equal(batch.ok, true);
+  const markdown = renderEvidenceMarkdown(batch);
+  assert.match(markdown, /At least one independent implementation evaluated/);
+  assert.doesNotMatch(markdown, /Phase 2a only/);
+});
+
 test("the evidence record is deterministic and states the trust boundary", () => {
   const { batch } = assembleBatch(optionsWith(defaultExecutions()));
   const markdown = renderEvidenceMarkdown(batch);
@@ -255,6 +314,14 @@ test("the evidence record is deterministic and states the trust boundary", () =>
   assert.match(markdown, /0b31dac728fbfdfab4f2948ccede3b5957b17fc9/);
   assert.match(markdown, /Phase 2b/);
   assert.match(markdown, /UNSUPPORTED/);
+  assert.match(
+    markdown,
+    /The reference verifier reports `PASS` \(exit 0\)/,
+  );
+  assert.match(
+    markdown,
+    /The independent verdicts are rust: UNSUPPORTED, go: UNSUPPORTED, python: UNSUPPORTED/,
+  );
   assert.match(markdown, /path-dependent/);
   assert.match(markdown, /not a required status/);
   for (const entry of batch.verifiers) {

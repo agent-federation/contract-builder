@@ -36,8 +36,22 @@ import { fileURLToPath } from "node:url";
 import { renderEvidenceMarkdown } from "./evidence.js";
 import { assertOutsideRepository, packCore000, REPO_ROOT } from "./pack.js";
 
-/** Pinned inside the CORE-000 policy window (2026-11-01 .. 2027-11-01). */
-export const PINNED_NOW = "2026-11-06T00:00:00Z";
+/** Single source of the pinned evaluation time, inside the policy window. */
+export const PINNED_NOW_PATH = path.join(
+  REPO_ROOT,
+  "pipeline",
+  "pinned-now.txt",
+);
+
+export async function readPinnedNow(): Promise<string> {
+  const value = (
+    await readFile(PINNED_NOW_PATH, "utf8")
+  ).trim();
+  if (value.length === 0) {
+    throw new Error(`${PINNED_NOW_PATH} is empty`);
+  }
+  return value;
+}
 
 /** The independent implementations are the blind-lab Gate 3 Phase 2a set. */
 export const BLIND_LAB_PROVENANCE = {
@@ -253,19 +267,6 @@ export interface BatchOutcome {
   readonly batch: C6Batch;
   readonly problems: readonly string[];
 }
-
-const DIFFERENCES = [
-  "The reference verifier evaluates the three required checks and reports PASS (exit 0).",
-  "The three independent implementations implement PAP v0.1 Phase 2a only: the three required checks are UNSUPPORTED (exit 4), so their verdict is UNSUPPORTED and never PASS.",
-] as const;
-
-const LIMITATIONS = [
-  "The independent runs agree with the reference on packageIdentity and on package/artifact/source integrity and source availability; they do not evaluate the CORE-000 required checks, which are Phase 2b scope and out of scope for C6.",
-  "The package is commit-bound: packageIdentity includes sources[].acquisition.revision, the packing checkout's git HEAD. Re-running from another commit, including the CI merge commit, produces a different identity.",
-  "Verifier reports carry absolute package and policy paths, so the report SHA-256 values are path-dependent. The hashes in this batch are for the recorded run paths; CI regenerates them for its own checkout.",
-  "All three independent implementations were produced in blind-lab by one owner/harness (two model families). This supports implementation independence, not team independence (the Gate 3 caveat).",
-  "No CORE-000 claim is promoted to independently_verified; H3 is executed-not-evaluated for the Phase 2b checks.",
-] as const;
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -766,6 +767,78 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     python: entries.find((entry) => entry.verifier === "python")?.verdict ?? null,
   };
 
+  // C6 expects Phase 2a outcomes only: FAIL/UNTRUSTED/NOT_EVALUATED on the
+  // independent side are evidence of a broken or ambiguous run, not a pass.
+  const expectedIndependentVerdicts = new Set<Verdict>([
+    "PASS",
+    "UNSUPPORTED",
+    "INCOMPLETE",
+  ]);
+  for (const name of ["rust", "go", "python"] as const) {
+    const entry = entries.find((candidate) => candidate.verifier === name);
+    if (entry?.status !== "EXECUTED") continue;
+    if (
+      entry.verdict === null ||
+      !expectedIndependentVerdicts.has(entry.verdict)
+    ) {
+      problems.push(
+        `${name}: independent verdict ${JSON.stringify(entry.verdict)} is outside the expected Phase 2a set (PASS, UNSUPPORTED, INCOMPLETE)`,
+      );
+    }
+  }
+  if (!integrityAndSourcesAgreement) {
+    problems.push(
+      "independent runs do not agree with the reference on package/artifact integrity or source availability",
+    );
+  }
+
+  const independentEntries = entries.filter(
+    (entry) => entry.verifier !== "reference",
+  );
+  const executedIndependent = independentEntries.filter(
+    (entry) => entry.status === "EXECUTED",
+  );
+  const independentVerdictsText = independentEntries
+    .map(
+      (entry) =>
+        `${entry.verifier} ${entry.status === "EXECUTED" ? (entry.verdict ?? "UNKNOWN") : "NOT_PERFORMED"}`,
+    )
+    .join(", ");
+  const anyIndependentCheckEvaluated = executedIndependent.some((entry) =>
+    REQUIRED_CHECKS.some((checkId) =>
+      ["PASS", "FAIL"].includes(entry.checks[checkId] ?? "ABSENT"),
+    ),
+  );
+  const phase2aOnly =
+    executedIndependent.length > 0 &&
+    executedIndependent.every((entry) =>
+      REQUIRED_CHECKS.every((checkId) =>
+        ["UNSUPPORTED", "ABSENT", "NOT_EVALUATED"].includes(
+          entry.checks[checkId] ?? "ABSENT",
+        ),
+      ),
+    );
+  const differences = [
+    `The reference verifier reports ${reference?.verdict ?? "NOT_PERFORMED"} on the three required checks.`,
+    `The independent verdicts are ${independentVerdictsText}. A non-PASS independent verdict is recorded as-is and is never converted to PASS.`,
+  ];
+  const limitations = [
+    integrityAndSourcesAgreement
+      ? "The independent runs agree with the reference on packageIdentity and on package/artifact/source integrity and source availability."
+      : "The independent runs do not all agree with the reference on packageIdentity or on package/artifact/source integrity and source availability; this batch is not valid evidence of agreement.",
+    "The package is commit-bound: packageIdentity includes sources[].acquisition.revision, the packing checkout's git HEAD. Re-running from another commit, including the CI merge commit, produces a different identity.",
+    "Verifier reports carry absolute package and policy paths, so the report SHA-256 values are path-dependent. The hashes in this batch are for the recorded run paths; CI regenerates them for its own checkout.",
+    "All three independent implementations were produced in blind-lab by one owner/harness (two model families). This supports implementation independence, not team independence (the Gate 3 caveat).",
+    phase2aOnly
+      ? "The independent implementations are PAP v0.1 Phase 2a only; the required checks are not evaluated there and are Phase 2b scope, out of scope for C6."
+      : anyIndependentCheckEvaluated
+        ? "At least one independent implementation evaluated one or more required checks; the check matrix records the actual outcomes."
+        : "No independent implementation executed its required checks in this batch.",
+    anyIndependentCheckEvaluated
+      ? "No CORE-000 claim is promoted to independently_verified; at least one independent check was evaluated, and the matrix records the outcome."
+      : "No CORE-000 claim is promoted to independently_verified; H3 is executed-not-evaluated for the Phase 2b checks.",
+  ];
+
   const build = isObject(manifest.build) ? manifest.build : {};
   const artifacts = Array.isArray(manifest.artifacts)
     ? manifest.artifacts.filter(isObject)
@@ -800,8 +873,8 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
       referenceVerdict: reference?.verdict ?? null,
       independentVerdicts,
       integrityAndSourcesAgreement,
-      differences: DIFFERENCES,
-      limitations: LIMITATIONS,
+      differences,
+      limitations,
     },
     problems,
     ok: problems.length === 0,
@@ -1015,13 +1088,14 @@ async function prepareIndependent(
     const gocache = path.join(cacheRoot, "gocache");
     await mkdir(gocache, { recursive: true });
     const binary = path.join(buildRoot, "pap-go");
-    // The module cache and toolchain stay in the runner's GOPATH; go.mod may
-    // request a newer patch toolchain than the preinstalled one, and reusing
-    // the default cache avoids downloading it on every run.
+    // Hermetic: no toolchain switching and no module/toolchain download. The
+    // pinned go.mod requires a Go >= 1.24.13; the CI runner has one.
     const outcome = await runCommand("go", ["build", "-o", binary, "."], {
       cwd: sourceDir,
       env: {
         GOCACHE: gocache,
+        GOTOOLCHAIN: "local",
+        GOPROXY: "off",
         TMPDIR: tempRoot,
       },
     });
@@ -1212,14 +1286,14 @@ export async function verifyInputsUnchanged(
 
 interface CliOptions {
   readonly outDir: string;
-  readonly now: string;
+  readonly now: string | null;
   readonly evidence: string | null;
   readonly help: boolean;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
   let outDir: string | undefined;
-  let now = PINNED_NOW;
+  let now: string | null = null;
   let evidence: string | null = null;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -1268,11 +1342,12 @@ async function main(): Promise<void> {
   }
   if (options.help) {
     console.log(
-      "Usage: bun run pipeline:independent --out <dir> [--now <rfc3339>] [--evidence <file>]",
+      "Usage: bun run pipeline:independent --out <dir> [--now <rfc3339>] [--evidence <file>] (--now defaults to pipeline/pinned-now.txt)",
     );
     return;
   }
 
+  const now = options.now ?? (await readPinnedNow());
   const outDir = path.resolve(options.outDir);
   assertOutsideRepository(outDir);
   const packageDir = path.join(outDir, "package");
@@ -1302,7 +1377,7 @@ async function main(): Promise<void> {
     outDir,
     packageDir,
     policyPath,
-    now: options.now,
+    now,
   };
 
   const extraProblems: string[] = [];
@@ -1410,7 +1485,7 @@ async function main(): Promise<void> {
   }
 
   const outcome = assembleBatch({
-    now: options.now,
+    now,
     packageDir,
     policyPath,
     manifestText,

@@ -67,13 +67,15 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      # Pinned inside the policy window (2026-11-01 .. 2027-11-01); the report
-      # and the acceptance decision never read the wall clock.
-      PIPELINE_NOW: "2026-11-06T00:00:00Z"
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Single source: pipeline/pinned-now.txt. Pinned inside the policy window
+      # (2026-11-01 .. 2027-11-01); the report and the acceptance decision never
+      # read the wall clock.
+      - name: Read pinned evaluation time
+        run: echo "PIPELINE_NOW=$(cat pipeline/pinned-now.txt)" >> "$GITHUB_ENV"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -184,11 +186,12 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      PIPELINE_NOW: "2026-11-06T00:00:00Z"
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Read pinned evaluation time
+        run: echo "PIPELINE_NOW=$(cat pipeline/pinned-now.txt)" >> "$GITHUB_ENV"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0

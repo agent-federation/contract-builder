@@ -85,6 +85,42 @@ export function renderEvidenceMarkdown(batch: C6Batch): string {
       ? ((source as { digest: string }).digest)
       : undefined;
   const headers = batch.verifiers.map((entry) => entry.verifier).join(" | ");
+  const independentEntries = batch.verifiers.filter(
+    (entry) => entry.verifier !== "reference",
+  );
+  const executedIndependent = independentEntries.filter(
+    (entry) => entry.status === "EXECUTED",
+  );
+  const independentVerdictsText = independentEntries
+    .map(
+      (entry) =>
+        `${entry.verifier}: ${entry.status === "EXECUTED" ? (entry.verdict ?? "UNKNOWN") : "NOT_PERFORMED"}`,
+    )
+    .join(", ");
+  const referenceEntry = batch.verifiers.find(
+    (entry) => entry.verifier === "reference",
+  );
+  const referenceVerdict =
+    batch.comparison.referenceVerdict ?? "NOT_PERFORMED";
+  const anyIndependentCheckEvaluated = executedIndependent.some((entry) =>
+    batch.requiredChecks.some((checkId) =>
+      ["PASS", "FAIL"].includes(entry.checks[checkId] ?? "ABSENT"),
+    ),
+  );
+  const phase2aOnly =
+    executedIndependent.length > 0 &&
+    executedIndependent.every((entry) =>
+      batch.requiredChecks.every((checkId) =>
+        ["UNSUPPORTED", "ABSENT", "NOT_EVALUATED"].includes(
+          entry.checks[checkId] ?? "ABSENT",
+        ),
+      ),
+    );
+  const checkScopeText = phase2aOnly
+    ? "The three independent implementations are PAP v0.1 **Phase 2a** only (walker, manifest schema, JCS, digests, report and exit codes); the three required check implementations are **Phase 2b**, which is out of scope for this evidence record, so the independent check outcomes are not evaluated."
+    : anyIndependentCheckEvaluated
+      ? "At least one independent implementation evaluated one or more required checks; the matrix records the actual outcomes. A non-PASS independent verdict is recorded as-is and is never converted to PASS."
+      : "No independent implementation executed its required checks in this batch.";
 
   return `# Pipeline evidence — C6 independent verification
 
@@ -162,12 +198,9 @@ it does **not** mean PASS. A report's verdict is never rewritten or converted he
 |---|${batch.verifiers.map(() => "---").join("|")}|
 ${matrixRows(batch).join("\n")}
 
-The reference verifier evaluates all three required checks. The three independent
-implementations are PAP v0.1 **Phase 2a** only (walker, manifest schema, JCS, digests,
-report and exit codes); the three required check implementations are **Phase 2b**, which
-is out of scope for this evidence record. The independent verdict is therefore
-\`UNSUPPORTED\`; the package/artifact/source integrity and availability dimensions still
-agree with the reference on the same package bytes.
+The reference verifier reports \`${referenceVerdict}\` (exit ${referenceEntry?.exitCode ?? "—"})
+on the three required checks. The independent verdicts are ${independentVerdictsText}.
+${checkScopeText} ${batch.comparison.integrityAndSourcesAgreement ? "Package/artifact/source integrity and source availability agree across the four runs." : "The integrity/source agreement check did not pass for this batch."}
 
 ## 5. Differences and limitations
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   INDEPENDENT_PINS,
-  PINNED_NOW,
   REQUIRED_CHECKS,
   VERIFIER_ORDER,
   type AssembleOptions,
@@ -12,7 +12,10 @@ import {
 
 export const PACKAGE_DIR = "/tmp/c6-test/package";
 export const POLICY_PATH = "/tmp/c6-test/policy/core000-trust-policy.json";
-export const NOW = PINNED_NOW;
+export const NOW = readFileSync(
+  new URL("../pinned-now.txt", import.meta.url),
+  "utf8",
+).trim();
 export const IDENTITY = `sha256:${"a".repeat(64)}`;
 export const POLICY_ID = "policy-core000-unsigned-2026-11";
 export const POLICY_DIGEST = `sha256:${"b".repeat(64)}`;
