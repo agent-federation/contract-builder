@@ -183,7 +183,7 @@ test("hook: a malformed catalog fails the build", async () => {
   assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
 });
 
-test("hook: a project without a source fails early", async () => {
+test("hook: a project without a source fails at manifest validation", async () => {
   const dir = await copyProjectWithProfile("no-source");
   const manifestPath = path.join(dir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
@@ -201,10 +201,11 @@ test("hook: a project without a source fails early", async () => {
   });
 
   assert.equal(result.exitCode, 1);
-  assert.equal(
-    result.diagnostics.filter((item) => item.code === "ERR_UNKNOWN_REF").length,
-    1,
+  assert.deepEqual(
+    result.diagnostics.map((item) => item.code),
+    ["core.manifest.invalid"],
   );
+  assert.equal(result.diagnostics[0]?.pointer, "/sources");
   assert.equal(
     result.diagnostics.some((item) => item.code === "ERR_SOURCE_QUOTE_NOT_FOUND"),
     false,
