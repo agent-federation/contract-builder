@@ -21,6 +21,8 @@ version. Run everything from the repository root.
 ```bash
 bun install --frozen-lockfile   # install exactly what bun.lock declares
 bun run typecheck               # tsc --noEmit
+bun run lint                    # Biome lint + format check
+bun run format                  # apply Biome formatting
 bun test                        # run the test suite
 bun run build                   # draft mode; writes spec/output/CORE-001.draft.md
 bun run build:release           # release mode; currently exits 1 by design
@@ -30,8 +32,9 @@ bun run pap:test                # PAP vectors, conformance corpus, hostile input
 ```
 
 CI (`.github/workflows/ci.yml`, job `check`) runs, in this order:
-`bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`.
-All four must be green before a pull request can land.
+`bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`,
+`bun run format:check`, `bun test`, `bun run check`.
+All steps must be green before a pull request can land.
 
 `bun run build:release` exits 1 on purpose. The slice has five
 `REVIEW_REQUIRED` diagnostics (unconfirmed normalizations, inferred cases,

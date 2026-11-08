@@ -16,11 +16,12 @@ Participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By contr
 ```bash
 bun install --frozen-lockfile
 bun run typecheck
+bun run lint
 bun test
 bun run check
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same sequence. All four steps must be green before a PR can land.
+CI (`.github/workflows/ci.yml`) runs the same sequence. All steps must be green before a PR can land.
 
 ## How to contribute
 
@@ -29,6 +30,16 @@ CI (`.github/workflows/ci.yml`) runs the same sequence. All four steps must be g
 3. **Make a focused change** — one concern per PR; do not mix refactors or unrelated formatting.
 4. **Prove it** — run the commands above. If you changed anything under `spec/` or `profiles/core001/`, run `bun run build` and commit the regenerated `spec/output/CORE-001.draft.md`.
 5. **Open a pull request** against `main`.
+
+### Formatting and linting
+
+Formatting and linting use [Biome](https://biomejs.dev/) (pinned `@biomejs/biome`, configuration in `biome.json`):
+
+- `bun run lint` — `biome check`: lint rules plus the formatting check;
+- `bun run format` — rewrite files with the formatter;
+- `bun run format:check` — report formatting differences without writing.
+
+Formatting is enforced in CI. Run `bun run format` on the files your change touches, and do **not** mix a repository-wide reformat into a feature, fix or documentation PR — a formatting-only change is its own PR. Generated artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens (`pap/fixtures/`, `fixtures/`, `tests/golden/`), `coverage/` and lockfiles are excluded in `biome.json`; the content-addressed profile and input files are excluded from formatting (they are still linted) so their build digests do not change. Do not reformat any of them by hand.
 
 ### Pull request rules
 

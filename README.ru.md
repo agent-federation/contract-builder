@@ -35,6 +35,9 @@ bun run build:release  # release (сейчас намеренно заблоки
 | `bun run check` | собирает в память и сравнивает с сохранённым артефактом |
 | `bun test` | тесты сборщика и PAP-верификатора |
 | `bun run typecheck` | `tsc --noEmit` |
+| `bun run lint` | Biome: линт и проверка форматирования |
+| `bun run format` | применить форматирование Biome |
+| `bun run format:check` | проверить форматирование без записи |
 | `bun run pap -- verify <PACKAGE>` | независимый PAP v0.1 verifier: `verify`, `inspect`, `explain` |
 | `bun spec/build.ts --spec <dir> --no-write --json --allow-executable-profile` | сборка произвольной спецификации с машиночитаемой диагностикой |
 | `bun spec/build.ts --spec <dir> --engine-root <engine-dir> ...` | сборка против явно заданного корня движка (см. «Явный корень движка») |
