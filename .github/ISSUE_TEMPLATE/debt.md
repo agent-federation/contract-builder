@@ -3,7 +3,7 @@ name: Technical debt
 about: Record one item in the `debt` register
 title: "[Debt] "
 labels: ["debt"]
-assignees: ""
+assignees: []
 ---
 
 ## Trigger and impact
