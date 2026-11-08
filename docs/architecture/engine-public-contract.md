@@ -651,10 +651,11 @@ and render semantics) remain a future design tracked separately (#5, M4).
 **Zero/absent-source decision (2026-11-07).** An absent or empty `sources` array is the same
 structural violation as multiple entries, not a build-path reference error. The 2026-11-07
 maintainer decision (ODR-ENG-001 B4) makes all three `core.manifest.invalid` at manifest validation
-and treats `ERR_UNKNOWN_REF` as historical behaviour only. The current implementation still rejects
-only `length > 1` and falls through to the legacy `ERR_UNKNOWN_REF` for absent/empty;
-[#229](https://github.com/agent-federation/contract-builder/issues/229) aligns the code and tests
-with this contract.
+and treats `ERR_UNKNOWN_REF` as historical behaviour only. This is implemented in `validateSources`:
+`undefined`, `[]` and more than one entry all fail with `core.manifest.invalid` at `/sources`
+(`bf5f544`; [#233](https://github.com/agent-federation/contract-builder/pull/233), closing
+[#229](https://github.com/agent-federation/contract-builder/issues/229)), and the legacy build-path
+`ERR_UNKNOWN_REF` branch is no longer reachable for a loaded manifest.
 
 Each provenance binding names exactly one source; provenance is verified through that source's
 adapter. A `VerificationRecord` identifies the source digest and declared version its outcome
@@ -995,9 +996,9 @@ Engine boundary failures are not catalog entries; the core emits them directly. 
 engine), `core.engine.root-unavailable` (the runtime cannot remap profile imports to the engine
 root), `core.extension.unpinned-dependency` (a non-relative, ambiguous or unpinned import),
 `core.manifest.invalid` (a manifest that does not declare exactly one source: absent, empty or
-multiple; the current implementation still reports the legacy `ERR_UNKNOWN_REF` for absent/empty,
-which #229 aligns with the 2026-11-07 decision). They follow the M1 code-string policy above;
-namespacing remains M2 work.
+multiple; `validateSources` rejects all three at manifest validation per the 2026-11-07 decision,
+and `ERR_UNKNOWN_REF` is historical behaviour for this structural violation only). They follow the
+M1 code-string policy above; namespacing remains M2 work.
 
 ### 7.2 Exit codes
 
@@ -1535,8 +1536,8 @@ without the decision.
 | D34 | Renderer wiring | A (#223, ODR-ENG-002) | the engine ships no renderer; the CLI imports one consumer-named module (`--renderer-module`) behind four pre-import gates (consent, profile-directory containment, `profile.files` declaration, closure validation); the declared renderer id is compared after the import, before registration | built-in renderer selected by the project's profile id | the engine must carry no CORE-001 id; the project owns its renderer wiring | CLI flag, `tests/consent.test.ts` | yes |
 
 D21 is superseded for M1 by ODR-ENG-001 B4: the array shape stays for forward compatibility, but
-M1 rejects more than one source during manifest validation (§5.3). Multi-source remains a future
-design, not an M1 capability.
+M1 rejects a manifest that does not declare exactly one source — absent, empty or multiple — during
+manifest validation (§5.3). Multi-source remains a future design, not an M1 capability.
 
 D33 is accepted by the maintainer's Issue [#37](https://github.com/agent-federation/contract-builder/issues/37)
 task comment (2026-11-02), which directs the binding/verification split; it is not part of the

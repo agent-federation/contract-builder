@@ -42,6 +42,7 @@ The consumed-file rule (post #158) covers `view`, `validator`, `diagnostics`, ev
 ### B4 — multiple sources are silently accepted, only the first is used
 
 - The manifest validator accepts an array of any length (`manifest.ts:375-405`); `build.ts:107` rejects only the empty array.
+- **Amended 2026-11-07 (#233):** this observation records the pre-decision state. `validateSources` now rejects `undefined`, `[]` and more than one source with `core.manifest.invalid` during manifest validation (ODR-ENG-001 B4).
 - The implementation is mixed: the M1 hook consumes the first source (`build.ts:170-171`), while other build/provenance paths index all `model.sources` by ID; the identity hashes **all** sources (`identity.ts` input-digest frame for sources). Multi-source M1 behaviour is therefore not established — some paths see all sources, the hook sees only the first.
 - **Reproduction:** adding a second source with a different document header builds with exit 0 and no diagnostics — the second document is never checked.
 - **Consequence:** an unsupported configuration is accepted, the digest covers data the semantics ignore, and a reader can believe both sources were verified.
