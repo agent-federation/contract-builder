@@ -642,16 +642,19 @@ Generic vs profile:
 ### 5.3 Multiple sources
 
 `Manifest.sources` keeps its array shape for forward compatibility, but **M1 supports exactly one
-source**. `validateSources` rejects more than one entry during manifest validation with
-`core.manifest.invalid` at `/sources`, before inputs, the model, identity or renderer are built;
-a multi-source manifest is a validation error, not a partially processed project.
-Multi-source semantics (a sources map, per-source verification and render semantics) remain a
-future design tracked separately (#5, M4).
+source**. `validateSources` rejects a manifest whose `sources` is absent, empty or has more than
+one entry during manifest validation with `core.manifest.invalid` at `/sources`, before inputs,
+the model, identity or renderer are built; any source count other than one is a validation error,
+not a partially processed project. Multi-source semantics (a sources map, per-source verification
+and render semantics) remain a future design tracked separately (#5, M4).
 
-An absent or empty `sources` array is not part of that manifest-level rule: it keeps the existing
-legacy `ERR_UNKNOWN_REF` error at `/sources` from the build path. This is the implemented M1
-behaviour and a recorded deviation from the `sources.length !== 1` ⇒ `core.manifest.invalid`
-wording of ODR-ENG-001 B4; the contract states the code rather than the ODR's shorthand.
+**Zero/absent-source decision (2026-11-07).** An absent or empty `sources` array is the same
+structural violation as multiple entries, not a build-path reference error. The 2026-11-07
+maintainer decision (ODR-ENG-001 B4) makes all three `core.manifest.invalid` at manifest validation
+and treats `ERR_UNKNOWN_REF` as historical behaviour only. The current implementation still rejects
+only `length > 1` and falls through to the legacy `ERR_UNKNOWN_REF` for absent/empty;
+[#229](https://github.com/agent-federation/contract-builder/issues/229) aligns the code and tests
+with this contract.
 
 Each provenance binding names exactly one source; provenance is verified through that source's
 adapter. A `VerificationRecord` identifies the source digest and declared version its outcome
@@ -851,6 +854,13 @@ Classification alone is not sufficient: the module that executes must come from 
 symlink escape is `core.path.outside-root`; a missing module is
 `core.extension.unpinned-dependency`.
 
+**Scope of the containment claim.** "The executed module must come from the root" is enforced for
+the literal relative specifiers that the static import scan can see. A computed specifier (for
+example `import(name)`), `createRequire` or `process.binding` is not classified or remapped by the
+scan, so such code can load a module from outside the root; §8.1 and the M1 plan place that class of
+violation on the trusted extension author, and import-scan hardening is follow-up work (ODR-ENG-001
+E4), not an M1 guarantee.
+
 Dispositions of the other specifier forms are explicit and none bypasses closure validation:
 
 | Specifier form | Disposition |
@@ -984,9 +994,10 @@ Engine boundary failures are not catalog entries; the core emits them directly. 
 `core.engine.version-mismatch` (the root's version cannot be read or differs from the running
 engine), `core.engine.root-unavailable` (the runtime cannot remap profile imports to the engine
 root), `core.extension.unpinned-dependency` (a non-relative, ambiguous or unpinned import),
-`core.manifest.invalid` (more than one declared source) and the legacy `ERR_UNKNOWN_REF` for an
-absent or empty `sources` array. They follow the M1 code-string policy above; namespacing remains
-M2 work.
+`core.manifest.invalid` (a manifest that does not declare exactly one source: absent, empty or
+multiple; the current implementation still reports the legacy `ERR_UNKNOWN_REF` for absent/empty,
+which #229 aligns with the 2026-11-07 decision). They follow the M1 code-string policy above;
+namespacing remains M2 work.
 
 ### 7.2 Exit codes
 

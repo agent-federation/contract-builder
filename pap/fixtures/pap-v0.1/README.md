@@ -7,10 +7,12 @@ or mutated at test time.
 
 - `base/` — the Appendix F package. Its package identity, artifact/source/quote,
   input and claim digests are the Appendix E.1/E.2 literals.
-- `F01-…`–`F85-…` — one package per normative case. A case differs from `base/`
+- `F01-…`–`F88-…` — one package per normative case. A case differs from `base/`
   only in the defect or variation it names. `F62` and later cover the diagnostic
   codes the original corpus never asserted; `F81`–`F85` pin the S3 derivation
-  and hostile-input boundaries.
+  and hostile-input boundaries; `F86`–`F88` pin the P3 sweep: `papClaimsVersion`
+  verdict impact, dependent-check degradation for provenance, and the
+  envelope-count limit.
 - `trust-policy/` — the fixed Appendix B policies. `invalid.json` is intentionally
   schema-invalid; `relations-only-lowered.json` is the F61 policy. The
   `*-underdeclared.json` policies omit the dimensions their feature derives, so
@@ -47,7 +49,9 @@ Appendix C schema validity, JCS bytes and deterministic reruns.
 
 ## Limit cases
 
-`F52` and `F61` exercise `fileBytes: 64`. Files under `artifacts/`, `sources/` and
+`F52` and `F61` exercise `fileBytes: 64`; `F88` exercises the
+`signatureEnvelopes` count limit and proves the count-limited run reads no
+envelope. Files under `artifacts/`, `sources/` and
 `inputs/` are bounded by `fileBytes`/`totalPayloadBytes`/`payloadFiles`; claim
 files are bounded by the JSON document limits. A limit that makes a required
 check unevaluable stops the required check set; optional checks that do not need

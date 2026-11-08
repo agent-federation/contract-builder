@@ -75,8 +75,8 @@ A policy that omits a derived dimension is valid (it is derived); a policy that 
 ## 5. Diagnostics and requirement coverage
 
 - Codes keep their current names; new codes are added only through the corpus policy (I6).
-- The mapping file `pap/fixtures/pap-v0.1/requirements.json` has two sections: `codes` (code → case ids) and `requirements` (R1-R12 → case ids). A meta-test fails on a code emitted by `pap/src` with no entry, or a requirement with no case.
-- The 61-case `cases.json` stays the normative §12 corpus; new cases extend it (F62+). The phase files keep their declared experiment scope.
+- The mapping file `pap/fixtures/pap-v0.1/requirements.json` has six sections: `codes` (code → case ids), `unitOnlyCodes` (the explicit allowlist of codes covered by a named unit test instead of a conformance case), `requirements` (R1-R12 → case ids), `requirementNotes` (per-requirement coverage notes), `verdictCause` (cause code → dimension for I5) and `verdictCauseExceptions` (the documented degenerate causes). A meta-test fails on a code emitted by `pap/src` with no entry in `codes` or the `unitOnlyCodes` allowlist, or a requirement with no case.
+- The 84-case `cases.json` is the normative §12 corpus: `F01–F63` and `F65–F85` (`F64` is intentionally absent; IDs are stable labels, not a dense sequence). New cases extend it; the phase files keep their declared experiment scope.
 
 ## 6. Implementation slices
 

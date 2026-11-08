@@ -42,6 +42,7 @@ import {
   computeCoverage,
   computeVerdict,
   deriveRequiredDimensions,
+  isEmptyRequiredSet,
   sortDiagnostics,
   sortLimitations,
   statusForDimension,
@@ -374,6 +375,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: false,
       discoveryFailure: false,
+      readNone: false,
       diagnostics: [],
     };
   }
@@ -385,6 +387,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   }
   if (
     loadedPolicy !== undefined &&
+    !signatureEvaluation.discoveryFailure &&
     signatureEvaluation.entries.length === 0 &&
     !signatureEvaluation.envelopeLimitHit
   ) {
@@ -457,7 +460,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   const requiredDimensions = deriveRequiredDimensions(loadedPolicy?.policy ?? null, requiredChecks);
   const signatureMode = loadedPolicy?.policy.signature.mode ?? "optional";
   const humanReviewRequired = loadedPolicy?.policy.humanReview.required === true;
-  const emptyRequiredSet = requiredChecks.length === 0 && requiredDimensions.length === 0;
+  const emptyRequiredSet = isEmptyRequiredSet(requiredChecks, requiredDimensions);
   if (emptyRequiredSet) {
     diag(
       "pap.package.empty-check-specs",
@@ -1177,9 +1180,7 @@ export function evaluateTrust(options: {
   // RFC §4.3.4: the envelope-count limit reads no envelope, so the signature
   // scope is NOT_EVALUATED rather than absent. A per-envelope limit must not
   // hide the aggregate of the envelopes that were evaluated.
-  const noEnvelopeEvaluated =
-    options.signature.envelopeLimitHit && options.signature.entries.length === 0;
-  const signerIdentity = noEnvelopeEvaluated
+  const signerIdentity = options.signature.readNone
     ? "NOT_EVALUATED"
     : options.signature.entries.length === 0
       ? "NOT_APPLICABLE"

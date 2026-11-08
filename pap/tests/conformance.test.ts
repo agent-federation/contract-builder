@@ -349,6 +349,15 @@ test("F01/F02: required text lines", () => {
     assert.ok(result.stdout.includes("coverage:"));
     assert.ok(result.stdout.includes("full:"));
     assert.ok(!result.stdout.includes("verified"), "text output must not use verified as a result");
+    // RFC §9.6 item 7: the policy id, digest and state are required text.
+    const report = JSON.parse(runPap(jsonCommand, path.join(fixtures, caseId)).stdout);
+    assert.ok(report.policy.digest?.startsWith("sha256:"), "the corpus policy digest is set");
+    assert.ok(
+      result.stdout.includes(
+        `policy: ${report.policy.id} digest: ${report.policy.digest} state: ${report.policy.state}`,
+      ),
+      "text output must render policy id/digest/state",
+    );
   }
 });
 
