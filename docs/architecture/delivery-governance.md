@@ -111,8 +111,7 @@ The high-value debt is concentrated:
 
 - `pap/src/verify.ts` (1515 lines) → orchestration + phases: package read/limits, manifest/claims decode, checks, trust/signature evaluation, report assembly; keep the CLI thin and the report model separate;
 - `spec/lib/identity.ts` (1761) → digest/envelope framing, engine-root resolution/import mapping, profile/adapter/renderer closure, build identity assembly;
-- shared helpers: one `text()`/`isObject()` in a single module per boundary (`pap` must not import `spec/`; keep a `pap/src/guards.ts` and use `spec/lib/guards.ts` for the engine);
-- renderer scaffolding: `MemoryLoader`, `finalize`, `countSeverity` belong in one shared profile-support module, not copied in each renderer;
+- **Deferred — shared profile helpers (D7b, dropped after investigation #262):** the profile closure/import-scan rules do not allow a cross-profile support root without an engine change, and moving any profile code changes `profileDigest` → `inputDigest` → the rendered artifact bytes. A byte-identical, behaviour-preserving dedupe of the duplicated `text()`/`isObject()` and renderer scaffolding (`MemoryLoader`, `finalize`, `countSeverity`) is therefore impossible. Keep the helpers local; a future dedupe would be a coordinated change with expected digest/golden updates, not a D7 behaviour-preserving slice;
 - test temp directories: stop the leak the #137 audit measured (~221 dirs / ~466 MB per full run) with one centralized temp-directory helper/teardown across `tests/`, `pipeline/tests/` **and `pap/tests/`** (the latter is 13 `mkdtemp` call sites today), plus the `contracts/core000` harness workspaces where they are not already covered by `prepareWorkspace().cleanup()`. Each suite must own a dedicated temp root (or an explicitly tracked set of harness-owned paths) and assert cleanup only inside that scope — never a process-wide `/tmp` count/size delta, which parallel sessions and unrelated processes can perturb. Cover failure paths (assertion/timeout) so teardown still runs.
 
 Sequencing: D2 format baseline first (so refactor diffs are clean), then split modules in separate PRs behind the existing tests and S2.2/golden checks; no behaviour change in the split PRs.
@@ -138,7 +137,7 @@ Until then, keep the enforced boundary (no imports of `spec/`, `profiles/`, prod
 | D4 | `docs-freshness` extensions (status-matrix hash, diagnostic codes) | tests bite on a deliberate contract/code change |
 | D5 | PR/issue templates + branch/size rules | templates used by the next PR; size guideline documented |
 | D6 | `debt` label + register convention + first triage | label exists; triage list linked from #170 |
-| D7 | Structural splits (verify, identity, helpers, renderer support) + temp-dir lifecycle | behaviour-preserving PRs, tests/goldens green, no artifact byte change; no leaked resources under the test-owned temp root (asserted per suite, not via a global `/tmp` delta) |
+| D7 | Structural splits (verify, identity) + temp-dir lifecycle; shared profile helpers dropped (#262) | behaviour-preserving PRs, tests/goldens green, no artifact byte change (engine/PAP splits do not change profile digests); no leaked resources under the test-owned temp root (asserted per suite, not via a global `/tmp` delta) |
 | D8 | Verifier packaging decision recorded | trigger conditions in the RFC/ODR; no physical split until they hold |
 
 ## 5. Decisions requested (D1–D8)
@@ -149,7 +148,7 @@ Until then, keep the enforced boundary (no imports of `spec/`, `profiles/`, prod
 - **D4:** extend docs freshness with a status-matrix hash and diagnostic-code documentation check; add link checking. *(recommended)*
 - **D5:** PR size guideline ≤400 non-generated lines, PR/issue templates, branch naming, no force-push without delta review. *(recommended)*
 - **D6:** issues as the debt register (`debt`/`tail`), triage monthly or per release. *(recommended)*
-- **D7:** split `verify.ts`/`identity.ts`, dedupe helpers/renderer scaffolding; sequence after D2. *(recommended)*
+- **D7:** split `verify.ts`/`identity.ts`; keep profile helpers local — shared profile support is dropped because it cannot be byte-identical under the closure/digest rules; sequence after D2. *(recommended)*
 - **D8:** defer the PAP physical split; record trigger conditions in the RFC/ODR. *(recommended)*
 
 ## 6. Non-goals
