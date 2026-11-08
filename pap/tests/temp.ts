@@ -39,8 +39,18 @@ export function tempDir(prefix: string): string {
 export function cleanupTempDirs(): void {
   const current = root;
   root = undefined;
-  for (const listener of cleanupListeners) listener();
-  if (current !== undefined) {
-    rmSync(current, { recursive: true, force: true, maxRetries: 3 });
+  try {
+    for (const listener of cleanupListeners) {
+      try {
+        listener();
+      } catch {
+        // A listener only drops cached state; one failure must not keep the
+        // root (and its directories) on disk or skip the next listener.
+      }
+    }
+  } finally {
+    if (current !== undefined) {
+      rmSync(current, { recursive: true, force: true, maxRetries: 3 });
+    }
   }
 }
