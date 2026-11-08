@@ -101,7 +101,7 @@ async function subdirectories(directory: string): Promise<string[]> {
   try {
     entries = await readdir(directory, { withFileTypes: true });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
   return entries
