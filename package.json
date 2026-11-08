@@ -17,6 +17,7 @@
     "build:release": "bun spec/build.ts --mode release --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
     "check": "bun spec/build.ts --mode draft --check --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
     "check:all": "bun run check && bun test tests/core000.test.ts -t \"S2.2 artifact verification\"",
+    "release:check": "bun pipeline/release.ts",
     "pap": "bun pap/src/cli.ts",
     "pap:test": "bun test pap/tests",
     "pack:core000": "bun pipeline/pack.ts",

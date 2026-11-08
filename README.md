@@ -204,6 +204,7 @@ A snapshot of the full implementation status lives in
 | `bun run build` | draft build: writes `spec/output/CORE-001.draft.md` |
 | `bun run build:release` | release build: writes `spec/output/CORE-001.md` only if there is no ERROR and no REVIEW_REQUIRED (currently blocked by design) |
 | `bun run check` | builds in memory and compares with the committed artifact |
+| `bun run release:check --tag vX.Y.Z` | release gate: the tag must equal the engine `package.json` `version`; also validates the three version domains for presence and shape |
 | `bun test` | builder, verifier and pipeline tests |
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run pap -- verify <PACKAGE>` | PAP v0.1 verifier: `verify`, `inspect`, `explain` |
@@ -212,6 +213,31 @@ A snapshot of the full implementation status lives in
 
 CI runs `bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`; all four
 must be green before a pull request can land.
+
+## Version domains and releases
+
+Three version domains are independent and must never be synchronised:
+
+| Domain | Authoritative field | What it versions |
+|---|---|---|
+| Engine | `package.json` `version` | the engine release; embedded in build identity and artifact provenance |
+| Profile | `profiles/*/profile.json` `version` | each profile's own evolution |
+| Project | `contracts/*/contract-builder.json` `project.revision` | the particular project/content revision |
+
+They coincide today (`0.1.0`) only by accident. The canonical CORE-001 example already shows the
+distinction: `project.revision` `0.3.3` with `profile.version` `0.1.0`. Forcing the three equal
+would encode an invalid coupling, so `bun run release:check` validates each value for presence and
+semver shape and never compares one domain with another.
+
+`bun run release:check --tag vX.Y.Z` is the release gate once tags exist: the tag must be
+semver-shaped with a leading `v` and equal the engine `package.json` `version`; a mismatch or a
+malformed tag exits non-zero, and a missing `--tag` is a usage error rather than a silent pass.
+The repository is currently in its declared **MVP without public releases** state, so there are no
+tags and the check is not wired into CI yet. `bun run check:all` and the identity tests already
+cover the other engine-version source pair (`package.json` ↔ generated artifacts/provenance); the
+release tag is the only source this check adds. A release tag names the engine release only; when
+one is eventually created, its notes must list the profile versions and project revisions shipped
+alongside it.
 
 ## Relation to adjacent work
 
