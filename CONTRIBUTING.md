@@ -92,7 +92,13 @@ The repository-managed CodeQL workflow (`.github/workflows/codeql.yml`) analyzes
 - **Never force-push a branch under review without a delta pre-review**: re-run the independent pre-review against the new head and record it in the PR. Rewrite history only when the review requires it.
 - An automated agent (`it-start`) may open PRs; **only a human merges**. Agents must not enable auto-merge. Agent-authored PRs pass the same gates as human ones, and the pre-review record is mandatory for code changes. The platform enforces the merge rule: the agent cannot merge, and its approval cannot satisfy the Code Owner review requirement.
 - **Independent pre-review**: code PRs (changes under `pap/`, `spec/lib/`, `profiles/`, `contracts/`) need a pre-merge review by a different model family (GLM-5.3-flash by default, escalating to GLM-5.3, in a DeepSeek Harness session), recorded in the PR. It is advisory: CI, the Code Owner review and the human merge still gate. See `docs/agents/pre-review.md`. Documentation- and config-only PRs may skip it; record `docs-only, skipped: <reason>` in the PR.
-- **Issue templates**: bug, architecture, hardening and tail reports use the forms under `.github/ISSUE_TEMPLATE/`; issue bodies are in English too.
+- **Issue templates**: bug, architecture, hardening, tail and debt reports use the forms under `.github/ISSUE_TEMPLATE/`; issue bodies are in English too.
+
+### Debt register
+
+Technical debt is tracked in GitHub issues labelled `debt` (`tail` too when the fix is dated); there is deliberately no `TECHNICAL_DEBT.md`, because a separate Markdown register drifts from the code. File each item with the [debt issue template](.github/ISSUE_TEMPLATE/debt.md): a trigger/impact, a proposed fix, an acceptance condition and an owner/area. An item without a trigger or an acceptance is not a debt item.
+
+Triage the register monthly, or at each release once releases exist: list the open `debt` issues, re-rank them, and close stale items with a reason. Link each item to the [#137](https://github.com/agent-federation/contract-builder/issues/137) audit area that found it and to the [delivery-governance](docs/architecture/delivery-governance.md) decision it serves. Planned structural work keeps its own execution issue; link it instead of filing a duplicate debt item.
 
 ### Artifact rule
 
