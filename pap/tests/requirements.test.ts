@@ -78,10 +78,23 @@ function diagnosticCodesIn(source: string): string[] {
   return codes;
 }
 
+function sourceFilesUnder(directory: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...sourceFilesUnder(entryPath));
+    } else if (entry.name.endsWith(".ts")) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
 function emittedDiagnosticCodes(): string[] {
   const codes = new Set<string>();
-  for (const file of readdirSync(path.join(root, "src")).filter((name) => name.endsWith(".ts"))) {
-    for (const code of diagnosticCodesIn(readFileSync(path.join(root, "src", file), "utf8"))) {
+  for (const file of sourceFilesUnder(path.join(root, "src"))) {
+    for (const code of diagnosticCodesIn(readFileSync(file, "utf8"))) {
       codes.add(code);
     }
   }
