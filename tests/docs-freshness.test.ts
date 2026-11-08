@@ -61,6 +61,10 @@ const DIAGNOSTIC_SECTIONS = [
   "Core engine diagnostic codes",
   "PAP verifier diagnostic codes",
 ] as const;
+const DIAGNOSTIC_SECTION_PREFIX: Record<(typeof DIAGNOSTIC_SECTIONS)[number], string> = {
+  "Core engine diagnostic codes": "core.",
+  "PAP verifier diagnostic codes": "pap.",
+};
 const ALLOWLIST_SECTION = "Non-diagnostic allowlist";
 
 interface ClaimsRegister {
@@ -144,7 +148,7 @@ export function parseDiagnosticRegistry(text: string): DiagnosticRegistry {
         findings.push(`registry row "${code}" in "${name}" is not a namespaced code`);
         continue;
       }
-      const expectedPrefix = name === "Core engine diagnostic codes" ? "core." : "pap.";
+      const expectedPrefix = DIAGNOSTIC_SECTION_PREFIX[name];
       if (!code.startsWith(expectedPrefix)) {
         findings.push(`registry row ${code} is in the "${name}" section`);
         continue;
@@ -253,7 +257,11 @@ async function walkTypeScriptFiles(projectRoot: string, relativeRoot: string): P
         await visit(absolute);
         continue;
       }
-      if (!entry.name.endsWith(".ts") || TEST_FILE_SUFFIX.test(entry.name)) {
+      if (
+        !entry.name.endsWith(".ts") ||
+        entry.name.endsWith(".d.ts") ||
+        TEST_FILE_SUFFIX.test(entry.name)
+      ) {
         continue;
       }
       out.push(absolute);
