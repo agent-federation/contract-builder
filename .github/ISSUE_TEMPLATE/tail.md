@@ -16,6 +16,8 @@ assignees: ""
 
 ## Done when
 
-- [ ]
+- [ ] Replace with the done condition
 
 ## Links
+
+<!-- Related PRs, issues or discussion threads. -->

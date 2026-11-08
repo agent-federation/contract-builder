@@ -2,8 +2,8 @@
 
 <!-- One concern per PR. Link the issue and, for a stream, the umbrella issue. -->
 
-Closes #
-Part of #
+Closes #<!-- issue number -->
+Part of #<!-- stream or umbrella issue -->
 
 ## What changed
 
