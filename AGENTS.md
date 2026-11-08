@@ -186,7 +186,7 @@ source roots above: `bun test tests/docs-freshness.test.ts`.
   [pull request template](.github/PULL_REQUEST_TEMPLATE.md); it carries the
   proof commands, the pre-review record, risk/rollback and the checklist. File
   issues with the templates under `.github/ISSUE_TEMPLATE/` (bug, architecture,
-  hardening, tail).
+  hardening, tail, debt).
 - Never push directly to `main` and never force-push to `main`. `main` is
   protected: the `check` job must pass, the branch must be up to date, and the
   pull request needs one approving Code Owner review
@@ -216,6 +216,26 @@ source roots above: `bun test tests/docs-freshness.test.ts`.
   pull request instead of leaving the record blank.
 - Keep the change focused; do not mix refactors or reformatting into a
   documentation or fix pull request.
+
+## Debt register
+
+Technical debt lives in GitHub issues labelled `debt` (`tail` too when the fix is
+dated), never in a `TECHNICAL_DEBT.md`: a separate Markdown register drifts from
+the code. File each item with the
+[debt issue template](.github/ISSUE_TEMPLATE/debt.md) and state the
+trigger/impact, the proposed fix, the acceptance condition and an owner/area. An
+item without a trigger or an acceptance is not a debt item.
+
+- **Triage.** Monthly, or at each release once a release cadence exists: list
+  the open `debt` issues, re-rank them, and close stale items with a reason.
+- **Link the audit area.** Tie each item to the area of the
+  [#137](https://github.com/agent-federation/contract-builder/issues/137) audit
+  that found it, and to the decision record it serves (for example the
+  [delivery-governance](docs/architecture/delivery-governance.md) D6/D7
+  decisions).
+- **Do not duplicate planned structural work.** A split or cleanup with its own
+  execution issue stays there; link it from the register instead of filing a
+  second debt item.
 
 ## What not to do
 
