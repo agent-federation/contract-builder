@@ -63,21 +63,27 @@ function fail(issues: Issue[]): never {
 
 /** Replace code and comments with whitespace while preserving line numbers. */
 function maskCodeAndComments(markdown: string): string {
-  let fenceMarker: string | null = null;
+  let fenceCharacter: string | null = null;
+  let fenceLength = 0;
   const lines = markdown.split("\n").map((line) => {
     const fence = line.match(FENCE);
     if (fence) {
       const marker = fence[1] ?? "";
-      if (fenceMarker === null) {
-        fenceMarker = marker[0] ?? null;
+      const character = marker[0] ?? "";
+      if (fenceCharacter === null) {
+        fenceCharacter = character;
+        fenceLength = marker.length;
         return "";
       }
-      if (marker[0] === fenceMarker) {
-        fenceMarker = null;
+      // CommonMark: the closing fence must use the same character and be at
+      // least as long as the opening fence.
+      if (character === fenceCharacter && marker.length >= fenceLength) {
+        fenceCharacter = null;
+        fenceLength = 0;
       }
       return "";
     }
-    if (fenceMarker !== null) {
+    if (fenceCharacter !== null) {
       return "";
     }
     return line;
@@ -107,24 +113,48 @@ function decode(value: string): string {
   }
 }
 
+/** Remove inline HTML tags so the heading text, not the markup, is slugged. */
+function stripHtmlTags(value: string): string {
+  let result = "";
+  let depth = 0;
+  for (const character of value) {
+    if (character === "<") {
+      depth += 1;
+    } else if (character === ">") {
+      depth = Math.max(0, depth - 1);
+    } else if (depth === 0) {
+      result += character;
+    }
+  }
+  return result;
+}
+
 /** GitHub's anchor slug for a heading's visible text. */
 function slugify(text: string): string {
-  return text
-    .replace(/<[^>]*>/g, "")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[`*_~]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
-    .replace(/\s/g, "-");
+  return (
+    stripHtmlTags(text)
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/[`*_~]/g, "")
+      .toLowerCase()
+      .trim()
+      // github-slugger keeps only letters, numbers, marks, literal spaces,
+      // underscores and hyphens, then turns each space into one hyphen. A run of
+      // spaces therefore yields a run of hyphens (an em dash between spaces
+      // leaves two spaces, so the anchor contains `--`); tabs are dropped.
+      .replace(/[^\p{L}\p{N}\p{M} _-]/gu, "")
+      .replace(/ /g, "-")
+  );
 }
 
 function headingAnchors(markdown: string): Set<string> {
   const anchors = new Set<string>();
   const seen = new Map<string, number>();
+  // Anchors inside code fences, inline code and comments are examples, not
+  // rendered anchors, so both heading and HTML anchors are read from the mask.
+  const masked = maskCodeAndComments(markdown);
 
-  for (const line of maskCodeAndComments(markdown).split("\n")) {
+  for (const line of masked.split("\n")) {
     const heading = line.match(HEADING);
     if (!heading) {
       continue;
@@ -141,7 +171,7 @@ function headingAnchors(markdown: string): Set<string> {
   }
 
   // GitHub honours explicit HTML anchors as targets.
-  for (const match of markdown.matchAll(/<a\s+[^>]*?\b(?:name|id)\s*=\s*["']([^"']+)["']/gi)) {
+  for (const match of masked.matchAll(/<a\s+[^>]*?\b(?:name|id)\s*=\s*["']([^"']+)["']/gi)) {
     const name = match[1];
     if (name !== undefined) {
       anchors.add(name);
@@ -152,8 +182,26 @@ function headingAnchors(markdown: string): Set<string> {
   return anchors;
 }
 
-function linesInFile(path: string): number {
-  const text = readFileSync(path, "utf8");
+type TargetRead = { kind: "file"; text: string } | { kind: "directory" } | { kind: "missing" };
+
+/**
+ * Read a link target in one operation. The read is attempted first: a failed
+ * read is only then explained with a stat, which avoids a check-then-use race
+ * between an existence check and the read.
+ */
+function readTarget(path: string): TargetRead {
+  try {
+    return { kind: "file", text: readFileSync(path, "utf8") };
+  } catch {
+    try {
+      return statSync(path).isDirectory() ? { kind: "directory" } : { kind: "missing" };
+    } catch {
+      return { kind: "missing" };
+    }
+  }
+}
+
+function lineCount(text: string): number {
   if (text === "") {
     return 0;
   }
@@ -251,7 +299,8 @@ function checkLink(
     return false;
   }
 
-  if (!existsSync(targetPath)) {
+  const targetRead = readTarget(targetPath);
+  if (targetRead.kind === "missing") {
     issues.push({
       file: displaySource,
       line,
@@ -260,7 +309,6 @@ function checkLink(
     return false;
   }
 
-  const isDirectory = statSync(targetPath).isDirectory();
   if (fragment === "" || fragment === "top") {
     return true;
   }
@@ -269,7 +317,7 @@ function checkLink(
   if (lineAnchor) {
     const start = Number(lineAnchor[1]);
     const end = lineAnchor[2] === undefined ? start : Number(lineAnchor[2]);
-    const total = isDirectory ? 0 : linesInFile(targetPath);
+    const total = targetRead.kind === "file" ? lineCount(targetRead.text) : 0;
     if (start < 1 || end < start || end > total) {
       issues.push({
         file: displaySource,
@@ -281,7 +329,7 @@ function checkLink(
     return true;
   }
 
-  if (isDirectory) {
+  if (targetRead.kind === "directory") {
     issues.push({
       file: displaySource,
       line,
@@ -301,7 +349,7 @@ function checkLink(
 
   let anchors = anchorCache.get(targetPath);
   if (!anchors) {
-    anchors = headingAnchors(readFileSync(targetPath, "utf8"));
+    anchors = headingAnchors(targetRead.text);
     anchorCache.set(targetPath, anchors);
   }
   if (!anchors.has(fragment)) {
