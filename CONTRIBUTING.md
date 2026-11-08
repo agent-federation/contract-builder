@@ -50,6 +50,16 @@ Formatting is enforced in CI. Run `bun run format` on the files your change touc
 
 External `http(s)` URLs are deliberately **not** checked by the pull-request gate: a PR must never depend on a third-party host being reachable. External URL checking is out of scope for this gate; if it is added later it must be a separate, non-blocking scheduled job. The gate makes no network calls.
 
+### Documentation freshness
+
+`tests/docs-freshness.test.ts` is the machine check for three hand-maintained documentation facts. Run it after changing any of them, and note that the normal `bun test`/CI run already includes it:
+
+- **Engine-contract snapshot.** `docs/architecture/implementation-status.md` records the SHA-256 of the whole `docs/architecture/engine-public-contract.md`, over LF-normalized bytes. If you change the contract, update the recorded hash in the same pull request. The test failure prints the hash it computed, so copy that value into the snapshot sentence; a stale hash fails.
+- **CORE-000 claim count.** The same status matrix states the number of claims in `contracts/core000/claims.yml`. Update the sentence in the same pull request that changes the register.
+- **Diagnostic-code registry.** Every `core.*`/`pap.*` code emitted from production TypeScript under `spec/`, `profiles/`, `pap/src/`, `pipeline/` and `contracts/` must appear in [`docs/architecture/diagnostic-code-registry.md`](docs/architecture/diagnostic-code-registry.md). Add the row in the same pull request as the emitted code. The registry's exact-match allowlist is only for namespaced identifiers that are not diagnostics (digest domains, verifier identities) and each entry states why; never allowlist a real diagnostic and remove an entry when its last use disappears. There is no glob or prefix suppression.
+
+Run the focused check with `bun test tests/docs-freshness.test.ts`.
+
 ### Coverage policy
 
 `bun run coverage` runs the suite and writes `coverage/lcov.info`; `bun run coverage:check` (`scripts/check-coverage.ts`) enforces line-coverage floors on the **in-process measured** areas only. `pap/` is excluded: its tests exercise the verifier by spawning the CLI, so an in-process percentage there is misleading (the #137 audit measured `manifest.ts` at ~3.31% for that reason). There is no global threshold.
