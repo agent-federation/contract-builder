@@ -184,20 +184,24 @@ function headingAnchors(markdown: string): Set<string> {
 
 type TargetRead = { kind: "file"; text: string } | { kind: "directory" } | { kind: "missing" };
 
+function errnoCode(error: unknown): string | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
+}
+
 /**
- * Read a link target in one operation. The read is attempted first: a failed
- * read is only then explained with a stat, which avoids a check-then-use race
- * between an existence check and the read.
+ * Load a link target in one operation. EISDIR means the target is a directory
+ * and ENOENT means it is missing; no separate existence or type check runs, so
+ * the path cannot change between a check and the read.
  */
 function readTarget(path: string): TargetRead {
   try {
     return { kind: "file", text: readFileSync(path, "utf8") };
-  } catch {
-    try {
-      return statSync(path).isDirectory() ? { kind: "directory" } : { kind: "missing" };
-    } catch {
-      return { kind: "missing" };
-    }
+  } catch (error) {
+    return errnoCode(error) === "EISDIR" ? { kind: "directory" } : { kind: "missing" };
   }
 }
 
