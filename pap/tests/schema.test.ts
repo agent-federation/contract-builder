@@ -1,11 +1,13 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import Ajv2020Module from "ajv/dist/2020.js";
 import { domainHash } from "../src/digest.js";
 import { fixtures, root, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
+
+after(cleanupTempDirs);
 
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
 const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
@@ -66,7 +68,7 @@ test("trust policy fixtures validate except the intentionally invalid fixtures",
 });
 
 test("the report for hostile claim values validates against Appendix C", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-schema-hostile-"));
+  const dir = tempDir("schema-hostile-");
   cpSync(path.join(fixtures, "base"), dir, { recursive: true });
   const claim = JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8"));
   claim.claims[0].claimedOutcome = ["PASS"];
@@ -84,7 +86,7 @@ test("the report for hostile claim values validates against Appendix C", () => {
 });
 
 test("the report for hostile envelope values validates against Appendix C", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-schema-hostile-envelope-"));
+  const dir = tempDir("schema-hostile-envelope-");
   cpSync(path.join(fixtures, "base"), dir, { recursive: true });
   mkdirSync(path.join(dir, "signatures"));
   const envelope = JSON.parse(
@@ -92,7 +94,7 @@ test("the report for hostile envelope values validates against Appendix C", () =
   );
   envelope.payloadType = ["application/vnd.pap.manifest.v0.1+json"];
   writeFileSync(path.join(dir, "signatures", "hostile.dsse.json"), JSON.stringify(envelope));
-  const policyDir = mkdtempSync(path.join(tmpdir(), "pap-schema-policy-"));
+  const policyDir = tempDir("schema-policy-");
   const policyPath = path.join(policyDir, "policy.json");
   writeFileSync(
     policyPath,

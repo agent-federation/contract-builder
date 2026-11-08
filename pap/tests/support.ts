@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { onTempCleanup, tempDir } from "./temp.js";
 
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const fixtures = path.join(root, "fixtures", "pap-v0.1");
@@ -18,9 +19,15 @@ export interface RunResult {
 
 let sentinel: { dir: string; log: string } | undefined;
 
+// The sentinel directory lives under the per-file temp root, so drop the cache
+// when that root is removed; the next `runPap` call creates a fresh sentinel.
+onTempCleanup(() => {
+  sentinel = undefined;
+});
+
 function sentinelEnv(): { dir: string; log: string } {
   if (sentinel !== undefined) return sentinel;
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-sentinel-"));
+  const dir = tempDir("sentinel-");
   const log = path.join(dir, "executed.log");
   writeFileSync(
     path.join(dir, "contract-builder"),
