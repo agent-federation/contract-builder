@@ -110,7 +110,7 @@ fixtures/                       intentionally broken specifications
 
 docs/
   architecture/                 engine public contract, build identity, PAP RFC,
-                                SDLC pipeline, implementation status
+                                SDLC pipeline, implementation status, diagnostic registry
   decisions/                    ODR records (engine, PAP, process)
   agents/                       pre-review recipe, task envelope
   superpowers/specs/            design record

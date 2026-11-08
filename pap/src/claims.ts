@@ -54,11 +54,7 @@ export interface ReviewsClaim {
   }[];
 }
 
-export type ParsedClaim =
-  | ProvenanceClaim
-  | RelationsClaim
-  | ProducerReportClaim
-  | ReviewsClaim;
+export type ParsedClaim = ProvenanceClaim | RelationsClaim | ProducerReportClaim | ReviewsClaim;
 
 export interface ClaimIssue {
   code: string;

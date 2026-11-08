@@ -12,7 +12,8 @@ const root = fileURLToPath(new URL("..", import.meta.url));
  * quoted kind/relation names, unquoted domain words (except the TypeScript `case`
  * keyword), the CORE-001 token, CORE-001 assets, profile/fixture paths, and CORE-001
  * Russian labels. It is a ratchet, not a proof: an arbitrary identifier or template
- * expression could still carry domain meaning without matching.
+ * expression could still carry domain meaning without matching. The scan covers the whole
+ * `spec/` tree, not only `spec/lib`, so the CLI cannot reintroduce a domain-specific name.
  */
 const QUOTED_KIND = /["'](fragment|term|provision|decision|case|dependsOn|mentions|vectors)["']/;
 const UNQUOTED_KIND = /\b(fragment|term|provision|decision|dependsOn|mentions|vectors)\b/;
@@ -22,7 +23,6 @@ const CORE_ASSET = /labels\.ru\.json|templates\/core001|output\/CORE-001/i;
 const PROFILE_PATH = /["'][^"'\n]*(?:profiles|fixtures|tests)\/[^"'\n]*["']/;
 const DOMAIN_LABEL =
   /обязанность|запрет|разрешение|дословно|пересказ|положение|кейс|термин|фрагмент/i;
-
 
 async function walk(dir: string): Promise<string[]> {
   const files: string[] = [];
@@ -53,8 +53,8 @@ export async function scanEngine(dir: string): Promise<string[]> {
   return offenders.sort();
 }
 
-test("genericity: the engine carries no CORE-001 domain tokens", async () => {
-  assert.deepEqual(await scanEngine(path.join(root, "spec", "lib")), []);
+test("genericity: the engine and its CLI carry no CORE-001 domain tokens", async () => {
+  assert.deepEqual(await scanEngine(path.join(root, "spec")), []);
 });
 
 test("genericity: the guard catches a forbidden reference", async () => {
@@ -74,10 +74,7 @@ test("genericity: the guard catches a forbidden reference", async () => {
   await writeFile(asset, 'const labels = "labels.ru.json";\n', "utf8");
   await writeFile(profilePath, 'const profile = "profiles/example/profile.json";\n', "utf8");
 
-  assert.deepEqual(
-    await scanEngine(dir),
-    [quoted, unquoted, imported, asset, profilePath].sort(),
-  );
+  assert.deepEqual(await scanEngine(dir), [quoted, unquoted, imported, asset, profilePath].sort());
 });
 
 test("genericity: the guard leaves generic profile-drive code alone", async () => {

@@ -23,12 +23,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020Module from "ajv/dist/2020.js";
-import {
-  canonicalJson,
-  canonicalJsonBytes,
-  domainHash,
-  utf8,
-} from "./mapping.js";
+import { canonicalJson, canonicalJsonBytes, domainHash, utf8 } from "./mapping.js";
 
 export const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -90,9 +85,7 @@ interface AjvInstance {
   getSchema(reference: string): ValidateFunction | undefined;
 }
 
-const Ajv2020 = Ajv2020Module as unknown as new (
-  options: Record<string, unknown>,
-) => AjvInstance;
+const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => AjvInstance;
 
 interface SchemaValidators {
   readonly report: ValidateFunction;
@@ -154,23 +147,31 @@ async function readJsonFile(file: string, label: string): Promise<FileRead> {
       error: `cannot read ${label} file ${file}: ${messageOf(error)}`,
     };
   }
+  let text: string;
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (error) {
+    return {
+      bytes,
+      value: null,
+      ok: false,
+      error: `${label} is not valid UTF-8: ${messageOf(error)}`,
+    };
+  }
+  try {
     const value = JSON.parse(text);
     // `JSON.parse` keeps the last duplicate member, so a forged report could
     // hide a FAIL behind a later PASS. Reject duplicates before trusting it.
     assertNoDuplicateMembers(text);
     return { bytes, value, ok: true, error: null };
   } catch (error) {
-    return {
-      bytes,
-      value: null,
-      ok: false,
-      error:
-        error instanceof DuplicateMemberError
-          ? `${label} contains ${error.message}`
-          : `${label} is not valid UTF-8 JSON: ${messageOf(error)}`,
-    };
+    let detail = `is not valid JSON: ${messageOf(error)}`;
+    if (error instanceof DuplicateMemberError) {
+      detail = `contains ${error.message}`;
+    } else if (error instanceof JsonNestingError) {
+      detail = error.message;
+    }
+    return { bytes, value: null, ok: false, error: `${label} ${detail}` };
   }
 }
 
@@ -181,11 +182,25 @@ class DuplicateMemberError extends Error {
   }
 }
 
+class JsonNestingError extends Error {
+  constructor(depth: number) {
+    super(`JSON nesting exceeds the gate limit of ${depth} levels`);
+    this.name = "JsonNestingError";
+  }
+}
+
+/** Deeper than any PAP report the gate should accept; rejects a stack-defeating scan. */
+const MAX_JSON_DEPTH = 512;
+
 /**
  * Reject duplicate object member names in an already-parsed JSON document.
  * `JSON.parse` silently keeps the last value, which would let a forged report
  * shadow `"verdict": "FAIL"` with `"verdict": "PASS"`. Keys are compared after
  * decoding escapes, so `"\u0076erdict"` and `"verdict"` collide too.
+ *
+ * The scan is recursive with an explicit depth budget: `JSON.parse` is
+ * iterative, so a deeply nested report must not turn a duplicate check into an
+ * opaque "Maximum call stack size exceeded" JSON error.
  */
 function assertNoDuplicateMembers(text: string): void {
   let index = 0;
@@ -241,7 +256,7 @@ function assertNoDuplicateMembers(text: string): void {
     }
   }
 
-  function skipObject(): void {
+  function skipObject(depth: number): void {
     index += 1; // {
     skipWhitespace();
     if (text[index] === "}") {
@@ -258,7 +273,7 @@ function assertNoDuplicateMembers(text: string): void {
       skipWhitespace();
       if (text[index] !== ":") throw new Error("expected ':'");
       index += 1;
-      skipValue();
+      skipValue(depth + 1);
       skipWhitespace();
       if (text[index] === ",") {
         index += 1;
@@ -272,7 +287,7 @@ function assertNoDuplicateMembers(text: string): void {
     }
   }
 
-  function skipArray(): void {
+  function skipArray(depth: number): void {
     index += 1; // [
     skipWhitespace();
     if (text[index] === "]") {
@@ -280,7 +295,7 @@ function assertNoDuplicateMembers(text: string): void {
       return;
     }
     while (true) {
-      skipValue();
+      skipValue(depth + 1);
       skipWhitespace();
       if (text[index] === ",") {
         index += 1;
@@ -295,15 +310,16 @@ function assertNoDuplicateMembers(text: string): void {
     }
   }
 
-  function skipValue(): void {
+  function skipValue(depth: number): void {
+    if (depth > MAX_JSON_DEPTH) throw new JsonNestingError(MAX_JSON_DEPTH);
     skipWhitespace();
     const char = text[index];
     if (char === "{") {
-      skipObject();
+      skipObject(depth);
       return;
     }
     if (char === "[") {
-      skipArray();
+      skipArray(depth);
       return;
     }
     if (char === '"') {
@@ -326,7 +342,7 @@ function assertNoDuplicateMembers(text: string): void {
   }
 
   skipWhitespace();
-  skipValue();
+  skipValue(0);
   skipWhitespace();
   if (index !== text.length) throw new Error("trailing JSON content");
 }
@@ -451,9 +467,7 @@ function evaluate(input: EvaluationInput): AcceptanceDecision {
       // The schema declares `format: date-time`; ajv-formats is not a dependency,
       // so the gate enforces the RFC 3339 instant itself.
       if (!isRfc3339(report.evaluatedAt)) {
-        reasons.add(
-          `report evaluatedAt is not an RFC 3339 instant: ${quote(report.evaluatedAt)}`,
-        );
+        reasons.add(`report evaluatedAt is not an RFC 3339 instant: ${quote(report.evaluatedAt)}`);
       }
     } else {
       reasons.add(
@@ -472,8 +486,14 @@ function evaluate(input: EvaluationInput): AcceptanceDecision {
       try {
         policy = value as PolicyView;
         policyDigest = domainHash("pap.trust-policy.v1", canonicalJsonBytes(value));
-        if (!isRfc3339(policy.issuedAt) || !isRfc3339(policy.expiresAt)) {
+        const issuedAt = parseInstant(policy.issuedAt);
+        const expiresAt = parseInstant(policy.expiresAt);
+        if (issuedAt === null || expiresAt === null) {
           reasons.add("trust policy issuedAt/expiresAt is not an RFC 3339 instant");
+        } else if (issuedAt > expiresAt) {
+          reasons.add(
+            `trust policy issuedAt ${quote(policy.issuedAt)} is after expiresAt ${quote(policy.expiresAt)}`,
+          );
         }
       } catch (error) {
         policy = null;
@@ -500,12 +520,10 @@ function evaluate(input: EvaluationInput): AcceptanceDecision {
   }
 
   const sortedReasons = [...reasons].sort(compareStrings);
-  const decision: GateDecision =
-    sortedReasons.length === 0 ? "ACCEPTED" : "NOT_ACCEPTED";
+  const decision: GateDecision = sortedReasons.length === 0 ? "ACCEPTED" : "NOT_ACCEPTED";
 
   return {
-    packageIdentity:
-      report?.identities.packageIdentity ?? report?.package.identity ?? null,
+    packageIdentity: report?.identities.packageIdentity ?? report?.package.identity ?? null,
     policyId: policy?.id ?? null,
     policyDigest,
     reportDigest,
@@ -531,22 +549,24 @@ function evaluateReport(
     reasons.add(`verifier verdict is ${report.verdict}, expected PASS`);
   }
   if (report.coverage.full !== true) {
-    reasons.add(
-      "coverage.full is false; the verifier did not evaluate every required check",
-    );
+    reasons.add("coverage.full is false; the verifier did not evaluate every required check");
   }
   for (const [label, count] of [
     ["coverage.checksFailed", report.coverage.checksFailed],
     ["coverage.checksUnsupported", report.coverage.checksUnsupported],
     ["coverage.checksNotEvaluated", report.coverage.checksNotEvaluated],
   ] as const) {
-    if (count > 0) reasons.add(`${label} is ${count}, expected 0`);
+    // Ajv's `integer` accepts `Infinity` (JSON `1e999`), so do not trust the
+    // schema for the counters the gate compares against zero.
+    if (!Number.isFinite(count)) {
+      reasons.add(`${label} is not a finite number: ${String(count)}`);
+    } else if (count > 0) {
+      reasons.add(`${label} is ${count}, expected 0`);
+    }
   }
 
   if (report.policy.state !== "FRESH") {
-    reasons.add(
-      `report policy state is ${report.policy.state}, expected FRESH`,
-    );
+    reasons.add(`report policy state is ${report.policy.state}, expected FRESH`);
   }
   if (report.policy.id !== policy.id) {
     reasons.add(
@@ -598,9 +618,7 @@ function evaluateReport(
     if (result === undefined) {
       reasons.add(`policy-required check ${checkId} is missing from the report`);
     } else if (result.outcome !== "PASS") {
-      reasons.add(
-        `policy-required check ${checkId} is ${result.outcome}, expected PASS`,
-      );
+      reasons.add(`policy-required check ${checkId} is ${result.outcome}, expected PASS`);
     }
   }
 
@@ -640,13 +658,8 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
     if (signature.signerIdentity === "UNTRUSTED") {
       reasons.add(`signature ${signature.path} signer is UNTRUSTED`);
     }
-    if (
-      signature.policyDecision === "REJECTED" ||
-      signature.policyDecision === "STALE"
-    ) {
-      reasons.add(
-        `signature ${signature.path} policy decision is ${signature.policyDecision}`,
-      );
+    if (signature.policyDecision === "REJECTED" || signature.policyDecision === "STALE") {
+      reasons.add(`signature ${signature.path} policy decision is ${signature.policyDecision}`);
     }
   }
   if (
@@ -659,9 +672,7 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
     dimensions.trust.policyDecision === "REJECTED" ||
     dimensions.trust.policyDecision === "STALE"
   ) {
-    reasons.add(
-      `trust.policyDecision is ${dimensions.trust.policyDecision}`,
-    );
+    reasons.add(`trust.policyDecision is ${dimensions.trust.policyDecision}`);
   }
   for (const [label, value] of [
     ["trust.checkerRecognition", dimensions.trust.checkerRecognition],
@@ -674,10 +685,7 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
   for (const result of dimensions.checks.results) {
     if (result.outcome === "FAIL" || result.outcome === "UNSUPPORTED") {
       reasons.add(`check ${result.checkId} is ${result.outcome}`);
-    } else if (
-      result.outcome === "NOT_EVALUATED" &&
-      result.required !== false
-    ) {
+    } else if (result.outcome === "NOT_EVALUATED" && result.required !== false) {
       reasons.add(`required check ${result.checkId} is NOT_EVALUATED`);
     }
   }
@@ -685,24 +693,16 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
     (entry) => entry.code === "pap.package.limit-exceeded",
   );
   if (limitStopped) {
-    reasons.add(
-      "report records limit-stopped scope (pap.package.limit-exceeded)",
-    );
+    reasons.add("report records limit-stopped scope (pap.package.limit-exceeded)");
   }
 }
 
 /** The report's own coverage set must describe the policy the gate is enforcing. */
-function evaluateCoverage(
-  report: ReportView,
-  policy: PolicyView,
-  reasons: Set<string>,
-): void {
+function evaluateCoverage(report: ReportView, policy: PolicyView, reasons: Set<string>): void {
   const coverageChecks = new Set(report.coverage.requiredChecks);
   for (const checkId of policy.requiredChecks) {
     if (!coverageChecks.has(checkId)) {
-      reasons.add(
-        `report coverage does not include policy-required check ${checkId}`,
-      );
+      reasons.add(`report coverage does not include policy-required check ${checkId}`);
     }
   }
   const coverageDimensions = new Set(report.coverage.requiredDimensions);
@@ -713,9 +713,7 @@ function evaluateCoverage(
   ];
   for (const dimension of new Set(expectedDimensions)) {
     if (!coverageDimensions.has(dimension)) {
-      reasons.add(
-        `report coverage does not include policy-required dimension ${dimension}`,
-      );
+      reasons.add(`report coverage does not include policy-required dimension ${dimension}`);
     }
   }
 }
@@ -765,18 +763,12 @@ function evaluateTrustExpectations(
       `policy makes signatures optional but report signature.validity is ${signature.validity}`,
     );
   }
-  if (
-    trust.signerIdentity !== "TRUSTED" &&
-    trust.signerIdentity !== "NOT_APPLICABLE"
-  ) {
+  if (trust.signerIdentity !== "TRUSTED" && trust.signerIdentity !== "NOT_APPLICABLE") {
     reasons.add(
       `policy makes trust optional but report trust.signerIdentity is ${trust.signerIdentity}`,
     );
   }
-  if (
-    trust.policyDecision !== "ACCEPTED" &&
-    trust.policyDecision !== "NOT_EVALUATED"
-  ) {
+  if (trust.policyDecision !== "ACCEPTED" && trust.policyDecision !== "NOT_EVALUATED") {
     reasons.add(
       `policy makes trust optional but report trust.policyDecision is ${trust.policyDecision}`,
     );
@@ -784,16 +776,10 @@ function evaluateTrustExpectations(
 }
 
 /** Mirror of the verifier's I3 "applicable positive state" rule (RFC §4.3.4). */
-function isDimensionPositive(
-  dimension: string,
-  dimensions: ReportView["dimensions"],
-): boolean {
+function isDimensionPositive(dimension: string, dimensions: ReportView["dimensions"]): boolean {
   switch (dimension) {
     case "integrity":
-      return (
-        dimensions.integrity.package === "PASS" &&
-        dimensions.integrity.artifacts === "PASS"
-      );
+      return dimensions.integrity.package === "PASS" && dimensions.integrity.artifacts === "PASS";
     case "integrity.package":
       return dimensions.integrity.package === "PASS";
     case "integrity.artifacts":
@@ -855,10 +841,7 @@ function isPositiveRecognition(value: string): boolean {
   return value === "PASS" || value === "NOT_APPLICABLE";
 }
 
-function describeDimension(
-  dimension: string,
-  dimensions: ReportView["dimensions"],
-): string {
+function describeDimension(dimension: string, dimensions: ReportView["dimensions"]): string {
   switch (dimension) {
     case "integrity":
       return `integrity.package=${dimensions.integrity.package}, integrity.artifacts=${dimensions.integrity.artifacts}`;
@@ -896,9 +879,7 @@ function describeDimension(
   }
 }
 
-function formatSchemaErrors(
-  errors: readonly AjvError[] | null | undefined,
-): string {
+function formatSchemaErrors(errors: readonly AjvError[] | null | undefined): string {
   if (errors === null || errors === undefined || errors.length === 0) {
     return "unknown validation error";
   }
@@ -953,9 +934,7 @@ function parseInstant(value: string): bigint | null {
   }
 
   const days = daysFromCivil(year, month, day);
-  const epochSeconds =
-    days * 86_400n +
-    BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
+  const epochSeconds = days * 86_400n + BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
   const nanoseconds = fraction === "" ? 0n : BigInt(fraction.padEnd(9, "0"));
   return epochSeconds * NS_PER_SECOND + nanoseconds;
 }
@@ -1157,8 +1136,7 @@ async function main(): Promise<void> {
   process.exitCode = result.exitCode;
 }
 
-const invokedPath =
-  process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
+const invokedPath = process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   void main();
 }

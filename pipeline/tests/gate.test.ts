@@ -16,13 +16,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020Module from "ajv/dist/2020.js";
-import { canonicalJson } from "../mapping.js";
+import { canonicalJson, canonicalJsonBytes, domainHash } from "../mapping.js";
 import { gateCore000, type AcceptanceDecision } from "../gate.js";
 import { packCore000 } from "../pack.js";
 
-const Ajv2020 = Ajv2020Module as unknown as new (
-  options: Record<string, unknown>,
-) => any;
+const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const POLICY = path.join(root, "pipeline", "policy", "core000-trust-policy.json");
@@ -43,14 +41,13 @@ function run(args: readonly string[]): SpawnResult {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-function gitStatus(): string {
-  const result = spawnSync(
-    "git",
-    ["status", "--porcelain", "--untracked-files=all"],
-    { cwd: root, encoding: "utf8" },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout;
+/** Null outside a checkout (for example a pre-review extraction with no `.git`). */
+function gitStatus(): string | null {
+  const result = spawnSync("git", ["status", "--porcelain", "--untracked-files=all"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return result.status === 0 ? result.stdout : null;
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -124,10 +121,7 @@ async function decide(reportPath: string, policyPath = POLICY) {
   return gateCore000({ reportPath, policyPath });
 }
 
-async function expectAccepted(
-  name: string,
-  report: Report,
-): Promise<AcceptanceDecision> {
+async function expectAccepted(name: string, report: Report): Promise<AcceptanceDecision> {
   const file = await writeJson(name, report);
   const result = await decide(file);
   assert.equal(result.exitCode, 0, `${name}: ${JSON.stringify(result.decision.reasons)}`);
@@ -147,6 +141,42 @@ async function expectRejected(
   assert.equal(result.decision.decision, "NOT_ACCEPTED", name);
   assert.match(result.decision.reasons.join(" | "), pattern, name);
   return result.decision;
+}
+
+async function writeRaw(name: string, text: string): Promise<string> {
+  assert.ok(tempRoot !== null);
+  const file = path.join(tempRoot, `${name}.json`);
+  await writeFile(file, text, "utf8");
+  return file;
+}
+
+/** Copy the baseline policy, change its signature mode, and return its new digest. */
+function policyWithSignatureMode(mode: "disabled" | "optional" | "required"): {
+  readonly policy: Record<string, any>;
+  readonly digest: string;
+} {
+  const policy = structuredClone(baselinePolicy);
+  policy.signature.mode = mode;
+  if (mode === "required") {
+    // The Appendix B schema requires at least one key and signer in this mode.
+    policy.keys = [{ keyId: "key-test", algorithm: "ed25519", publicKey: "A".repeat(43) }];
+    policy.signers = [
+      { keyIds: ["key-test"], identity: "signer:test", allowedRoles: ["producer"] },
+    ];
+  }
+  const digest = domainHash("pap.trust-policy.v1", canonicalJsonBytes(policy));
+  return { policy, digest };
+}
+
+/** Keep a mutated policy and the report's policy digest consistent. */
+async function decideWithPolicy(
+  name: string,
+  report: Report,
+  policy: Record<string, any>,
+  mode: "disabled" | "optional" | "required",
+): Promise<Awaited<ReturnType<typeof decide>>> {
+  const policyPath = await writeJson(`policy-${name}-${mode}`, policy);
+  return decide(await writeJson(name, report), policyPath);
 }
 
 test("CORE-000 policy is a complete, schema-valid Appendix B instance", async () => {
@@ -312,12 +342,21 @@ test("gate rejects a report that is missing, invalid JSON or schema-invalid", as
   const malformed = await decide(malformedPath);
   assert.equal(malformed.exitCode, 1);
   assert.equal(malformed.decision.decision, "NOT_ACCEPTED");
-  assert.match(malformed.decision.reasons.join(" | "), /not valid UTF-8 JSON/);
+  assert.match(malformed.decision.reasons.join(" | "), /report is not valid JSON/);
   assert.equal(malformed.decision.reportDigest, sha256(new TextEncoder().encode("{ not json")));
 
-  const schemaInvalid = await decide(
-    await writeJson("schema-invalid", { reportVersion: "0.1" }),
+  const notUtf8Path = path.join(tempRoot, "not-utf8.json");
+  await writeFile(notUtf8Path, new Uint8Array([0x7b, 0xff, 0x7d]));
+  const notUtf8 = await decide(notUtf8Path);
+  assert.equal(notUtf8.exitCode, 1);
+  assert.match(notUtf8.decision.reasons.join(" | "), /report is not valid UTF-8/);
+  assert.doesNotMatch(
+    notUtf8.decision.reasons.join(" | "),
+    /is not valid JSON/,
+    "UTF-8 failures keep their own label",
   );
+
+  const schemaInvalid = await decide(await writeJson("schema-invalid", { reportVersion: "0.1" }));
   assert.equal(schemaInvalid.exitCode, 1);
   assert.equal(schemaInvalid.decision.decision, "NOT_ACCEPTED");
   assert.match(
@@ -332,6 +371,122 @@ test("gate rejects a report that is missing, invalid JSON or schema-invalid", as
     "invalid-evaluated-at",
     badDate,
     /report evaluatedAt is not an RFC 3339 instant/,
+  );
+});
+
+test("gate applies the signature.mode optional and required branches", async () => {
+  const optional = policyWithSignatureMode("optional");
+  const unsigned = cloneReport();
+  unsigned.policy.digest = optional.digest;
+  const acceptedOptional = await decideWithPolicy(
+    "signature-optional-unsigned",
+    unsigned,
+    optional.policy,
+    "optional",
+  );
+  assert.equal(acceptedOptional.exitCode, 0, acceptedOptional.decision.reasons.join(" | "));
+
+  const invalid = cloneReport();
+  invalid.dimensions.signature.validity = "INVALID";
+  invalid.policy.digest = optional.digest;
+  const rejectedOptional = await decideWithPolicy(
+    "signature-optional-invalid",
+    invalid,
+    optional.policy,
+    "optional",
+  );
+  assert.equal(rejectedOptional.exitCode, 1);
+  assert.match(
+    rejectedOptional.decision.reasons.join(" | "),
+    /policy makes signatures optional but report signature\.validity is INVALID/,
+  );
+
+  const required = policyWithSignatureMode("required");
+  const missing = cloneReport();
+  missing.policy.digest = required.digest;
+  const rejectedRequired = await decideWithPolicy(
+    "signature-required-missing",
+    missing,
+    required.policy,
+    "required",
+  );
+  assert.equal(rejectedRequired.exitCode, 1);
+  assert.match(
+    rejectedRequired.decision.reasons.join(" | "),
+    /policy requires a signature but report signature\.validity is NOT_APPLICABLE/,
+  );
+
+  const signed = cloneReport();
+  signed.policy.digest = required.digest;
+  signed.dimensions.signature = { validity: "VALID" };
+  signed.dimensions.trust = {
+    signerIdentity: "TRUSTED",
+    policyDecision: "ACCEPTED",
+    checkerRecognition: "PASS",
+    profileRecognition: "PASS",
+  };
+  signed.coverage.requiredDimensions = [
+    ...signed.coverage.requiredDimensions,
+    "signature",
+    "trust",
+  ];
+  const acceptedRequired = await decideWithPolicy(
+    "signature-required-valid",
+    signed,
+    required.policy,
+    "required",
+  );
+  assert.equal(acceptedRequired.exitCode, 0, acceptedRequired.decision.reasons.join(" | "));
+  assert.equal(acceptedRequired.decision.decision, "ACCEPTED");
+});
+
+test("gate enforces that report coverage describes the enforced policy", async () => {
+  const missingCheck = cloneReport();
+  missingCheck.coverage.requiredChecks = missingCheck.coverage.requiredChecks.slice(1);
+  await expectRejected(
+    "coverage-missing-check",
+    missingCheck,
+    /report coverage does not include policy-required check pap\.check\.digest-integrity\/1/,
+  );
+
+  const missingDimension = cloneReport();
+  missingDimension.coverage.requiredDimensions = ["integrity", "sources"];
+  await expectRejected(
+    "coverage-missing-dimension",
+    missingDimension,
+    /report coverage does not include policy-required dimension checks/,
+  );
+
+  const missingResult = cloneReport();
+  missingResult.dimensions.checks.results = missingResult.dimensions.checks.results.filter(
+    (result: { checkId: string }) => result.checkId !== "pap.check.source-quote/1",
+  );
+  await expectRejected(
+    "coverage-missing-result",
+    missingResult,
+    /policy-required check pap\.check\.source-quote\/1 is missing from the report/,
+  );
+
+  const required = policyWithSignatureMode("required");
+  const noSignatureCoverage = cloneReport();
+  noSignatureCoverage.policy.digest = required.digest;
+  noSignatureCoverage.dimensions.signature = { validity: "VALID" };
+  noSignatureCoverage.dimensions.trust = {
+    signerIdentity: "TRUSTED",
+    policyDecision: "ACCEPTED",
+    checkerRecognition: "PASS",
+    profileRecognition: "PASS",
+  };
+  const result = await decideWithPolicy(
+    "coverage-missing-signature-dimension",
+    noSignatureCoverage,
+    required.policy,
+    "required",
+  );
+  assert.equal(result.exitCode, 1);
+  assert.match(
+    result.decision.reasons.join(" | "),
+    /report coverage does not include policy-required dimension signature/,
   );
 });
 
@@ -428,24 +583,93 @@ test("gate re-derives the policy validity window from the report timestamp", asy
 
   for (const [name, evaluatedAt] of [
     ["window-issued-boundary", "2026-11-01T00:00:00Z"],
+    ["window-issued-plus-1ns", "2026-11-01T00:00:00.000000001Z"],
     ["window-expiry-boundary", "2027-11-01T00:00:00Z"],
     ["window-inside", "2027-06-01T00:00:00Z"],
     ["window-offset-issued-boundary", "2026-11-01T01:00:00+01:00"],
+    ["window-offset-discriminating-issued", "2026-10-31T23:00:00-02:00"],
   ] as const) {
     const report = cloneReport();
     report.evaluatedAt = evaluatedAt;
     const decision = await expectAccepted(name, report);
     assert.equal(decision.evaluatedAt, evaluatedAt, name);
   }
+
+  await expectRejected(
+    "window-expiry-plus-1ns",
+    (() => {
+      const report = cloneReport();
+      report.evaluatedAt = "2027-11-01T00:00:00.000000001Z";
+      return report;
+    })(),
+    /after the trust policy expiresAt/,
+  );
+});
+
+test("gate keeps the PAP timestamp grammar strictly uppercase", async () => {
+  for (const [name, evaluatedAt] of [
+    ["lowercase-t", "2026-11-01t00:00:00Z"],
+    ["lowercase-z", "2026-11-01T00:00:00z"],
+  ] as const) {
+    await expectRejected(
+      name,
+      (() => {
+        const report = cloneReport();
+        report.evaluatedAt = evaluatedAt;
+        return report;
+      })(),
+      /report evaluatedAt is not an RFC 3339 instant/,
+    );
+  }
+});
+
+test("gate rejects a policy whose issuedAt is after its expiresAt", async () => {
+  const policy = structuredClone(baselinePolicy);
+  policy.issuedAt = "2027-01-01T00:00:00Z";
+  policy.expiresAt = "2026-01-01T00:00:00Z";
+  const report = cloneReport();
+  report.policy.digest = domainHash("pap.trust-policy.v1", canonicalJsonBytes(policy));
+
+  const result = await decideWithPolicy("policy-window-inverted", report, policy, "disabled");
+  assert.equal(result.exitCode, 1);
+  assert.match(result.decision.reasons.join(" | "), /trust policy issuedAt .* is after expiresAt/);
+});
+
+test("gate rejects non-finite coverage counters accepted by Ajv integer", async () => {
+  const text = await readFile(baselineReportPath, "utf8");
+  const forged = text.replace('"checksFailed":0', '"checksFailed":1e999');
+  assert.notEqual(forged, text, "the baseline report has a checksFailed counter");
+  assert.equal(
+    (JSON.parse(forged) as Report).coverage.checksFailed,
+    Infinity,
+    "JSON 1e999 parses as Infinity",
+  );
+
+  const result = await decide(await writeRaw("non-finite-counter", forged));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.decision.decision, "NOT_ACCEPTED");
+  assert.match(
+    result.decision.reasons.join(" | "),
+    /coverage\.checksFailed is not a finite number/,
+  );
+});
+
+test("gate rejects a deeply nested report with a dedicated reason", async () => {
+  const depth = 600;
+  const nested = `{"reportVersion":"0.1","padding":${"[".repeat(depth)}0${"]".repeat(depth)}}`;
+  assert.doesNotThrow(() => JSON.parse(nested), "JSON.parse itself is iterative");
+
+  const result = await decide(await writeRaw("deeply-nested", nested));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.decision.decision, "NOT_ACCEPTED");
+  assert.match(result.decision.reasons.join(" | "), /report JSON nesting exceeds the gate limit/);
+  assert.doesNotMatch(result.decision.reasons.join(" | "), /Maximum call stack size exceeded/);
 });
 
 test("gate rejects duplicate JSON member names instead of trusting the last value", async () => {
   assert.ok(tempRoot !== null);
   const baselineText = await readFile(baselineReportPath, "utf8");
-  const forged = baselineText.replace(
-    '"verdict":"PASS"',
-    '"verdict":"FAIL","verdict":"PASS"',
-  );
+  const forged = baselineText.replace('"verdict":"PASS"', '"verdict":"FAIL","verdict":"PASS"');
   assert.notEqual(forged, baselineText, "the baseline report has a verdict member");
   assert.equal(
     (JSON.parse(forged) as Record<string, unknown>).verdict,
@@ -458,10 +682,7 @@ test("gate rejects duplicate JSON member names instead of trusting the last valu
   const result = await decide(forgedPath);
   assert.equal(result.exitCode, 1);
   assert.equal(result.decision.decision, "NOT_ACCEPTED");
-  assert.match(
-    result.decision.reasons.join(" | "),
-    /duplicate JSON object member "verdict"/,
-  );
+  assert.match(result.decision.reasons.join(" | "), /duplicate JSON object member "verdict"/);
 });
 
 test("gate decision bytes are deterministic for a fixed report and policy", async () => {
@@ -469,10 +690,7 @@ test("gate decision bytes are deterministic for a fixed report and policy", asyn
   const second = await decide(baselineReportPath);
   assert.equal(first.exitCode, 0);
   assert.deepEqual(first.bytes, second.bytes);
-  assert.equal(
-    new TextDecoder("utf-8").decode(first.bytes),
-    `${canonicalJson(first.decision)}\n`,
-  );
+  assert.equal(new TextDecoder("utf-8").decode(first.bytes), `${canonicalJson(first.decision)}\n`);
 
   assert.ok(tempRoot !== null);
   const outA = path.join(tempRoot, "decision-a.json");
@@ -499,10 +717,7 @@ test("gate decision bytes are deterministic for a fixed report and policy", asyn
   ]);
   assert.equal(runA.status, 0, runA.stderr);
   assert.equal(runB.status, 0, runB.stderr);
-  assert.deepEqual(
-    new Uint8Array(await readFile(outA)),
-    new Uint8Array(await readFile(outB)),
-  );
+  assert.deepEqual(new Uint8Array(await readFile(outA)), new Uint8Array(await readFile(outB)));
 });
 
 test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", async () => {
@@ -520,9 +735,7 @@ test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", a
     acceptedOut,
   ]);
   assert.equal(accepted.status, 0, accepted.stderr);
-  const acceptedDecision = JSON.parse(
-    await readFile(acceptedOut, "utf8"),
-  ) as Record<string, any>;
+  const acceptedDecision = JSON.parse(await readFile(acceptedOut, "utf8")) as Record<string, any>;
   assert.equal(acceptedDecision.decision, "ACCEPTED");
   assert.deepEqual(acceptedDecision.reasons, []);
 
@@ -542,9 +755,7 @@ test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", a
     rejectedOut,
   ]);
   assert.equal(rejected.status, 1);
-  const rejectedDecision = JSON.parse(
-    await readFile(rejectedOut, "utf8"),
-  ) as Record<string, any>;
+  const rejectedDecision = JSON.parse(await readFile(rejectedOut, "utf8")) as Record<string, any>;
   assert.equal(rejectedDecision.decision, "NOT_ACCEPTED");
   assert.ok(rejectedDecision.reasons.length > 0);
 });

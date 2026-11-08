@@ -14,5 +14,12 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["spec/**/*.ts", "profiles/**/*.ts", "tests/**/*.ts", "pap/**/*.ts", "pipeline/**/*.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "spec/**/*.ts",
+    "profiles/**/*.ts",
+    "tests/**/*.ts",
+    "pap/**/*.ts",
+    "pipeline/**/*.ts"
+  ]
 }

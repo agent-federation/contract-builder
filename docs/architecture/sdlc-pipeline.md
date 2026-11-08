@@ -106,6 +106,8 @@ A complete minimal schema-valid policy (the Appendix B schema requires `trustPol
 5. Output a decision document: `{packageIdentity, policyId, policyDigest, reportDigest, verdict, decision: "ACCEPTED" | "NOT_ACCEPTED", reasons: string[], verifier: {id, version, implementationDigest}, evaluatedAt}`. `evaluatedAt` is **copied verbatim from the verifier report** (`report.evaluatedAt`), never read from the clock; with a fixed report the decision bytes are therefore deterministic. It is evidence, not authority; the human owner still accepts in v0.1.
 6. Anything else — including `INCOMPLETE`, `UNSUPPORTED`, `UNTRUSTED`, schema-invalid reports, missing report — is `NOT_ACCEPTED` with the reason. The gate never converts a non-PASS into a pass.
 
+**Timestamp grammar.** Step 3 parses `evaluatedAt`, `issuedAt` and `expiresAt` with PAP's timestamp grammar (RFC §9.8): uppercase `T`, 1–9 fraction digits, an offset that is uppercase `Z` or numeric `±HH:MM`, and no leap seconds. This is an intentional PAP restriction, not RFC 3339's full case grammar; lowercase `t`/`z` is rejected rather than normalised, and a policy or report that carries it fails closed.
+
 **Phase 2a caveat:** the in-repo verifier implements the three checks and can PASS this package; independent verifiers may report `UNSUPPORTED`/`INCOMPLETE` for checks outside Phase 2a. The gate must treat that as `NOT_ACCEPTED`, and the comparison matrix is recorded separately (blind-lab), not hidden in the package.
 
 ### 5.1 Independent verification (required deliverable)
@@ -118,6 +120,8 @@ Independent verification is **not optional** in stream C (#135 acceptance criter
 - **Retention:** CI retains the reference-verifier report, **all three independent-verifier reports** (or one clearly defined batch artifact containing all three), and the reference acceptance decision produced by the gate (`acceptance-decision.json`). The gate is the only producer of a decision document; independent runs produce reports, not gate decisions. Artifact retention is 90 days. The committed `pipeline-evidence.md` comparison summary and report hashes are permanent. This is the "evidence retention" half of #170's independent-verification requirement.
 
 D5 is split accordingly: **D5a** reference-verifier package acceptance (the gate), **D5b** cross-implementation compatibility (the independent matrix + evidence record).
+
+**Check-level disagreement (decision 2026-11-07).** A genuine disagreement between the reference verifier and an independent verifier on a check outcome that both actually evaluated is a batch problem: `batch.ok=false`, the batch CLI exits 1, and the batch with its reports is retained for audit but no evidence Markdown is rendered from that invalid batch. A verdict/check-outcome contradiction inside one report is a problem too. `UNSUPPORTED`, `NOT_EVALUATED` and `ABSENT` are not disagreements by themselves, because the outcome was not evaluated on both sides. The enforcement and its tests are #225.
 
 ## 6. Artifact envelope (#130), separate slice
 
@@ -136,6 +140,15 @@ Do not merge the CORE-000 and CORE-001 domain models. Define a **presentation en
 Any template change is a separate PR with regenerated artifacts and golden updates; it must not touch `CORE-001.legacy.md` or domain content.
 
 **C5 decision:** the envelope and the current CORE-000/CORE-001 element mapping are recorded in [ODR-ART-001](../decisions/ODR-ART-001-artifact-envelope.md). C5 is documentation-only; template/artifact changes and golden updates are the separate C5b follow-up.
+
+**Caveat (2026-11-07, C5b).** The table above is the C5 *proposal* for each element, not a
+per-artifact status report: its cells describe intended content and the status words are the
+mandatory/recommended classification, not "present"/"missing". C5b (#215/#218) has since
+implemented the envelope in both templates and artifacts; the post-C5b element-by-element status
+is [ODR-ART-001 §3.4](../decisions/ODR-ART-001-artifact-envelope.md#34-c5b-closure), and the
+regenerated artifacts plus their envelope tests are the current evidence. The C5 phase row below
+describes C5's combined decision-and-implementation target; the implementation half landed as
+C5b, not as part of the C5 documentation change.
 
 ## 7. Components and CI
 
@@ -170,7 +183,7 @@ Scripts: `bun run pack:core000`, `bun run gate:core000`, `bun run pipeline:test`
 | C2 | Claims: provenance (byte ranges) + relations; negative mapping cases | source-quote and relation-consistency checks PASS; ambiguous quotes/unknown relations fail packaging |
 | C3 | CORE-000 policy + gate + decision document | gate table tests (PASS/FAIL/INCOMPLETE/UNTRUSTED/UNSUPPORTED/schema-invalid); decision artifact deterministic given report |
 | C4 | CI `pipeline` job | chain runs on PRs; deterministic package; gate fails closed; artifacts uploaded |
-| C5 | Artifact envelope (#130) decision + implementation | common elements decided; templates/regenerated artifacts + goldens updated; no domain merge |
+| C5 | Artifact envelope (#130) decision; C5b implements the templates/artifacts/goldens | common elements decided; envelope rendered in both artifacts with regenerated artifacts and goldens updated; no domain merge |
 | C6 (required) | Independent-verifier evidence and comparison matrix | reference + three independent verifier runs (the #135 bar); committed `docs/architecture/pipeline-evidence.md` + `implementation-status.md` H2/H3 update; differences/limitations explicit; `NOT_PERFORMED` does not close the stream |
 
 ## 9. Decisions requested (D1–D7)
@@ -182,7 +195,7 @@ Scripts: `bun run pack:core000`, `bun run gate:core000`, `bun run pipeline:test`
 - **D5a — reference-verifier package acceptance.** Recommend: the reference verifier is expected to PASS the CORE-000 package for the three checks; the gate blocks on any non-PASS and does not silently allowlist expected limitations.
 - **D5b — cross-implementation compatibility.** Independent-verifier results are a distinct dimension, evidenced by C6; `UNSUPPORTED`/`INCOMPLETE` is reported as such (and is not a pass), even where the reference verifier PASSes.
 - **D7 — independent-verification evidence.** Recommend the C6 definition in §5.1: the #135 bar (reference + three independent implementations), each successful run = executed with a retained report (not necessarily PASS); required committed evidence record + `implementation-status.md` update; separate non-blocking CI job; explicit `NOT_PERFORMED`/`UNSUPPORTED`; raw reports retained as CI artifacts, summary committed permanently. The earlier "at least one" wording in this note is superseded by this amendment (recorded 2026-11-06, #135).
-- **D6 — envelope scope.** Recommend the mandatory/optional table in §6; implement in C5 as a presentation-only change with regenerated artifacts and goldens.
+- **D6 — envelope scope.** Recommend the mandatory/optional table in §6; implemented as the C5 decision ([ODR-ART-001](../decisions/ODR-ART-001-artifact-envelope.md), #212) and the C5b template/artifact/golden change (#215/#218), not as one documentation-only PR.
 
 ## 10. Non-goals
 

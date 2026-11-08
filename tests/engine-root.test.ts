@@ -56,6 +56,44 @@ async function copyEngineProject(name: string): Promise<string> {
   return dir;
 }
 
+/**
+ * Adds a dependency-free renderer module to a copied project and declares it in the profile.
+ * Temp copies have no `node_modules`, so the copied profile renderer (which imports `nunjucks`)
+ * cannot be imported there; this module needs only a `node:` builtin.
+ */
+async function addProbeRenderer(projectDir: string): Promise<string> {
+  const profileDir = path.join(projectDir, "profiles", "core001");
+  const modulePath = path.join(profileDir, "probe-renderer.ts");
+  await writeFile(
+    modulePath,
+    [
+      'import { createHash } from "node:crypto";',
+      'import { fileURLToPath } from "node:url";',
+      'const bytes = new TextEncoder().encode("probe\\n");',
+      'const sha256 = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;',
+      "export const renderer = {",
+      '  id: "core001-markdown",',
+      '  version: "0.1.0",',
+      "  closure: {",
+      '    root: fileURLToPath(new URL(".", import.meta.url)),',
+      '    files: ["probe-renderer.ts"],',
+      "    dependencies: {},",
+      "  },",
+      "  async render() {",
+      '    return [{ path: "output/CORE-001.draft.md", bytes, sha256 }];',
+      "  },",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  const profilePath = path.join(profileDir, "profile.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files?: string[] };
+  profile.files = [...(profile.files ?? []), "probe-renderer.ts"];
+  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  return modulePath;
+}
+
 /** A temp engine checkout: same layout and version, with a real `spec/lib` copy. */
 async function copyEngineRoot(name: string, version?: string): Promise<string> {
   const engine = await mkdtemp(path.join(tmpdir(), `engine-root-checkout-${name}-`));
@@ -96,16 +134,14 @@ test("engine-root: a copied project builds from the supplied root without rewrit
   assert.equal(rebuilt.identity.engineVersion, await repoPackageVersion());
 
   // The copied profile still carries the authored specifier; the build did not rewrite it.
-  const copiedView = await readFile(
-    path.join(copied, "profiles", "core001", "view.ts"),
-    "utf8",
-  );
+  const copiedView = await readFile(path.join(copied, "profiles", "core001", "view.ts"), "utf8");
   assert.equal(copiedView.includes("../../spec/lib/"), true);
   assert.equal(copiedView.includes(path.join(root, "spec", "lib")), false);
 });
 
 test("engine-root: the CLI accepts --engine-root for a copied project", async () => {
   const copied = await copyEngineProject("cli");
+  const rendererModule = await addProbeRenderer(copied);
   const cli = spawnSync(
     process.execPath,
     [
@@ -114,6 +150,8 @@ test("engine-root: the CLI accepts --engine-root for a copied project", async ()
       path.join(copied, "spec"),
       "--engine-root",
       root,
+      "--renderer-module",
+      rendererModule,
       "--no-write",
       "--json",
       "--allow-executable-profile",
@@ -151,6 +189,7 @@ test("engine-root: the CLI preflight validates against --engine-root, not the ru
   profile.dependencies = { ...(profile.dependencies ?? {}), "engine-root-probe": "1.0.0" };
   await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 
+  const rendererModule = await addProbeRenderer(project);
   const cli = spawnSync(
     process.execPath,
     [
@@ -159,6 +198,8 @@ test("engine-root: the CLI preflight validates against --engine-root, not the ru
       project,
       "--engine-root",
       engineRoot,
+      "--renderer-module",
+      rendererModule,
       "--no-write",
       "--json",
       "--allow-executable-profile",
@@ -191,21 +232,17 @@ test("engine-root: a distinct same-version root's modules are the ones executed"
   const project = await copyProjectWithProfile("distinct-root-execution");
   const result = await runBuild(base(project, { engineRoot }));
   assert.equal(result.exitCode, 0, failure(result));
-  assert.equal(result.markdown, await readFile(draftPath, "utf8"));
+  assert.ok(result.markdown?.includes("UIA-CORE-001"));
+  assert.ok(result.markdown?.includes(result.identity!.inputDigest));
   assert.equal(await readFile(markerPath, "utf8"), "loaded");
 });
-
 
 test("engine-root: the mapping rule recognizes nested and deeper spec/lib imports", () => {
   const profile = path.join(path.sep, "project", "profiles", "core001");
   const layout = path.join(path.sep, "project");
 
   assert.deepEqual(
-    classifyEngineSpecifier(
-      "../../spec/lib/ir.js",
-      path.join(profile, "view.ts"),
-      layout,
-    ),
+    classifyEngineSpecifier("../../spec/lib/ir.js", path.join(profile, "view.ts"), layout),
     { kind: "engine", subpath: "ir.js" },
   );
   assert.deepEqual(
@@ -216,10 +253,9 @@ test("engine-root: the mapping rule recognizes nested and deeper spec/lib import
     ),
     { kind: "engine", subpath: "adapters/markdown.js" },
   );
-  assert.deepEqual(
-    classifyEngineSpecifier("./text.js", path.join(profile, "view.ts"), layout),
-    { kind: "extension" },
-  );
+  assert.deepEqual(classifyEngineSpecifier("./text.js", path.join(profile, "view.ts"), layout), {
+    kind: "extension",
+  });
 });
 
 test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths", () => {
@@ -232,13 +268,12 @@ test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths"
     layout,
   );
   assert.equal(ambiguous.kind, "error");
-  assert.equal(ambiguous.kind === "error" ? ambiguous.code : "", "core.extension.unpinned-dependency");
-
-  const empty = classifyEngineSpecifier(
-    "../../spec/lib",
-    path.join(profile, "view.ts"),
-    layout,
+  assert.equal(
+    ambiguous.kind === "error" ? ambiguous.code : "",
+    "core.extension.unpinned-dependency",
   );
+
+  const empty = classifyEngineSpecifier("../../spec/lib", path.join(profile, "view.ts"), layout);
   assert.equal(empty.kind, "error");
   assert.equal(empty.kind === "error" ? empty.code : "", "core.extension.unpinned-dependency");
 

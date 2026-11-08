@@ -7,13 +7,7 @@ const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown
 import { jcs } from "../src/json.js";
 import { DIMENSION_ORDER, isDimensionPositive } from "../src/state.js";
 import type { DimensionName } from "../src/types.js";
-import {
-  BASE_IDENTITY,
-  fixtures,
-  root,
-  runPap,
-  sentinelLog,
-} from "./support.js";
+import { BASE_IDENTITY, fixtures, root, runPap, sentinelLog } from "./support.js";
 
 interface CaseExpect {
   exitCode?: number;
@@ -108,8 +102,7 @@ function isCauseDimensionNonPositive(
 ): boolean {
   if (!isDimensionPositive(dimension as DimensionName, states)) return true;
   return DIMENSION_ORDER.some(
-    (candidate) =>
-      candidate.startsWith(`${dimension}.`) && !isDimensionPositive(candidate, states),
+    (candidate) => candidate.startsWith(`${dimension}.`) && !isDimensionPositive(candidate, states),
   );
 }
 
@@ -158,7 +151,9 @@ for (const name of [
   "claims-producer-report",
   "claims-reviews",
 ]) {
-  ajv.addSchema(JSON.parse(readFileSync(path.join(root, "schemas", `${name}.schema.json`), "utf8")));
+  ajv.addSchema(
+    JSON.parse(readFileSync(path.join(root, "schemas", `${name}.schema.json`), "utf8")),
+  );
 }
 const validateReport = ajv.getSchema("urn:pap:0.1:verification-report");
 assert.ok(validateReport);
@@ -174,8 +169,8 @@ const statusMap: Record<string, (report: any) => string> = {
   "trust.checkerRecognition": (report) => report.dimensions.trust.checkerRecognition,
   "trust.profileRecognition": (report) => report.dimensions.trust.profileRecognition,
   "humanReview.status": (report) => report.dimensions.humanReview.status,
-  "semanticTruth": (report) => report.dimensions.semanticTruth,
-  "legalEnforceability": (report) => report.dimensions.legalEnforceability,
+  semanticTruth: (report) => report.dimensions.semanticTruth,
+  legalEnforceability: (report) => report.dimensions.legalEnforceability,
 };
 
 function compareDimensions(report: any, expected: Record<string, unknown> | undefined): void {
@@ -217,7 +212,10 @@ function stderrDiagnosticCodes(stderr: string): string[] {
   return [...new Set(codes)].sort();
 }
 
-function assertNoReport(result: { status: number; stdout: string; stderr: string }, entry: CaseEntry): void {
+function assertNoReport(
+  result: { status: number; stdout: string; stderr: string },
+  entry: CaseEntry,
+): void {
   assert.equal(result.stdout, "", "no report may be written to stdout");
   assert.equal(result.status, entry.expect?.exitCode, "no-report exit code");
   assert.deepEqual(
@@ -247,7 +245,9 @@ for (const entry of suite.cases) {
     assert.equal(document.verdict, entry.expect?.verdict, "verdict");
     assert.equal(validateReport(document), true, JSON.stringify(validateReport.errors));
     compareDimensions(document, entry.expect?.dimensions);
-    const codes = new Set(document.diagnostics.map((diagnostic: { code: string }) => diagnostic.code));
+    const codes = new Set(
+      document.diagnostics.map((diagnostic: { code: string }) => diagnostic.code),
+    );
     for (const code of entry.expect?.diagnosticCodes ?? []) {
       assert.ok(codes.has(code), `diagnostic ${code} missing (${[...codes].join(", ")})`);
     }
@@ -303,7 +303,10 @@ test("F36: fixed clock yields identical verificationRecordIdentity", () => {
   assert.ok(command);
   const first = JSON.parse(runPap(command, cwd).stdout);
   const second = JSON.parse(runPap(command, cwd).stdout);
-  assert.equal(first.identities.verificationRecordIdentity, second.identities.verificationRecordIdentity);
+  assert.equal(
+    first.identities.verificationRecordIdentity,
+    second.identities.verificationRecordIdentity,
+  );
 });
 
 test("F55: humanReview PASS requires basis unbound-claim", () => {
@@ -315,7 +318,11 @@ test("F55: humanReview PASS requires basis unbound-claim", () => {
   assert.equal(report.dimensions.humanReview.basis, "unbound-claim");
   const negative = JSON.parse(JSON.stringify(report));
   delete negative.dimensions.humanReview.basis;
-  assert.equal(validateReport(negative), false, "a PASS review without basis must be schema-invalid");
+  assert.equal(
+    validateReport(negative),
+    false,
+    "a PASS review without basis must be schema-invalid",
+  );
 });
 
 test("F01/F02: required text lines", () => {
@@ -349,6 +356,15 @@ test("F01/F02: required text lines", () => {
     assert.ok(result.stdout.includes("coverage:"));
     assert.ok(result.stdout.includes("full:"));
     assert.ok(!result.stdout.includes("verified"), "text output must not use verified as a result");
+    // RFC §9.6 item 7: the policy id, digest and state are required text.
+    const report = JSON.parse(runPap(jsonCommand, path.join(fixtures, caseId)).stdout);
+    assert.ok(report.policy.digest?.startsWith("sha256:"), "the corpus policy digest is set");
+    assert.ok(
+      result.stdout.includes(
+        `policy: ${report.policy.id} digest: ${report.policy.digest} state: ${report.policy.state}`,
+      ),
+      "text output must render policy id/digest/state",
+    );
   }
 });
 
@@ -368,7 +384,11 @@ test("F40: producer-free environment and sentinel shims", () => {
 });
 
 test("an evaluated required-check FAIL does not make coverage partial", () => {
-  for (const caseId of ["F02-artifact-byte", "F46-inverse-not-reciprocal", "F59-relation-duplicate"]) {
+  for (const caseId of [
+    "F02-artifact-byte",
+    "F46-inverse-not-reciprocal",
+    "F59-relation-duplicate",
+  ]) {
     const entry = suite.cases.find((candidate) => candidate.caseId === caseId);
     assert.ok(entry);
     const report = JSON.parse(runPap(entry.command, path.join(fixtures, caseId)).stdout);

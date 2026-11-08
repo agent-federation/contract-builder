@@ -10,6 +10,7 @@ import { opendir } from "node:fs/promises";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { utf8 } from "./digest.js";
 import { decodeSignatureEnvelope } from "./decode.js";
+import type { EnvelopeSignature } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { readPackageFile, resolvePackageDirectory } from "./paths.js";
 import type { PackageRoot } from "./paths.js";
@@ -22,21 +23,17 @@ const PAYLOAD_TYPE = "application/vnd.pap.manifest.v0.1+json";
 export interface SignatureEvaluation {
   validity: "VALID" | "INVALID" | "NOT_EVALUATED" | "NOT_APPLICABLE";
   entries: SignatureEntry[];
-  signerIdentity:
-    | "TRUSTED"
-    | "UNTRUSTED"
-    | "UNKNOWN"
-    | "NOT_EVALUATED"
-    | "NOT_APPLICABLE";
+  signerIdentity: "TRUSTED" | "UNTRUSTED" | "UNKNOWN" | "NOT_EVALUATED" | "NOT_APPLICABLE";
   policyDecision: "ACCEPTED" | "REJECTED" | "STALE" | "NOT_EVALUATED";
   envelopeLimitHit: boolean;
   discoveryFailure: boolean;
+  /**
+   * True when the envelope-count limit stopped discovery before the verifier
+   * read any envelope. The signature scope is then NOT_EVALUATED rather than
+   * legitimately absent; callers must not infer this from `entries.length`.
+   */
+  readNone: boolean;
   diagnostics: Diagnostic[];
-}
-
-interface EnvelopeSignature {
-  keyId: string;
-  sig: Uint8Array;
 }
 
 interface ParsedEnvelope {
@@ -64,12 +61,13 @@ export async function evaluateSignatures(options: {
     });
   }
   const empty = (): SignatureEvaluation => ({
-    validity: options.mode === "disabled" ? "NOT_APPLICABLE" : "NOT_APPLICABLE",
+    validity: "NOT_APPLICABLE",
     entries,
     signerIdentity: "NOT_APPLICABLE",
     policyDecision: "NOT_EVALUATED",
     envelopeLimitHit: false,
     discoveryFailure: false,
+    readNone: false,
     diagnostics,
   });
   if (options.mode === "disabled") {
@@ -99,6 +97,7 @@ export async function evaluateSignatures(options: {
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: true,
       discoveryFailure: false,
+      readNone: true,
       diagnostics,
     };
   }
@@ -127,7 +126,7 @@ export async function evaluateSignatures(options: {
           code: "pap.package.limit-exceeded",
           severity: "error",
           scope: relative,
-          message: read.message ?? "signature envelope exceeds a configured resource limit",
+          message: `signature envelope exceeds the configured byte limit: ${relative}`,
         });
         continue;
       }
@@ -333,6 +332,7 @@ export async function evaluateSignatures(options: {
     policyDecision,
     envelopeLimitHit,
     discoveryFailure: discovered.error !== null,
+    readNone: false,
     diagnostics,
   };
 }
@@ -470,13 +470,20 @@ export function paeBytes(payloadType: string, payload: Uint8Array): Uint8Array {
   return out;
 }
 
-function verifyEd25519(publicKeyBase64Url: string, message: Uint8Array, signature: Uint8Array): boolean {
+function verifyEd25519(
+  publicKeyBase64Url: string,
+  message: Uint8Array,
+  signature: Uint8Array,
+): boolean {
   if (signature.length !== 64) return false;
   const s = littleEndianBigInt(signature.subarray(32, 64));
   const L = 7237005577332262213973186563042994240857116359379907606001950938285454250989n;
   if (s >= L) return false;
   try {
-    const raw = Buffer.from(publicKeyBase64Url.replace(/-/g, "+").replace(/_/g, "/") + "=", "base64");
+    const raw = Buffer.from(
+      publicKeyBase64Url.replace(/-/g, "+").replace(/_/g, "/") + "=",
+      "base64",
+    );
     if (raw.length !== 32) return false;
     const prefix = Buffer.from("302a300506032b6570032100", "hex");
     const key = createPublicKey({ key: Buffer.concat([prefix, raw]), format: "der", type: "spki" });
@@ -508,10 +515,7 @@ function authorizeSigner(
   let sawPackageBindingFailure = false;
   for (const signer of mapped) {
     if (!signer.allowedRoles.includes(role)) continue;
-    if (
-      signer.allowedPackageIds !== undefined &&
-      !signer.allowedPackageIds.includes(packageId)
-    ) {
+    if (signer.allowedPackageIds !== undefined && !signer.allowedPackageIds.includes(packageId)) {
       sawPackageBindingFailure = true;
       continue;
     }

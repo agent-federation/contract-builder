@@ -13,11 +13,7 @@ import {
   resolveRequiredCheckOutcomes,
   statusForDimension,
 } from "../src/state.js";
-import type {
-  DimensionStates,
-  PolicyRequirementInput,
-  VerdictContext,
-} from "../src/state.js";
+import type { DimensionStates, PolicyRequirementInput, VerdictContext } from "../src/state.js";
 import type { CheckOutcome, DimensionName } from "../src/types.js";
 
 const CHECK_IDS = [
@@ -44,7 +40,9 @@ test("deriveRequiredDimensions: required checks imply their dimensions", () => {
     "sources",
     "checks",
   ]);
-  assert.deepEqual(deriveRequiredDimensions(null, ["pap.check.relation-consistency/1"]), ["checks"]);
+  assert.deepEqual(deriveRequiredDimensions(null, ["pap.check.relation-consistency/1"]), [
+    "checks",
+  ]);
   assert.deepEqual(deriveRequiredDimensions(null, ["pap.check.unknown/1"]), ["checks"]);
   assert.deepEqual(deriveRequiredDimensions(null, [...CHECK_IDS]), [
     "integrity",
@@ -94,11 +92,7 @@ test("deriveRequiredDimensions: policy requiredDimensions only add", () => {
   assert.ok(derived.includes("integrity"));
   assert.ok(derived.includes("sources"));
   assert.ok(derived.includes("checks"));
-  assert.deepEqual(
-    [...new Set(derived)],
-    derived,
-    "the derived set must not repeat dimensions",
-  );
+  assert.deepEqual([...new Set(derived)], derived, "the derived set must not repeat dimensions");
   assert.deepEqual(
     deriveRequiredDimensions(declared, [...CHECK_IDS]),
     DIMENSION_ORDER.filter((dimension) => derived.includes(dimension)),
@@ -157,16 +151,9 @@ function states(overrides: Partial<DimensionStates> = {}): DimensionStates {
   };
 }
 
-function context(
-  value: DimensionStates,
-  overrides: Partial<VerdictContext> = {},
-): VerdictContext {
+function context(value: DimensionStates, overrides: Partial<VerdictContext> = {}): VerdictContext {
   const requiredChecks = overrides.requiredChecks ?? [...CHECK_IDS];
-  const requiredDimensions = overrides.requiredDimensions ?? [
-    "integrity",
-    "sources",
-    "checks",
-  ];
+  const requiredDimensions = overrides.requiredDimensions ?? ["integrity", "sources", "checks"];
   const limitStopped = overrides.limitStopped ?? false;
   return {
     requiredChecks,
@@ -178,12 +165,7 @@ function context(
     unsupportedVersion: false,
     unsupportedFeature: false,
     emptyRequiredSet: requiredChecks.length === 0 && requiredDimensions.length === 0,
-    coverageFull: isCoverageFull(
-      value,
-      requiredChecks,
-      requiredDimensions,
-      limitStopped,
-    ),
+    coverageFull: isCoverageFull(value, requiredChecks, requiredDimensions, limitStopped),
     ...overrides,
   };
 }
@@ -275,10 +257,9 @@ test("I3: an unmet quorum is INCOMPLETE because trust is derived required", () =
     signature: { validity: "VALID" },
     trust: { ...POSITIVE_STATES.trust, policyDecision: "NOT_EVALUATED" },
   });
-  const requiredDimensions = deriveRequiredDimensions(
-    policy({ signature: { mode: "required" } }),
-    [...CHECK_IDS],
-  );
+  const requiredDimensions = deriveRequiredDimensions(policy({ signature: { mode: "required" } }), [
+    ...CHECK_IDS,
+  ]);
   assert.ok(requiredDimensions.includes("signature"));
   assert.ok(requiredDimensions.includes("trust"));
   const ctx = context(value, { requiredDimensions, signatureMode: "required" });
@@ -333,6 +314,34 @@ test("I3: PASS requires every required dimension in its positive state", () => {
   assert.equal(computeVerdict(stale, staleCtx), "INCOMPLETE");
 });
 
+test("I3 rule 1: optional mode with an operator-required signature FAILs on INVALID", () => {
+  // #175 S3 finding: the FAIL rule keys on the derived required set, not on
+  // `signature.mode`. An operator who lists `signature` in requiredDimensions
+  // makes an INVALID envelope a FAIL even though the policy mode is optional.
+  const value = states({ signature: { validity: "INVALID" } });
+  const ctx = context(value, {
+    requiredChecks: [],
+    requiredDimensions: ["signature"],
+    signatureMode: "optional",
+  });
+  assert.equal(ctx.coverageFull, true);
+  assert.equal(computeVerdict(value, ctx), "FAIL");
+});
+
+test("I3: the NOT_EVALUATED fold branch is pinned for a signature-only requirement", () => {
+  // `verify.ts` normally reports the empty requirement set as INCOMPLETE, so
+  // this branch is defense in depth rather than a wired outcome. Pin it so a
+  // future caller-built context cannot silently turn it into PASS.
+  const value = states({ signature: { validity: "NOT_APPLICABLE" } });
+  const ctx = context(value, {
+    requiredChecks: [],
+    requiredDimensions: ["signature"],
+  });
+  assert.deepEqual(ctx.requiredChecks, []);
+  assert.equal(ctx.coverageFull, true);
+  assert.equal(computeVerdict(value, ctx), "NOT_EVALUATED");
+});
+
 function makeRng(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -357,7 +366,13 @@ const SIGNER_STATES = [
   "NOT_APPLICABLE",
 ] as const;
 const POLICY_DECISION_STATES = ["ACCEPTED", "REJECTED", "STALE", "NOT_EVALUATED"] as const;
-const RECOGNITION_STATES = ["PASS", "UNSUPPORTED", "UNTRUSTED", "NOT_EVALUATED", "NOT_APPLICABLE"] as const;
+const RECOGNITION_STATES = [
+  "PASS",
+  "UNSUPPORTED",
+  "UNTRUSTED",
+  "NOT_EVALUATED",
+  "NOT_APPLICABLE",
+] as const;
 const HUMAN_REVIEW_STATES = ["PASS", "INCOMPLETE", "UNKNOWN", "NOT_APPLICABLE"] as const;
 const CHECK_OUTCOMES = ["PASS", "FAIL", "UNSUPPORTED", "NOT_EVALUATED"] as const;
 const SIGNATURE_MODES = ["disabled", "optional", "required"] as const;

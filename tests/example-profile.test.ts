@@ -180,22 +180,29 @@ test("example: the model declares only its own kinds and relations", async () =>
 
   const requirementIndex = model.relations.get("requirement");
   assert.ok(requirementIndex !== undefined);
-  assert.deepEqual(
-    [...(requirementIndex.get("example") ?? [])].sort(),
-    ["REQ-IDEMPOTENT", "REQ-ORDER-ID"],
-  );
+  assert.deepEqual([...(requirementIndex.get("example") ?? [])].sort(), [
+    "REQ-IDEMPOTENT",
+    "REQ-ORDER-ID",
+  ]);
 
   const examplesIndex = model.relations.get("examples");
   assert.ok(examplesIndex !== undefined);
-  assert.deepEqual(
-    [...(examplesIndex.get("requirement") ?? [])].sort(),
-    ["EX-IDEMPOTENT-1", "EX-ORDER-ID-1"],
-  );
+  assert.deepEqual([...(examplesIndex.get("requirement") ?? [])].sort(), [
+    "EX-IDEMPOTENT-1",
+    "EX-ORDER-ID-1",
+  ]);
 
   assert.deepEqual(model.byId.get("REQ-IDEMPOTENT")?.relations.examples, ["EX-IDEMPOTENT-1"]);
   assert.deepEqual(model.byId.get("EX-IDEMPOTENT-1")?.relations.requirement, ["REQ-IDEMPOTENT"]);
 
-  for (const name of ["fragment", "terms", "dependsOn", "mentions", "vectors", "rationaleFragment"]) {
+  for (const name of [
+    "fragment",
+    "terms",
+    "dependsOn",
+    "mentions",
+    "vectors",
+    "rationaleFragment",
+  ]) {
     assert.equal(model.relations.has(name), false, `CORE-001 relation leaked: ${name}`);
   }
 });
@@ -291,7 +298,11 @@ test("example: the invalid fixture fails at the profile-owned policy boundary", 
   assert.match(finding.message, /REQ-ORDER-ID/);
 
   // The generic phases passed: only the profile-owned policy check failed.
-  assert.equal(codes(result).some((code) => code.startsWith("core.")), false, failure(result));
+  assert.equal(
+    codes(result).some((code) => code.startsWith("core.")),
+    false,
+    failure(result),
+  );
 });
 
 test("example: the validator is selected through the declared profile path", async () => {
@@ -361,7 +372,11 @@ test("example: changing a profile/validator closure file moves the digests", asy
   const beforeBuild = await identityOf(projectDir);
 
   const validator = path.join(profileDir, "validator.ts");
-  await writeFile(validator, `${await readFile(validator, "utf8")}\n// identity sentinel\n`, "utf8");
+  await writeFile(
+    validator,
+    `${await readFile(validator, "utf8")}\n// identity sentinel\n`,
+    "utf8",
+  );
 
   const afterProfile = await profileDigest(projectDir);
   const afterBuild = await identityOf(projectDir);
@@ -419,13 +434,14 @@ test("example: changing a declared renderer closure file moves the digests", asy
   assert.notEqual(afterBuild.inputDigest, beforeBuild.inputDigest);
 });
 
-test("example: build identity is not embedded in the artifact", async () => {
+test("example: the example renderer does not embed the build identity", async () => {
   const result = await runBuild(options(exampleProjectDir));
   assert.equal(result.exitCode, 0, failure(result));
   assert.ok(result.identity !== null);
   const markdown = result.markdown;
   assert.ok(markdown !== null);
 
+  // The identity is available in RenderOptions; this profile's renderer chooses not to render it.
   assert.equal(markdown.includes(result.identity.inputDigest), false);
   assert.equal(markdown.includes("sha256:"), false);
   assert.equal(markdown.includes("inputDigest"), false);

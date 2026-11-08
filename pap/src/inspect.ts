@@ -13,12 +13,7 @@ import { loadPayloads } from "./verify.js";
 import type { Payloads } from "./verify.js";
 import { IoFailure, UsageError } from "./verify.js";
 import { CHECKER, checkerIdentity } from "./version.js";
-import {
-  DEFAULT_LIMITS,
-  REPORT_VERSION,
-  VERIFIER_ID,
-  VERIFIER_VERSION,
-} from "./types.js";
+import { DEFAULT_LIMITS, REPORT_VERSION, VERIFIER_ID, VERIFIER_VERSION } from "./types.js";
 import type { Diagnostic, Limitation } from "./types.js";
 
 export interface InspectionDocument {
@@ -105,7 +100,12 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
     inspection: overrides.inspection,
   });
 
-  const manifestRead = await readPackageFile(root, "assurance-package.json", limits, limits.manifestBytes);
+  const manifestRead = await readPackageFile(
+    root,
+    "assurance-package.json",
+    limits,
+    limits.manifestBytes,
+  );
   if (!manifestRead.ok || manifestRead.bytes === undefined) {
     diag(
       manifestRead.failure === "limit" ? "pap.package.limit-exceeded" : "pap.package.io",
@@ -145,13 +145,28 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
     diag("pap.compat.version-unsupported", "warning", "papVersion", "unsupported papVersion");
   }
   for (const feature of validation.unsupportedFeatures) {
-    diag("pap.feature.unsupported", "warning", "requiredFeatures", `required feature ${feature} is not supported`);
+    diag(
+      "pap.feature.unsupported",
+      "warning",
+      "requiredFeatures",
+      `required feature ${feature} is not supported`,
+    );
   }
   for (const extension of validation.unsupportedCriticalExtensions) {
-    diag("pap.extension.critical-unsupported", "warning", "extensions", `critical extension ${extension} is not supported`);
+    diag(
+      "pap.extension.critical-unsupported",
+      "warning",
+      "extensions",
+      `critical extension ${extension} is not supported`,
+    );
   }
   for (const extension of validation.ignoredExtensions) {
-    diag("pap.extension.ignored", "info", "extensions", `non-critical extension ${extension} was ignored`);
+    diag(
+      "pap.extension.ignored",
+      "info",
+      "extensions",
+      `non-critical extension ${extension} was ignored`,
+    );
   }
 
   const manifest = validation.manifest;
@@ -166,7 +181,11 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
     return {
       document: document({
         inspection: "INVALID",
-        package: { identity: packageIdentity, papVersion: validation.papVersion, path: root.supplied },
+        package: {
+          identity: packageIdentity,
+          papVersion: validation.papVersion,
+          path: root.supplied,
+        },
         ...(manifest === null ? {} : { declared: declaredFromManifest(manifest) }),
       }),
       exitCode: 1,
@@ -180,7 +199,11 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
     return {
       document: document({
         inspection: "UNSUPPORTED",
-        package: { identity: packageIdentity, papVersion: validation.papVersion, path: root.supplied },
+        package: {
+          identity: packageIdentity,
+          papVersion: validation.papVersion,
+          path: root.supplied,
+        },
         declared: declaredFromManifest(manifest),
         identities: {
           packageIdentity,
@@ -265,7 +288,11 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
   return {
     document: document({
       inspection,
-      package: { identity: packageIdentity, papVersion: validation.papVersion, path: root.supplied },
+      package: {
+        identity: packageIdentity,
+        papVersion: validation.papVersion,
+        path: root.supplied,
+      },
       declared,
       identities: {
         packageIdentity,
@@ -382,12 +409,22 @@ async function reportUndeclared(
     if (file.toLowerCase() === "assurance-package.json") continue;
     if (file.split("/").at(-1)?.toLowerCase() === "assurance-package.json") {
       nestedManifest = true;
-      diag("pap.package.manifest-self-reference", "error", file, "a nested package manifest is prohibited");
+      diag(
+        "pap.package.manifest-self-reference",
+        "error",
+        file,
+        "a nested package manifest is prohibited",
+      );
       continue;
     }
     if (declared.has(file.toLowerCase())) continue;
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) continue;
-    diag("pap.package.undeclared-file", "warning", file, "undeclared file is present and was not read");
+    diag(
+      "pap.package.undeclared-file",
+      "warning",
+      file,
+      "undeclared file is present and was not read",
+    );
   }
   return { files: walk.files, limitHit: walk.limitHit, error: walk.error, nestedManifest };
 }

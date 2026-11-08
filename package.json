@@ -13,17 +13,26 @@
     "pap": "pap/bin/pap"
   },
   "scripts": {
-    "build": "bun spec/build.ts --mode draft --allow-executable-profile",
-    "build:release": "bun spec/build.ts --mode release --allow-executable-profile",
-    "check": "bun spec/build.ts --mode draft --check --allow-executable-profile",
+    "build": "bun spec/build.ts --mode draft --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
+    "build:release": "bun spec/build.ts --mode release --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
+    "check": "bun spec/build.ts --mode draft --check --allow-executable-profile --renderer-module profiles/core001/renderer.ts",
     "check:all": "bun run check && bun test tests/core000.test.ts -t \"S2.2 artifact verification\"",
+    "release:check": "bun pipeline/release.ts",
     "pap": "bun pap/src/cli.ts",
     "pap:test": "bun test pap/tests",
     "pack:core000": "bun pipeline/pack.ts",
     "gate:core000": "bun pipeline/gate.ts",
+    "pipeline:independent": "bun pipeline/independent.ts",
+    "pipeline:evidence": "bun pipeline/evidence.ts",
     "pipeline:test": "bun test pipeline/tests",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "coverage": "bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "coverage:check": "bun scripts/check-coverage.ts",
+    "docs:links": "bun scripts/check-docs-links.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -31,6 +40,7 @@
     "yaml": "^2.5.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.6",
     "@types/node": "^22.7.5",
     "@types/nunjucks": "^3.2.6",
     "typescript": "^5.6.3"

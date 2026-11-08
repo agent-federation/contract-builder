@@ -354,9 +354,7 @@ export function isDimensionPositive(dimension: DimensionName, states: DimensionS
         .filter((result) => result.required !== false)
         .every((result) => result.outcome === "PASS");
     case "humanReview":
-      return (
-        states.humanReview.status === "PASS" || states.humanReview.status === "NOT_APPLICABLE"
-      );
+      return states.humanReview.status === "PASS" || states.humanReview.status === "NOT_APPLICABLE";
   }
 }
 
@@ -388,8 +386,7 @@ export function isDimensionError(dimension: DimensionName, states: DimensionStat
   switch (dimension) {
     case "integrity":
       return (
-        isErrorIntegrity(states.integrity.package) ||
-        isErrorIntegrity(states.integrity.artifacts)
+        isErrorIntegrity(states.integrity.package) || isErrorIntegrity(states.integrity.artifacts)
       );
     case "integrity.package":
       return isErrorIntegrity(states.integrity.package);
@@ -450,6 +447,17 @@ export function resolveRequiredCheckOutcomes(
   return requiredChecks.map((checkId) => results.get(checkId) ?? "NOT_EVALUATED");
 }
 
+/**
+ * I3/I4: the derived requirement set is empty. Kept in one place so the fold,
+ * coverage and the report adapter cannot drift on what "no requirement" means.
+ */
+export function isEmptyRequiredSet(
+  requiredChecks: string[],
+  requiredDimensions: DimensionName[],
+): boolean {
+  return requiredChecks.length === 0 && requiredDimensions.length === 0;
+}
+
 /** I4: coverage is evaluation completeness, not a verdict alias. */
 export function isCoverageFull(
   states: DimensionStates,
@@ -459,7 +467,7 @@ export function isCoverageFull(
   scanIncomplete: boolean = false,
 ): boolean {
   const outcomes = resolveRequiredCheckOutcomes(states, requiredChecks);
-  const emptyRequiredSet = requiredChecks.length === 0 && requiredDimensions.length === 0;
+  const emptyRequiredSet = isEmptyRequiredSet(requiredChecks, requiredDimensions);
   return (
     !limitStopped &&
     !scanIncomplete &&

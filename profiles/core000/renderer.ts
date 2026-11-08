@@ -53,6 +53,14 @@ export const renderer: Renderer = {
         isDraft: options.mode === "draft",
         diagnostics,
         counts,
+        project: {
+          id: model.manifest.project.id,
+          revision: model.manifest.project.revision ?? "not declared",
+        },
+        profile: { id: model.profile.id, version: model.profile.version },
+        renderer: { id: renderer.id, version: renderer.version },
+        identity: options.identity,
+        gate: gateConclusion(counts),
       }),
     );
     const output = model.manifest.render[0]?.outputs[options.mode] ?? "";
@@ -73,6 +81,29 @@ function diagnosticView(diagnostic: Diagnostic) {
 
 function countSeverity(diagnostics: readonly Diagnostic[], severity: Severity): number {
   return diagnostics.filter((diagnostic) => diagnostic.severity === severity).length;
+}
+
+/**
+ * Summary-level gate conclusion from the emitted diagnostics, never from the catalog.
+ * `--strict` promotes WARNING to blocking, but the renderer is not told whether the
+ * build ran with it, so a warnings-only build must not claim an unconditional
+ * release permission.
+ */
+export function gateConclusion(counts: {
+  errors: number;
+  reviews: number;
+  warnings: number;
+}): string {
+  const reasons: string[] = [];
+  if (counts.errors > 0) reasons.push(`${counts.errors} \`ERROR\``);
+  if (counts.reviews > 0) reasons.push(`${counts.reviews} \`REVIEW_REQUIRED\``);
+  if (reasons.length === 0) {
+    if (counts.warnings > 0) {
+      return "`release` gate — no `ERROR` or `REVIEW_REQUIRED` diagnostics; `WARNING` diagnostics block only under `--strict`.";
+    }
+    return "`release` permitted — no `ERROR`, `REVIEW_REQUIRED` or `WARNING` diagnostics.";
+  }
+  return `\`release\` blocked — ${reasons.join(" and ")} diagnostics.`;
 }
 
 function finalize(markdown: string): string {

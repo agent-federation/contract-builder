@@ -3,13 +3,10 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Diagnostic } from "./diagnostics.js";
 import type { ExtensionClosureDeclaration } from "./extension.js";
+import type { BuildIdentity } from "./identity.js";
 import type { ProjectModel } from "./ir.js";
 import type { Diagnostics } from "./diagnostics.js";
-import {
-  resolveContained,
-  type ManifestRender,
-  type ResolvedProject,
-} from "./manifest.js";
+import { resolveContained, type ManifestRender, type ResolvedProject } from "./manifest.js";
 
 export type BuildMode = "draft" | "release";
 
@@ -30,6 +27,13 @@ export interface RenderOptions {
    * artifact a pure function of the model, the options and the template.
    */
   diagnostics: readonly Diagnostic[];
+  /**
+   * The deterministic build identity computed before rendering: project, engine and manifest
+   * versions, the authoritative `inputDigest` and the extensions used. The engine always passes
+   * it on a successful build, so a renderer may render the identity without fabricating values;
+   * artifact bytes stay outside the digest.
+   */
+  identity: BuildIdentity;
 }
 
 export interface Artifact {
@@ -85,7 +89,12 @@ export async function loadRenderInputs(
     return null;
   }
 
-  const entry = await resolveProfilePath(project, declaration.template, "/render/0/template", diags);
+  const entry = await resolveProfilePath(
+    project,
+    declaration.template,
+    "/render/0/template",
+    diags,
+  );
   if (entry === null) return null;
 
   const root = path.dirname(entry);
@@ -116,7 +125,12 @@ export async function loadRenderInputs(
     try {
       const parsed: unknown = JSON.parse(await readFile(labelsPath, "utf8"));
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        diags.error("core.manifest.invalid", declaration.labels, "", "Файл меток должен быть объектом");
+        diags.error(
+          "core.manifest.invalid",
+          declaration.labels,
+          "",
+          "Файл меток должен быть объектом",
+        );
         return null;
       }
       labels = {};
@@ -156,9 +170,7 @@ async function resolveProfilePath(
   pointer: string,
   diags: Diagnostics,
 ): Promise<string | null> {
-  const relative = declared.startsWith("profile:")
-    ? declared.slice("profile:".length)
-    : declared;
+  const relative = declared.startsWith("profile:") ? declared.slice("profile:".length) : declared;
 
   const located = await resolveContained(project.profileDir, relative);
   if (!located.inside) {

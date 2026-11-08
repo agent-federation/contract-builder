@@ -2,9 +2,11 @@
  * PAP v0.1 path grammar and package-root-confined streaming reads.
  *
  * Declared paths are validated before any filesystem access. Every path
- * component is checked for a symlink; the final object must be a regular file;
- * reads stay under the package root and are streamed through a bounded reader.
- * Payload hashing consumes chunks and never buffers the whole file.
+ * component is checked for a symlink; the final component must be a regular
+ * file when reading a payload and a directory when resolving a package
+ * directory. Reads stay under the package root and are streamed through a
+ * bounded reader. Payload hashing consumes chunks and never buffers the whole
+ * file.
  */
 
 import { constants } from "node:fs";
@@ -46,13 +48,7 @@ export function pathKey(value: string): string {
   return value.toLowerCase();
 }
 
-export type ReadFailure =
-  | "missing"
-  | "io"
-  | "symlink"
-  | "non-regular"
-  | "path-escape"
-  | "limit";
+export type ReadFailure = "missing" | "io" | "symlink" | "non-regular" | "path-escape" | "limit";
 
 export interface ReadResult {
   ok: boolean;
@@ -76,8 +72,11 @@ export interface PackageRoot {
   real: string;
 }
 
-export async function resolvePackageRoot(supplied: string): Promise<
-  { ok: true; root: PackageRoot } | { ok: false; failure: "not-found" | "not-directory" | "io"; message: string }
+export async function resolvePackageRoot(
+  supplied: string,
+): Promise<
+  | { ok: true; root: PackageRoot }
+  | { ok: false; failure: "not-found" | "not-directory" | "io"; message: string }
 > {
   let stats;
   try {
@@ -85,7 +84,11 @@ export async function resolvePackageRoot(supplied: string): Promise<
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
-      return { ok: false, failure: "not-found", message: `package path does not exist: ${supplied}` };
+      return {
+        ok: false,
+        failure: "not-found",
+        message: `package path does not exist: ${supplied}`,
+      };
     }
     return { ok: false, failure: "io", message: `cannot stat package path: ${supplied}` };
   }
@@ -93,11 +96,19 @@ export async function resolvePackageRoot(supplied: string): Promise<
     try {
       stats = await lstat(await realpath(supplied));
     } catch {
-      return { ok: false, failure: "not-found", message: `package path does not resolve: ${supplied}` };
+      return {
+        ok: false,
+        failure: "not-found",
+        message: `package path does not resolve: ${supplied}`,
+      };
     }
   }
   if (!stats.isDirectory()) {
-    return { ok: false, failure: "not-directory", message: `package path is not a directory: ${supplied}` };
+    return {
+      ok: false,
+      failure: "not-directory",
+      message: `package path is not a directory: ${supplied}`,
+    };
   }
   let real: string;
   try {
@@ -119,13 +130,16 @@ async function resolvePackagePath(
   finalKind: "file" | "directory",
   cap: number,
 ): Promise<
-  | { ok: true; resolved: ResolvedPath }
-  | { ok: false; failure: ReadFailure; message: string }
+  { ok: true; resolved: ResolvedPath } | { ok: false; failure: ReadFailure; message: string }
 > {
   const noun = finalKind === "file" ? "declared file" : "package directory";
   const segments = relative.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
-    return { ok: false, failure: "path-escape", message: `declared path is not root-confined: ${relative}` };
+    return {
+      ok: false,
+      failure: "path-escape",
+      message: `declared path is not root-confined: ${relative}`,
+    };
   }
   let current = root.real;
   let finalSize = 0;
@@ -139,7 +153,11 @@ async function resolvePackagePath(
       if (code === "ENOENT") {
         return { ok: false, failure: "missing", message: `${noun} is missing: ${relative}` };
       }
-      return { ok: false, failure: "io", message: `cannot stat package path component: ${relative}` };
+      return {
+        ok: false,
+        failure: "io",
+        message: `cannot stat package path component: ${relative}`,
+      };
     }
     if (stats.isSymbolicLink()) {
       return {
@@ -151,15 +169,27 @@ async function resolvePackagePath(
     const final = index === segments.length - 1;
     if (final && finalKind === "file") {
       if (!stats.isFile()) {
-        return { ok: false, failure: "non-regular", message: `${noun} is not a regular file: ${relative}` };
+        return {
+          ok: false,
+          failure: "non-regular",
+          message: `${noun} is not a regular file: ${relative}`,
+        };
       }
       finalSize = stats.size;
     } else if (final) {
       if (!stats.isDirectory()) {
-        return { ok: false, failure: "non-regular", message: `${noun} is not a directory: ${relative}` };
+        return {
+          ok: false,
+          failure: "non-regular",
+          message: `${noun} is not a directory: ${relative}`,
+        };
       }
     } else if (!stats.isDirectory()) {
-      return { ok: false, failure: "non-regular", message: `package path component is not a directory: ${relative}` };
+      return {
+        ok: false,
+        failure: "non-regular",
+        message: `package path component is not a directory: ${relative}`,
+      };
     }
   }
   let resolved: string;
@@ -170,7 +200,11 @@ async function resolvePackagePath(
   }
   const prefix = root.real.endsWith(path.sep) ? root.real : `${root.real}${path.sep}`;
   if (resolved !== root.real && !resolved.startsWith(prefix)) {
-    return { ok: false, failure: "path-escape", message: `${noun} resolves outside the package: ${relative}` };
+    return {
+      ok: false,
+      failure: "path-escape",
+      message: `${noun} resolves outside the package: ${relative}`,
+    };
   }
   if (finalSize > cap) {
     return { ok: false, failure: "limit", message: `${noun} exceeds the byte limit: ${relative}` };
@@ -183,8 +217,7 @@ async function resolvePackageFile(
   relative: string,
   cap: number,
 ): Promise<
-  | { ok: true; file: ResolvedPath }
-  | { ok: false; failure: ReadFailure; message: string }
+  { ok: true; file: ResolvedPath } | { ok: false; failure: ReadFailure; message: string }
 > {
   const outcome = await resolvePackagePath(root, relative, "file", cap);
   if (!outcome.ok) return outcome;
@@ -227,10 +260,18 @@ export async function streamPackageFile(
   try {
     const opened = await handle.stat();
     if (!opened.isFile()) {
-      return { ok: false, failure: "non-regular", message: `declared file is not a regular file: ${relative}` };
+      return {
+        ok: false,
+        failure: "non-regular",
+        message: `declared file is not a regular file: ${relative}`,
+      };
     }
     if (opened.size > cap) {
-      return { ok: false, failure: "limit", message: `declared file exceeds the byte limit: ${relative}` };
+      return {
+        ok: false,
+        failure: "limit",
+        message: `declared file exceeds the byte limit: ${relative}`,
+      };
     }
     const buffer = new Uint8Array(65_536);
     let total = 0;
@@ -239,7 +280,11 @@ export async function streamPackageFile(
       if (bytesRead === 0) break;
       total += bytesRead;
       if (total > cap) {
-        return { ok: false, failure: "limit", message: `declared file exceeds the byte limit: ${relative}` };
+        return {
+          ok: false,
+          failure: "limit",
+          message: `declared file exceeds the byte limit: ${relative}`,
+        };
       }
       await onChunk(Buffer.from(buffer.subarray(0, bytesRead)));
     }
@@ -356,7 +401,8 @@ export async function walkPackageFiles(root: PackageRoot, limits: Limits): Promi
       limitHit = true;
       return;
     }
-    const absolute = relativeDir === "" ? root.real : path.join(root.real, ...relativeDir.split("/"));
+    const absolute =
+      relativeDir === "" ? root.real : path.join(root.real, ...relativeDir.split("/"));
     let directory;
     try {
       directory = await opendir(absolute);
@@ -391,7 +437,9 @@ export async function walkPackageFiles(root: PackageRoot, limits: Limits): Promi
   return { files, limitHit, error };
 }
 
-export function declaredFileKind(relative: string): "artifact" | "input" | "source" | "claim" | "signature" | "other" {
+export function declaredFileKind(
+  relative: string,
+): "artifact" | "input" | "source" | "claim" | "signature" | "other" {
   if (relative.startsWith("artifacts/")) return "artifact";
   if (relative.startsWith("inputs/")) return "input";
   if (relative.startsWith("sources/")) return "source";

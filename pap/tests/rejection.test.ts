@@ -52,7 +52,10 @@ function policyFixture(name: string): any {
   return JSON.parse(readFileSync(path.join(fixtures, "trust-policy", name), "utf8"));
 }
 
-function verify(dir: string, extra: string[] = []): { status: number; stdout: string; stderr: string } {
+function verify(
+  dir: string,
+  extra: string[] = [],
+): { status: number; stdout: string; stderr: string } {
   return runPap(["verify", ".", "--format", "json", "--now", NOW, ...extra], dir);
 }
 
@@ -129,6 +132,23 @@ for (const fieldCase of POLICY_CASES) {
   }
 }
 
+for (const [label, limits] of [
+  ["prototype-chain key", { toString: 1 }],
+  ["unknown plain key", { noSuchLimit: 1 }],
+] as const) {
+  test(`policy limits rejects a ${label}: exit 64, no report`, () => {
+    // Appendix B `limits` is a closed map: membership must not fall through to
+    // Object.prototype, and an unexpected key must fail closed like any other
+    // unknown policy field.
+    const policy = policyFixture("unsigned-valid.json");
+    policy.limits = limits;
+    const result = verify(tempPackage(), ["--trust-policy", writePolicy(policy)]);
+    assert.equal(result.status, 64, result.stdout);
+    assert.equal(result.stdout, "");
+    assert.ok(result.stderr.includes("pap: pap.trust.policy-invalid:"), result.stderr);
+  });
+}
+
 interface ManifestCase {
   field: string;
   mutate: (value: any, fieldValue: unknown) => void;
@@ -203,7 +223,8 @@ const CLAIM_CASES: ClaimCase[] = [
     field: "papClaimsVersion",
     kind: "producerReport",
     file: "producer-report.json",
-    load: (dir) => JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
+    load: (dir) =>
+      JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
     mutate: (value, fieldValue) => {
       value.papClaimsVersion = fieldValue;
     },
@@ -230,7 +251,8 @@ const CLAIM_CASES: ClaimCase[] = [
     field: "producerReport claims[].claimedOutcome",
     kind: "producerReport",
     file: "producer-report.json",
-    load: (dir) => JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
+    load: (dir) =>
+      JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
     mutate: (value, fieldValue) => {
       value.claims[0].claimedOutcome = fieldValue;
     },

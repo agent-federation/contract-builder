@@ -4,11 +4,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildView } from "../profiles/core001/view.js";
 import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
+import type { BuildIdentity } from "../spec/lib/identity.js";
 import type { Renderer } from "../spec/lib/render.js";
 import type { CheckContext } from "../profiles/core001/context.js";
 import type { Entity, ProjectModel, ProvenanceVerification } from "../spec/lib/ir.js";
 
 export const LEGACY_TEXT = "DOC (Rev 1)\nMUST do";
+
+/** Renderer input the engine always supplies on a successful build. */
+export const TEST_IDENTITY: BuildIdentity = {
+  projectId: "test-project",
+  engineVersion: "0.0.0",
+  manifestVersion: "0.1",
+  inputDigest: `sha256:${"0".repeat(64)}`,
+  extensions: [],
+};
 
 const DOCUMENTS = {
   sources: { slice: { id: "S", includes: ["#1"], excludes: [] } },
@@ -59,9 +69,7 @@ export function modelWith(entities: Entity[]): ProjectModel {
       render: [{ outputs: {} }],
     },
     profile: { id: "p", version: "1", entityKinds: {}, schemas: {}, documents: [] },
-    sources: [
-      { id: "SRC", bytes: new TextEncoder().encode(LEGACY_TEXT), adapter: "markdown" },
-    ],
+    sources: [{ id: "SRC", bytes: new TextEncoder().encode(LEGACY_TEXT), adapter: "markdown" }],
     entities,
     documents: DOCUMENTS,
     byId,
@@ -93,8 +101,10 @@ function attachVerification(entity: Entity, outcome: TestOutcome): void {
   if (entity.provenance !== undefined) return;
 
   const fields = entity.fields;
-  const source = entity.kind === "fragment" || entity.kind === "decision" ? fields.source : undefined;
-  const ref = entity.kind === "fragment" || entity.kind === "decision" ? fields.source_ref : undefined;
+  const source =
+    entity.kind === "fragment" || entity.kind === "decision" ? fields.source : undefined;
+  const ref =
+    entity.kind === "fragment" || entity.kind === "decision" ? fields.source_ref : undefined;
   const quote =
     entity.kind === "fragment"
       ? fields.quote

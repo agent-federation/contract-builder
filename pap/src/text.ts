@@ -19,10 +19,18 @@ const SHORT = new Map<string, string>([
   ["\r", "\\r"],
 ]);
 
+// BMP controls keep the fixed-width `\uXXXX` form. A code point above the BMP
+// needs more than four hex digits, so it is emitted in the self-delimiting
+// `\u{...}` form instead of a variable-width `\ue0001` that cannot be parsed
+// back without knowing the original value.
 function safe(value: string): string {
   return value.replace(CONTROL, (char) => {
     const short = SHORT.get(char);
-    return short ?? `\\u${(char.codePointAt(0) as number).toString(16).padStart(4, "0")}`;
+    if (short !== undefined) return short;
+    const codePoint = char.codePointAt(0) as number;
+    return codePoint <= 0xffff
+      ? `\\u${codePoint.toString(16).padStart(4, "0")}`
+      : `\\u{${codePoint.toString(16)}}`;
   });
 }
 
@@ -36,7 +44,7 @@ export function renderVerifyText(report: VerificationReport): string {
     `package: ${safe(report.package.identity ?? "null")} (papVersion ${safe(report.package.papVersion ?? "unknown")})`,
   );
   lines.push(
-    `verifier: pap ${report.verifier.version}  policy: ${safe(report.policy.id ?? "none")} state: ${report.policy.state}  evaluatedAt: ${report.evaluatedAt}`,
+    `verifier: pap ${report.verifier.version}  policy: ${safe(report.policy.id ?? "none")} digest: ${safe(report.policy.digest ?? "none")} state: ${report.policy.state}  evaluatedAt: ${report.evaluatedAt}`,
   );
   if (report.effectiveLimits !== undefined) {
     lines.push(
@@ -71,7 +79,9 @@ export function renderVerifyText(report: VerificationReport): string {
   lines.push(
     `coverage: checksEvaluated ${coverage.checksEvaluated}, checksPassed ${coverage.checksPassed}, checksFailed ${coverage.checksFailed}, checksUnsupported ${coverage.checksUnsupported}, checksNotEvaluated ${coverage.checksNotEvaluated}, dimensionsEvaluated ${coverage.dimensionsEvaluated}, full: ${coverage.full}`,
   );
-  lines.push(`requiredChecks: ${coverage.requiredChecks.map((checkId) => safe(checkId)).join(", ") || "none"}`);
+  lines.push(
+    `requiredChecks: ${coverage.requiredChecks.map((checkId) => safe(checkId)).join(", ") || "none"}`,
+  );
   lines.push(`requiredDimensions: ${coverage.requiredDimensions.join(", ") || "none"}`);
   lines.push("limitations");
   if (report.limitations.length === 0) {
@@ -141,8 +151,12 @@ export function renderInspectionText(document: InspectionDocument): string {
   }
   lines.push("identities");
   lines.push(`  packageIdentity ${safe(document.identities.packageIdentity ?? "null")}`);
-  lines.push(`  normalizedInputDigest ${safe(document.identities.normalizedInputDigest ?? "null")}`);
-  lines.push(`  extensionClosureDigest ${safe(document.identities.extensionClosureDigest ?? "null")}`);
+  lines.push(
+    `  normalizedInputDigest ${safe(document.identities.normalizedInputDigest ?? "null")}`,
+  );
+  lines.push(
+    `  extensionClosureDigest ${safe(document.identities.extensionClosureDigest ?? "null")}`,
+  );
   lines.push(`  checkerIdentity ${safe(document.identities.checkerIdentity)}`);
   lines.push("limitations");
   if (document.limitations.length === 0) {
@@ -155,7 +169,10 @@ export function renderInspectionText(document: InspectionDocument): string {
   return `${lines.join("\n")}\n`;
 }
 
-export function renderExplanationText(document: ExplanationDocument, requestedCheckId?: string): string {
+export function renderExplanationText(
+  document: ExplanationDocument,
+  requestedCheckId?: string,
+): string {
   const record = document.checkRecord;
   const lines: string[] = [];
   lines.push("NOT A PACKAGE VERDICT");

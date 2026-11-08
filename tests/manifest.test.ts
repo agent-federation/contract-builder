@@ -26,7 +26,7 @@ const legacyPath = path.join(root, "CORE-001.legacy.md");
 interface MutableManifest {
   profile: { source: string; external?: boolean };
   inputs: Array<Record<string, unknown>>;
-  sources: Array<{ path: string; external?: boolean }>;
+  sources?: Array<{ path: string; external?: boolean }>;
   render: Array<{ outputs: Record<string, string> }>;
 }
 
@@ -63,7 +63,7 @@ async function copyProject(name: string): Promise<string> {
   // without copying the profile or the legacy document.
   await editManifest(dir, (manifest) => {
     manifest.profile.source = profileDir;
-    manifest.sources[0]!.path = legacyPath;
+    manifest.sources![0]!.path = legacyPath;
   });
 
   return dir;
@@ -196,10 +196,40 @@ test("manifest: exactly one render declaration builds and --check stays determin
   assert.equal(rebuilt.markdown, written.markdown);
 });
 
+test("manifest: zero or absent sources is rejected before the model and writing", async () => {
+  for (const variant of ["missing", "empty"] as const) {
+    const dir = await copyProject(`zero-source-${variant}`);
+    await editManifest(dir, (manifest) => {
+      if (variant === "missing") delete manifest.sources;
+      else manifest.sources = [];
+    });
+
+    const result = await runBuild(base(dir, { write: true }));
+    assert.equal(result.exitCode, 1, variant);
+    assert.equal(result.blockedBy, "errors", variant);
+    assert.equal(result.written, false, variant);
+    assert.equal(result.markdown, null, variant);
+    assert.equal(result.identity, null, variant);
+    assert.deepEqual(
+      codes(result),
+      ["core.manifest.invalid"],
+      `${variant}: ${result.diagnostics.map((d) => d.message).join("\n")}`,
+    );
+
+    const diagnostic = result.diagnostics[0]!;
+    assert.equal(diagnostic.file, "contract-builder.json", variant);
+    assert.equal(diagnostic.pointer, "/sources", variant);
+    assert.match(diagnostic.message, /M1 supports exactly one source/, variant);
+    assert.match(diagnostic.message, /zero-source manifests are not supported by M1/, variant);
+    assert.equal(codes(result).includes("ERR_UNKNOWN_REF"), false, variant);
+    assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false, variant);
+  }
+});
+
 test("manifest: a source outside the project root without external is rejected", async () => {
   const dir = await copyProject("outside-source");
   await editManifest(dir, (manifest) => {
-    delete manifest.sources[0]!.external;
+    delete manifest.sources![0]!.external;
   });
 
   const result = await runBuild(base(dir));

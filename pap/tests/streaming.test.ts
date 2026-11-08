@@ -3,11 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import {
-  domainHash,
-  inputFileDigest,
-  normalizeLf,
-} from "../src/digest.js";
+import { domainHash, inputFileDigest, normalizeLf } from "../src/digest.js";
 import { hashInput } from "../src/input.js";
 import { hashPackageFile, hashPackageRange } from "../src/paths.js";
 import type { PackageRoot } from "../src/paths.js";
@@ -34,10 +30,20 @@ test("streamed source range hashing crosses chunks", async () => {
   const root = packageRoot();
   const bytes = Buffer.alloc(150_000, 0x62);
   writeFileSync(path.join(root.real, "source.bin"), bytes);
-  const result = await hashPackageRange(root, "source.bin", 60_000, 140_000, "pap.quote.v1", DEFAULT_LIMITS);
+  const result = await hashPackageRange(
+    root,
+    "source.bin",
+    60_000,
+    140_000,
+    "pap.quote.v1",
+    DEFAULT_LIMITS,
+  );
   assert.equal(result.ok, true);
   if (!result.ok) return;
-  assert.equal(result.digest, domainHash("pap.quote.v1", new Uint8Array(bytes.subarray(60_000, 140_000))));
+  assert.equal(
+    result.digest,
+    domainHash("pap.quote.v1", new Uint8Array(bytes.subarray(60_000, 140_000))),
+  );
   assert.equal(result.size, 80_000);
 });
 
@@ -45,7 +51,13 @@ test("streamed artifact hashing does not need the payload in one buffer", async 
   const root = packageRoot();
   const bytes = Buffer.alloc(5_000_000, 0x63);
   writeFileSync(path.join(root.real, "artifact.bin"), bytes);
-  const result = await hashPackageFile(root, "artifact.bin", "pap.artifact.v1", DEFAULT_LIMITS, 10_000_000);
+  const result = await hashPackageFile(
+    root,
+    "artifact.bin",
+    "pap.artifact.v1",
+    DEFAULT_LIMITS,
+    10_000_000,
+  );
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.digest, domainHash("pap.artifact.v1", new Uint8Array(bytes)));

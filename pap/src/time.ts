@@ -52,9 +52,7 @@ export function parseRfc3339(value: string): Instant | null {
   }
 
   const days = daysFromCivil(year, month, day);
-  const epochSeconds =
-    days * 86_400n +
-    BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
+  const epochSeconds = days * 86_400n + BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
   const nanoseconds = fraction === "" ? 0n : BigInt(fraction.padEnd(9, "0"));
   return epochSeconds * NS_PER_SECOND + nanoseconds;
 }
@@ -82,7 +80,9 @@ function civilFromDays(days: bigint): { year: number; month: number; day: number
   const z = Number(days) + 719468;
   const era = Math.floor(z / 146097);
   const doe = z - era * 146097;
-  const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+  const yoe = Math.floor(
+    (doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365,
+  );
   const y = yoe + era * 400;
   const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
   const mp = Math.floor((5 * doy + 2) / 153);

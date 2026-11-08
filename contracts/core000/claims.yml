@@ -421,12 +421,12 @@ claims:
 
   - id: C000-CT-010
     author: "it-start"
-    statement: "Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; it is not rendered into the artifact."
+    statement: "Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; a successful build passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it."
     class: requirement
     status: { decision: accepted, implementation: implemented, tests: tested, verification: none }
     authority: engine
     lifecycle: active
-    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`; `tests/identity.test.ts`"
+    verification_method: "Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`, `spec/lib/render.ts`, `spec/lib/build.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`"
     scope: "CORE-000 accepted design §4.2 row C000-CT-010 at the accepted design baseline"
     subject_kind: interface
     relations:
@@ -436,6 +436,7 @@ claims:
         - DEC-DESIGN-51
       evidencedBy:
         - EV-CODE-SPEC-LIB-IDENTITY-TS
+        - EV-CODE-SPEC-LIB-RENDER-TS
         - EV-TEST-TESTS-IDENTITY-TEST-TS
 
   - id: C000-CT-011
@@ -742,7 +743,7 @@ claims:
 
   - id: C000-IM-004
     author: "it-start"
-    statement: "profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine's renderer is consumer-supplied, and the CLI imports the CORE-001 renderer conditionally."
+    statement: "profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine ships no renderer, and the CLI imports the consumer-named renderer module only after the same consent and closure gates."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external
@@ -756,12 +757,12 @@ claims:
 
   - id: C000-IM-005
     author: "it-start"
-    statement: "Build identity is computed after load/validation, is `null` when the build stops early, and is never rendered."
+    statement: "Build identity is computed after load/validation, is `null` when the build stops early, and is passed to renderers on a successful build."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external
     lifecycle: active
-    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`; `tests/identity.test.ts`; BI"
+    verification_method: "Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`, `spec/lib/render.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`; BI"
     scope: "CORE-000 accepted design §4.2 row C000-IM-005 at the accepted design baseline"
     subject_kind: interface
     relations:
@@ -769,11 +770,12 @@ claims:
         - IF-BUILD-IDENTITY
       evidencedBy:
         - EV-TRUST-CODE
+        - EV-CODE-SPEC-LIB-RENDER-TS
         - EV-TEST-TESTS-IDENTITY-TEST-TS
 
   - id: C000-IM-006
     author: "it-start"
-    statement: "The CLI dynamically imports the CORE-001 renderer only with explicit consent, a matching profile `core001`/renderer `core001-markdown` declaration and a valid profile closure; there is no generic profile-selection CLI."
+    statement: "The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, and only after the profile closure validates — all before the import; the import evaluates the module, and its reported id is compared with the manifest's declared `render[].renderer` after the import and before registration, so a mismatch prevents registration but not execution. Without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile."
     class: implementation_fact
     status: { decision: none, implementation: implemented, tests: tested, verification: none }
     authority: external
@@ -1278,7 +1280,7 @@ claims:
 
   - id: C000-GAP-004
     author: "it-start"
-    statement: "The public API/CLI are not generic; the experiment needs a consumer harness, and the CLI only conditionally wires the CORE-001 renderer rather than selecting arbitrary profiles."
+    statement: "The public API still needs a consumer harness to supply a renderer; the CLI wires one consumer-named renderer module per run, gates it on consent, containment, `profile.files` and closure, and selects no profile; a generic profile-selection CLI does not exist."
     class: proposal
     status: { decision: proposed, implementation: none, tests: none, verification: none }
     authority: external
@@ -1458,7 +1460,7 @@ evidence:
     kind: test
     locator: "tests/consent.test.ts"
     revision: "dffdaa2"
-    description: "Consent tests cover API/CLI rejection and success and renderer isolation."
+    description: "Consent tests cover API/CLI rejection and success and renderer module gating."
     producer: "repository"
     independence: author
     availability: available
@@ -1467,7 +1469,7 @@ evidence:
     kind: code
     locator: "spec/lib/build.ts; spec/build.ts; spec/cli-renderers.ts"
     revision: "dffdaa2"
-    description: "allowExecutableProfile gate, CLI flag and conditional CORE-001 renderer preflight."
+    description: "allowExecutableProfile gate, CLI flag and consumer-supplied renderer preflight."
     producer: "repository"
     independence: author
     availability: available
@@ -1476,7 +1478,7 @@ evidence:
     kind: test
     locator: "tests/consent.test.ts"
     revision: "dffdaa2"
-    description: "API/CLI rejection, success, renderer isolation, closure preflight and lockfile cases."
+    description: "API/CLI rejection, success, renderer module gating, closure preflight and lockfile cases."
     producer: "repository"
     independence: author
     availability: available

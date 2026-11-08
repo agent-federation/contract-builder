@@ -99,7 +99,16 @@ test("the report for hostile envelope values validates against Appendix C", () =
     readFileSync(path.join(fixtures, "trust-policy", "signature-required.json")),
   );
   const result = runPap(
-    ["verify", ".", "--format", "json", "--now", "2026-11-02T00:00:00Z", "--trust-policy", policyPath],
+    [
+      "verify",
+      ".",
+      "--format",
+      "json",
+      "--now",
+      "2026-11-02T00:00:00Z",
+      "--trust-policy",
+      policyPath,
+    ],
     dir,
   );
   assert.equal(result.status, 1, result.stdout);

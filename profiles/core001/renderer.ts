@@ -67,14 +67,19 @@ export const renderer: Renderer = {
         .join("\n");
     });
 
-    const view = toTemplateView(spec, options, legacyName);
+    const view = toTemplateView(spec, options, legacyName, model);
     const text = finalize(env.render(options.templates.entry, view));
     const output = model.manifest.render[0]?.outputs[options.mode] ?? "";
     return [artifactFrom(output, text)];
   },
 };
 
-function toTemplateView(spec: AnalyzedSpec, options: RenderOptions, legacyName: string) {
+function toTemplateView(
+  spec: AnalyzedSpec,
+  options: RenderOptions,
+  legacyName: string,
+  model: ProjectModel,
+) {
   const localDiagnostics = options.diagnostics.map((diagnostic: Diagnostic) => ({
     code: diagnostic.code,
     severity: diagnostic.severity,
@@ -98,6 +103,9 @@ function toTemplateView(spec: AnalyzedSpec, options: RenderOptions, legacyName: 
     mode: options.mode,
     modeLabel: label(options, `mode.${options.mode}`),
     isDraft: options.mode === "draft",
+    profile: { id: model.profile.id, version: model.profile.version },
+    renderer: { id: renderer.id, version: renderer.version },
+    identity: options.identity,
     document: spec.document,
     source: {
       id: spec.source.id,

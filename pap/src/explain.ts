@@ -18,10 +18,7 @@ export interface ExplainResult {
   exitCode: number;
 }
 
-export async function explainPackage(
-  packagePath: string,
-  checkId: string,
-): Promise<ExplainResult> {
+export async function explainPackage(packagePath: string, checkId: string): Promise<ExplainResult> {
   const result = await verifyPackage({ packagePath });
   const report = result.report;
   const dimension = report.dimensions.checks.results.find((entry) => entry.checkId === checkId);

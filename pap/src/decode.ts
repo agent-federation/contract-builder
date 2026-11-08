@@ -69,17 +69,11 @@ export function isObject(value: JsonValue | undefined): value is JsonObject {
 }
 
 /** Strict membership test: narrows `unknown` to one of the declared literals. */
-export function isOneOf<const T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-): value is T {
+export function isOneOf<const T extends string>(value: unknown, allowed: readonly T[]): value is T {
   return typeof value === "string" && allowed.includes(value as T);
 }
 
-function isEnumArray<const T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-): value is T[] {
+function isEnumArray<const T extends string>(value: unknown, allowed: readonly T[]): value is T[] {
   return Array.isArray(value) && value.every((item) => isOneOf(item, allowed));
 }
 
@@ -94,7 +88,6 @@ function isBooleanValue(value: unknown): value is boolean {
 export function isClaimKind(value: unknown): value is keyof Manifest["claims"] {
   return isOneOf(value, CLAIM_KINDS);
 }
-
 
 // ---------------------------------------------------------------------------
 // Trust policy (Appendix B)
@@ -224,7 +217,15 @@ export function decodeTrustPolicy(value: JsonObject, defaults: Limits): TrustPol
     const raw = value.signers[index];
     if (!isObject(raw)) throw new PolicyInvalid(`signers[${index}] must be an object`);
     for (const key of Object.keys(raw)) {
-      if (!["keyIds", "identity", "allowedRoles", "allowedPackageIds", "allowedPackageIdentities"].includes(key)) {
+      if (
+        ![
+          "keyIds",
+          "identity",
+          "allowedRoles",
+          "allowedPackageIds",
+          "allowedPackageIdentities",
+        ].includes(key)
+      ) {
         throw new PolicyInvalid(`unknown signer field ${key}`);
       }
     }
@@ -269,9 +270,7 @@ export function decodeTrustPolicy(value: JsonObject, defaults: Limits): TrustPol
     }
     for (const keyId of signerKeyIds) {
       if (signerForKeyId.has(keyId)) {
-        throw new PolicyInvalid(
-          `keyId ${keyId} is enrolled in more than one signer entry`,
-        );
+        throw new PolicyInvalid(`keyId ${keyId} is enrolled in more than one signer entry`);
       }
       signerForKeyId.set(keyId, index);
     }
@@ -349,12 +348,7 @@ export function decodeTrustPolicy(value: JsonObject, defaults: Limits): TrustPol
         throw new PolicyInvalid(`unknown limit ${name}`);
       }
       const maximum = DEFAULT_LIMITS[name];
-      if (
-        typeof raw !== "number" ||
-        !Number.isInteger(raw) ||
-        raw < 1 ||
-        raw > maximum
-      ) {
+      if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 1 || raw > maximum) {
         throw new PolicyInvalid(`limit ${name} must be an integer between 1 and ${maximum}`);
       }
       limits[name] = raw;
@@ -489,7 +483,13 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
     structural = true;
   };
   const pathInvalid = (scope: string, message: string, artifactLevel: boolean): void => {
-    defects.push({ code: "pap.package.path-invalid", scope, message, structural: false, artifactLevel });
+    defects.push({
+      code: "pap.package.path-invalid",
+      scope,
+      message,
+      structural: false,
+      artifactLevel,
+    });
   };
   const duplicateId = (scope: string, message: string): void => {
     defects.push({ code: "pap.package.duplicate-id", scope, message, structural: true });
@@ -548,7 +548,10 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
         }
       }
       if (packageValue.createdAt !== undefined) {
-        if (typeof packageValue.createdAt !== "string" || parseRfc3339(packageValue.createdAt) === null) {
+        if (
+          typeof packageValue.createdAt !== "string" ||
+          parseRfc3339(packageValue.createdAt) === null
+        ) {
           schema("$.package.createdAt", "package.createdAt must be an RFC 3339 timestamp");
         } else {
           pkg.createdAt = packageValue.createdAt;
@@ -592,7 +595,11 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
           unknown(`$.subject.${key}`, `unknown subject field ${key}`);
         }
       }
-      if (typeof raw.projectId !== "string" || raw.projectId.length === 0 || raw.projectId.length > 512) {
+      if (
+        typeof raw.projectId !== "string" ||
+        raw.projectId.length === 0 ||
+        raw.projectId.length > 512
+      ) {
         schema("$.subject.projectId", "subject.projectId must be a non-empty bounded string");
       } else {
         subject = { projectId: raw.projectId };
@@ -614,7 +621,15 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
       schema("$.build", "build must be an object");
     } else {
       for (const key of Object.keys(raw)) {
-        if (!["engineVersion", "manifestVersion", "inputDigest", "normalizedInputDigest", "extensions"].includes(key)) {
+        if (
+          ![
+            "engineVersion",
+            "manifestVersion",
+            "inputDigest",
+            "normalizedInputDigest",
+            "extensions",
+          ].includes(key)
+        ) {
           unknown(`$.build.${key}`, `unknown build field ${key}`);
         }
       }
@@ -719,7 +734,11 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
       }
       const pathCheck = validateDeclaredPath(raw.path, limits);
       if (!pathCheck.ok) {
-        pathInvalid(`${scope}.path`, `artifact path violates the package path grammar: ${raw.path}`, true);
+        pathInvalid(
+          `${scope}.path`,
+          `artifact path violates the package path grammar: ${raw.path}`,
+          true,
+        );
       } else if (!raw.path.startsWith("artifacts/")) {
         pathInvalid(`${scope}.path`, "artifact path must start with artifacts/", true);
       }
@@ -767,7 +786,11 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
         }
         const pathCheck = validateDeclaredPath(raw.path, limits);
         if (!pathCheck.ok) {
-          pathInvalid(`${scope}.path`, `input path violates the package path grammar: ${raw.path}`, false);
+          pathInvalid(
+            `${scope}.path`,
+            `input path violates the package path grammar: ${raw.path}`,
+            false,
+          );
         } else if (!raw.path.startsWith("inputs/")) {
           pathInvalid(`${scope}.path`, "input path must start with inputs/", false);
         }
@@ -822,7 +845,11 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
           } else {
             const pathCheck = validateDeclaredPath(raw.path, limits);
             if (!pathCheck.ok) {
-              pathInvalid(`${scope}.path`, `source path violates the package path grammar: ${raw.path}`, false);
+              pathInvalid(
+                `${scope}.path`,
+                `source path violates the package path grammar: ${raw.path}`,
+                false,
+              );
             } else if (!raw.path.startsWith("sources/")) {
               pathInvalid(`${scope}.path`, "source path must start with sources/", false);
             } else {
@@ -860,7 +887,8 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
             } else {
               source.acquisition = { method: acquisition.method };
               if (typeof acquisition.uri === "string") source.acquisition.uri = acquisition.uri;
-              if (typeof acquisition.revision === "string") source.acquisition.revision = acquisition.revision;
+              if (typeof acquisition.revision === "string")
+                source.acquisition.revision = acquisition.revision;
             }
           }
         }
@@ -896,7 +924,11 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
         }
         const pathCheck = validateDeclaredPath(raw.path, limits);
         if (!pathCheck.ok) {
-          pathInvalid(`${scope}.path`, `claim path violates the package path grammar: ${raw.path}`, false);
+          pathInvalid(
+            `${scope}.path`,
+            `claim path violates the package path grammar: ${raw.path}`,
+            false,
+          );
         } else if (!raw.path.startsWith("claims/")) {
           pathInvalid(`${scope}.path`, "claim path must start with claims/", false);
         }
@@ -1104,7 +1136,10 @@ export function decodeManifest(value: JsonValue, limits: Limits): ManifestValida
   }
 
   const manifest: Manifest | null =
-    pkg !== null && papVersion !== null && Array.isArray(value.artifacts) && Array.isArray(value.checkSpecs)
+    pkg !== null &&
+    papVersion !== null &&
+    Array.isArray(value.artifacts) &&
+    Array.isArray(value.checkSpecs)
       ? {
           papVersion,
           package: pkg,
@@ -1154,7 +1189,6 @@ function emptyValidation(
   };
 }
 
-
 // ---------------------------------------------------------------------------
 // Claim files (Appendix D)
 
@@ -1188,7 +1222,11 @@ export function decodeClaimFile(
     return { ok: false, failure: "invalid", message: "claim file is missing papClaimsVersion" };
   }
   if (typeof version !== "string") {
-    return { ok: false, failure: "invalid", message: "claim file papClaimsVersion must be a string" };
+    return {
+      ok: false,
+      failure: "invalid",
+      message: "claim file papClaimsVersion must be a string",
+    };
   }
   if (version !== "0.1") {
     return {
@@ -1213,11 +1251,7 @@ function fail(message: string): ClaimParseResult {
   return { ok: false, failure: "invalid", message };
 }
 
-function allowedOnly(
-  value: JsonObject,
-  allowed: string[],
-  scope: string,
-): string | null {
+function allowedOnly(value: JsonObject, allowed: string[], scope: string): string | null {
   for (const key of Object.keys(value)) {
     if (!allowed.includes(key)) {
       return `unknown field ${scope}.${key}`;
@@ -1287,7 +1321,10 @@ function parseProvenance(
       return fail(`${scope}.sourceId names a source the manifest does not declare`);
     }
     if (seenIds.has(raw.id)) {
-      issues.push({ code: "pap.claim.binding-duplicate", message: `duplicate binding id ${raw.id}` });
+      issues.push({
+        code: "pap.claim.binding-duplicate",
+        message: `duplicate binding id ${raw.id}`,
+      });
     }
     seenIds.add(raw.id);
     const tuple = `${raw.entityId}\u0000${raw.sourceId}\u0000${locator.start}\u0000${locator.end}`;
@@ -1310,9 +1347,17 @@ function parseProvenance(
 }
 
 function parseRelations(value: JsonObject, limits: Limits): ClaimParseResult {
-  const unknown = allowedOnly(value, ["papClaimsVersion", "entities", "relations", "edges"], "relations");
+  const unknown = allowedOnly(
+    value,
+    ["papClaimsVersion", "entities", "relations", "edges"],
+    "relations",
+  );
   if (unknown !== null) return fail(unknown);
-  if (!Array.isArray(value.entities) || !Array.isArray(value.relations) || !Array.isArray(value.edges)) {
+  if (
+    !Array.isArray(value.entities) ||
+    !Array.isArray(value.relations) ||
+    !Array.isArray(value.edges)
+  ) {
     return fail("relations claim must carry entities, relations and edges arrays");
   }
   if (value.entities.length > limits.relationEntities) {
@@ -1328,7 +1373,8 @@ function parseRelations(value: JsonObject, limits: Limits): ClaimParseResult {
     const raw = value.entities[index];
     const scope = `relations.entities[${index}]`;
     if (!isObject(raw)) return fail(`${scope} must be an object`);
-    if (allowedOnly(raw, ["id", "kind"], scope) !== null) return fail(`${scope} has unknown fields`);
+    if (allowedOnly(raw, ["id", "kind"], scope) !== null)
+      return fail(`${scope} has unknown fields`);
     if (
       typeof raw.id !== "string" ||
       raw.id.length === 0 ||
@@ -1374,7 +1420,8 @@ function parseRelations(value: JsonObject, limits: Limits): ClaimParseResult {
     const raw = value.edges[index];
     const scope = `relations.edges[${index}]`;
     if (!isObject(raw)) return fail(`${scope} must be an object`);
-    if (allowedOnly(raw, ["relation", "from", "to"], scope) !== null) return fail(`${scope} has unknown fields`);
+    if (allowedOnly(raw, ["relation", "from", "to"], scope) !== null)
+      return fail(`${scope} has unknown fields`);
     if (
       typeof raw.relation !== "string" ||
       raw.relation.length === 0 ||
@@ -1419,10 +1466,18 @@ function parseProducerReport(value: JsonObject): ClaimParseResult {
     const raw = value.claims[index];
     const scope = `producerReport.claims[${index}]`;
     if (!isObject(raw)) return fail(`${scope} must be an object`);
-    const bad = allowedOnly(raw, ["checkId", "checkVersion", "claimedOutcome", "checkedAt", "checker"], scope);
+    const bad = allowedOnly(
+      raw,
+      ["checkId", "checkVersion", "claimedOutcome", "checkedAt", "checker"],
+      scope,
+    );
     if (bad !== null) {
       if (raw.outcome !== undefined || raw.witnesses !== undefined) {
-        return { ok: false, failure: "invalid", message: `${scope} mimics a verifier check record` };
+        return {
+          ok: false,
+          failure: "invalid",
+          message: `${scope} mimics a verifier check record`,
+        };
       }
       return fail(bad);
     }
@@ -1455,7 +1510,10 @@ function parseProducerReport(value: JsonObject): ClaimParseResult {
     const rawChecker = raw.checker;
     if (rawChecker !== undefined) {
       if (!isObject(rawChecker)) return fail(`${scope}.checker must be an object`);
-      if (allowedOnly(rawChecker, ["id", "version", "implementationDigest"], `${scope}.checker`) !== null) {
+      if (
+        allowedOnly(rawChecker, ["id", "version", "implementationDigest"], `${scope}.checker`) !==
+        null
+      ) {
         return fail(`${scope}.checker has unknown fields`);
       }
       const checkerId = rawChecker.id;
@@ -1486,7 +1544,15 @@ function parseProducerReport(value: JsonObject): ClaimParseResult {
       ...(checker === undefined ? {} : { checker }),
     });
   }
-  return { ok: true, claim: { kind: "producerReport", producer: { name: producer.name, version: producer.version }, claims }, issues: [] };
+  return {
+    ok: true,
+    claim: {
+      kind: "producerReport",
+      producer: { name: producer.name, version: producer.version },
+      claims,
+    },
+    issues: [],
+  };
 }
 
 function parseReviews(value: JsonObject): ClaimParseResult {
@@ -1499,7 +1565,10 @@ function parseReviews(value: JsonObject): ClaimParseResult {
     const raw = value.approvals[index];
     const scope = `reviews.approvals[${index}]`;
     if (!isObject(raw)) return fail(`${scope} must be an object`);
-    if (allowedOnly(raw, ["id", "reviewer", "decision", "decidedAt", "scope", "evidence"], scope) !== null) {
+    if (
+      allowedOnly(raw, ["id", "reviewer", "decision", "decidedAt", "scope", "evidence"], scope) !==
+      null
+    ) {
       return fail(`${scope} has unknown fields`);
     }
     const approvalId = raw.id;
@@ -1526,14 +1595,19 @@ function parseReviews(value: JsonObject): ClaimParseResult {
       typeof reviewer.identity !== "string" ||
       !IDENTITY.test(reviewer.identity) ||
       (reviewer.keyId !== undefined &&
-        (typeof reviewer.keyId !== "string" || reviewer.keyId.length === 0 || reviewer.keyId.length > 256))
+        (typeof reviewer.keyId !== "string" ||
+          reviewer.keyId.length === 0 ||
+          reviewer.keyId.length > 256))
     ) {
       return fail(`${scope}.reviewer is invalid`);
     }
     let reviewScope: ReviewsClaim["approvals"][number]["scope"];
     if (raw.scope !== undefined) {
       if (!isObject(raw.scope)) return fail(`${scope}.scope must be an object`);
-      if (allowedOnly(raw.scope, ["packageId", "artifacts", "packageIdentity"], `${scope}.scope`) !== null) {
+      if (
+        allowedOnly(raw.scope, ["packageId", "artifacts", "packageIdentity"], `${scope}.scope`) !==
+        null
+      ) {
         return fail(`${scope}.scope has unknown fields`);
       }
       const packageId = raw.scope.packageId;
@@ -1547,7 +1621,10 @@ function parseReviews(value: JsonObject): ClaimParseResult {
         reviewScope.packageId = packageId;
       }
       if (artifacts !== undefined) {
-        if (!isStringArray(artifacts) || artifacts.some((item) => item.length === 0 || item.length > 256)) {
+        if (
+          !isStringArray(artifacts) ||
+          artifacts.some((item) => item.length === 0 || item.length > 256)
+        ) {
           return fail(`${scope}.scope is invalid`);
         }
         reviewScope.artifacts = artifacts;

@@ -43,11 +43,27 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      # Coverage is informational only, with no threshold: the PAP tests exercise the
-      # verifier by spawning its CLI, so pap/ execution is not measurable in-process and
-      # a global threshold would be misleading.
+      # Biome check enforces both the lint rules and the formatter; the separate
+      # format:check keeps a readable failure when only formatting is off.
+      - name: Lint and format
+        run: |
+          bun run lint
+          bun run format:check
+
+      # Local and network-free: a pull request must never depend on a third-party
+      # host being reachable. External URL checking is a separate, non-blocking
+      # scheduled job (or out of scope), never part of this gate.
+      - name: Documentation links
+        run: bun run docs:links
+
+      # Writes the lcov report the coverage policy reads next. The policy applies
+      # only to areas measured in-process; pap/ is excluded because its tests spawn
+      # the CLI, so a global percentage would be misleading.
       - name: Tests
-        run: bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage
+        run: bun run coverage
+
+      - name: Coverage policy
+        run: bun run coverage:check
 
       - name: Generated artifacts are up to date
         run: bun run check:all
@@ -67,13 +83,15 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      # Pinned inside the policy window (2026-11-01 .. 2027-11-01); the report
-      # and the acceptance decision never read the wall clock.
-      PIPELINE_NOW: "2026-11-06T00:00:00Z"
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Single source: pipeline/pinned-now.txt. Pinned inside the policy window
+      # (2026-11-01 .. 2027-11-01); the report and the acceptance decision never
+      # read the wall clock.
+      - name: Read pinned evaluation time
+        run: echo "PIPELINE_NOW=$(cat pipeline/pinned-now.txt)" >> "$GITHUB_ENV"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -170,4 +188,67 @@ jobs:
             ${{ runner.temp }}/pipeline/tampered-decision.json
             ${{ runner.temp }}/pipeline/pack-a/assurance-package.json
           if-no-files-found: warn
+          retention-days: 90
+
+  # C6 (#216): reference + three independently implemented Phase 2a verifiers
+  # against the same CORE-000 package, one pinned --now and one absolute policy
+  # path. Separate and non-blocking: it is not a required status, does not gate
+  # the `pipeline` job and never converts UNSUPPORTED/INCOMPLETE into a pass.
+  # `pipeline/independent.ts` builds the implementations from their pinned public
+  # archives, verifies the archive SHA-256 and each self-reported
+  # implementationDigest, and fails on a missing/unparseable report, an identity
+  # mismatch, a packageIdentity disagreement, a genuine check-level disagreement
+  # or a verdict/check-outcome contradiction; an unsafe pinned archive (absolute
+  # path, escaping link or unsupported entry type) also fails. An invalid batch is
+  # retained for audit and never rendered as evidence Markdown.
+  pipeline-independent:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Read pinned evaluation time
+        run: echo "PIPELINE_NOW=$(cat pipeline/pinned-now.txt)" >> "$GITHUB_ENV"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun install cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Assert the pinned verifier toolchains are available
+        run: |
+          set -euo pipefail
+          cargo --version
+          go version
+          python3 --version
+
+      - name: Run the independent verification batch
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/pipeline-independent"
+          bun run pipeline:independent --out "$OUT" --now "$PIPELINE_NOW"
+
+      - name: Upload independent verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pipeline-independent-evidence
+          path: |
+            ${{ runner.temp }}/pipeline-independent/batch.json
+            ${{ runner.temp }}/pipeline-independent/reports/*.json
+            ${{ runner.temp }}/pipeline-independent/package/assurance-package.json
+          if-no-files-found: error
           retention-days: 90

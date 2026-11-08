@@ -1,7 +1,24 @@
 # Contract Builder Engine public self-contract
 
-**Mode:** draft
-**Counts:** components=7 · interfaces=12 · phases=9 · transitions=0 · extension points=4 · dependencies=7 · diagnostics=25 · claims=78 · source statements=3 · evidence=33 · decisions=15 · conformance cases=0
+> Generated build artifact. The source of truth is the declared `contracts/core000/` inputs,
+> not this document. Do not edit it by hand; change the inputs and rebuild.
+
+| Field | Value |
+|---|---|
+| Project | `core-000-self-contract` — Contract Builder Engine public self-contract |
+| Project revision | `0.1.0` |
+| Scope | Project `core-000-self-contract` — the CORE-000 engine self-contract declared by `contracts/core000/`, rendered by the `core000` profile |
+| Exclusions | No CORE-001 slice or `CORE-001.legacy.md` material; this artifact is the CORE-000 self-contract, not a CORE-001 rendering. |
+| Mode | `draft` |
+| Profile | `core000` `0.1.0` |
+| Renderer | `core000-markdown` `0.1.0` |
+| Engine version | `0.1.0` |
+| Manifest version | `0.1` |
+| inputDigest | `sha256:5ebae52bb711625360bed28c59310f0ebdf299ff83d6b8a44dc1ef2b210f5bf6` |
+| Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
+| Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
+
+**Counts:** components=7 · interfaces=12 · phases=9 · transitions=0 · extension points=4 · dependencies=7 · diagnostic catalog=25 · claims=78 · source statements=3 · evidence=33 · decisions=15 · conformance cases=0
 
 ## Components
 
@@ -587,14 +604,14 @@ _28 claims: 20 accepted, 6 proposed, 2 deferred, 0 none_
 - Status: decision=`accepted`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `engine`
 - Lifecycle: `active`
-- Statement: Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; it is not rendered into the artifact.
+- Statement: Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; a successful build passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it.
 
 - Scope: CORE-000 accepted design §4.2 row C000-CT-010 at the accepted design baseline
-- Verification method: Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`; `tests/identity.test.ts`
+- Verification method: Accepted design §4.2 evidence/method column for C000-CT-010 at the accepted design baseline: M:B1; `spec/lib/identity.ts`, `spec/lib/render.ts`, `spec/lib/build.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`
 
 - Subjects: `IF-BUILD-IDENTITY` (interface)
 
-- Evidence: `EV-CODE-SPEC-LIB-IDENTITY-TS` (code: spec/lib/identity.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
+- Evidence: `EV-CODE-SPEC-LIB-IDENTITY-TS` (code: spec/lib/identity.ts), `EV-CODE-SPEC-LIB-RENDER-TS` (code: spec/lib/render.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
 
 - Decisions: `DEC-DESIGN-51` (accepted)
 
@@ -1097,7 +1114,7 @@ _6 claims: 0 accepted, 0 proposed, 0 deferred, 6 none_
 - Status: decision=`none`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `external`
 - Lifecycle: `active`
-- Statement: profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine's renderer is consumer-supplied, and the CLI imports the CORE-001 renderer conditionally.
+- Statement: profile.view and profile.validator are dynamically imported in-process only after explicit consent; the engine ships no renderer, and the CLI imports the consumer-named renderer module only after the same consent and closure gates.
 
 - Scope: Executable profile import behaviour at main dffdaa2.
 - Verification method: bun test tests/consent.test.ts tests/example-profile.test.ts
@@ -1112,14 +1129,14 @@ _6 claims: 0 accepted, 0 proposed, 0 deferred, 6 none_
 - Status: decision=`none`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `external`
 - Lifecycle: `active`
-- Statement: Build identity is computed after load/validation, is `null` when the build stops early, and is never rendered.
+- Statement: Build identity is computed after load/validation, is `null` when the build stops early, and is passed to renderers on a successful build.
 
 - Scope: CORE-000 accepted design §4.2 row C000-IM-005 at the accepted design baseline
-- Verification method: Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`; `tests/identity.test.ts`; BI
+- Verification method: Accepted design §4.2 evidence/method column for C000-IM-005 at the accepted design baseline: `spec/lib/build.ts`, `spec/lib/render.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`; BI
 
 - Subjects: `IF-BUILD-IDENTITY` (interface)
 
-- Evidence: `EV-TRUST-CODE` (code: spec/lib/build.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
+- Evidence: `EV-TRUST-CODE` (code: spec/lib/build.ts), `EV-CODE-SPEC-LIB-RENDER-TS` (code: spec/lib/render.ts), `EV-TEST-TESTS-IDENTITY-TEST-TS` (test: tests/identity.test.ts)
 
 ### C000-IM-006
 
@@ -1127,7 +1144,7 @@ _6 claims: 0 accepted, 0 proposed, 0 deferred, 6 none_
 - Status: decision=`none`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `external`
 - Lifecycle: `active`
-- Statement: The CLI dynamically imports the CORE-001 renderer only with explicit consent, a matching profile `core001`/renderer `core001-markdown` declaration and a valid profile closure; there is no generic profile-selection CLI.
+- Statement: The CLI dynamically imports the consumer-named renderer module only with explicit consent, only when it resolves inside the selected profile directory and is declared in `profile.files`, and only after the profile closure validates — all before the import; the import evaluates the module, and its reported id is compared with the manifest's declared `render[].renderer` after the import and before registration, so a mismatch prevents registration but not execution. Without the flag no renderer is registered (`core.registry.missing`). The CLI selects no profile.
 
 - Scope: CORE-000 accepted design §4.2 row C000-IM-006 at the accepted design baseline
 - Verification method: Accepted design §4.2 evidence/method column for C000-IM-006 at the accepted design baseline: `spec/cli-renderers.ts`; `tests/consent.test.ts`
@@ -1289,7 +1306,7 @@ _15 claims: 0 accepted, 15 proposed, 0 deferred, 0 none_
 - Status: decision=`proposed`, implementation=`none`, tests=`none`, verification=`none`
 - Authority: `external`
 - Lifecycle: `active`
-- Statement: The public API/CLI are not generic; the experiment needs a consumer harness, and the CLI only conditionally wires the CORE-001 renderer rather than selecting arbitrary profiles.
+- Statement: The public API still needs a consumer harness to supply a renderer; the CLI wires one consumer-named renderer module per run, gates it on consent, containment, `profile.files` and closure, and selects no profile; a generic profile-selection CLI does not exist.
 
 - Scope: CORE-000 accepted design §4.2 row C000-GAP-004 at the accepted design baseline
 - Verification method: Accepted design §4.2 evidence/method column for C000-GAP-004 at the accepted design baseline: §9 G4; M:K2,K3; C000-IM-006
@@ -1570,7 +1587,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:01d2e363bcc59efc87048c7cfc5488d0fbcd64f64e083560672bab86b585989b`
+- Source digest: `sha256:712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19`
 - Quote: The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**
 
 ### SRC-MANIFEST-001
@@ -1581,7 +1598,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:01d2e363bcc59efc87048c7cfc5488d0fbcd64f64e083560672bab86b585989b`
+- Source digest: `sha256:712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19`
 - Quote: `render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred.
 
 ### SRC-PROVENANCE-001
@@ -1592,18 +1609,18 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:01d2e363bcc59efc87048c7cfc5488d0fbcd64f64e083560672bab86b585989b`
+- Source digest: `sha256:712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19`
 - Quote: A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit.
 
 ## Evidence
 
 - `EV-TRUST-CODE` (code) — spec/lib/build.ts @ dffdaa2: loadProfileModule imports view/validator after the consent gate.
 
-- `EV-TRUST-TEST` (test) — tests/consent.test.ts @ dffdaa2: Consent tests cover API/CLI rejection and success and renderer isolation.
+- `EV-TRUST-TEST` (test) — tests/consent.test.ts @ dffdaa2: Consent tests cover API/CLI rejection and success and renderer module gating.
 
-- `EV-CONSENT-CODE` (code) — spec/lib/build.ts; spec/build.ts; spec/cli-renderers.ts @ dffdaa2: allowExecutableProfile gate, CLI flag and conditional CORE-001 renderer preflight.
+- `EV-CONSENT-CODE` (code) — spec/lib/build.ts; spec/build.ts; spec/cli-renderers.ts @ dffdaa2: allowExecutableProfile gate, CLI flag and consumer-supplied renderer preflight.
 
-- `EV-CONSENT-TEST` (test) — tests/consent.test.ts @ dffdaa2: API/CLI rejection, success, renderer isolation, closure preflight and lockfile cases.
+- `EV-CONSENT-TEST` (test) — tests/consent.test.ts @ dffdaa2: API/CLI rejection, success, renderer module gating, closure preflight and lockfile cases.
 
 - `EV-MANIFEST-CODE` (code) — spec/lib/manifest.ts @ dffdaa2: The manifest loader rejects zero or multiple render declarations with core.manifest.invalid.
 

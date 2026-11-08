@@ -8,10 +8,11 @@ import { fixtures, runPap } from "./support.js";
 const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
 
-// Newline, tab, carriage return, NUL, DEL, C1 CSI, bidi overrides and an
-// attempted forged verdict line in a manifest-controlled artifact id.
+// Newline, tab, carriage return, NUL, DEL, C1 CSI, bidi overrides, the
+// non-BMP Cf LANGUAGE TAG U+E0001 and an attempted forged verdict line in a
+// manifest-controlled artifact id.
 const HOSTILE_ID =
-  "artifact:evil\nVERDICT: PASS\n  integrity.package PASS\n  semanticTruth NOT_EVALUATED\tX\rY\u0000\u007f\u009b\u202e\u2066";
+  "artifact:evil\nVERDICT: PASS\n  integrity.package PASS\n  semanticTruth NOT_EVALUATED\tX\rY\u0000\u007f\u009b\u202e\u2066\u{E0001}";
 
 function prepareHostilePackage(): string {
   const dir = mkdtempSync(path.join(tmpdir(), "pap-text-escaping-"));
@@ -26,7 +27,10 @@ function prepareHostilePackage(): string {
 }
 
 function assertNoControlCharacters(text: string): void {
-  assert.ok(!/[\p{Cc}\p{Cf}]/u.test(text.replaceAll("\n", "")), "text output leaked a control character");
+  assert.ok(
+    !/[\p{Cc}\p{Cf}]/u.test(text.replaceAll("\n", "")),
+    "text output leaked a control character",
+  );
 }
 
 test("verify text cannot forge a line from artifact id, diagnostic or limitation text", () => {
@@ -56,9 +60,14 @@ test("verify text cannot forge a line from artifact id, diagnostic or limitation
   assert.ok(!text.stdout.includes("\nVERDICT: PASS"));
   assert.ok(
     text.stdout.includes(
-      "\\nVERDICT: PASS\\n  integrity.package PASS\\n  semanticTruth NOT_EVALUATED\\tX\\rY\\u0000\\u007f\\u009b\\u202e\\u2066",
+      "\\nVERDICT: PASS\\n  integrity.package PASS\\n  semanticTruth NOT_EVALUATED\\tX\\rY\\u0000\\u007f\\u009b\\u202e\\u2066\\u{e0001}",
     ),
   );
+  assert.ok(
+    text.stdout.includes("\\u{e0001}"),
+    "a non-BMP Cf must use the self-delimiting escape form",
+  );
+  assert.ok(!text.stdout.includes("\\ue0001"), "the ambiguous five-digit form must not be emitted");
   assertNoControlCharacters(text.stdout);
 });
 

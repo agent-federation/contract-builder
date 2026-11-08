@@ -16,11 +16,15 @@ Participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By contr
 ```bash
 bun install --frozen-lockfile
 bun run typecheck
-bun test
-bun run check
+bun run lint
+bun run format:check
+bun run docs:links
+bun run coverage
+bun run coverage:check
+bun run check:all
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same sequence. All four steps must be green before a PR can land.
+CI (`.github/workflows/ci.yml`) runs `bun audit` and the same sequence. All steps must be green before a PR can land.
 
 ## How to contribute
 
@@ -29,6 +33,54 @@ CI (`.github/workflows/ci.yml`) runs the same sequence. All four steps must be g
 3. **Make a focused change** — one concern per PR; do not mix refactors or unrelated formatting.
 4. **Prove it** — run the commands above. If you changed anything under `spec/` or `profiles/core001/`, run `bun run build` and commit the regenerated `spec/output/CORE-001.draft.md`.
 5. **Open a pull request** against `main`.
+
+### Formatting and linting
+
+Formatting and linting use [Biome](https://biomejs.dev/) (pinned `@biomejs/biome`, configuration in `biome.json`):
+
+- `bun run lint` — `biome check`: lint rules plus the formatting check;
+- `bun run format` — rewrite files with the formatter;
+- `bun run format:check` — report formatting differences without writing.
+
+Formatting is enforced in CI. Run `bun run format` on the files your change touches, and do **not** mix a repository-wide reformat into a feature, fix or documentation PR — a formatting-only change is its own PR. Generated artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens (`pap/fixtures/`, `fixtures/`, `tests/golden/`), `coverage/` and lockfiles are excluded in `biome.json`; the content-addressed profile and input files are excluded from formatting (they are still linted) so their build digests do not change. Do not reformat any of them by hand.
+
+### Documentation links
+
+`bun run docs:links` (`scripts/check-docs-links.ts`) checks relative links and anchors in `docs/**`, `README*.md`, `CONTRIBUTING.md`, `AGENTS.md` and `CODE_OF_CONDUCT.md`. It is a required CI step, local and deterministic: it fails on a missing relative target, a heading anchor that does not exist under GitHub's heading-slug rules, or a `#L…` line anchor outside the target file. It follows explicit `<a name>`/`<a id>` anchors and ignores links inside fenced code blocks and inline code, which are examples rather than navigation.
+
+External `http(s)` URLs are deliberately **not** checked by the pull-request gate: a PR must never depend on a third-party host being reachable. External URL checking is out of scope for this gate; if it is added later it must be a separate, non-blocking scheduled job. The gate makes no network calls.
+
+### Documentation freshness
+
+`tests/docs-freshness.test.ts` is the machine check for three hand-maintained documentation facts. Run it after changing any of them, and note that the normal `bun test`/CI run already includes it:
+
+- **Engine-contract snapshot.** `docs/architecture/implementation-status.md` records the SHA-256 of the whole `docs/architecture/engine-public-contract.md`, over LF-normalized bytes. If you change the contract, update the recorded hash in the same pull request. The test failure prints the hash it computed, so copy that value into the snapshot sentence; a stale hash fails.
+- **CORE-000 claim count.** The same status matrix states the number of claims in `contracts/core000/claims.yml`. Update the sentence in the same pull request that changes the register.
+- **Diagnostic-code registry.** Every `core.*`/`pap.*` code emitted from production TypeScript under `spec/`, `profiles/`, `pap/src/`, `pipeline/` and `contracts/` must appear in [`docs/architecture/diagnostic-code-registry.md`](docs/architecture/diagnostic-code-registry.md). Add the row in the same pull request as the emitted code. The registry's exact-match allowlist is only for namespaced identifiers that are not diagnostics (digest domains, verifier identities) and each entry states why; never allowlist a real diagnostic and remove an entry when its last use disappears. There is no glob or prefix suppression.
+
+Run the focused check with `bun test tests/docs-freshness.test.ts`.
+
+### Coverage policy
+
+`bun run coverage` runs the suite and writes `coverage/lcov.info`; `bun run coverage:check` (`scripts/check-coverage.ts`) enforces line-coverage floors on the **in-process measured** areas only. `pap/` is excluded: its tests exercise the verifier by spawning the CLI, so an in-process percentage there is misleading (the #137 audit measured `manifest.ts` at ~3.31% for that reason). There is no global threshold.
+
+Measured at `b4927c4` with `bun run coverage`:
+
+| Area | Bun 1.4.2 (CI) | Bun 1.4.4 | Floor |
+|---|---|---|---|
+| `spec/` | 83.65% | 81.29% | **80%** |
+| `profiles/` | 89.34% | 88.02% | **87%** |
+| `pipeline/` | 77.16% | 73.21% | **72%** |
+
+Bun 1.4.x patch versions report different absolute numbers for the same code (the pinned 1.4.2 counts more instrumented lines than 1.4.4). The floors are roughly one percentage point below the *lower* measurement, rounded down: enough headroom for that reporter difference and for small refactors, but still a ratchet against silent erosion. Raise a floor when coverage rises; lowering one needs a stated rationale in the pull request. A configured area with no measured data fails rather than passing silently. Coverage of temporary CORE-000 workspaces is excluded by construction: the checker only counts files inside the repository.
+
+### Security and dependency automation
+
+The repository-managed CodeQL workflow (`.github/workflows/codeql.yml`) analyzes JavaScript/TypeScript on push to `main`, on pull requests and weekly, with pinned action SHAs and `security-events: write`; results appear under **Security → Code scanning**. Several settings live in the repository configuration, not in this repository, and only the maintainer can change them:
+
+- **CodeQL setup conflict.** If GitHub's *default setup* is enabled, disable it before this workflow is enabled (**Settings → Code security → Code scanning → CodeQL analysis → Disable default setup**). The default setup and a CodeQL workflow cannot both upload analyses.
+- **Secret scanning and push protection.** Enable them in **Settings → Code security** (secret scanning alerts, push protection, and validity checks where available). No file in the repository enables these; do not add a placeholder config that pretends otherwise.
+- **Renovate.** `.github/renovate.json` configures Renovate for `bun.lock` with Renovate's `bun` manager and for GitHub Actions with the `github-actions` manager. Renovate runs only when the Mend Renovate GitHub App is installed for this repository or organisation; installing the app is a maintainer action. Dependabot is not configured because it does not support `bun.lock`; if Renovate is not installed, dependency updates are manual. Renovate PRs pass the same CI and review gates as any other PR; major updates require approval from the dependency dashboard first.
 
 ### Pull request rules
 
@@ -47,6 +99,18 @@ CI (`.github/workflows/ci.yml`) runs the same sequence. All four steps must be g
 The CORE-001 profile ships executable modules (`view.ts`, `validator.ts`). Build scripts pass `--allow-executable-profile`. That flag is **caller consent** to run trusted profile code with the builder’s process privileges — not a sandbox. See README and AGENTS.md.
 
 `bun run build:release` is intentionally failing while the demo slice still has `REVIEW_REQUIRED` diagnostics. Do not weaken that gate to get a green release build.
+
+### Version domains and releases
+
+The three version domains are **independent** and must never be compared for equality:
+
+| Domain | Authoritative field |
+|---|---|
+| Engine | `package.json` `version` |
+| Profile | `profiles/*/profile.json` `version` |
+| Project | `contracts/*/contract-builder.json` `project.revision` |
+
+The canonical CORE-001 example already separates them: `project.revision` `0.3.3` with `profile.version` `0.1.0`. `bun run release:check --tag vX.Y.Z` validates that every domain is present and semver-shaped (without comparing them) and that the release tag is semver-shaped and equals the engine `package.json` `version`; a mismatch or malformed tag fails, and a missing `--tag` is a usage error, not a pass. The repository has no release tags yet (declared **MVP without public releases**). `bun run check:all` and the identity tests already cover the engine `package.json` ↔ generated artifacts/provenance, so the release tag is the only engine-version source this gate adds.
 
 ## What not to do
 

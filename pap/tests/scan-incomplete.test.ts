@@ -9,12 +9,11 @@ const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
 const scanIncompleteCode = "pap.package.undeclared-scan-incomplete";
 const runningAsRoot = typeof process.getuid === "function" && process.getuid() === 0;
-const skipPermissionTest =
-  runningAsRoot
-    ? "permission bits do not bind a root process"
-    : process.platform === "win32"
-      ? "permission bits are not enforced on Windows"
-      : false;
+const skipPermissionTest = runningAsRoot
+  ? "permission bits do not bind a root process"
+  : process.platform === "win32"
+    ? "permission bits are not enforced on Windows"
+    : false;
 
 function tempPackage(source = base): string {
   const dir = mkdtempSync(path.join(tmpdir(), "pap-scan-incomplete-"));
@@ -22,7 +21,10 @@ function tempPackage(source = base): string {
   return dir;
 }
 
-function verify(dir: string, extra: string[] = []): { status: number; stdout: string; stderr: string } {
+function verify(
+  dir: string,
+  extra: string[] = [],
+): { status: number; stdout: string; stderr: string } {
   return runPap(["verify", ".", "--format", "json", "--now", NOW, ...extra], dir);
 }
 
@@ -36,8 +38,16 @@ function assertScanIncompleteReport(report: any, result: { status: number }): vo
   assert.equal(report.coverage.full, false);
   assert.equal(report.dimensions.integrity.package, "PASS");
   assert.equal(report.dimensions.integrity.artifacts, "PASS");
-  const scan = report.diagnostics.filter((diagnostic: any) => diagnostic.code === scanIncompleteCode);
+  const scan = report.diagnostics.filter(
+    (diagnostic: any) => diagnostic.code === scanIncompleteCode,
+  );
   assert.equal(scan.length >= 1, true);
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete",
+    ),
+    "the scan-incomplete diagnostic must be reported",
+  );
   assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
   assert.ok(scan.every((diagnostic: any) => diagnostic.scope === "package"));
   assert.ok(report.limitations.some((limitation: any) => limitation.code === scanIncompleteCode));
@@ -45,40 +55,36 @@ function assertScanIncompleteReport(report: any, result: { status: number }): vo
   assert.ok(!codes(report).includes("pap.package.io"));
 }
 
-test(
-  "an unlistable package root with a readable manifest is scan-incomplete, not a package FAIL",
-  { skip: skipPermissionTest },
-  () => {
-    const dir = tempPackage();
-    try {
-      chmodSync(dir, 0o111);
-      const result = verify(dir);
-      assertScanIncompleteReport(JSON.parse(result.stdout), result);
-    } finally {
-      chmodSync(dir, 0o755);
-      rmSync(dir, { recursive: true, force: true });
-    }
-  },
-);
+test("an unlistable package root with a readable manifest is scan-incomplete, not a package FAIL", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage();
+  try {
+    chmodSync(dir, 0o111);
+    const result = verify(dir);
+    assertScanIncompleteReport(JSON.parse(result.stdout), result);
+  } finally {
+    chmodSync(dir, 0o755);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
-test(
-  "an unreadable undeclared directory is scan-incomplete, not a package FAIL",
-  { skip: skipPermissionTest },
-  () => {
-    const dir = tempPackage();
-    const notes = path.join(dir, "notes");
-    mkdirSync(notes);
-    writeFileSync(path.join(notes, "extra.txt"), "extra\n");
-    try {
-      chmodSync(notes, 0o000);
-      const result = verify(dir);
-      assertScanIncompleteReport(JSON.parse(result.stdout), result);
-    } finally {
-      chmodSync(notes, 0o755);
-      rmSync(dir, { recursive: true, force: true });
-    }
-  },
-);
+test("an unreadable undeclared directory is scan-incomplete, not a package FAIL", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage();
+  const notes = path.join(dir, "notes");
+  mkdirSync(notes);
+  writeFileSync(path.join(notes, "extra.txt"), "extra\n");
+  try {
+    chmodSync(notes, 0o000);
+    const result = verify(dir);
+    assertScanIncompleteReport(JSON.parse(result.stdout), result);
+  } finally {
+    chmodSync(notes, 0o755);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("the private traversal-depth budget is scan-incomplete, never a limit violation", () => {
   const dir = tempPackage();
@@ -97,32 +103,30 @@ test("the private traversal-depth budget is scan-incomplete, never a limit viola
   }
 });
 
-test(
-  "an independently established FAIL stays FAIL under scan-incomplete coverage",
-  { skip: skipPermissionTest },
-  () => {
-    const dir = tempPackage(path.join(fixtures, "F02-artifact-byte"));
-    const notes = path.join(dir, "notes");
-    mkdirSync(notes);
-    writeFileSync(path.join(notes, "extra.txt"), "extra\n");
-    try {
-      chmodSync(notes, 0o000);
-      const result = verify(dir);
-      assert.equal(result.status, 1);
-      const report = JSON.parse(result.stdout);
-      assert.equal(report.verdict, "FAIL");
-      assert.equal(report.coverage.full, false);
-      assert.equal(report.dimensions.integrity.artifacts, "FAIL");
-      assert.equal(report.dimensions.integrity.package, "PASS");
-      assert.ok(codes(report).includes("pap.integrity.artifact-mismatch"));
-      assert.ok(codes(report).includes(scanIncompleteCode));
-      assert.ok(!codes(report).includes("pap.package.io"));
-    } finally {
-      chmodSync(notes, 0o755);
-      rmSync(dir, { recursive: true, force: true });
-    }
-  },
-);
+test("an independently established FAIL stays FAIL under scan-incomplete coverage", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage(path.join(fixtures, "F02-artifact-byte"));
+  const notes = path.join(dir, "notes");
+  mkdirSync(notes);
+  writeFileSync(path.join(notes, "extra.txt"), "extra\n");
+  try {
+    chmodSync(notes, 0o000);
+    const result = verify(dir);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.verdict, "FAIL");
+    assert.equal(report.coverage.full, false);
+    assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+    assert.equal(report.dimensions.integrity.package, "PASS");
+    assert.ok(codes(report).includes("pap.integrity.artifact-mismatch"));
+    assert.ok(codes(report).includes(scanIncompleteCode));
+    assert.ok(!codes(report).includes("pap.package.io"));
+  } finally {
+    chmodSync(notes, 0o755);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("a missing declared payload remains a package FAIL, not scan-incomplete", () => {
   const dir = tempPackage();
@@ -141,56 +145,54 @@ test("a missing declared payload remains a package FAIL, not scan-incomplete", (
   }
 });
 
-test(
-  "an unreadable declared artifacts directory remains a declared-payload FAIL",
-  { skip: skipPermissionTest },
-  () => {
-    const dir = tempPackage();
-    const artifacts = path.join(dir, "artifacts");
-    try {
-      chmodSync(artifacts, 0o000);
-      const result = verify(dir);
-      assert.equal(result.status, 1);
-      const report = JSON.parse(result.stdout);
-      assert.equal(report.verdict, "FAIL");
-      assert.equal(report.coverage.full, false);
-      assert.equal(report.dimensions.integrity.package, "FAIL");
-      assert.equal(report.dimensions.integrity.artifacts, "FAIL");
-      assert.ok(codes(report).includes("pap.package.io"));
-      assert.ok(codes(report).includes("pap.package.declared-file-missing"));
-      assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
-      // The same unreadable directory also stops the undeclared-file scan;
-      // that warning must not downgrade the declared-payload FAIL.
-      const scan = report.diagnostics.filter((diagnostic: any) => diagnostic.code === scanIncompleteCode);
-      assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
-    } finally {
-      chmodSync(artifacts, 0o755);
-      rmSync(dir, { recursive: true, force: true });
-    }
-  },
-);
+test("an unreadable declared artifacts directory remains a declared-payload FAIL", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage();
+  const artifacts = path.join(dir, "artifacts");
+  try {
+    chmodSync(artifacts, 0o000);
+    const result = verify(dir);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.verdict, "FAIL");
+    assert.equal(report.coverage.full, false);
+    assert.equal(report.dimensions.integrity.package, "FAIL");
+    assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+    assert.ok(codes(report).includes("pap.package.io"));
+    assert.ok(codes(report).includes("pap.package.declared-file-missing"));
+    assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
+    // The same unreadable directory also stops the undeclared-file scan;
+    // that warning must not downgrade the declared-payload FAIL.
+    const scan = report.diagnostics.filter(
+      (diagnostic: any) => diagnostic.code === scanIncompleteCode,
+    );
+    assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
+  } finally {
+    chmodSync(artifacts, 0o755);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
-test(
-  "inspect reports the same scan-incomplete code without a limit violation",
-  { skip: skipPermissionTest },
-  () => {
-    const dir = tempPackage();
-    const notes = path.join(dir, "notes");
-    mkdirSync(notes);
-    writeFileSync(path.join(notes, "extra.txt"), "extra\n");
-    try {
-      chmodSync(notes, 0o000);
-      const result = runPap(["inspect", ".", "--format", "json"], dir);
-      assert.equal(result.status, 2);
-      const document = JSON.parse(result.stdout);
-      assert.equal(document.inspection, "PARTIAL");
-      const limitationCodes = document.limitations.map((limitation: any) => limitation.code);
-      assert.ok(limitationCodes.includes(scanIncompleteCode));
-      assert.ok(!limitationCodes.includes("pap.package.limit-exceeded"));
-      assert.ok(!limitationCodes.includes("pap.package.io"));
-    } finally {
-      chmodSync(notes, 0o755);
-      rmSync(dir, { recursive: true, force: true });
-    }
-  },
-);
+test("inspect reports the same scan-incomplete code without a limit violation", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage();
+  const notes = path.join(dir, "notes");
+  mkdirSync(notes);
+  writeFileSync(path.join(notes, "extra.txt"), "extra\n");
+  try {
+    chmodSync(notes, 0o000);
+    const result = runPap(["inspect", ".", "--format", "json"], dir);
+    assert.equal(result.status, 2);
+    const document = JSON.parse(result.stdout);
+    assert.equal(document.inspection, "PARTIAL");
+    const limitationCodes = document.limitations.map((limitation: any) => limitation.code);
+    assert.ok(limitationCodes.includes(scanIncompleteCode));
+    assert.ok(!limitationCodes.includes("pap.package.limit-exceeded"));
+    assert.ok(!limitationCodes.includes("pap.package.io"));
+  } finally {
+    chmodSync(notes, 0o755);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

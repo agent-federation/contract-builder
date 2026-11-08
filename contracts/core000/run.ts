@@ -1,5 +1,15 @@
 import { createHash } from "node:crypto";
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -282,7 +292,11 @@ function expectedOutcome(options: HarnessOptions): RunEvidence["expected"] {
   if (options.mutation !== undefined && options.mode !== "release") {
     switch (options.mutation) {
       case "claim":
-        return { exitCode: 0, blockedBy: null, codes: ["core000.independent-verification.missing"] };
+        return {
+          exitCode: 0,
+          blockedBy: null,
+          codes: ["core000.independent-verification.missing"],
+        };
       case "unresolved-subject":
         return { exitCode: 1, blockedBy: "errors", codes: ["ERR_UNKNOWN_REF"] };
       case "implemented-without-evidence":
@@ -378,9 +392,7 @@ function outputFor(result: BuildResult, projectDir: string): string {
 
 async function assertOutsideRepository(target: string, action: string): Promise<void> {
   const resolved =
-    target.length === 0
-      ? ""
-      : await realpath(target).catch(() => path.resolve(target));
+    target.length === 0 ? "" : await realpath(target).catch(() => path.resolve(target));
   if (resolved.length > 0 && isInside(await realpath(REPO_ROOT), resolved)) {
     throw new Error(`${action} is forbidden in the repository; use a temporary copy`);
   }

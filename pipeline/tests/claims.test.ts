@@ -145,7 +145,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
         id: "binding:SRC-TR-001",
         entityId: "SRC-TR-001",
         sourceId: "SRC-ENGINE-CONTRACT",
-        locator: { kind: "byte-range", start: 14957, end: 15140 },
+        locator: { kind: "byte-range", start: 15301, end: 15484 },
         quote: {
           normalization: "none",
           digest: "sha256:90ee79643882758a5891418c9353e9dd9891cf7877a4407358f334f6051ba015",
@@ -171,7 +171,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
         id: "binding:SRC-PROVENANCE-001",
         entityId: "SRC-PROVENANCE-001",
         sourceId: "SRC-ENGINE-CONTRACT",
-        locator: { kind: "byte-range", start: 23919, end: 24157 },
+        locator: { kind: "byte-range", start: 24629, end: 24867 },
         quote: {
           normalization: "none",
           digest: "sha256:c45bbddfaf5a7d81d9591b1da778e55e6b3b716b0d7af97a501f70702aa7bad5",
@@ -191,7 +191,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
   }
 
   assert.equal(
-    domainHash("pap.quote.v1", input.source.bytes.subarray(14957, 15140)),
+    domainHash("pap.quote.v1", input.source.bytes.subarray(15301, 15484)),
     "sha256:90ee79643882758a5891418c9353e9dd9891cf7877a4407358f334f6051ba015",
     "quote-digest vector",
   );
@@ -210,7 +210,7 @@ test("relations: the real CORE-000 graph is complete, deterministic and inverse-
   const claim = first.relations.value;
   assert.equal(claim.entities.length, 195);
   assert.equal(claim.relations.length, 25);
-  assert.equal(claim.edges.length, 556);
+  assert.equal(claim.edges.length, 560);
 
   const entities = new Map(claim.entities.map((entity) => [entity.id, entity]));
   assert.equal(entities.size, claim.entities.length, "entity ids are unique");
@@ -232,16 +232,18 @@ test("relations: the real CORE-000 graph is complete, deterministic and inverse-
   assert.ok(
     claim.edges.some(
       (edge) =>
-        edge.relation === "citedBy" &&
-        edge.from === "SRC-TR-001" &&
-        edge.to === "C000-TR-001",
+        edge.relation === "citedBy" && edge.from === "SRC-TR-001" && edge.to === "C000-TR-001",
     ),
     "inverse edges are explicit",
   );
 
-  const edgeKeys = new Set(claim.edges.map((edge) => `${edge.relation}\u0000${edge.from}\u0000${edge.to}`));
+  const edgeKeys = new Set(
+    claim.edges.map((edge) => `${edge.relation}\u0000${edge.from}\u0000${edge.to}`),
+  );
   for (const relation of claim.relations) {
-    const baseName = relation.name.includes(":") ? relation.name.slice(0, relation.name.indexOf(":")) : relation.name;
+    const baseName = relation.name.includes(":")
+      ? relation.name.slice(0, relation.name.indexOf(":"))
+      : relation.name;
     assert.ok(SUPPORTED_RELATIONS.has(baseName), `relation ${relation.name} is supported`);
     if (relation.inverse === undefined) continue;
     const inverse = declarations.get(relation.inverse);
@@ -304,12 +306,29 @@ test("claims: both files are canonical, deterministic and digest-addressable", a
 
 test("quote resolution: exact matches win and normalized matches map back to raw bytes", () => {
   const exact = resolveExactQuote(utf8("intro unique quote outro"), "unique quote");
-  assert.equal(decoder.decode(utf8("intro unique quote outro").subarray(exact.start, exact.end)), "unique quote");
+  assert.equal(
+    decoder.decode(utf8("intro unique quote outro").subarray(exact.start, exact.end)),
+    "unique quote",
+  );
+
+  // The rule is intentionally strict: a whitespace variant elsewhere makes the
+  // declaration ambiguous even when the exact bytes occur only once.
+  const variant = utf8("exact alpha beta here\nvariant alpha\n  beta there\n");
+  assert.throws(
+    () => resolveExactQuote(variant, "alpha beta"),
+    /ambiguous in the source \(2 whitespace-normalized matches\)/,
+  );
 
   const wrapped = utf8("intro alpha\n  beta gamma\noutro");
   const normalized = resolveExactQuote(wrapped, "alpha beta gamma");
-  assert.equal(decoder.decode(wrapped.subarray(normalized.start, normalized.end)), "alpha\n  beta gamma");
-  assert.equal(normalized.digest, domainHash("pap.quote.v1", wrapped.subarray(normalized.start, normalized.end)));
+  assert.equal(
+    decoder.decode(wrapped.subarray(normalized.start, normalized.end)),
+    "alpha\n  beta gamma",
+  );
+  assert.equal(
+    normalized.digest,
+    domainHash("pap.quote.v1", wrapped.subarray(normalized.start, normalized.end)),
+  );
 });
 
 test("quote resolution: surrogate pairs keep UTF-16 indices aligned with byte offsets", () => {
@@ -370,7 +389,9 @@ test("provenance: missing, ambiguous, duplicate and mismatched declarations fail
   );
 
   const duplicate = provenanceInput("alpha", "alpha\n");
-  const document = YAML.parse(decoder.decode(duplicate.inputBytes.get("claims.yml") as Uint8Array)) as {
+  const document = YAML.parse(
+    decoder.decode(duplicate.inputBytes.get("claims.yml") as Uint8Array),
+  ) as {
     sourceStatements: unknown[];
   };
   document.sourceStatements.push(document.sourceStatements[0]);
@@ -385,7 +406,8 @@ test("provenance: missing, ambiguous, duplicate and mismatched declarations fail
 test("provenance: the packaged source id must be declared", () => {
   const input = provenanceInput("alpha", "alpha\n");
   assert.throws(
-    () => buildCore000Claims({ ...input, source: { id: "SRC-UNDECLARED", bytes: input.source.bytes } }),
+    () =>
+      buildCore000Claims({ ...input, source: { id: "SRC-UNDECLARED", bytes: input.source.bytes } }),
     /not declared in contract-builder\.json/,
   );
 });

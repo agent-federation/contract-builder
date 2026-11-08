@@ -220,10 +220,7 @@ function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
  * This is the PAP §5.2 framing, repeated from the RFC rather than imported from
  * the engine or the verifier.
  */
-export function frameRecord(
-  tag: string,
-  parts: readonly (string | Uint8Array)[],
-): Uint8Array {
+export function frameRecord(tag: string, parts: readonly (string | Uint8Array)[]): Uint8Array {
   const tagBytes = utf8(tag);
   const chunks: Uint8Array[] = [u32be(tagBytes.length), tagBytes, u32be(parts.length)];
   for (const part of parts) {

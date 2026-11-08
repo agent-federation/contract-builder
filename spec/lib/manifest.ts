@@ -39,7 +39,7 @@ export interface Manifest {
   project: { id: string; title?: string; revision?: string };
   profile: { id: string; version: string; source: string; external?: boolean };
   inputs: ManifestInput[];
-  /** M1 supports exactly one source; more than one is rejected by `validateSources`. */
+  /** M1 supports exactly one source; zero, absent or multiple entries are rejected by `validateSources`. */
   sources?: ManifestSource[];
   /** M1 supports exactly one render declaration; zero or many are rejected by the loader. */
   render: ManifestRender[];
@@ -116,7 +116,12 @@ export async function loadManifest(
     text = await readFile(manifestPath, "utf8");
   } catch (error) {
     if (isMissingFile(error)) {
-      diags.error("core.manifest.missing", "contract-builder.json", "", "Манифест проекта не найден");
+      diags.error(
+        "core.manifest.missing",
+        "contract-builder.json",
+        "",
+        "Манифест проекта не найден",
+      );
     } else {
       diags.error(
         "ERR_IO",
@@ -324,7 +329,7 @@ function validateManifest(value: unknown, diags: Diagnostics): Manifest | null {
       ...(profile.external === true ? { external: true } : {}),
     },
     inputs,
-    ...(sources !== undefined ? { sources } : {}),
+    sources,
     render,
     ...(output !== undefined ? { output } : {}),
   };
@@ -353,7 +358,11 @@ function validateInputs(
 
     const entities: ManifestEntityDecl[] = [];
     for (const [entityIndex, entity] of item.entities.entries()) {
-      if (!isObject(entity) || !isNonEmptyString(entity.kind) || !isNonEmptyString(entity.pointer)) {
+      if (
+        !isObject(entity) ||
+        !isNonEmptyString(entity.kind) ||
+        !isNonEmptyString(entity.pointer)
+      ) {
         return fail(`/inputs/${index}/entities/${entityIndex}`, "kind и pointer обязательны");
       }
       entities.push({ kind: entity.kind, pointer: entity.pointer });
@@ -375,14 +384,21 @@ function validateInputs(
 function validateSources(
   value: unknown,
   fail: (pointer: string, message: string) => null,
-): ManifestSource[] | undefined | null {
-  if (value === undefined) return undefined;
+): ManifestSource[] | null {
+  if (value === undefined || (Array.isArray(value) && value.length === 0)) {
+    return fail(
+      "/sources",
+      "M1 supports exactly one source: manifest.sources must contain exactly one entry; " +
+        "zero-source manifests are not supported by M1 (declared 0)",
+    );
+  }
   if (!Array.isArray(value)) return fail("/sources", "sources должен быть массивом");
 
-  // M1 supports exactly one source (ODR-ENG-001 B4). Reject more than one here, during
-  // manifest validation, so neither the model, the identity nor the renderer sees a
-  // multi-source manifest. An absent or empty array keeps the existing "source not
-  // declared" error reported by the build path (ERR_UNKNOWN_REF).
+  // M1 supports exactly one source (ODR-ENG-001 B4). Reject zero, absent and multiple
+  // sources here, during manifest validation, so neither the model, the identity nor the
+  // renderer sees a manifest without exactly one source. Historically an absent or empty
+  // array passed this check and failed later on the build path with ERR_UNKNOWN_REF; that
+  // legacy behaviour is not the policy for this structural violation.
   if (value.length > 1) {
     return fail(
       "/sources",
@@ -394,7 +410,11 @@ function validateSources(
   const sources: ManifestSource[] = [];
   for (const [index, item] of value.entries()) {
     if (!isObject(item)) return fail(`/sources/${index}`, "Источник должен быть объектом");
-    if (!isNonEmptyString(item.id) || !isNonEmptyString(item.path) || !isNonEmptyString(item.adapter)) {
+    if (
+      !isNonEmptyString(item.id) ||
+      !isNonEmptyString(item.path) ||
+      !isNonEmptyString(item.adapter)
+    ) {
       return fail(`/sources/${index}`, "id, path и adapter обязательны");
     }
 
@@ -534,7 +554,8 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
 
   let relations: RelationDecl[] | undefined;
   if (value.relations !== undefined) {
-    if (!Array.isArray(value.relations)) return fail("/relations", "relations должен быть массивом");
+    if (!Array.isArray(value.relations))
+      return fail("/relations", "relations должен быть массивом");
     relations = [];
     for (const [index, item] of value.relations.entries()) {
       if (
@@ -545,7 +566,11 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
       ) {
         return fail(`/relations/${index}`, "name, from и to обязательны");
       }
-      if (item.cardinality !== undefined && item.cardinality !== "one" && item.cardinality !== "many") {
+      if (
+        item.cardinality !== undefined &&
+        item.cardinality !== "one" &&
+        item.cardinality !== "many"
+      ) {
         return fail(`/relations/${index}/cardinality`, "cardinality должен быть one или many");
       }
       // A declared inverse is part of the contract, so a value that is not a name is an error
@@ -696,4 +721,3 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     ...(dependencies !== undefined ? { dependencies } : {}),
   };
 }
-

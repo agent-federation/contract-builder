@@ -91,16 +91,10 @@ test("hook: an undeclared code fails with core.profile.unknown-code", () => {
 });
 
 test("hook: the aggregator order is explicit", () => {
-  assert.deepEqual([...ORDER], [
-    "source",
-    "ontology",
-    "provision",
-    "cases",
-    "review",
-    "coverage",
-    "terms",
-    "dependencies",
-  ]);
+  assert.deepEqual(
+    [...ORDER],
+    ["source", "ontology", "provision", "cases", "review", "coverage", "terms", "dependencies"],
+  );
 });
 
 test("hook: an unknown finding code fails the build", async () => {
@@ -127,7 +121,11 @@ test("hook: an unknown finding code fails the build", async () => {
 
 test("hook: a view module without buildView fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-view");
-  await writeFile(path.join(dir, "profiles", "core001", "view.ts"), "export const nope = 1;\n", "utf8");
+  await writeFile(
+    path.join(dir, "profiles", "core001", "view.ts"),
+    "export const nope = 1;\n",
+    "utf8",
+  );
 
   const result = await runBuild({
     specDir: dir,
@@ -145,7 +143,11 @@ test("hook: a view module without buildView fails the build", async () => {
 
 test("hook: a validator without validate fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-validator");
-  await writeFile(path.join(dir, "profiles", "core001", "validator.ts"), "export const nope = 1;\n", "utf8");
+  await writeFile(
+    path.join(dir, "profiles", "core001", "validator.ts"),
+    "export const nope = 1;\n",
+    "utf8",
+  );
 
   const result = await runBuild({
     specDir: dir,
@@ -183,7 +185,7 @@ test("hook: a malformed catalog fails the build", async () => {
   assert.ok(result.diagnostics.some((item) => item.code === "core.profile.invalid"));
 });
 
-test("hook: a project without a source fails early", async () => {
+test("hook: a project without a source fails at manifest validation", async () => {
   const dir = await copyProjectWithProfile("no-source");
   const manifestPath = path.join(dir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
@@ -201,10 +203,11 @@ test("hook: a project without a source fails early", async () => {
   });
 
   assert.equal(result.exitCode, 1);
-  assert.equal(
-    result.diagnostics.filter((item) => item.code === "ERR_UNKNOWN_REF").length,
-    1,
+  assert.deepEqual(
+    result.diagnostics.map((item) => item.code),
+    ["core.manifest.invalid"],
   );
+  assert.equal(result.diagnostics[0]?.pointer, "/sources");
   assert.equal(
     result.diagnostics.some((item) => item.code === "ERR_SOURCE_QUOTE_NOT_FOUND"),
     false,

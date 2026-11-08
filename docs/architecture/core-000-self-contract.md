@@ -8,6 +8,13 @@ CORE-000 as a self-contract for the Contract Builder Engine».
 **Task:** `CB-A2A-012` (A2A/0.1 envelope, `docs/agents/task-envelope.md`).
 **Design baseline:** `cf0722b14fa6ac514e66b08d58465d4137690d13` (`main` after #49).
 **Current-main reconciliation:** `260de897455699262bc6558555ecdaac5d426321` (after #50, #52, #55 and #56); the design and its evidence mapping are updated to this state.
+**Amendment 2026-11-07:** the renderer-wiring statements recorded here for `C000-IM-004`,
+`C000-IM-006`, `C000-GAP-004` and the consent evidence entries describe the baseline CLI that
+static-imported the CORE-001 renderer. That behaviour was replaced by a consumer-supplied
+renderer module (`--renderer-module`) in the M0.0 slice of the CORE-001 extraction; the live
+register in `contracts/core000/claims.yml` carries the updated statements and this design record
+keeps its baseline meaning. Decision: [ODR-ENG-002](../decisions/ODR-ENG-002-consumer-supplied-renderer.md),
+Issue [#223](https://github.com/agent-federation/contract-builder/issues/223).
 **Implementation status:** not started. No code, schema, fixture or generated artifact is
 changed by this document.
 **Normative status of CORE-000:** a working project identifier. It is not an adopted UIA
@@ -530,7 +537,7 @@ Rules:
 | C000-CT-007 | Diagnostics are deterministic and catalog-resolved; an unknown finding code fails the build. | requirement | accepted | implemented | tested | — | M:G1,G3; `spec/lib/hook.ts`, `spec/lib/diagnostics.ts`; `tests/hook.test.ts`, `tests/golden.test.ts` |
 | C000-CT-008 | The contract diagnostic shape (severity + disposition + phase + blocking + data) is accepted but deferred to M2; the current record is the legacy shape. | requirement | accepted | — | — | — | M:G2; C:§7, §18; D8/D9/D17 |
 | C000-CT-009 | The renderer registry, preloaded templates and UTF-8/LF/one-trailing-newline normalization are implemented; an unknown renderer id fails. | requirement | accepted | implemented | tested | — | M:O1,O2; `spec/lib/render.ts`; `tests/renderer.test.ts` |
-| C000-CT-010 | Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; it is not rendered into the artifact. | requirement | accepted | implemented | tested | — | M:B1; `spec/lib/identity.ts`; `tests/identity.test.ts` |
+| C000-CT-010 | Build identity exposes `projectId`, `engineVersion`, `manifestVersion`, `inputDigest` and the extension list; a successful build passes it to renderers in `RenderOptions.identity`, and the CORE-000 and CORE-001 envelopes render it. | requirement | accepted | implemented | tested | — | M:B1; `spec/lib/identity.ts`, `spec/lib/render.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts` |
 | C000-CT-011 | `inputDigest` covers the canonical manifest, declared inputs, sources, profile closure and adapter/renderer closures; clock, locale, environment, mtimes and absolute paths are excluded. | guarantee | accepted | implemented | tested | — | M:B2; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI |
 | C000-CT-012 | Byte determinism is conditional on the same engine version, `inputDigest` and extension identities, and on every trusted extension honouring its deterministic contract; it is not absolute reproducibility. | guarantee | accepted | implemented | tested | — | C:§8.1, §8.3; BI; `tests/golden.test.ts` |
 | C000-CT-013 | Paths are root-contained by default; `external: true` is an explicit trust declaration; outputs never leave the output root. | requirement | accepted | implemented | tested | — | M:P3; C:§5.7; D31; `tests/manifest.test.ts` |
@@ -555,7 +562,7 @@ Rules:
 | C000-IM-002 | Current diagnostics are `{severity: error / warning / review, code, file, pointer, message}` with no disposition, phase, data or object location. | implementation_fact | — | implemented | tested | — | M:G1; `spec/lib/diagnostics.ts`; `tests/golden.test.ts` |
 | C000-IM-003 | Current exit codes are 0 and 1; usage errors exit 1; exit code 2 is not implemented. | implementation_fact | — | implemented | tested | — | `spec/lib/build.ts` result mapping; `spec/build.ts`; M:G2 |
 | C000-IM-004 | `profile.view` and `profile.validator` are dynamically imported in-process only after explicit consent; the engine's renderer is consumer-supplied, and the CLI imports the CORE-001 renderer conditionally. | implementation_fact | — | implemented | tested | — | `spec/lib/build.ts` consent gate; `spec/cli-renderers.ts`; `tests/consent.test.ts`, `tests/example-profile.test.ts` |
-| C000-IM-005 | Build identity is computed after load/validation, is `null` when the build stops early, and is never rendered. | implementation_fact | — | implemented | tested | — | `spec/lib/build.ts`; `tests/identity.test.ts`; BI |
+| C000-IM-005 | Build identity is computed after load/validation, is `null` when the build stops early, and is passed to renderers on a successful build. | implementation_fact | — | implemented | tested | — | `spec/lib/build.ts`, `spec/lib/render.ts`; `tests/identity.test.ts`, `tests/envelope.test.ts`; BI |
 | C000-IM-006 | The CLI dynamically imports the CORE-001 renderer only with explicit consent, a matching profile `core001`/renderer `core001-markdown` declaration and a valid profile closure; there is no generic profile-selection CLI. | implementation_fact | — | implemented | tested | — | `spec/cli-renderers.ts`; `tests/consent.test.ts` |
 | C000-IM-007 | The profile loader requires explicit consent; absent consent fails closed before import; after consent, view/validator run in-process with builder privileges and no sandbox or isolation. | trust_boundary | accepted | implemented | tested | — | M:H5; `spec/lib/build.ts`; `tests/consent.test.ts`; §6.1 |
 | C000-IM-008 | `external: true` is a path trust declaration, not an executable-profile opt-in and not isolation. | trust_boundary | accepted | implemented | tested | — | C:§5.7; D31; `tests/manifest.test.ts` |
@@ -1726,10 +1733,10 @@ enforce it (C:§3.3).
    - diagnostic appendix (deterministic snapshot);
    - provenance appendix (source statements and locators).
 
-   The build identity is **not** rendered into the artifact: `RenderOptions` does not carry it and
-   `build-identity.md` states that it is never rendered. The identity is reported in the JSON
-   result and the experiment report, not in the Markdown header. A renderer that needs it would
-   require a contract change and is out of scope here.
+   The build identity is passed to renderers in `RenderOptions.identity`, and the CORE-000 and
+   CORE-001 envelopes render the profile, renderer, engine and manifest versions and
+   `inputDigest`. The identity is also reported in the JSON result and the experiment report;
+   artifact bytes stay outside `inputDigest`.
 2. **Machine-readable result** — `--json`-shaped `BuildResult`: `mode`, `exitCode`, `blockedBy`,
    `written`, `output`, `identity`, `diagnostics`. The artifact itself is Markdown in M1; a JSON
    claim export is deferred (§9 G5).
@@ -2153,6 +2160,13 @@ YAML inputs are the machine-readable surface. Priority: medium; depends on M2.
 
 **Observation.** The contract describes N sources; M1 exercises one. The loader loops over sources,
 but the CORE-001 hook consumes `sources[0]`, and no test builds a two-source project (M:A2).
+
+**Amended 2026-11-07 (E2/#179; ODR-ENG-001 B4 decision).** M1 now rejects more than one source
+during manifest validation with `core.manifest.invalid`, and the 2026-11-07 decision makes an absent
+or empty source array the same manifest-validation error (implemented in
+[#233](https://github.com/agent-federation/contract-builder/pull/233)/`bf5f544`, closing #229). Multi-source
+*semantics* remain unimplemented, so the one-source workaround below still stands; the observation's
+"no test builds a two-source project" is superseded by the rejection test.
 
 **Impact.** CORE-000 cannot quote the contract, the matrix and the build-identity note as three
 provenance sources. It uses one source (the contract) and treats the other documents as evidence

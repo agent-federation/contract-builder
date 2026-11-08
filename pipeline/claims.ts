@@ -210,11 +210,7 @@ interface NormalizedSource {
   readonly ends: readonly number[];
 }
 
-function claimFile<T>(
-  kind: "provenance" | "relations",
-  path: string,
-  value: T,
-): ClaimFile<T> {
+function claimFile<T>(kind: "provenance" | "relations", path: string, value: T): ClaimFile<T> {
   return {
     kind,
     path,
@@ -293,9 +289,7 @@ function readEntities(
       throw new Error(`claims: declared input "${input.path}" is not packaged`);
     }
     const document =
-      input.format === "json"
-        ? parseJson(bytes, input.path)
-        : parseYaml(bytes, input.path);
+      input.format === "json" ? parseJson(bytes, input.path) : parseYaml(bytes, input.path);
 
     for (const declaration of input.entities) {
       const list = resolvePointer(document, declaration.pointer, input.path);
@@ -306,9 +300,7 @@ function readEntities(
       }
       for (const [index, raw] of list.entries()) {
         if (!isObject(raw)) {
-          throw new Error(
-            `claims: ${input.path}${declaration.pointer}/${index} must be an object`,
-          );
+          throw new Error(`claims: ${input.path}${declaration.pointer}/${index} must be an object`);
         }
         const id = requireString(raw.id, `${input.path}${declaration.pointer}/${index}/id`);
         if (byId.has(id)) {
@@ -344,17 +336,13 @@ function buildProvenanceClaim(
   manifest: Core000Manifest,
 ): ProvenanceClaim {
   if (!manifest.sourceIds.has(source.id)) {
-    throw new Error(
-      `claims: source "${source.id}" is not declared in contract-builder.json`,
-    );
+    throw new Error(`claims: source "${source.id}" is not declared in contract-builder.json`);
   }
 
   const statements = entities
     .filter((entity) => entity.kind === "source_statement")
     .sort((a, b) => compareStrings(a.id, b.id));
   const bindings: ProvenanceBinding[] = [];
-  const seenBindings = new Set<string>();
-  const seenTuples = new Set<string>();
 
   for (const statement of statements) {
     const sourceId = requireString(statement.fields.source, `${statement.id}.source`);
@@ -366,18 +354,10 @@ function buildProvenanceClaim(
       );
     }
     const resolved = resolveExactQuote(source.bytes, quote, `${statement.id} (${reference})`);
-    const id = `binding:${statement.id}`;
-    if (seenBindings.has(id)) {
-      throw new Error(`claims: duplicate provenance binding id "${id}"`);
-    }
-    seenBindings.add(id);
-    const tuple = `${statement.id}\u0000${sourceId}\u0000${resolved.start}\u0000${resolved.end}`;
-    if (seenTuples.has(tuple)) {
-      throw new Error(`claims: duplicate provenance binding tuple for ${statement.id}`);
-    }
-    seenTuples.add(tuple);
+    // Entity ids are unique (readEntities fails on a duplicate), so
+    // `binding:<id>` cannot collide and no separate binding dedup is reachable.
     bindings.push({
-      id,
+      id: `binding:${statement.id}`,
       entityId: statement.id,
       sourceId,
       locator: { kind: "byte-range", start: resolved.start, end: resolved.end },
@@ -410,19 +390,14 @@ function buildRelationsClaim(entities: readonly RawRelationEntity[]): RelationsC
     }
   };
   const addEdge = (edge: RelationEdge): void => {
-    edges.set(
-      `${edge.relation}\u0000${edge.from}\u0000${edge.to}`,
-      edge,
-    );
+    edges.set(`${edge.relation}\u0000${edge.from}\u0000${edge.to}`, edge);
   };
 
   for (const entity of entities) {
     for (const [name, rawTargets] of Object.entries(entity.relations)) {
       const relation = SUPPORTED_RELATIONS.get(name);
       if (relation === undefined) {
-        throw new Error(
-          `claims: unsupported relation kind "${name}" on entity ${entity.id}`,
-        );
+        throw new Error(`claims: unsupported relation kind "${name}" on entity ${entity.id}`);
       }
       if (relation.from !== entity.kind) {
         throw new Error(
@@ -483,9 +458,7 @@ function buildRelationsClaim(entities: readonly RawRelationEntity[]): RelationsC
     entities: [...entities]
       .map((entity) => ({ id: entity.id, kind: entity.kind }))
       .sort((a, b) => compareStrings(a.id, b.id)),
-    relations: [...declarations.values()].sort((a, b) =>
-      compareStrings(a.name, b.name),
-    ),
+    relations: [...declarations.values()].sort((a, b) => compareStrings(a.name, b.name)),
     edges: [...edges.values()].sort((a, b) => {
       const relation = compareStrings(a.relation, b.relation);
       if (relation !== 0) return relation;
@@ -495,11 +468,7 @@ function buildRelationsClaim(entities: readonly RawRelationEntity[]): RelationsC
   };
 }
 
-function readTargets(
-  value: unknown,
-  entityId: string,
-  name: string,
-): readonly string[] {
+function readTargets(value: unknown, entityId: string, name: string): readonly string[] {
   if (typeof value === "string" && value.length > 0) return [value];
   if (
     Array.isArray(value) &&
@@ -515,9 +484,13 @@ function readTargets(
 /**
  * Resolve a declared quote to the exact raw source span it names.
  *
- * Exact source bytes win. When the declaration is whitespace-collapsed (all CORE-000
- * statements are), a whitespace-normalized match is mapped back to the first and last
- * source byte of the matched text, so the digest always covers packaged source bytes.
+ * Exact source bytes win over a normalized match, but a second exact occurrence
+ * and a second whitespace-normalized occurrence are both ambiguous. CORE-000
+ * quotes are whitespace-collapsed, so a whitespace variant elsewhere names the
+ * same text and is rejected even when the exact bytes occur only once. When no
+ * exact match exists, the unique whitespace-normalized match is mapped back to
+ * the first and last source byte of the matched text, so the digest always
+ * covers packaged source bytes.
  */
 export function resolveExactQuote(
   sourceBytes: Uint8Array,
@@ -530,9 +503,7 @@ export function resolveExactQuote(
   const quoteBytes = encoder.encode(quote);
   const exact = occurrenceOffsets(sourceBytes, quoteBytes);
   if (exact.length > 1) {
-    throw new Error(
-      `claims: ${label} is ambiguous in the source (${exact.length} exact matches)`,
-    );
+    throw new Error(`claims: ${label} is ambiguous in the source (${exact.length} exact matches)`);
   }
 
   const normalizedQuote = normalizeWhitespace(quote);
