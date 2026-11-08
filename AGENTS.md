@@ -99,8 +99,9 @@ copy-from-temporary-workspace procedure and commit the regenerated file:
   `example-profile.test.ts`, `consent.test.ts`, `core000.test.ts` and
   `docs-freshness.test.ts`, with golden baselines under `tests/golden/`.
 - `docs/` — architecture contract, M1 implementation plan, the
-  implementation-status matrix with its snapshot-update convention, the CORE-000
-  decision/execution records and the design record.
+  implementation-status matrix with its snapshot-update convention, the
+  diagnostic-code registry, the CORE-000 decision/execution records and the
+  design record.
 - `pap/` — the independent PAP v0.1 verifier (`src/`, `bin/`, `schemas/`,
   `fixtures/pap-v0.1/`, `tests/`); its README holds the verifier commands and
   conformance notes.
@@ -108,10 +109,9 @@ copy-from-temporary-workspace procedure and commit the regenerated file:
   link/anchor check) and `check-coverage.ts` (in-process coverage floors).
 - `CORE-001.legacy.md` — the read-only source document.
 
-`tests/docs-freshness.test.ts` is a machine check for this documentation: it fails when the
-CORE-000 claim count stated in `docs/architecture/implementation-status.md` disagrees with
-`contracts/core000/claims.yml`. Update the snapshot sentence in the same pull request that
-changes the register.
+`tests/docs-freshness.test.ts` is the machine check for this documentation; the
+[Documentation freshness](#documentation-freshness) rules below cover the engine-contract
+snapshot, the CORE-000 claim count and the diagnostic-code registry.
 
 ## Quality and security gates
 
@@ -143,6 +143,28 @@ Run the required gates locally before opening a pull request; CI enforces the sa
   dependency updates are manual. Secret scanning and push protection are
   repository settings, not repository files; the maintainer enables them under
   **Settings → Code security**.
+
+### Documentation freshness
+
+`tests/docs-freshness.test.ts` is part of the normal `bun test` run. It keeps three hand-written
+documentation facts honest:
+
+- **Engine-contract snapshot.** `docs/architecture/implementation-status.md` records the SHA-256
+  of the whole `docs/architecture/engine-public-contract.md`, over LF-normalized bytes. Change the
+  contract and update the hash in the same pull request; the test prints the expected hash and
+  fails on a stale one (#159).
+- **CORE-000 claim count.** The same status matrix states the number of claims in
+  `contracts/core000/claims.yml`; update the sentence in the same pull request that changes the
+  register.
+- **Diagnostic-code registry.** Every `core.*`/`pap.*` code emitted from production TypeScript
+  under `spec/`, `profiles/`, `pap/src/`, `pipeline/` and `contracts/` must appear in
+  `docs/architecture/diagnostic-code-registry.md`. Add the row in the same pull request as the
+  emitted code. The registry's exact-match allowlist is only for namespaced identifiers that are
+  not diagnostics (digest domains, verifier identities); never allowlist a real diagnostic, and
+  remove an entry when its last use disappears. Do not suppress a namespace with a glob.
+
+Run the focused check when changing the contract, the CORE-000 register, the registry or the
+source roots above: `bun test tests/docs-freshness.test.ts`.
 
 ## Pull request rules
 

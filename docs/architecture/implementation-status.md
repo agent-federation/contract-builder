@@ -90,6 +90,11 @@ the legacy build-path `ERR_UNKNOWN_REF` is no longer reachable for a loaded mani
 record the implemented rule. Multi-source is still unimplemented and no new semantics are
 introduced.
 
+**Engine-contract snapshot.** `docs/architecture/engine-public-contract.md` has SHA-256
+`712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19` over its LF-normalized
+bytes; `tests/docs-freshness.test.ts` fails when the contract changes without updating this
+hash. Update the hash in the same pull request that changes the contract.
+
 **CORE-000 register freshness.** `contracts/core000/claims.yml` declares
 **78 claims**; `tests/docs-freshness.test.ts` fails when this number and the register disagree.
 
