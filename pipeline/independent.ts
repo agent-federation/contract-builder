@@ -23,9 +23,12 @@ import { createHash } from "node:crypto";
 import {
   chmod,
   copyFile,
+  lstat,
   mkdir,
   readFile,
   readdir,
+  readlink,
+  realpath,
   rename,
   rm,
   stat,
@@ -191,6 +194,8 @@ export interface AssembleOptions {
   readonly policyPath: string;
   readonly manifestText: string;
   readonly packageFileDigests: Readonly<Record<string, string>>;
+  /** lstat types recorded by `snapshotInputs`; verified again after every run. */
+  readonly packageFileTypes?: Readonly<Record<string, string>>;
   readonly executions: readonly VerifierExecution[];
   /** Run-level diagnostics, such as a failure to make the inputs read-only. */
   readonly extraProblems?: readonly string[];
@@ -232,6 +237,8 @@ export interface Comparison {
     Record<"rust" | "go" | "python", Verdict | null>
   >;
   readonly integrityAndSourcesAgreement: boolean;
+  /** False when two reports actually evaluated the same required check differently. */
+  readonly checkAgreement: boolean;
   readonly differences: readonly string[];
   readonly limitations: readonly string[];
 }
@@ -254,6 +261,8 @@ export interface C6Batch {
     readonly artifacts: readonly JsonObject[];
     readonly sources: readonly unknown[];
     readonly files: Readonly<Record<string, string>>;
+    /** lstat type per packaged file, so a symlink swap is visible in the audit record. */
+    readonly fileTypes: Readonly<Record<string, string>>;
   };
   readonly inputIntegrity: InputIntegrity;
   readonly requiredChecks: readonly string[];
@@ -570,6 +579,65 @@ function describeExecuted(
 }
 
 /**
+ * A required check FAIL must dominate the report verdict, and PASS must mean
+ * every required check PASS. `UNSUPPORTED`/`NOT_EVALUATED`/`ABSENT` are not
+ * contradictions on their own; only a positive evaluated outcome is compared.
+ */
+function checkOutcomeContradictions(entry: VerifierEntry): string[] {
+  if (entry.status !== "EXECUTED" || entry.verdict === null) return [];
+  const outcomes = REQUIRED_CHECKS.map((checkId) => ({
+    checkId,
+    outcome: entry.checks[checkId] ?? "ABSENT",
+  }));
+  const problems: string[] = [];
+  if (entry.verdict === "PASS") {
+    for (const { checkId, outcome } of outcomes) {
+      if (outcome !== "PASS") {
+        problems.push(
+          `${entry.verifier}: verdict PASS contradicts required check ${checkId} outcome ${outcome}; PASS requires every required check to PASS`,
+        );
+      }
+    }
+  }
+  if (entry.verdict !== "FAIL") {
+    for (const { checkId, outcome } of outcomes) {
+      if (outcome === "FAIL") {
+        problems.push(
+          `${entry.verifier}: verdict ${entry.verdict} contradicts required check ${checkId} outcome FAIL; a FAILed required check requires verdict FAIL`,
+        );
+      }
+    }
+  }
+  return problems;
+}
+
+/**
+ * A genuine disagreement on a check outcome that two reports both evaluated
+ * (PASS/FAIL) is a batch problem. UNSUPPORTED, NOT_EVALUATED and ABSENT are not
+ * disagreements by themselves.
+ */
+function checkDisagreements(entries: readonly VerifierEntry[]): string[] {
+  const problems: string[] = [];
+  for (const checkId of REQUIRED_CHECKS) {
+    const evaluated = entries
+      .filter((entry) => entry.status === "EXECUTED")
+      .map((entry) => ({
+        name: entry.verifier,
+        outcome: entry.checks[checkId] ?? "ABSENT",
+      }))
+      .filter(({ outcome }) => outcome === "PASS" || outcome === "FAIL");
+    if (new Set(evaluated.map(({ outcome }) => outcome)).size > 1) {
+      problems.push(
+        `check-level disagreement on ${checkId}: ${evaluated
+          .map(({ name, outcome }) => `${name} ${outcome}`)
+          .join(", ")}`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
  * Pure batch assembly: turn four executions plus the packed package into the
  * committed evidence record. It never throws for a bad report; it records a
  * `NOT_PERFORMED` entry or a problem and sets `ok` false, so the caller can
@@ -587,6 +655,16 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     packageDir,
     policyPath,
   };
+  const packageFileTypes: Readonly<Record<string, string>> =
+    options.packageFileTypes ?? {};
+  if (options.packageFileTypes === undefined) {
+    problems.push("package file types were not recorded");
+  }
+  for (const [file, type] of Object.entries(packageFileTypes)) {
+    if (type !== "file") {
+      problems.push(`package file is not a regular file: ${file} (${type})`);
+    }
+  }
 
   let manifest: JsonObject = {};
   try {
@@ -792,6 +870,12 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     );
   }
 
+  const checkContradictions = entries.flatMap(checkOutcomeContradictions);
+  problems.push(...checkContradictions);
+  const checkDisagreementProblems = checkDisagreements(entries);
+  problems.push(...checkDisagreementProblems);
+  const checkAgreement = checkDisagreementProblems.length === 0;
+
   const independentEntries = entries.filter(
     (entry) => entry.verifier !== "reference",
   );
@@ -863,6 +947,7 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
       artifacts,
       sources,
       files: options.packageFileDigests,
+      fileTypes: packageFileTypes,
     },
     inputIntegrity:
       options.inputIntegrity ?? { readOnlyDuringRuns: false, mutations: [] },
@@ -873,6 +958,7 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
       referenceVerdict: reference?.verdict ?? null,
       independentVerdicts,
       integrityAndSourcesAgreement,
+      checkAgreement,
       differences,
       limitations,
     },
@@ -1010,10 +1096,112 @@ async function fetchArchive(
   return destination;
 }
 
-async function extractArchive(
+async function listTar(archive: string, flag: string): Promise<string[]> {
+  const outcome = await runCommand("tar", [flag, archive], {
+    cwd: path.dirname(archive),
+    env: { LC_ALL: "C" },
+  });
+  if (outcome.code !== 0) {
+    throw new Error(
+      `cannot list ${archive}: ${outcome.error ?? `tar exited ${String(outcome.code)}`}\n${tail(outcome.stderr)}`,
+    );
+  }
+  return outcome.stdout.split("\n").filter((line) => line.length > 0);
+}
+
+/**
+ * A pinned archive is extracted with `--strip-components=1`. Reject absolute
+ * paths and parent-directory entries before extraction, and reject entry types
+ * other than regular files, directories and symlinks. Symbolic links are allowed
+ * because the pinned test corpus carries deliberate fixtures, but an absolute
+ * link target is rejected here and every link is containment-checked after
+ * extraction. Hard links are not needed by the pinned archives and fail closed.
+ */
+async function assertArchiveSafe(archive: string): Promise<void> {
+  for (const name of await listTar(archive, "-tzf")) {
+    if (name.startsWith("/") || /^[A-Za-z]:[\\/]/.test(name)) {
+      throw new Error(`archive contains an absolute path: ${name}`);
+    }
+    if (name.split(/[\\/]/).includes("..")) {
+      throw new Error(`archive contains a parent-directory entry: ${name}`);
+    }
+  }
+  for (const line of await listTar(archive, "-tvzf")) {
+    const type = line.charAt(0);
+    if (line.includes(" link to ")) {
+      throw new Error(
+        `archive contains a hard link, only regular files, directories and contained symlinks are allowed: ${line.slice(0, 200)}`,
+      );
+    }
+    if (type !== "-" && type !== "d" && type !== "l") {
+      const kind =
+        type === "h"
+          ? "a hard link"
+          : `entry type ${JSON.stringify(type)}`;
+      throw new Error(
+        `archive contains ${kind}, only regular files, directories and contained symlinks are allowed: ${line.slice(0, 200)}`,
+      );
+    }
+    if (type === "l") {
+      const target = line.split(" -> ").pop();
+      if (
+        target !== undefined &&
+        (target.startsWith("/") || /^[A-Za-z]:[\\/]/.test(target))
+      ) {
+        throw new Error(
+          `archive symbolic link has an absolute target: ${line.slice(0, 200)}`,
+        );
+      }
+    }
+  }
+}
+
+/** Re-check the extracted tree: contained symlinks, regular files/directories only. */
+async function assertExtractedTree(destination: string): Promise<void> {
+  const root = await realpath(destination);
+  const walk = async (directory: string, prefix: string): Promise<void> => {
+    for (const name of await readdir(directory)) {
+      const relative = prefix.length === 0 ? name : `${prefix}/${name}`;
+      const full = path.join(directory, name);
+      const info = await lstat(full);
+      if (info.isSymbolicLink()) {
+        const target = await readlink(full);
+        if (target.startsWith("/") || /^[A-Za-z]:[\\/]/.test(target)) {
+          throw new Error(
+            `archive extraction created a symbolic link with an absolute target: ${relative} -> ${target}`,
+          );
+        }
+        const resolved = path.resolve(directory, target);
+        const within = path.relative(root, resolved);
+        if (within.startsWith("..") || path.isAbsolute(within)) {
+          throw new Error(
+            `archive extraction created a symbolic link that escapes its destination: ${relative} -> ${target}`,
+          );
+        }
+        continue;
+      }
+      if (info.isDirectory()) {
+        await walk(full, relative);
+        continue;
+      }
+      if (!info.isFile()) {
+        throw new Error(`archive extraction created a non-regular file: ${relative}`);
+      }
+      const resolved = await realpath(full);
+      if (resolved !== path.join(root, relative)) {
+        throw new Error(`archive extraction escaped its destination: ${relative}`);
+      }
+    }
+  };
+  await walk(root, "");
+}
+
+/** Exported for the hostile-archive tests; the builder is its only production caller. */
+export async function extractArchive(
   archive: string,
   destination: string,
 ): Promise<void> {
+  await assertArchiveSafe(archive);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   const outcome = await runCommand(
@@ -1026,6 +1214,7 @@ async function extractArchive(
       `cannot extract ${archive}: ${outcome.error ?? `tar exited ${String(outcome.code)}`}\n${tail(outcome.stderr)}`,
     );
   }
+  await assertExtractedTree(destination);
 }
 
 interface PreparedVerifier {
@@ -1169,30 +1358,51 @@ function referenceInvocation(context: RunContext): ReferenceInvocation {
   };
 }
 
-async function listPackageFiles(
+interface PackageEntries {
+  readonly files: Record<string, string>;
+  readonly types: Record<string, string>;
+}
+
+async function listPackageEntries(
   packageDir: string,
   prefix = "",
-): Promise<Record<string, string>> {
+): Promise<PackageEntries> {
   const files: Record<string, string> = {};
+  const types: Record<string, string> = {};
   const entries = await readdir(path.join(packageDir, prefix), {
     withFileTypes: true,
   });
   for (const entry of entries) {
     const relative =
       prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) {
-      Object.assign(files, await listPackageFiles(packageDir, relative));
-    } else if (entry.isFile()) {
-      files[relative] = await sha256File(path.join(packageDir, relative));
+    const full = path.join(packageDir, relative);
+    const info = await lstat(full);
+    if (info.isDirectory()) {
+      const nested = await listPackageEntries(packageDir, relative);
+      Object.assign(files, nested.files);
+      Object.assign(types, nested.types);
+      continue;
+    }
+    types[relative] = info.isFile()
+      ? "file"
+      : info.isSymbolicLink()
+        ? "symlink"
+        : "other";
+    if (info.isFile()) {
+      files[relative] = await sha256File(full);
     }
   }
-  return Object.fromEntries(
-    Object.entries(files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-  );
+  const sorted = (record: Record<string, string>): Record<string, string> =>
+    Object.fromEntries(
+      Object.entries(record).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    );
+  return { files: sorted(files), types: sorted(types) };
 }
 
 export interface InputSnapshot {
   readonly packageFiles: Readonly<Record<string, string>>;
+  /** lstat type per packaged path; a symlink swap keeps the same bytes but is not a file. */
+  readonly packageFileTypes: Readonly<Record<string, string>>;
   readonly policySha256: string;
 }
 
@@ -1201,8 +1411,10 @@ export async function snapshotInputs(
   packageDir: string,
   policyPath: string,
 ): Promise<InputSnapshot> {
+  const packageEntries = await listPackageEntries(packageDir);
   return {
-    packageFiles: await listPackageFiles(packageDir),
+    packageFiles: packageEntries.files,
+    packageFileTypes: packageEntries.types,
     policySha256: await sha256File(policyPath),
   };
 }
@@ -1265,16 +1477,26 @@ export async function verifyInputsUnchanged(
     ];
   }
   const problems: string[] = [];
+  for (const [file, type] of Object.entries(snapshot.packageFileTypes)) {
+    const observedType = current.packageFileTypes[file];
+    if (observedType === undefined) {
+      problems.push(`${label}: package file was removed: ${file}`);
+    } else if (observedType !== type) {
+      problems.push(
+        `${label}: package file type changed: ${file} (${type} -> ${observedType})`,
+      );
+    } else if (type !== "file") {
+      problems.push(`${label}: package file is not a regular file: ${file} (${type})`);
+    }
+  }
   for (const [file, digest] of Object.entries(snapshot.packageFiles)) {
     const observed = current.packageFiles[file];
-    if (observed === undefined) {
-      problems.push(`${label}: package file was removed: ${file}`);
-    } else if (observed !== digest) {
+    if (observed !== undefined && observed !== digest) {
       problems.push(`${label}: package file was modified: ${file}`);
     }
   }
-  for (const file of Object.keys(current.packageFiles)) {
-    if (snapshot.packageFiles[file] === undefined) {
+  for (const file of Object.keys(current.packageFileTypes)) {
+    if (snapshot.packageFileTypes[file] === undefined) {
       problems.push(`${label}: package file was added: ${file}`);
     }
   }
@@ -1490,6 +1712,7 @@ async function main(): Promise<void> {
     policyPath,
     manifestText,
     packageFileDigests: snapshot.packageFiles,
+    packageFileTypes: snapshot.packageFileTypes,
     executions,
     extraProblems,
     inputIntegrity: {

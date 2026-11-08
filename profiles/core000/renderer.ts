@@ -83,13 +83,25 @@ function countSeverity(diagnostics: readonly Diagnostic[], severity: Severity): 
   return diagnostics.filter((diagnostic) => diagnostic.severity === severity).length;
 }
 
-/** Summary-level gate conclusion from the emitted diagnostics, never from the catalog. */
-function gateConclusion(counts: { errors: number; reviews: number }): string {
+/**
+ * Summary-level gate conclusion from the emitted diagnostics, never from the catalog.
+ * `--strict` promotes WARNING to blocking, but the renderer is not told whether the
+ * build ran with it, so a warnings-only build must not claim an unconditional
+ * release permission.
+ */
+export function gateConclusion(counts: {
+  errors: number;
+  reviews: number;
+  warnings: number;
+}): string {
   const reasons: string[] = [];
   if (counts.errors > 0) reasons.push(`${counts.errors} \`ERROR\``);
   if (counts.reviews > 0) reasons.push(`${counts.reviews} \`REVIEW_REQUIRED\``);
   if (reasons.length === 0) {
-    return "`release` permitted — no `ERROR` or `REVIEW_REQUIRED` diagnostics.";
+    if (counts.warnings > 0) {
+      return "`release` gate — no `ERROR` or `REVIEW_REQUIRED` diagnostics; `WARNING` diagnostics block only under `--strict`.";
+    }
+    return "`release` permitted — no `ERROR`, `REVIEW_REQUIRED` or `WARNING` diagnostics.";
   }
   return `\`release\` blocked — ${reasons.join(" and ")} diagnostics.`;
 }

@@ -1,8 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   assembleBatch,
+  extractArchive,
   parseVerifierReport,
 } from "../independent.js";
 import { renderEvidenceMarkdown } from "../evidence.js";
@@ -196,6 +201,7 @@ test("an out-of-expected independent verdict fails the batch", () => {
   for (const [verdict, exitCode] of [
     ["FAIL", 1],
     ["UNTRUSTED", 3],
+    ["NOT_EVALUATED", 2],
   ] as const) {
     const executions = replaceExecution(
       defaultExecutions(),
@@ -210,6 +216,123 @@ test("an out-of-expected independent verdict fails the batch", () => {
       problems.join("\n"),
     );
   }
+});
+
+test("a verdict/check-outcome contradiction fails the batch", () => {
+  const passWithUnsupportedCheck = replaceExecution(
+    defaultExecutions(),
+    executionFor(
+      "rust",
+      reportFor("rust", { verdict: "PASS", checkOutcome: "UNSUPPORTED" }),
+      0,
+    ),
+  );
+  const passResult = assembleBatch(optionsWith(passWithUnsupportedCheck));
+  assert.equal(passResult.batch.ok, false);
+  assert.ok(
+    passResult.problems.some((problem) =>
+      problem.includes("verdict PASS contradicts required check"),
+    ),
+    passResult.problems.join("\n"),
+  );
+
+  const unsupportedWithFailCheck = replaceExecution(
+    defaultExecutions(),
+    executionFor(
+      "rust",
+      reportFor("rust", { verdict: "UNSUPPORTED", checkOutcome: "FAIL" }),
+      4,
+    ),
+  );
+  const failResult = assembleBatch(optionsWith(unsupportedWithFailCheck));
+  assert.equal(failResult.batch.ok, false);
+  assert.ok(
+    failResult.problems.some((problem) =>
+      problem.includes("requires verdict FAIL"),
+    ),
+    failResult.problems.join("\n"),
+  );
+});
+
+test("a check-level disagreement fails the batch", () => {
+  const executions = replaceExecution(
+    defaultExecutions(),
+    executionFor(
+      "rust",
+      reportFor("rust", { verdict: "UNSUPPORTED", checkOutcome: "FAIL" }),
+      4,
+    ),
+  );
+  const { batch, problems } = assembleBatch(optionsWith(executions));
+  assert.equal(batch.ok, false);
+  assert.equal(batch.comparison.checkAgreement, false);
+  assert.ok(
+    problems.some((problem) =>
+      problem.includes("check-level disagreement on pap.check.digest-integrity/1"),
+    ),
+    problems.join("\n"),
+  );
+});
+
+test("UNSUPPORTED, NOT_EVALUATED and ABSENT are not check disagreements", () => {
+  const executions = defaultExecutions().map((execution) => {
+    if (execution.name === "rust") {
+      return executionFor(
+        "rust",
+        reportFor("rust", { verdict: "PASS", checkOutcome: "PASS" }),
+        0,
+      );
+    }
+    if (execution.name === "go") {
+      return executionFor(
+        "go",
+        reportFor("go", { verdict: "INCOMPLETE", checkOutcome: "NOT_EVALUATED" }),
+        2,
+      );
+    }
+    return execution;
+  });
+  const { batch, problems } = assembleBatch(optionsWith(executions));
+  assert.deepEqual(problems, []);
+  assert.equal(batch.comparison.checkAgreement, true);
+  assert.equal(batch.ok, true);
+});
+
+test("the batch records package input file types", () => {
+  const { batch } = assembleBatch(optionsWith(defaultExecutions()));
+  assert.deepEqual(batch.package.fileTypes, {
+    "artifacts/CORE-000.draft.md": "file",
+    "assurance-package.json": "file",
+  });
+});
+
+test("a batch without recorded package file types fails closed", () => {
+  const { packageFileTypes: _omitted, ...withoutTypes } = optionsWith(
+    defaultExecutions(),
+  );
+  const { batch, problems } = assembleBatch(withoutTypes);
+  assert.equal(batch.ok, false);
+  assert.ok(
+    problems.some((problem) => problem.includes("package file types were not recorded")),
+    problems.join("\n"),
+  );
+});
+
+test("evidence rendering refuses an invalid batch", () => {
+  const executions = replaceExecution(
+    defaultExecutions(),
+    executionFor(
+      "rust",
+      reportFor("rust", { verdict: "UNSUPPORTED", checkOutcome: "FAIL" }),
+      4,
+    ),
+  );
+  const { batch } = assembleBatch(optionsWith(executions));
+  assert.equal(batch.ok, false);
+  assert.throws(
+    () => renderEvidenceMarkdown(batch),
+    /refusing to render evidence from a batch that is not ok/,
+  );
 });
 
 test("an independent dimension disagreement fails the batch", () => {
@@ -328,3 +451,139 @@ test("the evidence record is deterministic and states the trust boundary", () =>
     assert.match(markdown, new RegExp(entry.reportSha256 ?? "missing-hash"));
   }
 });
+
+function tar(args: readonly string[], cwd: string): void {
+  const result = spawnSync("tar", [...args], { cwd, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+}
+
+test(
+  "archive extraction rejects an absolute symbolic-link target before writing",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-abs-"));
+    try {
+      const source = path.join(root, "source", "owner-repo-sha");
+      await mkdir(source, { recursive: true });
+      await writeFile(path.join(source, "real.txt"), "real\n");
+      await symlink("/etc/passwd", path.join(source, "escape"));
+      const archive = path.join(root, "evil.tar.gz");
+      tar(["-czf", archive, "owner-repo-sha"], path.join(root, "source"));
+
+      const destination = path.join(root, "extracted");
+      await assert.rejects(
+        extractArchive(archive, destination),
+        /archive symbolic link has an absolute target/,
+      );
+      await assert.rejects(
+        access(destination),
+        "a rejected archive must not create the destination",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "archive extraction rejects a relative symbolic link that escapes the destination",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-rel-"));
+    try {
+      const source = path.join(root, "source", "owner-repo-sha");
+      await mkdir(source, { recursive: true });
+      await writeFile(path.join(source, "real.txt"), "real\n");
+      await symlink("../../outside-target", path.join(source, "escape"));
+      const archive = path.join(root, "evil.tar.gz");
+      tar(["-czf", archive, "owner-repo-sha"], path.join(root, "source"));
+
+      await assert.rejects(
+        extractArchive(archive, path.join(root, "extracted")),
+        /symbolic link that escapes its destination/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "archive extraction allows a contained symbolic link",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-symlink-ok-"));
+    try {
+      const source = path.join(root, "source", "owner-repo-sha");
+      await mkdir(source, { recursive: true });
+      await writeFile(path.join(source, "real.txt"), "real\n");
+      await symlink("real.txt", path.join(source, "inside"));
+      const archive = path.join(root, "regular.tar.gz");
+      tar(["-czf", archive, "owner-repo-sha"], path.join(root, "source"));
+
+      const destination = path.join(root, "extracted");
+      await extractArchive(archive, destination);
+      assert.equal(
+        await readFile(path.join(destination, "inside"), "utf8"),
+        "real\n",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "archive extraction rejects an absolute path before writing",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-absolute-"));
+    try {
+      const source = path.join(root, "source");
+      await mkdir(source);
+      const absolute = path.join(source, "absolute.txt");
+      await writeFile(absolute, "absolute\n");
+      const archive = path.join(root, "evil.tar.gz");
+      tar(["-P", "-czf", archive, absolute], root);
+      const listing = spawnSync("tar", ["-tzf", archive], { encoding: "utf8" });
+      assert.equal(listing.status, 0, listing.stderr);
+      assert.ok(
+        listing.stdout.startsWith("/"),
+        "the fixture must contain an absolute path",
+      );
+
+      const destination = path.join(root, "extracted");
+      await assert.rejects(
+        extractArchive(archive, destination),
+        /archive contains an absolute path/,
+      );
+      await assert.rejects(access(destination));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "archive extraction accepts a regular top-level-directory archive",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "c6-archive-regular-"));
+    try {
+      const source = path.join(root, "source", "owner-repo-sha");
+      await mkdir(path.join(source, "src"), { recursive: true });
+      await writeFile(path.join(source, "src", "main.txt"), "main\n");
+      const archive = path.join(root, "regular.tar.gz");
+      tar(["-czf", archive, "owner-repo-sha"], path.join(root, "source"));
+
+      const destination = path.join(root, "extracted");
+      await extractArchive(archive, destination);
+      assert.equal(
+        await readFile(path.join(destination, "src", "main.txt"), "utf8"),
+        "main\n",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
