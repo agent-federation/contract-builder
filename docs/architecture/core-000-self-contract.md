@@ -2163,7 +2163,8 @@ but the CORE-001 hook consumes `sources[0]`, and no test builds a two-source pro
 
 **Amended 2026-11-07 (E2/#179; ODR-ENG-001 B4 decision).** M1 now rejects more than one source
 during manifest validation with `core.manifest.invalid`, and the 2026-11-07 decision makes an absent
-or empty source array the same manifest-validation error (code and tests in #229). Multi-source
+or empty source array the same manifest-validation error (implemented in
+[#233](https://github.com/agent-federation/contract-builder/pull/233)/`bf5f544`, closing #229). Multi-source
 *semantics* remain unimplemented, so the one-source workaround below still stands; the observation's
 "no test builds a two-source project" is superseded by the rejection test.
 

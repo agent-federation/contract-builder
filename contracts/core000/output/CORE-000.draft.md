@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:cc5dc6182068fa33f08e5250b317b77f4937808fefda873b6138ab4eab3626c6` |
+| inputDigest | `sha256:5ebae52bb711625360bed28c59310f0ebdf299ff83d6b8a44dc1ef2b210f5bf6` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -1587,7 +1587,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:c913cab4939bc6514401f78a0840201c7725d19fe455a1e18becf3b1fa362f50`
+- Source digest: `sha256:712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19`
 - Quote: The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**
 
 ### SRC-MANIFEST-001
@@ -1598,7 +1598,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:c913cab4939bc6514401f78a0840201c7725d19fe455a1e18becf3b1fa362f50`
+- Source digest: `sha256:712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19`
 - Quote: `render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred.
 
 ### SRC-PROVENANCE-001
@@ -1609,7 +1609,7 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
 - Source version: Contract Builder Engine — Public Contract (Rev 0.4)
-- Source digest: `sha256:c913cab4939bc6514401f78a0840201c7725d19fe455a1e18becf3b1fa362f50`
+- Source digest: `sha256:712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19`
 - Quote: A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit.
 
 ## Evidence
