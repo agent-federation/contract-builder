@@ -17,11 +17,14 @@ Participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By contr
 bun install --frozen-lockfile
 bun run typecheck
 bun run lint
-bun test
-bun run check
+bun run format:check
+bun run docs:links
+bun run coverage
+bun run coverage:check
+bun run check:all
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same sequence. All steps must be green before a PR can land.
+CI (`.github/workflows/ci.yml`) runs `bun audit` and the same sequence. All steps must be green before a PR can land.
 
 ## How to contribute
 
@@ -40,6 +43,34 @@ Formatting and linting use [Biome](https://biomejs.dev/) (pinned `@biomejs/biome
 - `bun run format:check` — report formatting differences without writing.
 
 Formatting is enforced in CI. Run `bun run format` on the files your change touches, and do **not** mix a repository-wide reformat into a feature, fix or documentation PR — a formatting-only change is its own PR. Generated artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens (`pap/fixtures/`, `fixtures/`, `tests/golden/`), `coverage/` and lockfiles are excluded in `biome.json`; the content-addressed profile and input files are excluded from formatting (they are still linted) so their build digests do not change. Do not reformat any of them by hand.
+
+### Documentation links
+
+`bun run docs:links` (`scripts/check-docs-links.ts`) checks relative links and anchors in `docs/**`, `README*.md`, `CONTRIBUTING.md`, `AGENTS.md` and `CODE_OF_CONDUCT.md`. It is a required CI step, local and deterministic: it fails on a missing relative target, a heading anchor that does not exist under GitHub's heading-slug rules, or a `#L…` line anchor outside the target file. It follows explicit `<a name>`/`<a id>` anchors and ignores links inside fenced code blocks and inline code, which are examples rather than navigation.
+
+External `http(s)` URLs are deliberately **not** checked by the pull-request gate: a PR must never depend on a third-party host being reachable. External link checking is a separate non-blocking scheduled job or out of scope; the gate makes no network calls.
+
+### Coverage policy
+
+`bun run coverage` runs the suite and writes `coverage/lcov.info`; `bun run coverage:check` (`scripts/check-coverage.ts`) enforces line-coverage floors on the **in-process measured** areas only. `pap/` is excluded: its tests exercise the verifier by spawning the CLI, so an in-process percentage there is misleading (the #137 audit measured `manifest.ts` at ~3.31% for that reason). There is no global threshold.
+
+Measured at `b4927c4` with `bun run coverage`:
+
+| Area | Bun 1.4.2 (CI) | Bun 1.4.4 | Floor |
+|---|---|---|---|
+| `spec/` | 83.65% | 81.29% | **80%** |
+| `profiles/` | 89.34% | 88.02% | **87%** |
+| `pipeline/` | 77.16% | 73.21% | **72%** |
+
+Bun 1.4.x patch versions report different absolute numbers for the same code (the pinned 1.4.2 counts more instrumented lines than 1.4.4). The floors are roughly one percentage point below the *lower* measurement, rounded down: enough headroom for that reporter difference and for small refactors, but still a ratchet against silent erosion. Raise a floor when coverage rises; lowering one needs a stated rationale in the pull request. A new measured area needs data and a floor — a missing or empty area fails rather than passing silently. Coverage of temporary CORE-000 workspaces is excluded by construction: the checker only counts files inside the repository.
+
+### Security and dependency automation
+
+The repository-managed CodeQL workflow (`.github/workflows/codeql.yml`) analyzes JavaScript/TypeScript on push to `main`, on pull requests and weekly, with pinned action SHAs and `security-events: write`; results appear under **Security → Code scanning**. Several settings live in the repository configuration, not in this repository, and only the maintainer can change them:
+
+- **CodeQL setup conflict.** If GitHub's *default setup* is enabled, disable it before this workflow is enabled (**Settings → Code security → Code scanning → CodeQL analysis → Disable default setup**). The default setup and a CodeQL workflow cannot both upload analyses.
+- **Secret scanning and push protection.** Enable them in **Settings → Code security** (secret scanning alerts, push protection, and validity checks where available). No file in the repository enables these; do not add a placeholder config that pretends otherwise.
+- **Renovate.** `.github/renovate.json` configures Renovate for `bun.lock` with Renovate's `bun` manager and for GitHub Actions with the `github-actions` manager. Renovate runs only when the Mend Renovate GitHub App is installed for this repository or organisation; installing the app is a maintainer action. Dependabot is not configured because it does not support `bun.lock`; if Renovate is not installed, dependency updates are manual. Renovate PRs pass the same CI and review gates as any other PR; major updates require approval from the dependency dashboard first.
 
 ### Pull request rules
 

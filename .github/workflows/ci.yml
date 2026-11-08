@@ -50,11 +50,20 @@ jobs:
           bun run lint
           bun run format:check
 
-      # Coverage is informational only, with no threshold: the PAP tests exercise the
-      # verifier by spawning its CLI, so pap/ execution is not measurable in-process and
-      # a global threshold would be misleading.
+      # Local and network-free: a pull request must never depend on a third-party
+      # host being reachable. External URL checking is a separate, non-blocking
+      # scheduled job (or out of scope), never part of this gate.
+      - name: Documentation links
+        run: bun run docs:links
+
+      # Writes the lcov report the coverage policy reads next. The policy applies
+      # only to areas measured in-process; pap/ is excluded because its tests spawn
+      # the CLI, so a global percentage would be misleading.
       - name: Tests
-        run: bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage
+        run: bun run coverage
+
+      - name: Coverage policy
+        run: bun run coverage:check
 
       - name: Generated artifacts are up to date
         run: bun run check:all
