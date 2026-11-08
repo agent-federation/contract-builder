@@ -10,6 +10,7 @@ import {
   type Renderer,
 } from "../spec/lib/render.js";
 import { renderer } from "../profiles/core001/renderer.js";
+import { gateConclusion } from "../profiles/core000/renderer.js";
 import {
   copyProjectWithProfile,
   entity,
@@ -162,4 +163,29 @@ test("renderer: a non-string labels declaration is rejected", async () => {
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   assert.ok(result.diagnostics.some((item) => item.code === "core.manifest.invalid"));
+});
+
+test("core000 renderer: a warnings-only build does not claim strict-mode permission", () => {
+  assert.equal(
+    gateConclusion({ errors: 0, reviews: 0, warnings: 0 }),
+    "`release` permitted — no `ERROR`, `REVIEW_REQUIRED` or `WARNING` diagnostics.",
+  );
+
+  const warnings = gateConclusion({ errors: 0, reviews: 0, warnings: 2 });
+  assert.match(warnings, /`release` gate/);
+  assert.match(warnings, /`WARNING` diagnostics block only under `--strict`/);
+  assert.doesNotMatch(
+    warnings,
+    /permitted — no/,
+    "warnings are blocking under --strict, so the line must not claim permission",
+  );
+
+  assert.match(
+    gateConclusion({ errors: 1, reviews: 0, warnings: 0 }),
+    /`release` blocked — 1 `ERROR` diagnostics\./,
+  );
+  assert.match(
+    gateConclusion({ errors: 0, reviews: 2, warnings: 1 }),
+    /`release` blocked — 2 `REVIEW_REQUIRED` diagnostics\./,
+  );
 });

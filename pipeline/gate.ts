@@ -154,23 +154,31 @@ async function readJsonFile(file: string, label: string): Promise<FileRead> {
       error: `cannot read ${label} file ${file}: ${messageOf(error)}`,
     };
   }
+  let text: string;
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (error) {
+    return {
+      bytes,
+      value: null,
+      ok: false,
+      error: `${label} is not valid UTF-8: ${messageOf(error)}`,
+    };
+  }
+  try {
     const value = JSON.parse(text);
     // `JSON.parse` keeps the last duplicate member, so a forged report could
     // hide a FAIL behind a later PASS. Reject duplicates before trusting it.
     assertNoDuplicateMembers(text);
     return { bytes, value, ok: true, error: null };
   } catch (error) {
-    return {
-      bytes,
-      value: null,
-      ok: false,
-      error:
-        error instanceof DuplicateMemberError
-          ? `${label} contains ${error.message}`
-          : `${label} is not valid UTF-8 JSON: ${messageOf(error)}`,
-    };
+    let detail = `is not valid JSON: ${messageOf(error)}`;
+    if (error instanceof DuplicateMemberError) {
+      detail = `contains ${error.message}`;
+    } else if (error instanceof JsonNestingError) {
+      detail = error.message;
+    }
+    return { bytes, value: null, ok: false, error: `${label} ${detail}` };
   }
 }
 
@@ -181,11 +189,25 @@ class DuplicateMemberError extends Error {
   }
 }
 
+class JsonNestingError extends Error {
+  constructor(depth: number) {
+    super(`JSON nesting exceeds the gate limit of ${depth} levels`);
+    this.name = "JsonNestingError";
+  }
+}
+
+/** Deeper than any PAP report the gate should accept; rejects a stack-defeating scan. */
+const MAX_JSON_DEPTH = 512;
+
 /**
  * Reject duplicate object member names in an already-parsed JSON document.
  * `JSON.parse` silently keeps the last value, which would let a forged report
  * shadow `"verdict": "FAIL"` with `"verdict": "PASS"`. Keys are compared after
  * decoding escapes, so `"\u0076erdict"` and `"verdict"` collide too.
+ *
+ * The scan is recursive with an explicit depth budget: `JSON.parse` is
+ * iterative, so a deeply nested report must not turn a duplicate check into an
+ * opaque "Maximum call stack size exceeded" JSON error.
  */
 function assertNoDuplicateMembers(text: string): void {
   let index = 0;
@@ -241,7 +263,7 @@ function assertNoDuplicateMembers(text: string): void {
     }
   }
 
-  function skipObject(): void {
+  function skipObject(depth: number): void {
     index += 1; // {
     skipWhitespace();
     if (text[index] === "}") {
@@ -258,7 +280,7 @@ function assertNoDuplicateMembers(text: string): void {
       skipWhitespace();
       if (text[index] !== ":") throw new Error("expected ':'");
       index += 1;
-      skipValue();
+      skipValue(depth + 1);
       skipWhitespace();
       if (text[index] === ",") {
         index += 1;
@@ -272,7 +294,7 @@ function assertNoDuplicateMembers(text: string): void {
     }
   }
 
-  function skipArray(): void {
+  function skipArray(depth: number): void {
     index += 1; // [
     skipWhitespace();
     if (text[index] === "]") {
@@ -280,7 +302,7 @@ function assertNoDuplicateMembers(text: string): void {
       return;
     }
     while (true) {
-      skipValue();
+      skipValue(depth + 1);
       skipWhitespace();
       if (text[index] === ",") {
         index += 1;
@@ -295,15 +317,16 @@ function assertNoDuplicateMembers(text: string): void {
     }
   }
 
-  function skipValue(): void {
+  function skipValue(depth: number): void {
+    if (depth > MAX_JSON_DEPTH) throw new JsonNestingError(MAX_JSON_DEPTH);
     skipWhitespace();
     const char = text[index];
     if (char === "{") {
-      skipObject();
+      skipObject(depth);
       return;
     }
     if (char === "[") {
-      skipArray();
+      skipArray(depth);
       return;
     }
     if (char === '"') {
@@ -326,7 +349,7 @@ function assertNoDuplicateMembers(text: string): void {
   }
 
   skipWhitespace();
-  skipValue();
+  skipValue(0);
   skipWhitespace();
   if (index !== text.length) throw new Error("trailing JSON content");
 }
@@ -472,8 +495,14 @@ function evaluate(input: EvaluationInput): AcceptanceDecision {
       try {
         policy = value as PolicyView;
         policyDigest = domainHash("pap.trust-policy.v1", canonicalJsonBytes(value));
-        if (!isRfc3339(policy.issuedAt) || !isRfc3339(policy.expiresAt)) {
+        const issuedAt = parseInstant(policy.issuedAt);
+        const expiresAt = parseInstant(policy.expiresAt);
+        if (issuedAt === null || expiresAt === null) {
           reasons.add("trust policy issuedAt/expiresAt is not an RFC 3339 instant");
+        } else if (issuedAt > expiresAt) {
+          reasons.add(
+            `trust policy issuedAt ${quote(policy.issuedAt)} is after expiresAt ${quote(policy.expiresAt)}`,
+          );
         }
       } catch (error) {
         policy = null;
@@ -540,7 +569,13 @@ function evaluateReport(
     ["coverage.checksUnsupported", report.coverage.checksUnsupported],
     ["coverage.checksNotEvaluated", report.coverage.checksNotEvaluated],
   ] as const) {
-    if (count > 0) reasons.add(`${label} is ${count}, expected 0`);
+    // Ajv's `integer` accepts `Infinity` (JSON `1e999`), so do not trust the
+    // schema for the counters the gate compares against zero.
+    if (!Number.isFinite(count)) {
+      reasons.add(`${label} is not a finite number: ${String(count)}`);
+    } else if (count > 0) {
+      reasons.add(`${label} is ${count}, expected 0`);
+    }
   }
 
   if (report.policy.state !== "FRESH") {

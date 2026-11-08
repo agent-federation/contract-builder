@@ -181,7 +181,10 @@ jobs:
   # `pipeline/independent.ts` builds the implementations from their pinned public
   # archives, verifies the archive SHA-256 and each self-reported
   # implementationDigest, and fails on a missing/unparseable report, an identity
-  # mismatch or a packageIdentity disagreement.
+  # mismatch, a packageIdentity disagreement, a genuine check-level disagreement
+  # or a verdict/check-outcome contradiction; an unsafe pinned archive (absolute
+  # path, escaping link or unsupported entry type) also fails. An invalid batch is
+  # retained for audit and never rendered as evidence Markdown.
   pipeline-independent:
     needs: check
     runs-on: ubuntu-latest

@@ -353,8 +353,6 @@ function buildProvenanceClaim(
     .filter((entity) => entity.kind === "source_statement")
     .sort((a, b) => compareStrings(a.id, b.id));
   const bindings: ProvenanceBinding[] = [];
-  const seenBindings = new Set<string>();
-  const seenTuples = new Set<string>();
 
   for (const statement of statements) {
     const sourceId = requireString(statement.fields.source, `${statement.id}.source`);
@@ -366,18 +364,10 @@ function buildProvenanceClaim(
       );
     }
     const resolved = resolveExactQuote(source.bytes, quote, `${statement.id} (${reference})`);
-    const id = `binding:${statement.id}`;
-    if (seenBindings.has(id)) {
-      throw new Error(`claims: duplicate provenance binding id "${id}"`);
-    }
-    seenBindings.add(id);
-    const tuple = `${statement.id}\u0000${sourceId}\u0000${resolved.start}\u0000${resolved.end}`;
-    if (seenTuples.has(tuple)) {
-      throw new Error(`claims: duplicate provenance binding tuple for ${statement.id}`);
-    }
-    seenTuples.add(tuple);
+    // Entity ids are unique (readEntities fails on a duplicate), so
+    // `binding:<id>` cannot collide and no separate binding dedup is reachable.
     bindings.push({
-      id,
+      id: `binding:${statement.id}`,
       entityId: statement.id,
       sourceId,
       locator: { kind: "byte-range", start: resolved.start, end: resolved.end },
@@ -515,9 +505,13 @@ function readTargets(
 /**
  * Resolve a declared quote to the exact raw source span it names.
  *
- * Exact source bytes win. When the declaration is whitespace-collapsed (all CORE-000
- * statements are), a whitespace-normalized match is mapped back to the first and last
- * source byte of the matched text, so the digest always covers packaged source bytes.
+ * Exact source bytes win over a normalized match, but a second exact occurrence
+ * and a second whitespace-normalized occurrence are both ambiguous. CORE-000
+ * quotes are whitespace-collapsed, so a whitespace variant elsewhere names the
+ * same text and is rejected even when the exact bytes occur only once. When no
+ * exact match exists, the unique whitespace-normalized match is mapped back to
+ * the first and last source byte of the matched text, so the digest always
+ * covers packaged source bytes.
  */
 export function resolveExactQuote(
   sourceBytes: Uint8Array,

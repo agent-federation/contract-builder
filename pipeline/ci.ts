@@ -117,7 +117,7 @@ function normalizeReport(report: JsonObject): string {
   return JSON.stringify(copy);
 }
 
-async function checkDeterminism(args: readonly string[]): Promise<void> {
+export async function checkDeterminism(args: readonly string[]): Promise<void> {
   const [first, second] = args;
   if (first === undefined || second === undefined || args.length !== 2) {
     fail("determinism requires exactly <report-a> <report-b>");
@@ -142,7 +142,7 @@ async function checkDeterminism(args: readonly string[]): Promise<void> {
   );
 }
 
-async function tamperReport(args: readonly string[]): Promise<void> {
+export async function tamperReport(args: readonly string[]): Promise<void> {
   const [source, target] = args;
   if (source === undefined || target === undefined || args.length !== 2) {
     fail("tamper requires exactly <report> <out>");
@@ -165,7 +165,7 @@ async function tamperReport(args: readonly string[]): Promise<void> {
   console.log(`tamper: wrote ${target} with verdict FAIL`);
 }
 
-async function assertDecision(args: readonly string[]): Promise<void> {
+export async function assertDecision(args: readonly string[]): Promise<void> {
   const [file, expected] = args;
   if (file === undefined || expected === undefined || args.length !== 2) {
     fail(

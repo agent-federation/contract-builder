@@ -47,23 +47,23 @@ function run(args: readonly string[]): SpawnResult {
   };
 }
 
-function gitStatus(): string {
+/** Null outside a checkout (for example a pre-review extraction with no `.git`). */
+function gitStatus(): string | null {
   const result = spawnSync(
     "git",
     ["status", "--porcelain", "--untracked-files=all"],
     { cwd: root, encoding: "utf8" },
   );
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout;
+  return result.status === 0 ? result.stdout : null;
 }
 
-function gitHead(): string {
+/** Null when the checkout has no git metadata; the packer then omits acquisition. */
+function gitHead(): string | null {
   const result = spawnSync("git", ["rev-parse", "HEAD"], {
     cwd: root,
     encoding: "utf8",
   });
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout.trim();
+  return result.status === 0 ? result.stdout.trim() : null;
 }
 
 async function listFiles(dir: string, prefix = ""): Promise<string[]> {
@@ -198,10 +198,16 @@ async function checkPackageTree(packageDir: string): Promise<void> {
   );
   assert.equal(source.id, "SRC-ENGINE-CONTRACT");
   assert.equal(source.digest, rawSourceDigest(sourceBytes));
-  assert.deepEqual(source.acquisition, {
-    method: "git",
-    revision: gitHead(),
-  });
+  const head = gitHead();
+  if (head === null) {
+    // The packer only claims a git acquisition when the checkout carries one.
+    assert.equal(source.acquisition, undefined, "no git metadata means no acquisition");
+  } else {
+    assert.deepEqual(source.acquisition, {
+      method: "git",
+      revision: head,
+    });
+  }
   assert.equal("acquiredAt" in source, false, "D3 omits acquiredAt");
 
   assert.deepEqual(manifest.profile, { id: "core000", version: "0.1.0" });
@@ -266,7 +272,7 @@ async function checkPackageTree(packageDir: string): Promise<void> {
 }
 
 test("pack:core000 produces the C2 layout and both runs are byte-identical", async () => {
-  const tempRoot = await mkdtemp(path.join(tmpdir(), "pipeline-c1-"));
+  const tempRoot = await mkdtemp(path.join(tmpdir(), "pipeline-c2-pack-"));
   const first = path.join(tempRoot, "first");
   const second = path.join(tempRoot, "second");
   const before = gitStatus();
