@@ -24,7 +24,8 @@ spec/                           CORE-001 project: declared inputs and the builde
     provenance.ts               bindings and provenance-verification records
     hook.ts                     hook contract and finding resolution
     extension.ts                extension closure: declaration, lockfile, import scan
-    identity.ts                 build identity: inputDigest and profileDigest
+    identity.ts                 build identity facade: inputDigest and profileDigest
+    identity/                   digest, engine root/imports, closure and identity assembly
     render.ts                   renderer boundary and artifact normalization
     diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
     guards.ts                   shared type checks
