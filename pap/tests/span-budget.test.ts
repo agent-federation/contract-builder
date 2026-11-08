@@ -1,16 +1,18 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
 
 const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
 
+after(cleanupTempDirs);
+
 function tempPackage(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-span-"));
+  const dir = tempDir("span-");
   cpSync(base, dir, { recursive: true });
   return dir;
 }
@@ -21,7 +23,7 @@ function writeManifest(dir: string, value: unknown): void {
   writeFileSync(path.join(dir, "assurance-package.json"), `${JSON.stringify(value, null, 2)}\n`);
 }
 function writePolicy(value: unknown): string {
-  const file = path.join(mkdtempSync(path.join(tmpdir(), "pap-span-policy-")), "policy.json");
+  const file = path.join(tempDir("span-policy-"), "policy.json");
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
   return file;
 }

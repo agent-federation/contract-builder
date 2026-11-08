@@ -1,9 +1,11 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
+
+after(cleanupTempDirs);
 
 const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
@@ -16,7 +18,7 @@ const skipPermissionTest = runningAsRoot
     : false;
 
 function tempPackage(source = base): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-scan-incomplete-"));
+  const dir = tempDir("scan-incomplete-");
   cpSync(source, dir, { recursive: true });
   return dir;
 }
@@ -65,7 +67,6 @@ test("an unlistable package root with a readable manifest is scan-incomplete, no
     assertScanIncompleteReport(JSON.parse(result.stdout), result);
   } finally {
     chmodSync(dir, 0o755);
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -82,7 +83,6 @@ test("an unreadable undeclared directory is scan-incomplete, not a package FAIL"
     assertScanIncompleteReport(JSON.parse(result.stdout), result);
   } finally {
     chmodSync(notes, 0o755);
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -95,12 +95,8 @@ test("the private traversal-depth budget is scan-incomplete, never a limit viola
     mkdirSync(cursor);
   }
   writeFileSync(path.join(cursor, "leaf.txt"), "x\n");
-  try {
-    const result = verify(dir);
-    assertScanIncompleteReport(JSON.parse(result.stdout), result);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  const result = verify(dir);
+  assertScanIncompleteReport(JSON.parse(result.stdout), result);
 });
 
 test("an independently established FAIL stays FAIL under scan-incomplete coverage", {
@@ -124,25 +120,20 @@ test("an independently established FAIL stays FAIL under scan-incomplete coverag
     assert.ok(!codes(report).includes("pap.package.io"));
   } finally {
     chmodSync(notes, 0o755);
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
 test("a missing declared payload remains a package FAIL, not scan-incomplete", () => {
   const dir = tempPackage();
   rmSync(path.join(dir, "artifacts/ACME-SUPPLIER.draft.md"));
-  try {
-    const result = verify(dir);
-    assert.equal(result.status, 1);
-    const report = JSON.parse(result.stdout);
-    assert.equal(report.verdict, "FAIL");
-    assert.equal(report.dimensions.integrity.package, "FAIL");
-    assert.equal(report.dimensions.integrity.artifacts, "FAIL");
-    assert.ok(codes(report).includes("pap.package.declared-file-missing"));
-    assert.ok(!codes(report).includes(scanIncompleteCode));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  const result = verify(dir);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "FAIL");
+  assert.equal(report.dimensions.integrity.package, "FAIL");
+  assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+  assert.ok(codes(report).includes("pap.package.declared-file-missing"));
+  assert.ok(!codes(report).includes(scanIncompleteCode));
 });
 
 test("an unreadable declared artifacts directory remains a declared-payload FAIL", {
@@ -170,7 +161,6 @@ test("an unreadable declared artifacts directory remains a declared-payload FAIL
     assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
   } finally {
     chmodSync(artifacts, 0o755);
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -193,6 +183,5 @@ test("inspect reports the same scan-incomplete code without a limit violation", 
     assert.ok(!limitationCodes.includes("pap.package.io"));
   } finally {
     chmodSync(notes, 0o755);
-    rmSync(dir, { recursive: true, force: true });
   }
 });

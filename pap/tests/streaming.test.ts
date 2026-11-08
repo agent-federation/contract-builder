@@ -1,16 +1,18 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { domainHash, inputFileDigest, normalizeLf } from "../src/digest.js";
 import { hashInput } from "../src/input.js";
 import { hashPackageFile, hashPackageRange } from "../src/paths.js";
 import type { PackageRoot } from "../src/paths.js";
 import { DEFAULT_LIMITS } from "../src/types.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
+
+after(cleanupTempDirs);
 
 function packageRoot(): PackageRoot {
-  const real = mkdtempSync(path.join(tmpdir(), "pap-stream-"));
+  const real = tempDir("stream-");
   return { supplied: real, real };
 }
 

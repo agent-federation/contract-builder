@@ -1,9 +1,11 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
+
+after(cleanupTempDirs);
 
 /**
  * S3 boundary regressions (ODR-PAP-006 §2 I1–I5, design note §6 S3).
@@ -32,13 +34,13 @@ function fixtureReport(caseId: string): { status: number; report: any } {
 }
 
 function tempPackage(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-verdict-wiring-"));
+  const dir = tempDir("verdict-wiring-");
   cpSync(base, dir, { recursive: true });
   return dir;
 }
 
 function writePolicy(value: unknown): string {
-  const file = path.join(mkdtempSync(path.join(tmpdir(), "pap-verdict-policy-")), "policy.json");
+  const file = path.join(tempDir("verdict-policy-"), "policy.json");
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
   return file;
 }

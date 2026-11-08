@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -8,6 +8,9 @@ import { jcs } from "../src/json.js";
 import { DIMENSION_ORDER, isDimensionPositive } from "../src/state.js";
 import type { DimensionName } from "../src/types.js";
 import { BASE_IDENTITY, fixtures, root, runPap, sentinelLog } from "./support.js";
+import { cleanupTempDirs } from "./temp.js";
+
+after(cleanupTempDirs);
 
 interface CaseExpect {
   exitCode?: number;

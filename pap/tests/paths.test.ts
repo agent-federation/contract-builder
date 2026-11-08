@@ -1,14 +1,16 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { streamPackageFile } from "../src/paths.js";
 import { evaluateSignatures } from "../src/signatures.js";
 import { DEFAULT_LIMITS } from "../src/types.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
+
+after(cleanupTempDirs);
 
 test("a declared path that is not root-confined reports path-escape before reading", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-path-escape-"));
+  const dir = tempDir("path-escape-");
   writeFileSync(path.join(dir, "payload.txt"), "payload");
   const root = { supplied: dir, real: dir };
 
@@ -20,7 +22,7 @@ test("a declared path that is not root-confined reports path-escape before readi
 });
 
 test("signature discovery maps an escaping package path to pap.package.path-escape", async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), "pap-path-escape-mapping-"));
+  const parent = tempDir("path-escape-mapping-");
   const outside = path.join(parent, "outside");
   mkdirSync(path.join(outside, "signatures"), { recursive: true });
   const link = path.join(parent, "link");
