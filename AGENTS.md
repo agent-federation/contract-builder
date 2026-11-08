@@ -121,8 +121,8 @@ Run the required gates locally before opening a pull request; CI enforces the sa
   checks relative paths and anchors in `docs/**`, `README*.md`,
   `CONTRIBUTING.md`, `AGENTS.md` and `CODE_OF_CONDUCT.md`. It is deterministic
   and never uses the network: external URLs are deliberately outside the
-  pull-request gate, and external link checking is a separate non-blocking
-  scheduled job or out of scope. Links inside fenced code blocks and inline code
+  pull-request gate (out of scope for now; if added later, only as a separate
+  non-blocking scheduled job). Links inside fenced code blocks and inline code
   are examples and are ignored. Fix a broken link; do not weaken the checker.
 - **Coverage policy.** `bun run coverage` writes `coverage/lcov.info` and
   `bun run coverage:check` (`scripts/check-coverage.ts`) enforces line floors on

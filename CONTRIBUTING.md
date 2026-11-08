@@ -48,7 +48,7 @@ Formatting is enforced in CI. Run `bun run format` on the files your change touc
 
 `bun run docs:links` (`scripts/check-docs-links.ts`) checks relative links and anchors in `docs/**`, `README*.md`, `CONTRIBUTING.md`, `AGENTS.md` and `CODE_OF_CONDUCT.md`. It is a required CI step, local and deterministic: it fails on a missing relative target, a heading anchor that does not exist under GitHub's heading-slug rules, or a `#L…` line anchor outside the target file. It follows explicit `<a name>`/`<a id>` anchors and ignores links inside fenced code blocks and inline code, which are examples rather than navigation.
 
-External `http(s)` URLs are deliberately **not** checked by the pull-request gate: a PR must never depend on a third-party host being reachable. External link checking is a separate non-blocking scheduled job or out of scope; the gate makes no network calls.
+External `http(s)` URLs are deliberately **not** checked by the pull-request gate: a PR must never depend on a third-party host being reachable. External URL checking is out of scope for this gate; if it is added later it must be a separate, non-blocking scheduled job. The gate makes no network calls.
 
 ### Coverage policy
 
@@ -62,7 +62,7 @@ Measured at `b4927c4` with `bun run coverage`:
 | `profiles/` | 89.34% | 88.02% | **87%** |
 | `pipeline/` | 77.16% | 73.21% | **72%** |
 
-Bun 1.4.x patch versions report different absolute numbers for the same code (the pinned 1.4.2 counts more instrumented lines than 1.4.4). The floors are roughly one percentage point below the *lower* measurement, rounded down: enough headroom for that reporter difference and for small refactors, but still a ratchet against silent erosion. Raise a floor when coverage rises; lowering one needs a stated rationale in the pull request. A new measured area needs data and a floor — a missing or empty area fails rather than passing silently. Coverage of temporary CORE-000 workspaces is excluded by construction: the checker only counts files inside the repository.
+Bun 1.4.x patch versions report different absolute numbers for the same code (the pinned 1.4.2 counts more instrumented lines than 1.4.4). The floors are roughly one percentage point below the *lower* measurement, rounded down: enough headroom for that reporter difference and for small refactors, but still a ratchet against silent erosion. Raise a floor when coverage rises; lowering one needs a stated rationale in the pull request. A configured area with no measured data fails rather than passing silently. Coverage of temporary CORE-000 workspaces is excluded by construction: the checker only counts files inside the repository.
 
 ### Security and dependency automation
 
