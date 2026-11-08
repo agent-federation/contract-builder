@@ -29,10 +29,10 @@ CI (`.github/workflows/ci.yml`) runs `bun audit` and the same sequence. All step
 ## How to contribute
 
 1. **Find or open an issue** — prefer working on an existing issue. For larger changes, discuss design first.
-2. **Fork** (external) or create a branch from up-to-date `main` (maintainers).
-3. **Make a focused change** — one concern per PR; do not mix refactors or unrelated formatting.
+2. **Branch** — fork (external) or create a branch from up-to-date `main` named `<type>/<issue#>-<slug>`, where `<type>` is the Conventional Commits type (for example `docs/251-pr-issue-templates` or `fix/142-envelope-limit`).
+3. **Make a focused change** — one concern per PR; do not mix refactors or unrelated formatting. Aim for at most 400 changed lines excluding generated artifacts, fixtures and goldens; split a larger change, or state in the PR why it cannot be split.
 4. **Prove it** — run the commands above. If you changed anything under `spec/` or `profiles/core001/`, run `bun run build` and commit the regenerated `spec/output/CORE-001.draft.md`.
-5. **Open a pull request** against `main`.
+5. **Open a pull request** against `main` using the [pull request template](.github/PULL_REQUEST_TEMPLATE.md); give it a Conventional Commits title and an English body, and paste the commands you ran.
 
 ### Formatting and linting
 
@@ -85,10 +85,14 @@ The repository-managed CodeQL workflow (`.github/workflows/codeql.yml`) analyzes
 ### Pull request rules
 
 - **Title**: [Conventional Commits](https://www.conventionalcommits.org/) — `feat:`, `fix:`, `docs:`, `test:`, `chore:`, etc.
-- **Body**: English; state what changed and which command verified it (e.g. `bun run check`).
+- **Branch**: `<type>/<issue#>-<slug>` from up-to-date `main`, for example `fix/142-envelope-limit`.
+- **Body**: English; state what changed and which command verified it (e.g. `bun run check`). Use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md), including its pre-review record, risk/rollback and checklist sections.
+- **One concern per PR; size guideline**: aim for at most 400 changed lines, excluding generated artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens (`fixtures/`, `pap/fixtures/`, `tests/golden/`). Split when larger; if that is not feasible, state why in the PR.
 - **Never** push directly to `main` or force-push to `main`. `main` is protected: one approving Code Owner review (`.github/CODEOWNERS`), the strict `check` status, resolved conversations, and merge restricted to the maintainer. The sole bypass is the maintainer's documented admin bypass.
-- An automated agent (`it-start`) may open PRs; **only a human merges**. Agents must not enable auto-merge. The platform enforces this: the agent cannot merge, and its approval cannot satisfy the Code Owner review requirement.
-- **Independent pre-review**: code PRs (changes under `pap/`, `spec/lib/`, `profiles/`, `contracts/`) need a pre-merge review by a different model family (GLM-5.3-flash by default, escalating to GLM-5.3, in a DeepSeek Harness session), recorded in the PR. It is advisory: CI, the Code Owner review and the human merge still gate. See `docs/agents/pre-review.md`.
+- **Never force-push a branch under review without a delta pre-review**: re-run the independent pre-review against the new head and record it in the PR. Rewrite history only when the review requires it.
+- An automated agent (`it-start`) may open PRs; **only a human merges**. Agents must not enable auto-merge. Agent-authored PRs pass the same gates as human ones, and the pre-review record is mandatory for code changes. The platform enforces the merge rule: the agent cannot merge, and its approval cannot satisfy the Code Owner review requirement.
+- **Independent pre-review**: code PRs (changes under `pap/`, `spec/lib/`, `profiles/`, `contracts/`) need a pre-merge review by a different model family (GLM-5.3-flash by default, escalating to GLM-5.3, in a DeepSeek Harness session), recorded in the PR. It is advisory: CI, the Code Owner review and the human merge still gate. See `docs/agents/pre-review.md`. Documentation- and config-only PRs may skip it; record `docs-only, skipped: <reason>` in the PR.
+- **Issue templates**: bug, architecture, hardening and tail reports use the forms under `.github/ISSUE_TEMPLATE/`; issue bodies are in English too.
 
 ### Artifact rule
 
