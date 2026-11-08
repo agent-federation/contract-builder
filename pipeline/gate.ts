@@ -23,12 +23,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020Module from "ajv/dist/2020.js";
-import {
-  canonicalJson,
-  canonicalJsonBytes,
-  domainHash,
-  utf8,
-} from "./mapping.js";
+import { canonicalJson, canonicalJsonBytes, domainHash, utf8 } from "./mapping.js";
 
 export const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -90,9 +85,7 @@ interface AjvInstance {
   getSchema(reference: string): ValidateFunction | undefined;
 }
 
-const Ajv2020 = Ajv2020Module as unknown as new (
-  options: Record<string, unknown>,
-) => AjvInstance;
+const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => AjvInstance;
 
 interface SchemaValidators {
   readonly report: ValidateFunction;
@@ -474,9 +467,7 @@ function evaluate(input: EvaluationInput): AcceptanceDecision {
       // The schema declares `format: date-time`; ajv-formats is not a dependency,
       // so the gate enforces the RFC 3339 instant itself.
       if (!isRfc3339(report.evaluatedAt)) {
-        reasons.add(
-          `report evaluatedAt is not an RFC 3339 instant: ${quote(report.evaluatedAt)}`,
-        );
+        reasons.add(`report evaluatedAt is not an RFC 3339 instant: ${quote(report.evaluatedAt)}`);
       }
     } else {
       reasons.add(
@@ -529,12 +520,10 @@ function evaluate(input: EvaluationInput): AcceptanceDecision {
   }
 
   const sortedReasons = [...reasons].sort(compareStrings);
-  const decision: GateDecision =
-    sortedReasons.length === 0 ? "ACCEPTED" : "NOT_ACCEPTED";
+  const decision: GateDecision = sortedReasons.length === 0 ? "ACCEPTED" : "NOT_ACCEPTED";
 
   return {
-    packageIdentity:
-      report?.identities.packageIdentity ?? report?.package.identity ?? null,
+    packageIdentity: report?.identities.packageIdentity ?? report?.package.identity ?? null,
     policyId: policy?.id ?? null,
     policyDigest,
     reportDigest,
@@ -560,9 +549,7 @@ function evaluateReport(
     reasons.add(`verifier verdict is ${report.verdict}, expected PASS`);
   }
   if (report.coverage.full !== true) {
-    reasons.add(
-      "coverage.full is false; the verifier did not evaluate every required check",
-    );
+    reasons.add("coverage.full is false; the verifier did not evaluate every required check");
   }
   for (const [label, count] of [
     ["coverage.checksFailed", report.coverage.checksFailed],
@@ -579,9 +566,7 @@ function evaluateReport(
   }
 
   if (report.policy.state !== "FRESH") {
-    reasons.add(
-      `report policy state is ${report.policy.state}, expected FRESH`,
-    );
+    reasons.add(`report policy state is ${report.policy.state}, expected FRESH`);
   }
   if (report.policy.id !== policy.id) {
     reasons.add(
@@ -633,9 +618,7 @@ function evaluateReport(
     if (result === undefined) {
       reasons.add(`policy-required check ${checkId} is missing from the report`);
     } else if (result.outcome !== "PASS") {
-      reasons.add(
-        `policy-required check ${checkId} is ${result.outcome}, expected PASS`,
-      );
+      reasons.add(`policy-required check ${checkId} is ${result.outcome}, expected PASS`);
     }
   }
 
@@ -675,13 +658,8 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
     if (signature.signerIdentity === "UNTRUSTED") {
       reasons.add(`signature ${signature.path} signer is UNTRUSTED`);
     }
-    if (
-      signature.policyDecision === "REJECTED" ||
-      signature.policyDecision === "STALE"
-    ) {
-      reasons.add(
-        `signature ${signature.path} policy decision is ${signature.policyDecision}`,
-      );
+    if (signature.policyDecision === "REJECTED" || signature.policyDecision === "STALE") {
+      reasons.add(`signature ${signature.path} policy decision is ${signature.policyDecision}`);
     }
   }
   if (
@@ -694,9 +672,7 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
     dimensions.trust.policyDecision === "REJECTED" ||
     dimensions.trust.policyDecision === "STALE"
   ) {
-    reasons.add(
-      `trust.policyDecision is ${dimensions.trust.policyDecision}`,
-    );
+    reasons.add(`trust.policyDecision is ${dimensions.trust.policyDecision}`);
   }
   for (const [label, value] of [
     ["trust.checkerRecognition", dimensions.trust.checkerRecognition],
@@ -709,10 +685,7 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
   for (const result of dimensions.checks.results) {
     if (result.outcome === "FAIL" || result.outcome === "UNSUPPORTED") {
       reasons.add(`check ${result.checkId} is ${result.outcome}`);
-    } else if (
-      result.outcome === "NOT_EVALUATED" &&
-      result.required !== false
-    ) {
+    } else if (result.outcome === "NOT_EVALUATED" && result.required !== false) {
       reasons.add(`required check ${result.checkId} is NOT_EVALUATED`);
     }
   }
@@ -720,24 +693,16 @@ function evaluateNegativeStates(report: ReportView, reasons: Set<string>): void 
     (entry) => entry.code === "pap.package.limit-exceeded",
   );
   if (limitStopped) {
-    reasons.add(
-      "report records limit-stopped scope (pap.package.limit-exceeded)",
-    );
+    reasons.add("report records limit-stopped scope (pap.package.limit-exceeded)");
   }
 }
 
 /** The report's own coverage set must describe the policy the gate is enforcing. */
-function evaluateCoverage(
-  report: ReportView,
-  policy: PolicyView,
-  reasons: Set<string>,
-): void {
+function evaluateCoverage(report: ReportView, policy: PolicyView, reasons: Set<string>): void {
   const coverageChecks = new Set(report.coverage.requiredChecks);
   for (const checkId of policy.requiredChecks) {
     if (!coverageChecks.has(checkId)) {
-      reasons.add(
-        `report coverage does not include policy-required check ${checkId}`,
-      );
+      reasons.add(`report coverage does not include policy-required check ${checkId}`);
     }
   }
   const coverageDimensions = new Set(report.coverage.requiredDimensions);
@@ -748,9 +713,7 @@ function evaluateCoverage(
   ];
   for (const dimension of new Set(expectedDimensions)) {
     if (!coverageDimensions.has(dimension)) {
-      reasons.add(
-        `report coverage does not include policy-required dimension ${dimension}`,
-      );
+      reasons.add(`report coverage does not include policy-required dimension ${dimension}`);
     }
   }
 }
@@ -800,18 +763,12 @@ function evaluateTrustExpectations(
       `policy makes signatures optional but report signature.validity is ${signature.validity}`,
     );
   }
-  if (
-    trust.signerIdentity !== "TRUSTED" &&
-    trust.signerIdentity !== "NOT_APPLICABLE"
-  ) {
+  if (trust.signerIdentity !== "TRUSTED" && trust.signerIdentity !== "NOT_APPLICABLE") {
     reasons.add(
       `policy makes trust optional but report trust.signerIdentity is ${trust.signerIdentity}`,
     );
   }
-  if (
-    trust.policyDecision !== "ACCEPTED" &&
-    trust.policyDecision !== "NOT_EVALUATED"
-  ) {
+  if (trust.policyDecision !== "ACCEPTED" && trust.policyDecision !== "NOT_EVALUATED") {
     reasons.add(
       `policy makes trust optional but report trust.policyDecision is ${trust.policyDecision}`,
     );
@@ -819,16 +776,10 @@ function evaluateTrustExpectations(
 }
 
 /** Mirror of the verifier's I3 "applicable positive state" rule (RFC §4.3.4). */
-function isDimensionPositive(
-  dimension: string,
-  dimensions: ReportView["dimensions"],
-): boolean {
+function isDimensionPositive(dimension: string, dimensions: ReportView["dimensions"]): boolean {
   switch (dimension) {
     case "integrity":
-      return (
-        dimensions.integrity.package === "PASS" &&
-        dimensions.integrity.artifacts === "PASS"
-      );
+      return dimensions.integrity.package === "PASS" && dimensions.integrity.artifacts === "PASS";
     case "integrity.package":
       return dimensions.integrity.package === "PASS";
     case "integrity.artifacts":
@@ -890,10 +841,7 @@ function isPositiveRecognition(value: string): boolean {
   return value === "PASS" || value === "NOT_APPLICABLE";
 }
 
-function describeDimension(
-  dimension: string,
-  dimensions: ReportView["dimensions"],
-): string {
+function describeDimension(dimension: string, dimensions: ReportView["dimensions"]): string {
   switch (dimension) {
     case "integrity":
       return `integrity.package=${dimensions.integrity.package}, integrity.artifacts=${dimensions.integrity.artifacts}`;
@@ -931,9 +879,7 @@ function describeDimension(
   }
 }
 
-function formatSchemaErrors(
-  errors: readonly AjvError[] | null | undefined,
-): string {
+function formatSchemaErrors(errors: readonly AjvError[] | null | undefined): string {
   if (errors === null || errors === undefined || errors.length === 0) {
     return "unknown validation error";
   }
@@ -988,9 +934,7 @@ function parseInstant(value: string): bigint | null {
   }
 
   const days = daysFromCivil(year, month, day);
-  const epochSeconds =
-    days * 86_400n +
-    BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
+  const epochSeconds = days * 86_400n + BigInt(hour * 3600 + minute * 60 + second - offsetSeconds);
   const nanoseconds = fraction === "" ? 0n : BigInt(fraction.padEnd(9, "0"));
   return epochSeconds * NS_PER_SECOND + nanoseconds;
 }
@@ -1192,8 +1136,7 @@ async function main(): Promise<void> {
   process.exitCode = result.exitCode;
 }
 
-const invokedPath =
-  process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
+const invokedPath = process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   void main();
 }

@@ -62,10 +62,7 @@ export interface CheckDiagnostic {
   message: string;
 }
 
-export type Witness =
-  | RecomputedDigestWitness
-  | SourceSpanWitness
-  | RelationViolationWitness;
+export type Witness = RecomputedDigestWitness | SourceSpanWitness | RelationViolationWitness;
 
 export interface RecomputedDigestWitness {
   type: "recomputed-digest";
@@ -173,25 +170,10 @@ export interface VerificationReport {
       signatures?: SignatureEntry[];
     };
     trust: {
-      signerIdentity:
-        | "TRUSTED"
-        | "UNTRUSTED"
-        | "UNKNOWN"
-        | "NOT_EVALUATED"
-        | "NOT_APPLICABLE";
+      signerIdentity: "TRUSTED" | "UNTRUSTED" | "UNKNOWN" | "NOT_EVALUATED" | "NOT_APPLICABLE";
       policyDecision: "ACCEPTED" | "REJECTED" | "STALE" | "NOT_EVALUATED";
-      checkerRecognition:
-        | "PASS"
-        | "UNSUPPORTED"
-        | "UNTRUSTED"
-        | "NOT_EVALUATED"
-        | "NOT_APPLICABLE";
-      profileRecognition:
-        | "PASS"
-        | "UNSUPPORTED"
-        | "UNTRUSTED"
-        | "NOT_EVALUATED"
-        | "NOT_APPLICABLE";
+      checkerRecognition: "PASS" | "UNSUPPORTED" | "UNTRUSTED" | "NOT_EVALUATED" | "NOT_APPLICABLE";
+      profileRecognition: "PASS" | "UNSUPPORTED" | "UNTRUSTED" | "NOT_EVALUATED" | "NOT_APPLICABLE";
     };
     checks: {
       results: { checkId: string; outcome: CheckOutcome; required?: boolean }[];
@@ -235,12 +217,7 @@ export interface SignatureEntry {
   keyId?: string;
   algorithm?: "ed25519";
   validity: "VALID" | "INVALID" | "NOT_EVALUATED";
-  signerIdentity:
-    | "TRUSTED"
-    | "UNTRUSTED"
-    | "UNKNOWN"
-    | "NOT_EVALUATED"
-    | "NOT_APPLICABLE";
+  signerIdentity: "TRUSTED" | "UNTRUSTED" | "UNKNOWN" | "NOT_EVALUATED" | "NOT_APPLICABLE";
   policyDecision: "ACCEPTED" | "REJECTED" | "STALE" | "NOT_EVALUATED";
 }
 

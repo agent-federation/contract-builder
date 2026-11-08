@@ -428,9 +428,11 @@ export function installEngineImportPlugin(): boolean {
   if (engineImportPluginState === "installed") return true;
   if (engineImportPluginState === "unavailable") return false;
 
-  const runtime = (globalThis as {
-    Bun?: { plugin?: (plugin: unknown) => unknown };
-  }).Bun;
+  const runtime = (
+    globalThis as {
+      Bun?: { plugin?: (plugin: unknown) => unknown };
+    }
+  ).Bun;
   if (runtime?.plugin === undefined) {
     engineImportPluginState = "unavailable";
     return false;
@@ -615,7 +617,10 @@ export function resolveDependencyClosure(
       continue;
     }
     if (exact === undefined) {
-      const found = candidates.map((candidate) => candidate.version).sort(compare).join(", ");
+      const found = candidates
+        .map((candidate) => candidate.version)
+        .sort(compare)
+        .join(", ");
       diagnostics.error(
         "core.extension.unpinned-dependency",
         diagnosticFile,
@@ -677,9 +682,7 @@ function stripProfilePrefix(value: string): string {
  * and labels declared by the manifest. They must be part of `profile.files`, otherwise the
  * closure digest and the import scan would not cover them.
  */
-function requiredProfileFiles(
-  project: ResolvedProject,
-): Array<{ path: string; origin: string }> {
+function requiredProfileFiles(project: ResolvedProject): Array<{ path: string; origin: string }> {
   const { profile, manifest } = project;
   const required: Array<{ path: string; origin: string }> = [];
   const add = (value: string | undefined, origin: string, prefixed = false): void => {
@@ -885,9 +888,7 @@ export async function computeBuildIdentity(input: IdentityInput): Promise<BuildI
   );
 
   for (const closure of adapterClosures.sort((a, b) => compare(a.id, b.id))) {
-    hash.update(
-      frameRecord("adapter", [closure.id, closure.version, closure.closureDigest]),
-    );
+    hash.update(frameRecord("adapter", [closure.id, closure.version, closure.closureDigest]));
   }
 
   hash.update(
@@ -1105,10 +1106,7 @@ async function scanImports(
             ok = false;
             continue;
           }
-          engine.mappings.set(
-            `${normalizeImportKey(importer)}\u0000${specifier}`,
-            resolved.target,
-          );
+          engine.mappings.set(`${normalizeImportKey(importer)}\u0000${specifier}`, resolved.target);
           continue;
         }
 
@@ -1273,12 +1271,7 @@ export function importSpecifiers(text: string): string[] {
     // or a function-local identifier as a statement.
     if (token.braceDepth !== 0) continue;
     const previous = tokens[index - 1];
-    if (
-      index > 0 &&
-      !token.lineStart &&
-      !isPunct(previous, ";") &&
-      !isPunct(previous, "}")
-    ) {
+    if (index > 0 && !token.lineStart && !isPunct(previous, ";") && !isPunct(previous, "}")) {
       continue;
     }
 
@@ -1334,11 +1327,7 @@ function tokenize(source: string): ImportToken[] {
   let braceDepth = 0;
   let atLineStart = true;
 
-  const push = (
-    kind: ImportToken["kind"],
-    value: string,
-    depth: number = braceDepth,
-  ): void => {
+  const push = (kind: ImportToken["kind"], value: string, depth: number = braceDepth): void => {
     tokens.push({
       kind,
       value,
@@ -1366,7 +1355,7 @@ function tokenize(source: string): ImportToken[] {
       index = end;
       continue;
     }
-    if (char === "\"" || char === "'") {
+    if (char === '"' || char === "'") {
       const parsed = readString(source, index, char);
       push("string", parsed.value);
       index = parsed.next;
@@ -1422,11 +1411,7 @@ function tokenize(source: string): ImportToken[] {
   return tokens;
 }
 
-function readString(
-  source: string,
-  start: number,
-  quote: string,
-): { value: string; next: number } {
+function readString(source: string, start: number, quote: string): { value: string; next: number } {
   let index = start + 1;
   let value = "";
   while (index < source.length) {
@@ -1690,9 +1675,7 @@ function resolveImport(root: string, file: string, specifier: string): ResolvedI
     : path.resolve(root, path.dirname(file), specifier);
   const relativeTarget = path.relative(root, base).split(path.sep).join("/");
   const escapes =
-    relativeTarget === ".." ||
-    relativeTarget.startsWith("../") ||
-    path.isAbsolute(relativeTarget);
+    relativeTarget === ".." || relativeTarget.startsWith("../") || path.isAbsolute(relativeTarget);
 
   const withoutExtension = base.replace(/\.(?:js|mjs|cjs|jsx)$/, "");
   const absolute =

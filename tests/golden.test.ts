@@ -43,8 +43,7 @@ const toSnapshot = (diagnostic: Diagnostic): DiagnosticSnapshot => ({
   message: diagnostic.message,
 });
 
-const sha256 = (value: string): string =>
-  createHash("sha256").update(value, "utf8").digest("hex");
+const sha256 = (value: string): string => createHash("sha256").update(value, "utf8").digest("hex");
 
 async function recordedHash(): Promise<string> {
   const text = await readFile(path.join(goldenDir, "core001.draft.sha256"), "utf8");
@@ -83,7 +82,10 @@ test("golden: draft build is byte-identical to the recorded hash", async () => {
 
 test("golden: rendered diagnostics match the recorded snapshot in order", async () => {
   const { diagnostics } = await draftBuild();
-  assert.deepEqual(diagnostics.sorted().map(toSnapshot), await recordedSnapshot("core001.diagnostics.json"));
+  assert.deepEqual(
+    diagnostics.sorted().map(toSnapshot),
+    await recordedSnapshot("core001.diagnostics.json"),
+  );
 });
 
 test("golden: emission order matches the recorded snapshot", async () => {

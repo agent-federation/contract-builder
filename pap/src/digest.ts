@@ -77,11 +77,7 @@ export function frameRecord(tag: string, parts: FramingPart[]): Uint8Array {
  */
 export function framePrefix(tag: string, parts: string[], finalPartLength: number): Uint8Array {
   const tagBytes = encoder.encode(tag);
-  const chunks: Uint8Array[] = [
-    u32be(tagBytes.length),
-    tagBytes,
-    u32be(parts.length + 1),
-  ];
+  const chunks: Uint8Array[] = [u32be(tagBytes.length), tagBytes, u32be(parts.length + 1)];
   for (const part of parts) {
     const bytes = encoder.encode(part);
     chunks.push(u32be(bytes.length), bytes);
@@ -127,10 +123,7 @@ export function normalizeLf(bytes: Uint8Array): Uint8Array {
   return encoder.encode(text.replace(/\r\n?/g, "\n"));
 }
 
-export function normalizeInput(
-  bytes: Uint8Array,
-  normalization: "lf" | "none",
-): Uint8Array {
+export function normalizeInput(bytes: Uint8Array, normalization: "lf" | "none"): Uint8Array {
   return normalization === "lf" ? normalizeLf(bytes) : bytes;
 }
 
@@ -138,9 +131,7 @@ export function inputFileDigest(path: string, normalizedBytes: Uint8Array): stri
   return domainHash("pap.input.file.v1", frameRecord("input", [path, normalizedBytes]));
 }
 
-export function normalizedInputSetDigest(
-  entries: { path: string; bytes: Uint8Array }[],
-): string {
+export function normalizedInputSetDigest(entries: { path: string; bytes: Uint8Array }[]): string {
   const sorted = [...entries].sort((a, b) => compareBytes(utf8(a.path), utf8(b.path)));
   const framed = frameRecords(
     sorted.map((entry) => ({ tag: "input", parts: [entry.path, entry.bytes] })),
@@ -170,9 +161,7 @@ export function extensionClosureDigest(
   const records: { tag: string; parts: FramingPart[] }[] = [
     { tag: "extension", parts: [kind, id, version] },
   ];
-  const sortedFiles = [...files].sort((a, b) =>
-    compareBytes(utf8(a.path), utf8(b.path)),
-  );
+  const sortedFiles = [...files].sort((a, b) => compareBytes(utf8(a.path), utf8(b.path)));
   for (const file of sortedFiles) {
     records.push({ tag: "file", parts: [file.path, normalizeLf(file.bytes)] });
   }

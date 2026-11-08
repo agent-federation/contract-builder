@@ -129,7 +129,11 @@ function requireVersion(
   return value;
 }
 
-async function inspectEngine(root: string, report: VersionDomain[], problems: string[]): Promise<void> {
+async function inspectEngine(
+  root: string,
+  report: VersionDomain[],
+  problems: string[],
+): Promise<void> {
   const source = "package.json";
   try {
     const parsed = await readJsonObject(path.join(root, source));
@@ -140,7 +144,11 @@ async function inspectEngine(root: string, report: VersionDomain[], problems: st
   }
 }
 
-async function inspectProfiles(root: string, report: VersionDomain[], problems: string[]): Promise<void> {
+async function inspectProfiles(
+  root: string,
+  report: VersionDomain[],
+  problems: string[],
+): Promise<void> {
   let profiles: string[];
   try {
     profiles = await subdirectories(path.join(root, "profiles"));
@@ -164,7 +172,11 @@ async function inspectProfiles(root: string, report: VersionDomain[], problems: 
   }
 }
 
-async function inspectProjects(root: string, report: VersionDomain[], problems: string[]): Promise<void> {
+async function inspectProjects(
+  root: string,
+  report: VersionDomain[],
+  problems: string[],
+): Promise<void> {
   let contracts: string[];
   try {
     contracts = await subdirectories(path.join(root, "contracts"));
@@ -200,7 +212,9 @@ async function inspectProjects(root: string, report: VersionDomain[], problems: 
  * presence and semver shape. It deliberately performs no comparison between
  * domains: equal or different values both pass.
  */
-export async function inspectVersionDomains(root: string = REPO_ROOT): Promise<VersionDomainReport> {
+export async function inspectVersionDomains(
+  root: string = REPO_ROOT,
+): Promise<VersionDomainReport> {
   const domains: VersionDomain[] = [];
   const problems: string[] = [];
   await inspectEngine(root, domains, problems);
@@ -244,7 +258,11 @@ export function checkReleaseTag(tag: string, engineVersion: string): TagCheck {
       message: `release tag ${tag} does not match package.json version ${engineVersion}`,
     };
   }
-  return { ok: true, version, message: `release tag ${tag} matches package.json version ${engineVersion}` };
+  return {
+    ok: true,
+    version,
+    message: `release tag ${tag} matches package.json version ${engineVersion}`,
+  };
 }
 
 export interface ReleaseArgs {
@@ -316,7 +334,9 @@ async function main(): Promise<void> {
     return;
   }
   for (const domain of report.domains) {
-    console.log(`version domain (${domain.kind}): ${domain.source} ${domain.field} = ${domain.version}`);
+    console.log(
+      `version domain (${domain.kind}): ${domain.source} ${domain.field} = ${domain.version}`,
+    );
   }
 
   const engine = report.domains.find((domain) => domain.kind === "engine");

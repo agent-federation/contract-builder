@@ -91,16 +91,10 @@ test("hook: an undeclared code fails with core.profile.unknown-code", () => {
 });
 
 test("hook: the aggregator order is explicit", () => {
-  assert.deepEqual([...ORDER], [
-    "source",
-    "ontology",
-    "provision",
-    "cases",
-    "review",
-    "coverage",
-    "terms",
-    "dependencies",
-  ]);
+  assert.deepEqual(
+    [...ORDER],
+    ["source", "ontology", "provision", "cases", "review", "coverage", "terms", "dependencies"],
+  );
 });
 
 test("hook: an unknown finding code fails the build", async () => {
@@ -127,7 +121,11 @@ test("hook: an unknown finding code fails the build", async () => {
 
 test("hook: a view module without buildView fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-view");
-  await writeFile(path.join(dir, "profiles", "core001", "view.ts"), "export const nope = 1;\n", "utf8");
+  await writeFile(
+    path.join(dir, "profiles", "core001", "view.ts"),
+    "export const nope = 1;\n",
+    "utf8",
+  );
 
   const result = await runBuild({
     specDir: dir,
@@ -145,7 +143,11 @@ test("hook: a view module without buildView fails the build", async () => {
 
 test("hook: a validator without validate fails the build", async () => {
   const dir = await copyProjectWithProfile("bad-validator");
-  await writeFile(path.join(dir, "profiles", "core001", "validator.ts"), "export const nope = 1;\n", "utf8");
+  await writeFile(
+    path.join(dir, "profiles", "core001", "validator.ts"),
+    "export const nope = 1;\n",
+    "utf8",
+  );
 
   const result = await runBuild({
     specDir: dir,

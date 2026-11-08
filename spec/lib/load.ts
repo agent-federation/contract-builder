@@ -18,10 +18,7 @@ export interface LoadedSpec {
  * Loads the manifest, then every declared input. Missing manifest, malformed input or a
  * path escaping the project root returns `null`; diagnostics carry the reason.
  */
-export async function loadProject(
-  specDir: string,
-  diags: Diagnostics,
-): Promise<LoadedSpec | null> {
+export async function loadProject(specDir: string, diags: Diagnostics): Promise<LoadedSpec | null> {
   const project = await loadManifest(specDir, diags);
   if (project === null) return null;
 

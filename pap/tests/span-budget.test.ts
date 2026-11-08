@@ -26,9 +26,15 @@ function writePolicy(value: unknown): string {
   return file;
 }
 function unsignedPolicy(): any {
-  return JSON.parse(readFileSync(path.join(fixtures, "trust-policy", "unsigned-valid.json"), "utf8"));
+  return JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "unsigned-valid.json"), "utf8"),
+  );
 }
-function setProvenance(dir: string, sourceBytes: Buffer, bindings: { start: number; end: number }[]): void {
+function setProvenance(
+  dir: string,
+  sourceBytes: Buffer,
+  bindings: { start: number; end: number }[],
+): void {
   const value = manifest(dir);
   value.sources[0].digest = domainHash("pap.source.raw.v1", sourceBytes);
   writeFileSync(path.join(dir, "sources/acme-policy.md"), sourceBytes);
@@ -57,7 +63,11 @@ function verify(dir: string, policy: string): { status: number; stdout: string; 
 test("identical source ranges are read once even when repeated many times", () => {
   const dir = tempPackage();
   const source = Buffer.alloc(2 * 1024 * 1024, 0x61);
-  setProvenance(dir, source, Array.from({ length: 200 }, () => ({ start: 0, end: source.length })));
+  setProvenance(
+    dir,
+    source,
+    Array.from({ length: 200 }, () => ({ start: 0, end: source.length })),
+  );
   const policy = unsignedPolicy();
   policy.id = "policy-span-dedup";
   policy.limits = { totalPayloadBytes: 5 * 1024 * 1024 };
@@ -66,7 +76,9 @@ test("identical source ranges are read once even when repeated many times", () =
   const report = JSON.parse(result.stdout);
   assert.equal(report.verdict, "PASS");
   assert.equal(
-    report.dimensions.checks.results.find((entry: any) => entry.checkId === "pap.check.source-quote/1").outcome,
+    report.dimensions.checks.results.find(
+      (entry: any) => entry.checkId === "pap.check.source-quote/1",
+    ).outcome,
     "PASS",
   );
 });
@@ -86,8 +98,12 @@ test("overlapping non-identical ranges are charged to the total payload budget",
   const report = JSON.parse(result.stdout);
   assert.equal(report.verdict, "INCOMPLETE");
   assert.equal(
-    report.dimensions.checks.results.find((entry: any) => entry.checkId === "pap.check.source-quote/1").outcome,
+    report.dimensions.checks.results.find(
+      (entry: any) => entry.checkId === "pap.check.source-quote/1",
+    ).outcome,
     "NOT_EVALUATED",
   );
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });

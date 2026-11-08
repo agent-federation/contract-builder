@@ -27,7 +27,10 @@ function prepareHostilePackage(): string {
 }
 
 function assertNoControlCharacters(text: string): void {
-  assert.ok(!/[\p{Cc}\p{Cf}]/u.test(text.replaceAll("\n", "")), "text output leaked a control character");
+  assert.ok(
+    !/[\p{Cc}\p{Cf}]/u.test(text.replaceAll("\n", "")),
+    "text output leaked a control character",
+  );
 }
 
 test("verify text cannot forge a line from artifact id, diagnostic or limitation text", () => {

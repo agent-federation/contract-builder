@@ -106,7 +106,9 @@ test("S3 boundary: explicit REJECTED stays UNTRUSTED when trust is not required"
   assert.equal(report.dimensions.trust.policyDecision, "REJECTED");
   assert.ok(!report.coverage.requiredDimensions.includes("trust"));
   assert.equal(report.coverage.full, true, "the required work was evaluated");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"),
+  );
 });
 
 test("S3 boundary: stale policy with all required work evaluated keeps coverage.full true", () => {
@@ -116,7 +118,9 @@ test("S3 boundary: stale policy with all required work evaluated keeps coverage.
   assert.equal(report.dimensions.trust.policyDecision, "STALE");
   assert.equal(report.coverage.full, true);
   assert.equal(report.coverage.dimensionsEvaluated, report.coverage.requiredDimensions.length);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.trust.policy-stale"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.trust.policy-stale"),
+  );
 });
 
 test("S3 boundary: empty required set is INCOMPLETE with partial coverage", () => {
@@ -139,7 +143,9 @@ test("S3 boundary: a manifest-level limit is FAIL, not INCOMPLETE", () => {
   assert.equal(report.dimensions.integrity.package, "FAIL");
   assert.equal(report.package.identity, null);
   assert.equal(report.coverage.full, false);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("S3 boundary: a post-manifest limit is INCOMPLETE, never FAIL", () => {
@@ -149,7 +155,9 @@ test("S3 boundary: a post-manifest limit is INCOMPLETE, never FAIL", () => {
   assert.equal(report.dimensions.integrity.package, "PASS");
   assert.equal(report.dimensions.integrity.artifacts, "NOT_EVALUATED");
   assert.equal(report.coverage.full, false);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("I5: each S3 boundary non-PASS verdict carries a diagnostic or limitation", () => {

@@ -79,10 +79,7 @@ test("envelope: CORE-000 renders every mandatory element from the computed ident
 
   // 5. Emitted severity counts (not the catalog size) and a summary gate conclusion.
   assert.match(markdown, /ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6/);
-  assert.match(
-    markdown,
-    /`release` blocked — 62 `REVIEW_REQUIRED` diagnostics\./,
-  );
+  assert.match(markdown, /`release` blocked — 62 `REVIEW_REQUIRED` diagnostics\./);
   assert.match(markdown, /diagnostic catalog=25/);
 
   // The full diagnostic list remains in the body.

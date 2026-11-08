@@ -86,7 +86,9 @@ test("consent: the public API rejects an executable profile without explicit con
   assert.ok(codes(result).includes("core.profile.consent-required"), failure(result));
   assert.equal(existsSync(marker), false, "profile code was evaluated without consent");
 
-  const diagnostic = result.diagnostics.find((item) => item.code === "core.profile.consent-required");
+  const diagnostic = result.diagnostics.find(
+    (item) => item.code === "core.profile.consent-required",
+  );
   assert.ok(diagnostic !== undefined);
   assert.equal(diagnostic.severity, "error");
   assert.equal(diagnostic.file, "profile.json");
@@ -166,7 +168,10 @@ test("consent: the CLI has no built-in renderer when the consumer names no modul
   const output = JSON.parse(result.stdout) as CliJson;
   assert.equal(output.exitCode, 1);
   assert.ok(output.diagnostics.some((item) => item.code === "core.registry.missing"));
-  assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
+  assert.equal(
+    output.diagnostics.some((item) => item.code === "core.render.failed"),
+    false,
+  );
 });
 
 const FAKE_RENDERER: Renderer = {
@@ -401,7 +406,10 @@ test("consent: --renderer-module does not bypass the consent gate", async () => 
   const output = JSON.parse(cli.stdout) as CliJson;
   assert.equal(output.exitCode, 1);
   assert.ok(output.diagnostics.some((item) => item.code === "core.profile.consent-required"));
-  assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
+  assert.equal(
+    output.diagnostics.some((item) => item.code === "core.render.failed"),
+    false,
+  );
 });
 
 test("consent: a real renderer module whose id mismatches is imported but not registered", async () => {
@@ -427,7 +435,10 @@ test("consent: a real renderer module whose id mismatches is imported but not re
   const output = JSON.parse(cli.stdout) as CliJson;
   assert.equal(output.exitCode, 1);
   assert.ok(output.diagnostics.some((item) => item.code === "core.registry.missing"));
-  assert.equal(output.diagnostics.some((item) => item.code === "core.render.failed"), false);
+  assert.equal(
+    output.diagnostics.some((item) => item.code === "core.render.failed"),
+    false,
+  );
 });
 
 test("consent: the CLI preflight does not import the renderer when the lockfile is unreadable", async () => {

@@ -24,18 +24,8 @@ import type { LoadedPolicy, TrustPolicy } from "./policy.js";
 import { parseClaimFile } from "./claims.js";
 import { hashInput, normalizedInputSetDigestStream } from "./input.js";
 import type { ClaimIssue, ParsedClaim } from "./claims.js";
-import {
-  checkSpecImpl,
-  isImplementedCheck,
-  WITNESS_BUDGET_BYTES,
-} from "./checks.js";
-import type {
-  ArtifactState,
-  CheckInput,
-  ClaimState,
-  InputState,
-  SourceState,
-} from "./checks.js";
+import { checkSpecImpl, isImplementedCheck, WITNESS_BUDGET_BYTES } from "./checks.js";
+import type { ArtifactState, CheckInput, ClaimState, InputState, SourceState } from "./checks.js";
 import { evaluateSignatures } from "./signatures.js";
 import type { SignatureEvaluation } from "./signatures.js";
 import {
@@ -84,7 +74,11 @@ export class UsageError extends Error {
 export class IoFailure extends Error {
   readonly code: string;
 
-  constructor(code: string, message: string, readonly exitCode: 74 | 70 = 74) {
+  constructor(
+    code: string,
+    message: string,
+    readonly exitCode: 74 | 70 = 74,
+  ) {
     super(message);
     this.name = "IoFailure";
     this.code = code;
@@ -144,7 +138,9 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     }
   }
   const limits: Limits =
-    loadedPolicy === undefined ? DEFAULT_LIMITS : { ...DEFAULT_LIMITS, ...loadedPolicy.effectiveLimits };
+    loadedPolicy === undefined
+      ? DEFAULT_LIMITS
+      : { ...DEFAULT_LIMITS, ...loadedPolicy.effectiveLimits };
 
   const diagnostics: Diagnostic[] = [];
   const diag = (
@@ -166,18 +162,40 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
       );
     }
     if (loadedPolicy.staleReason !== null) {
-      diag(loadedPolicy.staleReason, "warning", "policy", "trust policy is outside its validity window");
+      diag(
+        loadedPolicy.staleReason,
+        "warning",
+        "policy",
+        "trust policy is outside its validity window",
+      );
     }
   } else {
     diag("pap.trust.policy-absent", "info", "policy", "no trust policy supplied");
   }
 
-  const manifestRead = await readPackageFile(root, "assurance-package.json", limits, limits.manifestBytes);
+  const manifestRead = await readPackageFile(
+    root,
+    "assurance-package.json",
+    limits,
+    limits.manifestBytes,
+  );
   if (!manifestRead.ok || manifestRead.bytes === undefined) {
     const failure = manifestRead.failure ?? "io";
     const code = failure === "limit" ? "pap.package.limit-exceeded" : "pap.package.io";
-    diag(code, "error", "assurance-package.json", manifestRead.message ?? "cannot read the manifest");
-    const report = failedManifestReport(root, evaluatedAt, loadedPolicy, diagnostics, limits, options.policyPath);
+    diag(
+      code,
+      "error",
+      "assurance-package.json",
+      manifestRead.message ?? "cannot read the manifest",
+    );
+    const report = failedManifestReport(
+      root,
+      evaluatedAt,
+      loadedPolicy,
+      diagnostics,
+      limits,
+      options.policyPath,
+    );
     return { report, exitCode: 1 };
   }
 
@@ -193,8 +211,20 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
       if (error.failure === "duplicate-key") code = "pap.package.duplicate-key";
       if (error.failure === "limit") code = "pap.package.limit-exceeded";
     }
-    diag(code, "error", "assurance-package.json", error instanceof Error ? error.message : "manifest is not valid JSON");
-    const report = failedManifestReport(root, evaluatedAt, loadedPolicy, diagnostics, limits, options.policyPath);
+    diag(
+      code,
+      "error",
+      "assurance-package.json",
+      error instanceof Error ? error.message : "manifest is not valid JSON",
+    );
+    const report = failedManifestReport(
+      root,
+      evaluatedAt,
+      loadedPolicy,
+      diagnostics,
+      limits,
+      options.policyPath,
+    );
     return { report, exitCode: 1 };
   }
 
@@ -218,7 +248,12 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     diag(defect.code, "error", defect.scope, defect.message);
   }
   if (validation.compat === "minor-newer") {
-    diag("pap.compat.minor-newer", "warning", "papVersion", `unsupported newer minor ${validation.papVersion}`);
+    diag(
+      "pap.compat.minor-newer",
+      "warning",
+      "papVersion",
+      `unsupported newer minor ${validation.papVersion}`,
+    );
   } else if (validation.compat === "version-unsupported") {
     diag(
       "pap.compat.version-unsupported",
@@ -228,7 +263,12 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     );
   }
   for (const feature of validation.unsupportedFeatures) {
-    diag("pap.feature.unsupported", "warning", "requiredFeatures", `required feature ${feature} is not supported`);
+    diag(
+      "pap.feature.unsupported",
+      "warning",
+      "requiredFeatures",
+      `required feature ${feature} is not supported`,
+    );
   }
   for (const extension of validation.unsupportedCriticalExtensions) {
     diag(
@@ -239,13 +279,26 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     );
   }
   for (const extension of validation.ignoredExtensions) {
-    diag("pap.extension.ignored", "info", "extensions", `non-critical extension ${extension} was ignored`);
+    diag(
+      "pap.extension.ignored",
+      "info",
+      "extensions",
+      `non-critical extension ${extension} was ignored`,
+    );
   }
 
   const declaredSpecs: CheckSpec[] = manifest?.checkSpecs ?? validation.checkSpecs;
   const policyChecks = loadedPolicy?.policy.requiredChecks ?? [];
 
-  const payloads = await loadPayloads(root, limits, manifest, structuralFailure, artifactPathFailure, diagnostics, diag);
+  const payloads = await loadPayloads(
+    root,
+    limits,
+    manifest,
+    structuralFailure,
+    artifactPathFailure,
+    diagnostics,
+    diag,
+  );
   let scanIncomplete = false;
   let nestedManifestFailure = false;
   if (manifest !== null && !structuralFailure) {
@@ -334,7 +387,12 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   }
 
   if (payloads.limitHit) {
-    diag("pap.package.limit-exceeded", "error", "package", "a resource limit stopped payload evaluation");
+    diag(
+      "pap.package.limit-exceeded",
+      "error",
+      "package",
+      "a resource limit stopped payload evaluation",
+    );
   }
 
   let integrityArtifacts: VerificationReport["dimensions"]["integrity"]["artifacts"] = "PASS";
@@ -342,7 +400,9 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     integrityArtifacts = "NOT_EVALUATED";
   } else if (
     artifactPathFailure ||
-    payloads.artifacts.some((artifact) => artifact.status === "missing" || artifact.status === "mismatch")
+    payloads.artifacts.some(
+      (artifact) => artifact.status === "missing" || artifact.status === "mismatch",
+    )
   ) {
     integrityArtifacts = "FAIL";
   } else if (payloads.artifacts.some((artifact) => artifact.status === "unread")) {
@@ -394,7 +454,12 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     if (loadedPolicy.policy.signature.mode === "optional") {
       diag("pap.signature.absent", "info", "signatures", "no signature envelope is present");
     } else if (loadedPolicy.policy.signature.mode === "required") {
-      diag("pap.signature.absent", "warning", "signatures", "a signature is required but no envelope is present");
+      diag(
+        "pap.signature.absent",
+        "warning",
+        "signatures",
+        "a signature is required but no envelope is present",
+      );
     }
   }
   if (
@@ -438,7 +503,9 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     sources: { integrity: sourcesIntegrity, availability: sourcesAvailability },
     signature: {
       validity: signatureEvaluation.validity,
-      ...(signatureEvaluation.entries.length === 0 ? {} : { signatures: signatureEvaluation.entries }),
+      ...(signatureEvaluation.entries.length === 0
+        ? {}
+        : { signatures: signatureEvaluation.entries }),
     },
     trust,
     checks: { results: checkEvaluation.results },
@@ -534,7 +601,13 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   // over the same derived requirement set, so the verdict and the coverage
   // counters cannot disagree about what was required.
   const limitStopped = payloads.limitHit || signatureEvaluation.envelopeLimitHit;
-  report.coverage = computeCoverage(report, requiredChecks, requiredDimensions, limitStopped, scanIncomplete);
+  report.coverage = computeCoverage(
+    report,
+    requiredChecks,
+    requiredDimensions,
+    limitStopped,
+    scanIncomplete,
+  );
   const verdictContext: VerdictContext = {
     requiredChecks,
     requiredDimensions,
@@ -544,7 +617,8 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     limitStopped,
     unsupportedVersion: validation.compat !== null,
     unsupportedFeature:
-      validation.unsupportedFeatures.length > 0 || validation.unsupportedCriticalExtensions.length > 0,
+      validation.unsupportedFeatures.length > 0 ||
+      validation.unsupportedCriticalExtensions.length > 0,
     emptyRequiredSet,
     coverageFull: report.coverage.full,
   };
@@ -603,11 +677,19 @@ export async function loadPayloads(
     domain: string,
   ): Promise<
     | { ok: true; digest: string; size: number }
-    | { ok: false; failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io"; message: string }
+    | {
+        ok: false;
+        failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io";
+        message: string;
+      }
   > => {
     if (stopped) {
       result.limitedClasses.add(kind);
-      return { ok: false, failure: "limit", message: "payload evaluation stopped by an earlier limit" };
+      return {
+        ok: false,
+        failure: "limit",
+        message: "payload evaluation stopped by an earlier limit",
+      };
     }
     const remaining = Math.max(0, limits.totalPayloadBytes - totalBytes);
     const cap = Math.min(limits.fileBytes, remaining);
@@ -643,11 +725,19 @@ export async function loadPayloads(
     input: Manifest["inputs"][number],
   ): Promise<
     | { ok: true; digest: string; normalizedSize: number; mode: "lf" | "raw" }
-    | { ok: false; failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io"; message: string }
+    | {
+        ok: false;
+        failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io";
+        message: string;
+      }
   > => {
     if (stopped) {
       result.limitedClasses.add("inputs");
-      return { ok: false, failure: "limit", message: "payload evaluation stopped by an earlier limit" };
+      return {
+        ok: false,
+        failure: "limit",
+        message: "payload evaluation stopped by an earlier limit",
+      };
     }
     const remaining = Math.max(0, limits.totalPayloadBytes - totalBytes);
     const cap = Math.min(limits.fileBytes, remaining);
@@ -666,7 +756,12 @@ export async function loadPayloads(
         result.limitedClasses.add("inputs");
         return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
       }
-      return { ok: true, digest: outcome.digest, normalizedSize: outcome.normalizedSize, mode: outcome.mode };
+      return {
+        ok: true,
+        digest: outcome.digest,
+        normalizedSize: outcome.normalizedSize,
+        mode: outcome.mode,
+      };
     }
     if (outcome.failure === "limit") {
       stopped = true;
@@ -713,12 +808,19 @@ export async function loadPayloads(
   const classCountExceeded = (count: number): boolean => {
     if (count <= limits.payloadFiles) return false;
     result.limitHit = true;
-    diag("pap.package.limit-exceeded", "error", "package", "declared payload class exceeds the count limit");
+    diag(
+      "pap.package.limit-exceeded",
+      "error",
+      "package",
+      "declared payload class exceeds the count limit",
+    );
     return true;
   };
   const artifactsBlocked = classCountExceeded(manifest.artifacts.length);
   if (artifactsBlocked) result.limitedClasses.add("artifacts");
-  const sourcesBlocked = classCountExceeded(manifest.sources.filter((source) => source.path !== undefined).length);
+  const sourcesBlocked = classCountExceeded(
+    manifest.sources.filter((source) => source.path !== undefined).length,
+  );
   if (sourcesBlocked) result.limitedClasses.add("sources");
   const inputsBlocked = classCountExceeded(manifest.inputs.length);
   if (inputsBlocked) result.limitedClasses.add("inputs");
@@ -726,15 +828,33 @@ export async function loadPayloads(
   const duplicateArtifactPaths = duplicateDeclaredPaths(manifest);
   for (const artifact of manifest.artifacts) {
     if (artifactsBlocked) {
-      result.artifacts.push({ artifact, computed: null, byteCount: null, status: "unread", message: "payload count limit exceeded" });
+      result.artifacts.push({
+        artifact,
+        computed: null,
+        byteCount: null,
+        status: "unread",
+        message: "payload count limit exceeded",
+      });
       continue;
     }
     if (duplicateArtifactPaths.has(pathKey(artifact.path))) {
-      result.artifacts.push({ artifact, computed: null, byteCount: null, status: "missing", message: `artifact path is duplicated: ${artifact.path}` });
+      result.artifacts.push({
+        artifact,
+        computed: null,
+        byteCount: null,
+        status: "missing",
+        message: `artifact path is duplicated: ${artifact.path}`,
+      });
       continue;
     }
     if (!usablePath(artifact.path, "artifacts/")) {
-      result.artifacts.push({ artifact, computed: null, byteCount: null, status: "missing", message: `artifact path is invalid: ${artifact.path}` });
+      result.artifacts.push({
+        artifact,
+        computed: null,
+        byteCount: null,
+        status: "missing",
+        message: `artifact path is invalid: ${artifact.path}`,
+      });
       continue;
     }
     const outcome = await hashPayload(artifact.path, "artifacts", "pap.artifact.v1");
@@ -752,15 +872,32 @@ export async function loadPayloads(
     if (outcome.digest !== artifact.digest || outcome.size !== artifact.bytes) {
       const message = `artifact ${artifact.id} declares ${artifact.digest}/${artifact.bytes} bytes but computed ${outcome.digest}/${outcome.size}`;
       diag("pap.integrity.artifact-mismatch", "error", artifact.id, message);
-      result.artifacts.push({ artifact, computed: outcome.digest, byteCount: outcome.size, status: "mismatch", message });
+      result.artifacts.push({
+        artifact,
+        computed: outcome.digest,
+        byteCount: outcome.size,
+        status: "mismatch",
+        message,
+      });
     } else {
-      result.artifacts.push({ artifact, computed: outcome.digest, byteCount: outcome.size, status: "ok" });
+      result.artifacts.push({
+        artifact,
+        computed: outcome.digest,
+        byteCount: outcome.size,
+        status: "ok",
+      });
     }
   }
 
   for (const source of manifest.sources) {
     if (sourcesBlocked && source.path !== undefined) {
-      result.sources.push({ source, computed: null, size: null, status: "unread", message: "payload count limit exceeded" });
+      result.sources.push({
+        source,
+        computed: null,
+        size: null,
+        status: "unread",
+        message: "payload count limit exceeded",
+      });
       continue;
     }
     if (source.path === undefined) {
@@ -768,7 +905,13 @@ export async function loadPayloads(
       continue;
     }
     if (!usablePath(source.path, "sources/")) {
-      result.sources.push({ source, computed: null, size: null, status: "missing", message: `source path is invalid: ${source.path}` });
+      result.sources.push({
+        source,
+        computed: null,
+        size: null,
+        status: "missing",
+        message: `source path is invalid: ${source.path}`,
+      });
       continue;
     }
     const outcome = await hashPayload(source.path, "sources", "pap.source.raw.v1");
@@ -786,7 +929,13 @@ export async function loadPayloads(
     if (outcome.digest !== source.digest) {
       const message = `source ${source.id} does not match its declared raw digest`;
       diag("pap.integrity.source-mismatch", "error", source.id, message);
-      result.sources.push({ source, computed: outcome.digest, size: outcome.size, status: "mismatch", message });
+      result.sources.push({
+        source,
+        computed: outcome.digest,
+        size: outcome.size,
+        status: "mismatch",
+        message,
+      });
     } else {
       result.sources.push({ source, computed: outcome.digest, size: outcome.size, status: "ok" });
     }
@@ -796,12 +945,26 @@ export async function loadPayloads(
   let inputSetComplete = true;
   for (const input of manifest.inputs) {
     if (inputsBlocked) {
-      result.inputs.push({ input, computed: null, normalizedSize: null, mode: null, status: "unread", message: "payload count limit exceeded" });
+      result.inputs.push({
+        input,
+        computed: null,
+        normalizedSize: null,
+        mode: null,
+        status: "unread",
+        message: "payload count limit exceeded",
+      });
       inputSetComplete = false;
       continue;
     }
     if (!usablePath(input.path, "inputs/")) {
-      result.inputs.push({ input, computed: null, normalizedSize: null, mode: null, status: "missing", message: `input path is invalid: ${input.path}` });
+      result.inputs.push({
+        input,
+        computed: null,
+        normalizedSize: null,
+        mode: null,
+        status: "missing",
+        message: `input path is invalid: ${input.path}`,
+      });
       inputSetComplete = false;
       continue;
     }
@@ -822,17 +985,39 @@ export async function loadPayloads(
     if (outcome.digest !== input.digest) {
       const message = `input ${input.id} does not match its declared digest`;
       diag("pap.integrity.input-mismatch", "error", input.id, message);
-      result.inputs.push({ input, computed: outcome.digest, normalizedSize: outcome.normalizedSize, mode: outcome.mode, status: "mismatch", message });
+      result.inputs.push({
+        input,
+        computed: outcome.digest,
+        normalizedSize: outcome.normalizedSize,
+        mode: outcome.mode,
+        status: "mismatch",
+        message,
+      });
     } else {
-      result.inputs.push({ input, computed: outcome.digest, normalizedSize: outcome.normalizedSize, mode: outcome.mode, status: "ok" });
+      result.inputs.push({
+        input,
+        computed: outcome.digest,
+        normalizedSize: outcome.normalizedSize,
+        mode: outcome.mode,
+        status: "ok",
+      });
     }
-    inputEntries.push({ path: input.path, mode: outcome.mode, normalizedSize: outcome.normalizedSize });
+    inputEntries.push({
+      path: input.path,
+      mode: outcome.mode,
+      normalizedSize: outcome.normalizedSize,
+    });
   }
   if (manifest.inputs.length > 0 && inputSetComplete) {
     const setDigest = await normalizedInputSetDigestStream(root, inputEntries, limits);
     if (setDigest === null) {
       result.limitHit = true;
-      diag("pap.package.limit-exceeded", "error", "inputs", "normalized input set could not be read within limits");
+      diag(
+        "pap.package.limit-exceeded",
+        "error",
+        "inputs",
+        "normalized input set could not be read within limits",
+      );
     } else {
       result.normalizedInputDigest = setDigest;
     }
@@ -879,7 +1064,12 @@ export async function loadPayloads(
       status: computed === ref.digest ? "ok" : "mismatch",
     };
     if (computed !== ref.digest) {
-      diag("pap.integrity.claim-mismatch", "error", kind, `claim ${kind} does not match its declared digest`);
+      diag(
+        "pap.integrity.claim-mismatch",
+        "error",
+        kind,
+        `claim ${kind} does not match its declared digest`,
+      );
       state.message = "claim digest mismatch";
       result.claims.push(state);
       result.claimMap[kind] = state;
@@ -900,8 +1090,16 @@ export async function loadPayloads(
         state.invalid = true;
         state.message = parsed.message;
         diag("pap.package.claim-invalid", "error", kind, parsed.message);
-        if (kind === "producerReport" && parsed.message.includes("mimics a verifier check record")) {
-          diag("pap.claims.spoofed-result", "error", kind, "producer report contains verifier-only fields");
+        if (
+          kind === "producerReport" &&
+          parsed.message.includes("mimics a verifier check record")
+        ) {
+          diag(
+            "pap.claims.spoofed-result",
+            "error",
+            kind,
+            "producer report contains verifier-only fields",
+          );
         }
       }
     } else {
@@ -958,7 +1156,12 @@ export async function loadPayloads(
       } else if (span.failure === "limit") {
         result.limitHit = true;
         result.sourceSpanBudgetHit = true;
-        diag("pap.package.limit-exceeded", "error", binding.id, span.message ?? "quote range exceeds a limit");
+        diag(
+          "pap.package.limit-exceeded",
+          "error",
+          binding.id,
+          span.message ?? "quote range exceeds a limit",
+        );
       } else if (span.message !== undefined) {
         diag("pap.package.io", "error", binding.id, span.message);
       }
@@ -1041,9 +1244,7 @@ function evaluateChecks(options: {
 
   const limitBlocksRequired =
     options.limitHit &&
-    options.requiredChecks.some((checkId) =>
-      checkTouchesLimited(checkId, options.limitedClasses),
-    );
+    options.requiredChecks.some((checkId) => checkTouchesLimited(checkId, options.limitedClasses));
 
   for (const entry of ordered) {
     const isRequired = required.has(entry.id);
@@ -1069,7 +1270,12 @@ function evaluateChecks(options: {
     }
     if (!isImplementedCheck(entry.id)) {
       results.push({ checkId: entry.id, outcome: "UNSUPPORTED", required: isRequired });
-      options.diag("pap.check.unsupported", "warning", entry.id, "check specification is not implemented");
+      options.diag(
+        "pap.check.unsupported",
+        "warning",
+        entry.id,
+        "check specification is not implemented",
+      );
       continue;
     }
     const record = checkSpecImpl(entry.id, checkInput) as CheckRecord;
@@ -1082,7 +1288,12 @@ function evaluateChecks(options: {
       options.diag("pap.check.failed", "error", entry.id, "a required check failed");
     }
     if (isRequired && record.outcome === "NOT_EVALUATED") {
-      options.diag("pap.check.not-evaluated", "warning", entry.id, "a required check was not evaluated");
+      options.diag(
+        "pap.check.not-evaluated",
+        "warning",
+        entry.id,
+        "a required check was not evaluated",
+      );
     }
     if (isRequired && record.outcome === "UNSUPPORTED") {
       options.diag("pap.check.unsupported", "warning", entry.id, "a required check is unsupported");
@@ -1144,12 +1355,24 @@ export function evaluateTrust(options: {
     );
     if (sameIdVersion.length === 0) {
       checkerRecognition = "UNSUPPORTED";
-      options.diag("pap.trust.checker-unknown", "warning", "checker", "checker identity is not pinned by the policy");
-    } else if (sameIdVersion.some((pin) => pin.implementationDigest === options.checker.implementationDigest)) {
+      options.diag(
+        "pap.trust.checker-unknown",
+        "warning",
+        "checker",
+        "checker identity is not pinned by the policy",
+      );
+    } else if (
+      sameIdVersion.some((pin) => pin.implementationDigest === options.checker.implementationDigest)
+    ) {
       checkerRecognition = "PASS";
     } else {
       checkerRecognition = "UNTRUSTED";
-      options.diag("pap.trust.checker-untrusted", "warning", "checker", "checker implementation digest does not match the policy pin");
+      options.diag(
+        "pap.trust.checker-untrusted",
+        "warning",
+        "checker",
+        "checker implementation digest does not match the policy pin",
+      );
     }
   }
 
@@ -1158,17 +1381,34 @@ export function evaluateTrust(options: {
   if (profile === undefined || policy.profiles.length === 0) {
     profileRecognition = "NOT_APPLICABLE";
   } else {
-    const pin = policy.profiles.find((candidate) => candidate.id === profile.id && candidate.version === profile.version);
+    const pin = policy.profiles.find(
+      (candidate) => candidate.id === profile.id && candidate.version === profile.version,
+    );
     if (pin === undefined) {
       profileRecognition = "UNSUPPORTED";
-      options.diag("pap.trust.profile-unknown", "warning", "profile", "profile identity is not pinned by the policy");
+      options.diag(
+        "pap.trust.profile-unknown",
+        "warning",
+        "profile",
+        "profile identity is not pinned by the policy",
+      );
     } else if (pin.closureDigest !== undefined) {
       if (profile.closureDigest === undefined) {
         profileRecognition = "UNSUPPORTED";
-        options.diag("pap.trust.profile-unknown", "warning", "profile", "policy pins a closure digest the package does not declare");
+        options.diag(
+          "pap.trust.profile-unknown",
+          "warning",
+          "profile",
+          "policy pins a closure digest the package does not declare",
+        );
       } else if (pin.closureDigest !== profile.closureDigest) {
         profileRecognition = "UNTRUSTED";
-        options.diag("pap.trust.profile-untrusted", "warning", "profile", "profile closure digest does not match the policy pin");
+        options.diag(
+          "pap.trust.profile-untrusted",
+          "warning",
+          "profile",
+          "profile closure digest does not match the policy pin",
+        );
       } else {
         profileRecognition = "PASS";
       }
@@ -1185,8 +1425,7 @@ export function evaluateTrust(options: {
     : options.signature.entries.length === 0
       ? "NOT_APPLICABLE"
       : options.signature.signerIdentity;
-  const policyDecision =
-    options.state === "STALE" ? "STALE" : options.signature.policyDecision;
+  const policyDecision = options.state === "STALE" ? "STALE" : options.signature.policyDecision;
   if (policyDecision === "REJECTED" && options.signature.entries.length > 0) {
     // Per-entry diagnostics explain the rejection; this aggregate code is only
     // needed when nothing more specific exists.
@@ -1212,12 +1451,22 @@ function evaluateHumanReview(options: {
   }
   const claim = options.reviews;
   if (claim === undefined || claim.status !== "ok" || claim.parsed === undefined) {
-    options.diag("pap.review.missing", "warning", "reviews", "required human-review evidence is absent or unusable");
+    options.diag(
+      "pap.review.missing",
+      "warning",
+      "reviews",
+      "required human-review evidence is absent or unusable",
+    );
     return { status: "INCOMPLETE" };
   }
   const reviews = claim.parsed;
   if (reviews.kind !== "reviews") {
-    options.diag("pap.review.missing", "warning", "reviews", "required human-review evidence is unusable");
+    options.diag(
+      "pap.review.missing",
+      "warning",
+      "reviews",
+      "required human-review evidence is unusable",
+    );
     return { status: "INCOMPLETE" };
   }
   const artifactIds = new Set(options.manifest?.artifacts.map((artifact) => artifact.id) ?? []);
@@ -1271,23 +1520,48 @@ function evaluateHumanReview(options: {
   }
 
   if (anyValid && !anyRejected) {
-    options.diag("pap.review.unbound", "info", "reviews", "approval is an unverified producer claim, not authenticated approval");
+    options.diag(
+      "pap.review.unbound",
+      "info",
+      "reviews",
+      "approval is an unverified producer claim, not authenticated approval",
+    );
     return { status: "PASS", basis: "unbound-claim" };
   }
   if (anyRejected) {
-    options.diag("pap.trust.review-required", "warning", "reviews", "an in-scope review decision is rejected");
+    options.diag(
+      "pap.trust.review-required",
+      "warning",
+      "reviews",
+      "an in-scope review decision is rejected",
+    );
     return { status: "INCOMPLETE" };
   }
   if (!anyInScope || anyBindingInvalid) {
-    options.diag("pap.review.binding-invalid", "warning", "reviews", "review evidence does not bind this package");
+    options.diag(
+      "pap.review.binding-invalid",
+      "warning",
+      "reviews",
+      "review evidence does not bind this package",
+    );
     return { status: "INCOMPLETE" };
   }
   if (anyStale) {
-    options.diag("pap.review.stale", "warning", "reviews", "review evidence is stale or has an unusable timestamp");
+    options.diag(
+      "pap.review.stale",
+      "warning",
+      "reviews",
+      "review evidence is stale or has an unusable timestamp",
+    );
     return { status: "INCOMPLETE" };
   }
   if (anyUnrecognized) {
-    options.diag("pap.review.unknown-reviewer", "warning", "reviews", "reviewer identity is not recognized by the policy");
+    options.diag(
+      "pap.review.unknown-reviewer",
+      "warning",
+      "reviews",
+      "reviewer identity is not recognized by the policy",
+    );
     return { status: "UNKNOWN" };
   }
   options.diag("pap.review.missing", "warning", "reviews", "no usable approval evidence");
@@ -1415,7 +1689,12 @@ async function reportUndeclaredFiles(
     }
     if (declared.has(pathKey(file))) continue;
     if (/^signatures\/[A-Za-z0-9._-]+\.dsse\.json$/.test(file)) continue;
-    diag("pap.package.undeclared-file", "warning", file, "undeclared file is present and was not read");
+    diag(
+      "pap.package.undeclared-file",
+      "warning",
+      file,
+      "undeclared file is present and was not read",
+    );
   }
   return { incomplete: walk.limitHit || walk.error !== null, nestedManifest };
 }

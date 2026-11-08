@@ -45,9 +45,9 @@ interface RequirementsMap {
   verdictCauseExceptions: Record<string, string>;
 }
 
-const suite = JSON.parse(
-  readFileSync(path.join(fixtures, "cases.json"), "utf8"),
-) as { cases: CaseEntry[] };
+const suite = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
+  cases: CaseEntry[];
+};
 const requirements = JSON.parse(
   readFileSync(path.join(fixtures, "requirements.json"), "utf8"),
 ) as RequirementsMap;
@@ -171,7 +171,8 @@ function assertionSpans(source: string): [number, number][] {
       while (cursor < source.length && /\s/.test(source[cursor] as string)) cursor += 1;
       if (source[cursor] === ".") {
         cursor += 1;
-        while (cursor < source.length && /[A-Za-z0-9_$]/.test(source[cursor] as string)) cursor += 1;
+        while (cursor < source.length && /[A-Za-z0-9_$]/.test(source[cursor] as string))
+          cursor += 1;
       }
       while (cursor < source.length && /\s/.test(source[cursor] as string)) cursor += 1;
       if (source[cursor] === "(") {
@@ -205,7 +206,11 @@ function assertionSpans(source: string): [number, number][] {
  * string literal that the test builds without asserting it. */
 function assertionContains(source: string, marker: string): boolean {
   const spans = assertionSpans(source);
-  for (let index = source.indexOf(marker); index !== -1; index = source.indexOf(marker, index + 1)) {
+  for (
+    let index = source.indexOf(marker);
+    index !== -1;
+    index = source.indexOf(marker, index + 1)
+  ) {
     if (spans.some(([start, end]) => index > start && index < end)) return true;
   }
   return false;
@@ -214,8 +219,7 @@ function assertionContains(source: string, marker: string): boolean {
 test("assertionContains follows nested template placeholders", () => {
   // A nested backtick in a placeholder used to end the literal early and could
   // hide the closing parenthesis of the assert call (Gemini review, PR #231).
-  const asserted =
-    'assert.equal(value, `prefix ${fn(`)`)} suffix "pap.example.asserted-code"`);';
+  const asserted = 'assert.equal(value, `prefix ${fn(`)`)} suffix "pap.example.asserted-code"`);';
   assert.equal(assertionContains(asserted, "pap.example.asserted-code"), true);
   assert.equal(
     assertionContains('const code = "pap.example.unasserted-code";', "pap.example.unasserted-code"),
@@ -227,7 +231,10 @@ test("requirements.json covers every diagnostic code pap/src emits", () => {
   const emitted = emittedDiagnosticCodes();
   assert.ok(emitted.length > 0, "no diagnostic codes were extracted from pap/src");
 
-  const mapped = new Set([...Object.keys(requirements.codes), ...Object.keys(requirements.unitOnlyCodes)]);
+  const mapped = new Set([
+    ...Object.keys(requirements.codes),
+    ...Object.keys(requirements.unitOnlyCodes),
+  ]);
   const uncovered = emitted.filter((code) => !mapped.has(code));
   assert.deepEqual(
     uncovered,
@@ -236,7 +243,11 @@ test("requirements.json covers every diagnostic code pap/src emits", () => {
   );
 
   const stale = [...mapped].filter((code) => !emitted.includes(code));
-  assert.deepEqual(stale, [], `requirements.json names codes pap/src does not emit: ${stale.join(", ")}`);
+  assert.deepEqual(
+    stale,
+    [],
+    `requirements.json names codes pap/src does not emit: ${stale.join(", ")}`,
+  );
 });
 
 test("cases only expect diagnostic codes pap/src emits", () => {
@@ -257,7 +268,11 @@ test("cases only expect diagnostic codes pap/src emits", () => {
 test("requirements.json codes map to real cases that assert them", () => {
   for (const [code, caseIds] of Object.entries(requirements.codes)) {
     assert.ok(caseIds.length > 0, `${code} has no case`);
-    assert.deepEqual([...caseIds].sort(), [...new Set(caseIds)].sort(), `${code} repeats a case id`);
+    assert.deepEqual(
+      [...caseIds].sort(),
+      [...new Set(caseIds)].sort(),
+      `${code} repeats a case id`,
+    );
     for (const caseId of caseIds) {
       const entry = casesById.get(caseId);
       assert.ok(entry, `${code} names unknown case ${caseId}`);
@@ -275,7 +290,10 @@ test("unit-only codes name a focused unit test and no case", () => {
   for (const [code, exemption] of Object.entries(requirements.unitOnlyCodes)) {
     assert.ok(requirements.codes[code] === undefined, `${code} is both case-mapped and unit-only`);
     assert.ok(!expectedByCase.has(code), `${code} is expected by a case and must not be unit-only`);
-    assert.ok(typeof exemption.reason === "string" && exemption.reason.length > 0, `${code} has no reason`);
+    assert.ok(
+      typeof exemption.reason === "string" && exemption.reason.length > 0,
+      `${code} has no reason`,
+    );
     if (exemption.unitTest !== undefined) {
       assert.ok(
         existsSync(path.join(root, "tests", exemption.unitTest.file)),
@@ -315,7 +333,10 @@ test("every RFC requirement R1-R12 maps to a case", () => {
   }
 
   for (const [requirement, note] of Object.entries(requirements.requirementNotes ?? {})) {
-    assert.ok(requirements.requirements[requirement] !== undefined, `note for unknown ${requirement}`);
+    assert.ok(
+      requirements.requirements[requirement] !== undefined,
+      `note for unknown ${requirement}`,
+    );
     assert.ok(note.length > 0, `${requirement} note is empty`);
   }
 });
@@ -328,7 +349,11 @@ test("verdictCause maps emitted codes to known dimensions", () => {
     assert.ok(emitted.has(code), `verdictCause names a code pap/src does not emit: ${code}`);
     const mapped = Array.isArray(value) ? value : [value];
     assert.ok(mapped.length > 0, `${code} has no dimension`);
-    assert.deepEqual([...mapped].sort(), [...new Set(mapped)].sort(), `${code} repeats a dimension`);
+    assert.deepEqual(
+      [...mapped].sort(),
+      [...new Set(mapped)].sort(),
+      `${code} repeats a dimension`,
+    );
     for (const dimension of mapped) {
       assert.ok(dimensions.has(dimension), `${code} names unknown dimension ${dimension}`);
     }
@@ -337,8 +362,16 @@ test("verdictCause maps emitted codes to known dimensions", () => {
   for (const [caseId, reason] of Object.entries(requirements.verdictCauseExceptions)) {
     const entry = casesById.get(caseId);
     assert.ok(entry, `verdictCauseExceptions names unknown case ${caseId}`);
-    assert.equal(entry?.noReport ?? false, false, `${caseId} has no report and cannot be a verdict exception`);
-    assert.notEqual(entry?.expect?.verdict, "PASS", `${caseId} passes and cannot be a verdict exception`);
+    assert.equal(
+      entry?.noReport ?? false,
+      false,
+      `${caseId} has no report and cannot be a verdict exception`,
+    );
+    assert.notEqual(
+      entry?.expect?.verdict,
+      "PASS",
+      `${caseId} passes and cannot be a verdict exception`,
+    );
     assert.ok(typeof reason === "string" && reason.length > 0, `${caseId} exception has no reason`);
   }
 });
@@ -352,7 +385,11 @@ test("every non-PASS report case names a verdict cause (I5a)", () => {
 
     const exception = requirements.verdictCauseExceptions[entry.caseId];
     if (verdict === "PASS") {
-      assert.equal(exception, undefined, `${entry.caseId} passes and cannot be a verdict exception`);
+      assert.equal(
+        exception,
+        undefined,
+        `${entry.caseId} passes and cannot be a verdict exception`,
+      );
       continue;
     }
 

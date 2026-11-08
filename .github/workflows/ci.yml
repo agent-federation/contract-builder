@@ -43,6 +43,13 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      # Biome check enforces both the lint rules and the formatter; the separate
+      # format:check keeps a readable failure when only formatting is off.
+      - name: Lint and format
+        run: |
+          bun run lint
+          bun run format:check
+
       # Coverage is informational only, with no threshold: the PAP tests exercise the
       # verifier by spawning its CLI, so pap/ execution is not measurable in-process and
       # a global threshold would be misleading.

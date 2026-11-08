@@ -145,18 +145,14 @@ test("checks/dependencies: reports an open normative dependency and a mention", 
     source_quote: "MUST do",
     in_scope: false,
   });
-  const withDependency = entity(
-    "P1",
-    "provision",
-    PROVISION_FIELDS,
-    { ...PROVISION_RELATIONS, dependsOn: ["D1"], mentions: ["D1"] },
-  );
+  const withDependency = entity("P1", "provision", PROVISION_FIELDS, {
+    ...PROVISION_RELATIONS,
+    dependsOn: ["D1"],
+    mentions: ["D1"],
+  });
 
   const findings = await dependencies(context(modelWith([fragment(), decision, withDependency])));
-  assert.deepEqual(codes(findings), [
-    "REVIEW_OPEN_NORMATIVE_DEPENDENCY",
-    "WARN_OUTSIDE_SLICE_REF",
-  ]);
+  assert.deepEqual(codes(findings), ["REVIEW_OPEN_NORMATIVE_DEPENDENCY", "WARN_OUTSIDE_SLICE_REF"]);
 });
 
 test("checks/review: tolerates a provision without review", async () => {

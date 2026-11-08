@@ -60,9 +60,7 @@ test("Appendix E.2: artifact, source, input and input-set digest vectors", async
 
 test("Appendix E.1: JCS canonical manifest and package identity", async () => {
   const manifest = JSON.parse(
-    new TextDecoder("utf-8", { fatal: true }).decode(
-      await read("assurance-package.json"),
-    ),
+    new TextDecoder("utf-8", { fatal: true }).decode(await read("assurance-package.json")),
   ) as unknown;
 
   assert.equal(
@@ -106,7 +104,7 @@ test("Appendix E.9: JCS UTF-16 key order and minimal string escaping", () => {
     "sha256:9267454f732ed7ef9939b28dc1e451c88c2967ff4a6b1746bf638d313e72b508",
   );
 
-  const escaped = canonicalJson({ s: "\u0001\t\n\"\\é😀" });
+  const escaped = canonicalJson({ s: '\u0001\t\n"\\é😀' });
   assert.equal(escaped, '{"s":"\\u0001\\t\\n\\"\\\\é😀"}');
   assert.equal(utf8(escaped).length, 28);
   assert.equal(
@@ -133,10 +131,7 @@ test("Appendix E.5: CRLF normalization and the per-file/set input vectors", () =
   const raw = hex("613a20310d0a623a20320d0a");
   const normalized = normalizeLf(raw);
 
-  assert.equal(
-    Buffer.from(normalized).toString("hex"),
-    "613a20310a623a20320a",
-  );
+  assert.equal(Buffer.from(normalized).toString("hex"), "613a20310a623a20320a");
   assert.equal(
     inputFileDigest("inputs/crlf.yml", normalized),
     "sha256:2633064c5d3066746beae7416e97e87816fe9b031c6f57af4c9b02ca1c00453b",
@@ -317,12 +312,10 @@ test("mapping fills every manifest section field by field", () => {
   assert.equal(serialized.includes("acquiredAt"), false);
 });
 
-test("mapping declares claim files by path and H(\"pap.claims.v1\", bytes)", () => {
+test('mapping declares claim files by path and H("pap.claims.v1", bytes)', () => {
   const input = sampleInput();
   const provenance = utf8('{"bindings":[],"papClaimsVersion":"0.1"}\n');
-  const relations = utf8(
-    '{"edges":[],"entities":[],"papClaimsVersion":"0.1","relations":[]}\n',
-  );
+  const relations = utf8('{"edges":[],"entities":[],"papClaimsVersion":"0.1","relations":[]}\n');
   const plan = mapCore000Package({
     ...input,
     claims: [
@@ -420,10 +413,7 @@ test("mapping rejects missing/crossing path prefixes and duplicates", () => {
     () =>
       mapCore000Package({
         ...baseInput,
-        inputs: [
-          baseInput.inputs[0]!,
-          { ...baseInput.inputs[1]!, path: "inputs/z.yml" },
-        ],
+        inputs: [baseInput.inputs[0]!, { ...baseInput.inputs[1]!, path: "inputs/z.yml" }],
       }),
     /duplicate package path/,
   );

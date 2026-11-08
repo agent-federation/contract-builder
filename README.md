@@ -207,12 +207,16 @@ A snapshot of the full implementation status lives in
 | `bun run release:check --tag vX.Y.Z` | release gate: the tag must equal the engine `package.json` `version`; also validates the three version domains for presence and shape |
 | `bun test` | builder, verifier and pipeline tests |
 | `bun run typecheck` | `tsc --noEmit` |
+| `bun run lint` | Biome lint and format check |
+| `bun run format` | apply Biome formatting |
+| `bun run format:check` | check formatting without writing |
 | `bun run pap -- verify <PACKAGE>` | PAP v0.1 verifier: `verify`, `inspect`, `explain` |
 | `bun run pap:test` | PAP vectors, conformance corpus, hostile input, CLI |
 | `bun run pack:core000` | deterministic CORE-000 PAP packer (producer side) |
 
-CI runs `bun install --frozen-lockfile`, `bun run typecheck`, `bun test`, `bun run check`; all four
-must be green before a pull request can land.
+CI runs `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`,
+`bun run format:check`, `bun test`, `bun run check`; all steps must be green before a pull request
+can land.
 
 ## Version domains and releases
 

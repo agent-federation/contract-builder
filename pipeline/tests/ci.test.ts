@@ -11,11 +11,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import {
-  assertDecision,
-  checkDeterminism,
-  tamperReport,
-} from "../ci.js";
+import { assertDecision, checkDeterminism, tamperReport } from "../ci.js";
 
 type JsonObject = Record<string, any>;
 
@@ -71,10 +67,7 @@ test("determinism rejects a packageIdentity mismatch", async () => {
         package: { identity: other, path: "/tmp/pipeline/pack-b" },
       }),
     );
-    await assert.rejects(
-      checkDeterminism([a, b]),
-      /packageIdentity differs between pack runs/,
-    );
+    await assert.rejects(checkDeterminism([a, b]), /packageIdentity differs between pack runs/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -89,30 +82,21 @@ test("determinism rejects a report that is not a clean PASS", async () => {
       "report-not-pass",
       cleanReport({ verdict: "INCOMPLETE" }),
     );
-    await assert.rejects(
-      checkDeterminism([a, notPass]),
-      /verdict is "INCOMPLETE", expected PASS/,
-    );
+    await assert.rejects(checkDeterminism([a, notPass]), /verdict is "INCOMPLETE", expected PASS/);
 
     const noCoverage = await writeJson(
       root,
       "report-no-coverage",
       cleanReport({ coverage: { full: false } }),
     );
-    await assert.rejects(
-      checkDeterminism([a, noCoverage]),
-      /coverage\.full is false/,
-    );
+    await assert.rejects(checkDeterminism([a, noCoverage]), /coverage\.full is false/);
 
     const diagnostic = await writeJson(
       root,
       "report-diagnostic",
       cleanReport({ diagnostics: [{ code: "pap.package.io" }] }),
     );
-    await assert.rejects(
-      checkDeterminism([a, diagnostic]),
-      /diagnostics is not empty/,
-    );
+    await assert.rejects(checkDeterminism([a, diagnostic]), /diagnostics is not empty/);
 
     const mismatch = await writeJson(
       root,
@@ -233,14 +217,8 @@ test("CI helpers reject malformed invocations and unreadable files", async () =>
     checkDeterminism(["only-one-report"]),
     /determinism requires exactly <report-a> <report-b>/,
   );
-  await assert.rejects(
-    tamperReport(["only-source"]),
-    /tamper requires exactly <report> <out>/,
-  );
-  await assert.rejects(
-    assertDecision(["/tmp/decision.json", "MAYBE"]),
-    /unknown decision "MAYBE"/,
-  );
+  await assert.rejects(tamperReport(["only-source"]), /tamper requires exactly <report> <out>/);
+  await assert.rejects(assertDecision(["/tmp/decision.json", "MAYBE"]), /unknown decision "MAYBE"/);
   await assert.rejects(
     checkDeterminism(["/tmp/does-not-exist-a.json", "/tmp/does-not-exist-b.json"]),
     /cannot read \/tmp\/does-not-exist-a\.json/,

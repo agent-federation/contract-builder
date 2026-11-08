@@ -1,0 +1,83 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.git",
+      "!**/.pi",
+      "!**/.entire",
+      "!spec/output",
+      "!contracts/core000/output",
+      "!pap/fixtures",
+      "!fixtures",
+      "!tests/golden",
+      "!coverage",
+      "!**/*.lock",
+      "!**/bun.lock",
+      "!**/bun.lockb",
+      "!**/package-lock.json",
+      "!**/pnpm-lock.yaml",
+      "!**/yarn.lock",
+      "!**/*.md",
+      "!**/*.j2",
+      "!**/*.yml",
+      "!**/*.yaml"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noImplicitAnyLet": "warn"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "profiles/**",
+        "spec/**/*.json",
+        "contracts/**/*.json",
+        "pipeline/policy/**",
+        "pap/schemas/**"
+      ],
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
+      "includes": ["**/tests/**", "**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off",
+            "noTemplateCurlyInString": "off"
+          }
+        }
+      }
+    }
+  ],
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  }
+}

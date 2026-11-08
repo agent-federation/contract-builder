@@ -21,9 +21,7 @@ import { fixtures, root } from "./support.js";
 const baseDir = path.join(fixtures, "base");
 const readBase = (relative: string): Uint8Array =>
   new Uint8Array(readFileSync(path.join(baseDir, relative)));
-const baseManifest = JSON.parse(
-  readFileSync(path.join(baseDir, "assurance-package.json"), "utf8"),
-);
+const baseManifest = JSON.parse(readFileSync(path.join(baseDir, "assurance-package.json"), "utf8"));
 
 test("E.1 canonical manifest bytes and package identity", () => {
   assert.equal(
@@ -77,10 +75,19 @@ test("E.3 checker closure and checker identity", () => {
     "pap.verifier.reference",
     "0.1.0",
     [
-      { path: "src/checks/digest.ts", bytes: utf8('export const checkId = "pap.check.digest-integrity/1";\n') },
+      {
+        path: "src/checks/digest.ts",
+        bytes: utf8('export const checkId = "pap.check.digest-integrity/1";\n'),
+      },
       { path: "src/checks/source.ts", bytes: utf8("export const spanCheck = true;\n") },
     ],
-    [{ name: "zod", version: "3.23.8", integrity: "sha512-9K5fXZ0G8p3oUo4WQ9m2l1v0B9m3r7Yqk1s2V4pL6c0=" }],
+    [
+      {
+        name: "zod",
+        version: "3.23.8",
+        integrity: "sha512-9K5fXZ0G8p3oUo4WQ9m2l1v0B9m3r7Yqk1s2V4pL6c0=",
+      },
+    ],
   );
   assert.equal(digest, "sha256:73f738b733b177c04597b0e6ab9c4d267059ea1556e6f943d543c252c5ef15c0");
   assert.equal(
@@ -108,13 +115,18 @@ test("E.4 verification record identity form", () => {
 
 test("E.5 LF normalization and CRLF vectors", () => {
   const raw = Buffer.from("613a20310d0a623a20320d0a", "hex");
-  assert.equal(Buffer.from(normalizeLf(new Uint8Array(raw))).toString("hex"), "613a20310a623a20320a");
+  assert.equal(
+    Buffer.from(normalizeLf(new Uint8Array(raw))).toString("hex"),
+    "613a20310a623a20320a",
+  );
   assert.equal(
     inputFileDigest("inputs/crlf.yml", normalizeLf(new Uint8Array(raw))),
     "sha256:2633064c5d3066746beae7416e97e87816fe9b031c6f57af4c9b02ca1c00453b",
   );
   assert.equal(
-    normalizedInputSetDigest([{ path: "inputs/crlf.yml", bytes: normalizeLf(new Uint8Array(raw)) }]),
+    normalizedInputSetDigest([
+      { path: "inputs/crlf.yml", bytes: normalizeLf(new Uint8Array(raw)) },
+    ]),
     "sha256:92e9ec329516a5672fc40fd0b4474f2a2fd7790d87817c37b772af3347df2021",
   );
 });
@@ -163,19 +175,16 @@ test("E.7 DSSE pre-authentication encoding", () => {
 });
 
 test("E.9 JCS edge vectors", () => {
-  assert.equal(
-    jcs({ a: 1, "😀": 2, "\ufffd": 3, A: 4, b: 5 }),
-    '{"A":4,"a":1,"b":5,"😀":2,"�":3}',
-  );
+  assert.equal(jcs({ a: 1, "😀": 2, "\ufffd": 3, A: 4, b: 5 }), '{"A":4,"a":1,"b":5,"😀":2,"�":3}');
   assert.equal(jcsBytes({ a: 1, "😀": 2, "\ufffd": 3, A: 4, b: 5 }).length, 36);
   assert.equal(
     `sha256:${sha256Hex(jcsBytes({ a: 1, "😀": 2, "\ufffd": 3, A: 4, b: 5 }))}`,
     "sha256:9267454f732ed7ef9939b28dc1e451c88c2967ff4a6b1746bf638d313e72b508",
   );
-  assert.equal(jcs({ s: "\u0001\t\n\"\\é😀" }), '{"s":"\\u0001\\t\\n\\"\\\\é😀"}');
-  assert.equal(jcsBytes({ s: "\u0001\t\n\"\\é😀" }).length, 28);
+  assert.equal(jcs({ s: '\u0001\t\n"\\é😀' }), '{"s":"\\u0001\\t\\n\\"\\\\é😀"}');
+  assert.equal(jcsBytes({ s: '\u0001\t\n"\\é😀' }).length, 28);
   assert.equal(
-    `sha256:${sha256Hex(jcsBytes({ s: "\u0001\t\n\"\\é😀" }))}`,
+    `sha256:${sha256Hex(jcsBytes({ s: '\u0001\t\n"\\é😀' }))}`,
     "sha256:9033f8f21bc1c3367ebcad55e2298bf113b63f9e5f21c20678de00e760c5ff5d",
   );
 });
@@ -185,28 +194,46 @@ test("E.10 identity mutation vectors", () => {
     readFileSync(path.join(root, "fixtures", "vectors", "e4-identity-form.json"), "utf8"),
   );
   const hash = (value: unknown): string => verificationRecordIdentity(value as never);
-  assert.equal(hash(baseline), "sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea");
+  assert.equal(
+    hash(baseline),
+    "sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea",
+  );
 
   const outcome = JSON.parse(JSON.stringify(baseline));
   outcome.dimensions.checks.results[0].outcome = "FAIL";
-  assert.equal(hash(outcome), "sha256:f9f2c22f90baa970ebed16d3cceae08a2aac6544f617320dd06c95745d1b7e30");
+  assert.equal(
+    hash(outcome),
+    "sha256:f9f2c22f90baa970ebed16d3cceae08a2aac6544f617320dd06c95745d1b7e30",
+  );
 
   const range = JSON.parse(JSON.stringify(baseline));
   range.checks[1].witnesses[0].range.end = 75;
-  assert.equal(hash(range), "sha256:83d9147e35f2dc528f481f0f39335497b3c32ea7f45ed083cf8a448679f24c4c");
+  assert.equal(
+    hash(range),
+    "sha256:83d9147e35f2dc528f481f0f39335497b3c32ea7f45ed083cf8a448679f24c4c",
+  );
 
   const scope = JSON.parse(JSON.stringify(baseline));
   scope.checks[0].scope.artifacts = [];
-  assert.equal(hash(scope), "sha256:652798f36a18daec12268ebe05eeb6022d5d1be704897d51a98a2d30adc044f8");
+  assert.equal(
+    hash(scope),
+    "sha256:652798f36a18daec12268ebe05eeb6022d5d1be704897d51a98a2d30adc044f8",
+  );
 
   const diagnostic = JSON.parse(JSON.stringify(baseline));
   diagnostic.checks[1].diagnostics.push({ code: "pap.check.partial", severity: "warning" });
   assert.equal(diagnostic.checks[1].diagnostics[0].code, "pap.check.partial");
-  assert.equal(hash(diagnostic), "sha256:635dcc4a65d44e5e011f8193705e9eb6c62eae8e553fd8068b60bc2ca59fc9e3");
+  assert.equal(
+    hash(diagnostic),
+    "sha256:635dcc4a65d44e5e011f8193705e9eb6c62eae8e553fd8068b60bc2ca59fc9e3",
+  );
 
   const quote = JSON.parse(JSON.stringify(baseline));
   quote.checks[1].witnesses[0].quoteBase64 = "UkVRLTAwMQ==";
-  assert.equal(hash(quote), "sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea");
+  assert.equal(
+    hash(quote),
+    "sha256:147aad0ab0f4b9274b7f66182de179ad69ae2924f311dcf723e67d39b07527ea",
+  );
 });
 
 test("strict I-JSON parser rejects invalid documents", () => {

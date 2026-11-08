@@ -47,10 +47,7 @@ export function hasBom(bytes: Uint8Array): boolean {
   return bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
 }
 
-export function parseJsonStrict(
-  bytes: Uint8Array,
-  limits: JsonParseLimits,
-): JsonValue {
+export function parseJsonStrict(bytes: Uint8Array, limits: JsonParseLimits): JsonValue {
   if (hasBom(bytes)) {
     throw new JsonParseError("syntax", "JSON must not start with a UTF-8 BOM");
   }

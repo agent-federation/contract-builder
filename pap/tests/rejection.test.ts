@@ -52,7 +52,10 @@ function policyFixture(name: string): any {
   return JSON.parse(readFileSync(path.join(fixtures, "trust-policy", name), "utf8"));
 }
 
-function verify(dir: string, extra: string[] = []): { status: number; stdout: string; stderr: string } {
+function verify(
+  dir: string,
+  extra: string[] = [],
+): { status: number; stdout: string; stderr: string } {
   return runPap(["verify", ".", "--format", "json", "--now", NOW, ...extra], dir);
 }
 
@@ -220,7 +223,8 @@ const CLAIM_CASES: ClaimCase[] = [
     field: "papClaimsVersion",
     kind: "producerReport",
     file: "producer-report.json",
-    load: (dir) => JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
+    load: (dir) =>
+      JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
     mutate: (value, fieldValue) => {
       value.papClaimsVersion = fieldValue;
     },
@@ -247,7 +251,8 @@ const CLAIM_CASES: ClaimCase[] = [
     field: "producerReport claims[].claimedOutcome",
     kind: "producerReport",
     file: "producer-report.json",
-    load: (dir) => JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
+    load: (dir) =>
+      JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8")),
     mutate: (value, fieldValue) => {
       value.claims[0].claimedOutcome = fieldValue;
     },

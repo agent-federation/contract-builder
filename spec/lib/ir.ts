@@ -134,7 +134,9 @@ export async function buildProjectModel(
           continue;
         }
 
-        if (!validateEntityValue(schemas, kindDecl.schema, raw, { file: input.path, pointer }, diags)) {
+        if (
+          !validateEntityValue(schemas, kindDecl.schema, raw, { file: input.path, pointer }, diags)
+        ) {
           failed = true;
           continue;
         }
@@ -205,7 +207,9 @@ export async function buildProjectModel(
   );
   if (relations === null) return null;
 
-  if (!bindProvenance(entities, locations, loaded.project.profile, loaded.project.manifest, diags)) {
+  if (
+    !bindProvenance(entities, locations, loaded.project.profile, loaded.project.manifest, diags)
+  ) {
     return null;
   }
 
