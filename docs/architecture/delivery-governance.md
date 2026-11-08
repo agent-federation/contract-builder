@@ -6,7 +6,7 @@
 
 ## 1. The problem
 
-The audit scored delivery governance at **6/10** (green CI, branch protection, but no lint/security/coverage gates) and releases/versioning at **2/10** (no tags, releases or CHANGELOG; version `0.1.0` is static). The gates that exist are good and should be kept; what is missing is a *policy* for what a release is, which checks are mandatory, how documentation freshness is automated beyond one claim-count sentence, how agent-authored PRs are bounded, where debt lives, and which structural debt is worth paying down now.
+The audit scored delivery governance at **6/10** (green CI, branch protection, but no lint/security/coverage gates) and releases/versioning at **2/10** (no tags, releases or CHANGELOG; the engine, profile and project versions happen to share `0.1.0`, with no policy separating those domains). The gates that exist are good and should be kept; what is missing is a *policy* for what a release is, which checks are mandatory, how documentation freshness is automated beyond one claim-count sentence, how agent-authored PRs are bounded, where debt lives, and which structural debt is worth paying down now.
 
 The current state (verified at `main` `81d1e6f`):
 
@@ -14,7 +14,7 @@ The current state (verified at `main` `81d1e6f`):
 |---|---|
 | CI | `check` (install, `bun audit`, typecheck, `bun test`, `check:all`), `pipeline` (deterministic pack, verify, gate, tamper check), `pipeline-independent` (three pinned independent verifiers, non-blocking); pinned action SHAs, concurrency, 15/30-min timeouts, coverage **informational only** |
 | Branching | `main` protected: `check` required, Code Owner review, conversation resolution, pushes/merges restricted to maintainer; independent-family pre-review required for code PRs (ODR-PROC-002) |
-| Release | no tags, no GitHub releases, no CHANGELOG, no version-sync check; `build:release` exits 1 by design (5 `REVIEW_REQUIRED`); PAP verifier is an in-repo dev script (RFC §9.1 packaging boundary open) |
+| Release | no tags, no GitHub releases, no CHANGELOG, no version-domain policy/check (engine package, profile and project revision are independent domains that currently share `0.1.0`); `build:release` exits 1 by design (5 `REVIEW_REQUIRED`); PAP verifier is an in-repo dev script (RFC §9.1 packaging boundary open) |
 | Lint/format | no linter, formatter or `.editorconfig`; edits are checked only by `tsc` and tests |
 | Docs automation | `tests/docs-freshness.test.ts` checks one claim-count sentence; no link checker, no status-matrix snapshot check for engine changes |
 | Templates | `.github/CODEOWNERS` + one workflow; no PR/issue templates, no PR-size or branch-naming rule in-repo for agents |
@@ -30,11 +30,21 @@ The current state (verified at `main` `81d1e6f`):
 
 ## 3. Decisions
 
-### D1 — Release and versioning: MVP without public releases, with a version-sync check
+### D1 — Release and versioning: MVP without public releases, with an engine-version check (independent version domains)
 
-There is no publishable consumer yet (private package, in-repo verifier, draft artifacts). Recommendation: **declare "MVP without public releases"** explicitly for now, and add a machine check that the version is consistent across `package.json`, `profiles/core001/profile.json`, `contracts/core000/contract-builder.json` (`project.revision`) and the engine version read from the root package. When a release is actually needed, adopt:
+There is no publishable consumer yet (private package, in-repo verifier, draft artifacts). **Three version domains are independent and must not be synchronised:**
 
-- semver tags `vX.Y.Z` on `main`, annotated, plus GitHub Release notes;
+| Domain | Authoritative field | Meaning |
+|---|---|---|
+| Engine version | `package.json` `version`, read by `readEngineVersion` and embedded in `BuildResult.identity.engineVersion` | the engine release |
+| Profile version | `profiles/*/profile.json` `version` | the profile's own evolution |
+| Project revision | `contracts/*/contract-builder.json` `project.revision` | the particular project/content revision |
+
+They currently coincide (`0.1.0`) only by accident; the canonical contract already shows the distinction — its CORE-001 example has `project.revision: 0.3.3` with `profile.version: 0.1.0`. A sync rule that forces them equal would encode an invalid coupling.
+
+Recommendation: **declare "MVP without public releases"** explicitly for now, and add a machine check only within the **engine** domain: the engine version in `package.json` matches the `engineVersion` read/recorded in build identity/provenance (and, once releases exist, the release tag). Profile versions and project revisions are checked for being present and well-formed, never for equalling the engine version. When a release is actually needed, adopt:
+
+- semver tags `vX.Y.Z` on `main` referring to the **engine** release, annotated, plus GitHub Release notes that list the profile version(s) and project revision(s) shipped alongside it;
 - `CHANGELOG.md` generated from Conventional Commits (release-please or `git-cliff`), not hand-maintained;
 - release artifacts: CORE-001 draft, CORE-000 draft, PAP verifier (when D8 says it is publishable), each with a checksum;
 - a release checklist: all required checks green, no `REVIEW_REQUIRED` where the release claims release-mode output, independent pre-review recorded, evidence refreshed if the package/contract changed.
@@ -98,7 +108,7 @@ The high-value debt is concentrated:
 - `spec/lib/identity.ts` (1761) → digest/envelope framing, engine-root resolution/import mapping, profile/adapter/renderer closure, build identity assembly;
 - shared helpers: one `text()`/`isObject()` in a single module per boundary (`pap` must not import `spec/`; keep a `pap/src/guards.ts` and use `spec/lib/guards.ts` for the engine);
 - renderer scaffolding: `MemoryLoader`, `finalize`, `countSeverity` belong in one shared profile-support module, not copied in each renderer;
-- test temp directories: stop the leak the audit measured (~221 dirs / ~466 MB per full run) with one centralized temp-directory helper/teardown across `tests/` and `pipeline/tests/`, and assert a clean `/tmp` delta after the suite.
+- test temp directories: stop the leak the audit measured (~221 dirs / ~466 MB per full run) with one centralized temp-directory helper/teardown across `tests/` and `pipeline/tests/`. Each suite must own a dedicated temp root (or an explicitly tracked set of harness-owned paths) and assert cleanup only inside that scope — never a process-wide `/tmp` count/size delta, which parallel sessions and unrelated processes can perturb. Cover failure paths (assertion/timeout) so teardown still runs.
 
 Sequencing: D2 format baseline first (so refactor diffs are clean), then split modules in separate PRs behind the existing tests and S2.2/golden checks; no behaviour change in the split PRs.
 
@@ -117,18 +127,18 @@ Until then, keep the enforced boundary (no imports of `spec/`, `profiles/`, prod
 | Slice | Deliverable | Acceptance |
 |---|---|---|
 | D0 | This design note + decisions accepted | maintainer approves D1–D8 |
-| D1 | Release/version policy (MVP-no-release) + version-sync check | check fails on a version mismatch; policy documented in CONTRIBUTING/README |
+| D1 | Release/version policy (MVP-no-release) + engine-version check | engine-version check fails on a mismatch inside the engine domain; profile/project versions are validated as present but never forced equal; policy documented in CONTRIBUTING/README |
 | D2 | Biome baseline + CI lint/format step | one formatting-only commit; CI green; no behaviour change |
 | D3 | Link checker + coverage policy + secret scanning/CodeQL + Dependabot | gates green on day one; thresholds documented; no PAP in-process threshold |
 | D4 | `docs-freshness` extensions (status-matrix hash, diagnostic codes) | tests bite on a deliberate contract/code change |
 | D5 | PR/issue templates + branch/size rules | templates used by the next PR; size guideline documented |
 | D6 | `debt` label + register convention + first triage | label exists; triage list linked from #170 |
-| D7 | Structural splits (verify, identity, helpers, renderer support) + temp-dir lifecycle | behaviour-preserving PRs, tests/goldens green, no artifact byte change; full suite leaves no leaked temp dirs |
+| D7 | Structural splits (verify, identity, helpers, renderer support) + temp-dir lifecycle | behaviour-preserving PRs, tests/goldens green, no artifact byte change; no leaked resources under the test-owned temp root (asserted per suite, not via a global `/tmp` delta) |
 | D8 | Verifier packaging decision recorded | trigger conditions in the RFC/ODR; no physical split until they hold |
 
 ## 5. Decisions requested (D1–D8)
 
-- **D1:** adopt MVP-without-releases + version-sync now; semver/tags/CHANGELOG only when a publishable consumer exists. *(recommended)*
+- **D1:** adopt MVP-without-releases + an **engine-version** check now (never a cross-domain sync); engine semver tags/CHANGELOG when a publishable consumer exists, with profile/project versions listed separately in release notes. *(recommended)*
 - **D2:** Biome over ESLint+Prettier; formatting baseline commit, then CI. *(recommended)*
 - **D3:** add Biome, link checker, secret scanning/CodeQL, Dependabot; coverage threshold only for in-process areas; no global threshold. *(recommended)*
 - **D4:** extend docs freshness with a status-matrix hash and diagnostic-code documentation check; add link checking. *(recommended)*
