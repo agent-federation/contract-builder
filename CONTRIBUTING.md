@@ -48,6 +48,18 @@ The CORE-001 profile ships executable modules (`view.ts`, `validator.ts`). Build
 
 `bun run build:release` is intentionally failing while the demo slice still has `REVIEW_REQUIRED` diagnostics. Do not weaken that gate to get a green release build.
 
+### Version domains and releases
+
+The three version domains are **independent** and must never be compared for equality:
+
+| Domain | Authoritative field |
+|---|---|
+| Engine | `package.json` `version` |
+| Profile | `profiles/*/profile.json` `version` |
+| Project | `contracts/*/contract-builder.json` `project.revision` |
+
+The canonical CORE-001 example already separates them: `project.revision` `0.3.3` with `profile.version` `0.1.0`. `bun run release:check --tag vX.Y.Z` validates that every domain is present and semver-shaped (without comparing them) and that the release tag is semver-shaped and equals the engine `package.json` `version`; a mismatch or malformed tag fails, and a missing `--tag` is a usage error, not a pass. The repository has no release tags yet (declared **MVP without public releases**). `bun run check:all` and the identity tests already cover the engine `package.json` ↔ generated artifacts/provenance, so the release tag is the only engine-version source this gate adds.
+
 ## What not to do
 
 - Hand-edit generated Markdown under `spec/output/`
