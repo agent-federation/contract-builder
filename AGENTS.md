@@ -168,21 +168,42 @@ source roots above: `bun test tests/docs-freshness.test.ts`.
 
 ## Pull request rules
 
+- Work on a branch named `<type>/<issue#>-<slug>`, where `<type>` is the
+  Conventional Commits type: for example `fix/142-envelope-limit`,
+  `docs/251-pr-issue-templates` or `feat/201-pipeline-c2-claims`. Branch from
+  up-to-date `main`; never commit directly to `main`.
 - Subject line follows Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`,
-  `chore:` and so on.
-- Body is in English and states what changed and which command proved it
-  (for example `bun run check`).
+  `chore:` and so on. Pull request and issue bodies are in English and state
+  what changed and which command proved it (for example `bun run check`).
+- One concern per pull request: do not mix a refactor, a reformatting or an
+  unrelated fix into a documentation, feature or fix pull request.
+- **Size guideline.** Aim for at most 400 changed lines, excluding generated
+  artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens
+  (`fixtures/`, `pap/fixtures/`, `tests/golden/`). Split a larger change into
+  independent pull requests; when it cannot be split, state why in the pull
+  request.
+- Open the pull request with the
+  [pull request template](.github/PULL_REQUEST_TEMPLATE.md); it carries the
+  proof commands, the pre-review record, risk/rollback and the checklist. File
+  issues with the templates under `.github/ISSUE_TEMPLATE/` (bug, architecture,
+  hardening, tail).
 - Never push directly to `main` and never force-push to `main`. `main` is
   protected: the `check` job must pass, the branch must be up to date, and the
   pull request needs one approving Code Owner review
   (`.github/CODEOWNERS`) and resolved conversations. Pushes and merges to
   `main` are restricted to the maintainer; admin bypass stays available to the
   maintainer only (see `docs/decisions/ODR-PROC-001-branch-protection-and-agent-merge.md`).
+- **Force-push under review.** Never force-push a branch that is under review
+  without re-running the independent pre-review against the new head (the delta
+  pre-review) and recording it in the pull request. Rewrite history only when
+  the review requires it.
 - This project is also worked on by an automated agent (GitHub account
   `it-start`). An agent never merges and never enables auto-merge; a human
-  merges every pull request. Branch protection makes this technical: the agent
-  can push branches and open pull requests, but it cannot merge, and its
-  approval cannot satisfy the Code Owner review requirement.
+  merges every pull request. Agent-authored pull requests pass the same gates as
+  human ones, and the pre-review record below is mandatory for a code pull
+  request. Branch protection makes the merge rule technical: the agent can push
+  branches and open pull requests, but it cannot merge, and its approval cannot
+  satisfy the Code Owner review requirement.
 - Before merge, code pull requests (changes under `pap/`, `spec/lib/`,
   `profiles/` or `contracts/`) need an independent-family pre-review with
   the independent-family reviewer from `docs/agents/pre-review.md` —
@@ -190,8 +211,9 @@ source roots above: `bun test tests/docs-freshness.test.ts`.
   `glm-5.3` on the documented triggers; record the reviewer, the reviewed head, the
   findings and their dispositions in the pull request. The review is advisory:
   CI, the Code Owner review and the human merge remain the gates, and P1/P2
-  findings must be verified before they block. Documentation-only changes may
-  skip it.
+  findings must be verified before they block. Documentation- and
+  config-only changes may skip it; record `docs-only, skipped: <reason>` in the
+  pull request instead of leaving the record blank.
 - Keep the change focused; do not mix refactors or reformatting into a
   documentation or fix pull request.
 
