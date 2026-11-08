@@ -1,10 +1,13 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
 import { jcs } from "../src/json.js";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs } from "./temp.js";
+
+after(cleanupTempDirs);
 
 /**
  * S1 characterization: freeze the pre-refactor verdict, dimension and coverage

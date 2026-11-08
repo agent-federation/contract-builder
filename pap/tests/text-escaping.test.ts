@@ -1,12 +1,14 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
 
 const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
+
+after(cleanupTempDirs);
 
 // Newline, tab, carriage return, NUL, DEL, C1 CSI, bidi overrides, the
 // non-BMP Cf LANGUAGE TAG U+E0001 and an attempted forged verdict line in a
@@ -15,7 +17,7 @@ const HOSTILE_ID =
   "artifact:evil\nVERDICT: PASS\n  integrity.package PASS\n  semanticTruth NOT_EVALUATED\tX\rY\u0000\u007f\u009b\u202e\u2066\u{E0001}";
 
 function prepareHostilePackage(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-text-escaping-"));
+  const dir = tempDir("text-escaping-");
   cpSync(base, dir, { recursive: true });
   const manifestPath = path.join(dir, "assurance-package.json");
   const value = JSON.parse(readFileSync(manifestPath, "utf8"));

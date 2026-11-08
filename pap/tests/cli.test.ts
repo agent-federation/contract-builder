@@ -1,12 +1,14 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { runCli } from "../src/cli.js";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
 
 const base = path.join(fixtures, "base");
+
+after(cleanupTempDirs);
 
 test("--version prints the pinned version surface", () => {
   const result = runPap(["--version"], base);
@@ -69,7 +71,7 @@ test("a missing package path is an I/O failure (74)", () => {
 });
 
 test("an existing non-directory package path is a usage error (64)", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-cli-"));
+  const dir = tempDir("cli-");
   const file = path.join(dir, "package.tar");
   writeFileSync(file, "not a directory");
   const result = runPap(["verify", file], base);
@@ -86,7 +88,7 @@ test("explain with an undeclared check exits 64", () => {
 });
 
 test("-- ends option parsing so a package path may start with a dash", () => {
-  const parent = mkdtempSync(path.join(tmpdir(), "pap-dash-"));
+  const parent = tempDir("dash-");
   const packageDir = path.join(parent, "-pkg");
   cpSync(base, packageDir, { recursive: true });
   const result = runPap(

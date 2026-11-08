@@ -1,13 +1,15 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
 import { fixtures, runPap } from "./support.js";
+import { cleanupTempDirs, tempDir } from "./temp.js";
 
 const NOW = "2026-11-02T00:00:00Z";
 const base = path.join(fixtures, "base");
+
+after(cleanupTempDirs);
 
 /** The same three shapes for every enum-like field: array, object, number. */
 const NON_STRINGS: [string, unknown][] = [
@@ -17,7 +19,7 @@ const NON_STRINGS: [string, unknown][] = [
 ];
 
 function tempPackage(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-rejection-"));
+  const dir = tempDir("rejection-");
   cpSync(base, dir, { recursive: true });
   return dir;
 }
@@ -42,7 +44,7 @@ function setClaim(dir: string, kind: string, file: string, value: unknown): void
 }
 
 function writePolicy(value: unknown): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "pap-rejection-policy-"));
+  const dir = tempDir("rejection-policy-");
   const file = path.join(dir, "policy.json");
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
   return file;
