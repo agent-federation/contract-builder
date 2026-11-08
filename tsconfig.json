@@ -15,6 +15,7 @@
     "types": ["node"]
   },
   "include": [
+    "scripts/**/*.ts",
     "spec/**/*.ts",
     "profiles/**/*.ts",
     "tests/**/*.ts",
