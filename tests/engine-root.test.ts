@@ -69,7 +69,7 @@ async function addProbeRenderer(projectDir: string): Promise<string> {
     [
       'import { createHash } from "node:crypto";',
       'import { fileURLToPath } from "node:url";',
-      "const bytes = new TextEncoder().encode(\"probe\\n\");",
+      'const bytes = new TextEncoder().encode("probe\\n");',
       'const sha256 = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;',
       "export const renderer = {",
       '  id: "core001-markdown",',
@@ -134,10 +134,7 @@ test("engine-root: a copied project builds from the supplied root without rewrit
   assert.equal(rebuilt.identity.engineVersion, await repoPackageVersion());
 
   // The copied profile still carries the authored specifier; the build did not rewrite it.
-  const copiedView = await readFile(
-    path.join(copied, "profiles", "core001", "view.ts"),
-    "utf8",
-  );
+  const copiedView = await readFile(path.join(copied, "profiles", "core001", "view.ts"), "utf8");
   assert.equal(copiedView.includes("../../spec/lib/"), true);
   assert.equal(copiedView.includes(path.join(root, "spec", "lib")), false);
 });
@@ -240,17 +237,12 @@ test("engine-root: a distinct same-version root's modules are the ones executed"
   assert.equal(await readFile(markerPath, "utf8"), "loaded");
 });
 
-
 test("engine-root: the mapping rule recognizes nested and deeper spec/lib imports", () => {
   const profile = path.join(path.sep, "project", "profiles", "core001");
   const layout = path.join(path.sep, "project");
 
   assert.deepEqual(
-    classifyEngineSpecifier(
-      "../../spec/lib/ir.js",
-      path.join(profile, "view.ts"),
-      layout,
-    ),
+    classifyEngineSpecifier("../../spec/lib/ir.js", path.join(profile, "view.ts"), layout),
     { kind: "engine", subpath: "ir.js" },
   );
   assert.deepEqual(
@@ -261,10 +253,9 @@ test("engine-root: the mapping rule recognizes nested and deeper spec/lib import
     ),
     { kind: "engine", subpath: "adapters/markdown.js" },
   );
-  assert.deepEqual(
-    classifyEngineSpecifier("./text.js", path.join(profile, "view.ts"), layout),
-    { kind: "extension" },
-  );
+  assert.deepEqual(classifyEngineSpecifier("./text.js", path.join(profile, "view.ts"), layout), {
+    kind: "extension",
+  });
 });
 
 test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths", () => {
@@ -277,13 +268,12 @@ test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths"
     layout,
   );
   assert.equal(ambiguous.kind, "error");
-  assert.equal(ambiguous.kind === "error" ? ambiguous.code : "", "core.extension.unpinned-dependency");
-
-  const empty = classifyEngineSpecifier(
-    "../../spec/lib",
-    path.join(profile, "view.ts"),
-    layout,
+  assert.equal(
+    ambiguous.kind === "error" ? ambiguous.code : "",
+    "core.extension.unpinned-dependency",
   );
+
+  const empty = classifyEngineSpecifier("../../spec/lib", path.join(profile, "view.ts"), layout);
   assert.equal(empty.kind, "error");
   assert.equal(empty.kind === "error" ? empty.code : "", "core.extension.unpinned-dependency");
 

@@ -58,28 +58,26 @@ function digestOf(document: unknown): string {
   );
 }
 
-test(
-  "S1 characterization: the corpus keeps identical verdict, dimensions and coverage",
-  { timeout: 120_000 },
-  () => {
-    assert.equal(baseline.fixtureSetVersion, suite.fixtureSetVersion);
-    assert.equal(baseline.baseCase, suite.baseCase);
-    const reportCases = suite.cases.filter((entry) => !entry.noReport && !entry.document);
-    assert.deepEqual(
-      reportCases.map((entry) => entry.caseId).sort(),
-      Object.keys(baseline.cases).sort(),
-      "the baseline must cover exactly the report-producing corpus cases",
-    );
+test("S1 characterization: the corpus keeps identical verdict, dimensions and coverage", {
+  timeout: 120_000,
+}, () => {
+  assert.equal(baseline.fixtureSetVersion, suite.fixtureSetVersion);
+  assert.equal(baseline.baseCase, suite.baseCase);
+  const reportCases = suite.cases.filter((entry) => !entry.noReport && !entry.document);
+  assert.deepEqual(
+    reportCases.map((entry) => entry.caseId).sort(),
+    Object.keys(baseline.cases).sort(),
+    "the baseline must cover exactly the report-producing corpus cases",
+  );
 
-    for (const entry of reportCases) {
-      const result = runPap(entry.command, path.join(fixtures, entry.caseId));
-      assert.equal(result.stderr, "", `${entry.caseId}: ${result.stderr}`);
-      const document = JSON.parse(result.stdout);
-      assert.equal(
-        digestOf(modelForm(document)),
-        baseline.cases[entry.caseId],
-        `${entry.caseId}: verdict, dimensions or coverage changed\n${JSON.stringify(modelForm(document), null, 2)}`,
-      );
-    }
-  },
-);
+  for (const entry of reportCases) {
+    const result = runPap(entry.command, path.join(fixtures, entry.caseId));
+    assert.equal(result.stderr, "", `${entry.caseId}: ${result.stderr}`);
+    const document = JSON.parse(result.stdout);
+    assert.equal(
+      digestOf(modelForm(document)),
+      baseline.cases[entry.caseId],
+      `${entry.caseId}: verdict, dimensions or coverage changed\n${JSON.stringify(modelForm(document), null, 2)}`,
+    );
+  }
+});

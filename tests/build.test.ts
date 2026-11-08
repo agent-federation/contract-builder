@@ -95,7 +95,10 @@ test("намеренно повреждённая модальность: violat
   const result = await runBuild(base({ specDir: fixture("broken-modality") }));
   assert.equal(result.exitCode, 1);
   assert.equal(result.blockedBy, "errors");
-  assert.deepEqual(codes(result).filter((c) => c.startsWith("ERR_")), ["ERR_MODALITY_UPGRADE"]);
+  assert.deepEqual(
+    codes(result).filter((c) => c.startsWith("ERR_")),
+    ["ERR_MODALITY_UPGRADE"],
+  );
 });
 
 test("дрейф источника: legacy изменён под спецификацией", async () => {
@@ -114,7 +117,10 @@ test("дрейф источника: legacy изменён под специфи
 test("дрейф источника: цитата не найдена в legacy", async () => {
   const result = await runBuild(base({ specDir: fixture("broken-source-drift") }));
   assert.equal(result.exitCode, 1);
-  assert.deepEqual(codes(result).filter((c) => c.startsWith("ERR_")), ["ERR_SOURCE_QUOTE_NOT_FOUND"]);
+  assert.deepEqual(
+    codes(result).filter((c) => c.startsWith("ERR_")),
+    ["ERR_SOURCE_QUOTE_NOT_FOUND"],
+  );
 });
 
 test("открытое решение: draft публикует с маркером, release блокирует", async () => {
@@ -139,7 +145,9 @@ test("модальность Clause: MAY без маркера — ERR_MODALITY_
   const dir = await copySpec("clause-marker");
   const semanticsPath = path.join(dir, "semantics.json");
   const semantics = JSON.parse(await readFile(semanticsPath, "utf8")) as {
-    provisions: Array<{ exception: { source_modality: string; modality_marker: string | null } | null }>;
+    provisions: Array<{
+      exception: { source_modality: string; modality_marker: string | null } | null;
+    }>;
   };
   semantics.provisions[1]!.exception!.modality_marker = null;
   await writeFile(semanticsPath, `${JSON.stringify(semantics, null, 2)}\n`, "utf8");
@@ -402,12 +410,15 @@ test("онтология: source_ref термина расходится с фр
   assert.deepEqual(errCodes(result), ["ERR_SOURCE_REF_MISMATCH"]);
 });
 
-async function copySpec(
-  name: string,
-  mutateLegacy?: (text: string) => string,
-): Promise<string> {
+async function copySpec(name: string, mutateLegacy?: (text: string) => string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), `spec-${name}-`));
-  for (const file of ["contract-builder.json", "sources.yml", "ontology.yml", "semantics.json", "decisions.yml"]) {
+  for (const file of [
+    "contract-builder.json",
+    "sources.yml",
+    "ontology.yml",
+    "semantics.json",
+    "decisions.yml",
+  ]) {
     await cp(path.join(specDir, file), path.join(dir, file));
   }
   await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), { recursive: true });

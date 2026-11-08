@@ -78,9 +78,7 @@ function assertCleanPass(report: JsonObject, label: string): string {
 
   const coverage = asObject(report.coverage, `${label}.coverage`);
   if (coverage.full !== true) {
-    fail(
-      `${label}: coverage.full is ${JSON.stringify(coverage.full)}, expected true`,
-    );
+    fail(`${label}: coverage.full is ${JSON.stringify(coverage.full)}, expected true`);
   }
 
   for (const field of ["diagnostics", "limitations"] as const) {
@@ -129,9 +127,7 @@ export async function checkDeterminism(args: readonly string[]): Promise<void> {
   const secondIdentity = assertCleanPass(secondReport, "report-b");
 
   if (firstIdentity !== secondIdentity) {
-    fail(
-      `packageIdentity differs between pack runs: ${firstIdentity} != ${secondIdentity}`,
-    );
+    fail(`packageIdentity differs between pack runs: ${firstIdentity} != ${secondIdentity}`);
   }
   if (normalizeReport(firstReport) !== normalizeReport(secondReport)) {
     fail("verifier reports differ after normalizing package.path");
@@ -150,9 +146,7 @@ export async function tamperReport(args: readonly string[]): Promise<void> {
 
   const report = await readJsonFile(source);
   if (report.verdict !== "PASS") {
-    fail(
-      `tamper baseline verdict is ${JSON.stringify(report.verdict)}, expected PASS`,
-    );
+    fail(`tamper baseline verdict is ${JSON.stringify(report.verdict)}, expected PASS`);
   }
   report.verdict = "FAIL";
 
@@ -168,9 +162,7 @@ export async function tamperReport(args: readonly string[]): Promise<void> {
 export async function assertDecision(args: readonly string[]): Promise<void> {
   const [file, expected] = args;
   if (file === undefined || expected === undefined || args.length !== 2) {
-    fail(
-      "assert-decision requires exactly <decision> <ACCEPTED|NOT_ACCEPTED>",
-    );
+    fail("assert-decision requires exactly <decision> <ACCEPTED|NOT_ACCEPTED>");
   }
   if (expected !== "ACCEPTED" && expected !== "NOT_ACCEPTED") {
     fail(`unknown decision ${JSON.stringify(expected)}`);
@@ -178,9 +170,7 @@ export async function assertDecision(args: readonly string[]): Promise<void> {
 
   const decision = await readJsonFile(file);
   if (decision.decision !== expected) {
-    fail(
-      `decision is ${JSON.stringify(decision.decision)}, expected ${expected}`,
-    );
+    fail(`decision is ${JSON.stringify(decision.decision)}, expected ${expected}`);
   }
 
   const reasons = decision.reasons;
@@ -193,14 +183,9 @@ export async function assertDecision(args: readonly string[]): Promise<void> {
       fail(`ACCEPTED decision has reasons: ${JSON.stringify(reasons)}`);
     }
     if (decision.verdict !== "PASS") {
-      fail(
-        `ACCEPTED decision verdict is ${JSON.stringify(decision.verdict)}, expected PASS`,
-      );
+      fail(`ACCEPTED decision verdict is ${JSON.stringify(decision.verdict)}, expected PASS`);
     }
-    if (
-      typeof decision.packageIdentity !== "string" ||
-      decision.packageIdentity.length === 0
-    ) {
+    if (typeof decision.packageIdentity !== "string" || decision.packageIdentity.length === 0) {
       fail("ACCEPTED decision has no packageIdentity");
     }
   } else if (reasons.length === 0) {
@@ -228,8 +213,7 @@ async function main(): Promise<void> {
   }
 }
 
-const invokedPath =
-  process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
+const invokedPath = process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   void main().catch((error: unknown) => {
     console.error(`ci-pipeline: ${messageOf(error)}`);

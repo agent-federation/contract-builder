@@ -92,7 +92,11 @@ function claimSubjectDigest(claim: ClaimState): string {
   return claim.computedDigest ?? claim.declaredDigest;
 }
 
-function checkDiagnostic(code: string, severity: CheckDiagnostic["severity"], message: string): CheckDiagnostic {
+function checkDiagnostic(
+  code: string,
+  severity: CheckDiagnostic["severity"],
+  message: string,
+): CheckDiagnostic {
   return { code, severity, message };
 }
 
@@ -110,7 +114,11 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
     if (witnessBytes + size > input.witnessBudget) {
       budgetExceeded = true;
       diagnostics.push(
-        checkDiagnostic("pap.package.limit-exceeded", "error", "check witness output budget exceeded"),
+        checkDiagnostic(
+          "pap.package.limit-exceeded",
+          "error",
+          "check witness output budget exceeded",
+        ),
       );
       return;
     }
@@ -137,9 +145,17 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
     });
     if (state.status === "ok") continue;
     if (state.status === "mismatch") {
-      note("mismatch", "pap.integrity.artifact-mismatch", state.message ?? `artifact ${state.artifact.id} does not match its declaration`);
+      note(
+        "mismatch",
+        "pap.integrity.artifact-mismatch",
+        state.message ?? `artifact ${state.artifact.id} does not match its declaration`,
+      );
     } else {
-      note(state.status, "pap.package.declared-file-missing", state.message ?? `artifact ${state.artifact.id} is not readable`);
+      note(
+        state.status,
+        "pap.package.declared-file-missing",
+        state.message ?? `artifact ${state.artifact.id} is not readable`,
+      );
     }
   }
 
@@ -153,12 +169,26 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
     });
     if (state.status === "ok") continue;
     if (state.status === "mismatch") {
-      note("mismatch", "pap.integrity.source-mismatch", state.message ?? `source ${state.source.id} does not match its declaration`);
+      note(
+        "mismatch",
+        "pap.integrity.source-mismatch",
+        state.message ?? `source ${state.source.id} does not match its declaration`,
+      );
     } else if (state.status === "referenced") {
-      diagnostics.push(checkDiagnostic("pap.source.unavailable", "warning", `source ${state.source.id} has no embedded snapshot`));
+      diagnostics.push(
+        checkDiagnostic(
+          "pap.source.unavailable",
+          "warning",
+          `source ${state.source.id} has no embedded snapshot`,
+        ),
+      );
       unread = true;
     } else {
-      note(state.status, "pap.package.declared-file-missing", state.message ?? `source ${state.source.id} is not readable`);
+      note(
+        state.status,
+        "pap.package.declared-file-missing",
+        state.message ?? `source ${state.source.id} is not readable`,
+      );
     }
   }
 
@@ -172,9 +202,17 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
     });
     if (state.status === "ok") continue;
     if (state.status === "mismatch") {
-      note("mismatch", "pap.integrity.input-mismatch", state.message ?? `input ${state.input.id} does not match its declaration`);
+      note(
+        "mismatch",
+        "pap.integrity.input-mismatch",
+        state.message ?? `input ${state.input.id} does not match its declaration`,
+      );
     } else {
-      note(state.status, "pap.package.declared-file-missing", state.message ?? `input ${state.input.id} is not readable`);
+      note(
+        state.status,
+        "pap.package.declared-file-missing",
+        state.message ?? `input ${state.input.id} is not readable`,
+      );
     }
   }
 
@@ -188,24 +226,47 @@ export function checkDigestIntegrity(input: CheckInput): CheckRecord {
     });
     if (claim.status === "ok") continue;
     if (claim.status === "mismatch") {
-      note("mismatch", "pap.integrity.claim-mismatch", claim.message ?? `claim ${claim.kind} does not match its declaration`);
+      note(
+        "mismatch",
+        "pap.integrity.claim-mismatch",
+        claim.message ?? `claim ${claim.kind} does not match its declaration`,
+      );
     } else {
-      note(claim.status, "pap.package.declared-file-missing", claim.message ?? `claim ${claim.kind} is not readable`);
+      note(
+        claim.status,
+        "pap.package.declared-file-missing",
+        claim.message ?? `claim ${claim.kind} is not readable`,
+      );
     }
   }
 
-  const outcome: CheckOutcome =
-    mismatch ? "FAIL" : unread || budgetExceeded ? "NOT_EVALUATED" : "PASS";
+  const outcome: CheckOutcome = mismatch
+    ? "FAIL"
+    : unread || budgetExceeded
+      ? "NOT_EVALUATED"
+      : "PASS";
 
   return {
     checkId: "pap.check.digest-integrity/1",
     checkVersion: "1",
     subjectDigests: {
       package: input.packageIdentity,
-      artifacts: input.artifacts.map((state) => ({ id: state.artifact.id, digest: state.computed ?? state.artifact.digest })),
-      sources: input.sources.map((state) => ({ id: state.source.id, digest: state.computed ?? state.source.digest })),
-      inputs: input.inputs.map((state) => ({ id: state.input.id, digest: state.computed ?? state.input.digest })),
-      claims: input.claims.map((claim) => ({ kind: claim.kind, digest: claimSubjectDigest(claim) })),
+      artifacts: input.artifacts.map((state) => ({
+        id: state.artifact.id,
+        digest: state.computed ?? state.artifact.digest,
+      })),
+      sources: input.sources.map((state) => ({
+        id: state.source.id,
+        digest: state.computed ?? state.source.digest,
+      })),
+      inputs: input.inputs.map((state) => ({
+        id: state.input.id,
+        digest: state.computed ?? state.input.digest,
+      })),
+      claims: input.claims.map((claim) => ({
+        kind: claim.kind,
+        digest: claimSubjectDigest(claim),
+      })),
     },
     scope: {
       artifacts: input.artifacts.map((state) => state.artifact.id),
@@ -236,10 +297,17 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
   }
 
   if (claim === undefined) {
-    diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "claims/provenance.json is absent"));
+    diagnostics.push(
+      checkDiagnostic("pap.check.not-evaluated", "warning", "claims/provenance.json is absent"),
+    );
     return quoteRecord(input, undefined, [], diagnostics, "NOT_EVALUATED", sourcesUsed, 0, 0, 0);
   }
-  if (claim.status === "mismatch" || claim.status === "missing" || claim.status === "unread" || claim.parsed === undefined) {
+  if (
+    claim.status === "mismatch" ||
+    claim.status === "missing" ||
+    claim.status === "unread" ||
+    claim.parsed === undefined
+  ) {
     diagnostics.push(
       checkDiagnostic(
         claim.unsupportedVersion ? "pap.claim.unsupported-version" : "pap.check.not-evaluated",
@@ -262,12 +330,24 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
     sourcesUsed.add(binding.sourceId);
     if (source === undefined) {
       // The claim parser rejects undeclared source ids; keep this defensive.
-      diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", `source ${binding.sourceId} is not declared`));
+      diagnostics.push(
+        checkDiagnostic(
+          "pap.check.not-evaluated",
+          "warning",
+          `source ${binding.sourceId} is not declared`,
+        ),
+      );
       unavailable += 1;
       continue;
     }
     if (source.computed === null || source.size === null) {
-      diagnostics.push(checkDiagnostic("pap.source.unavailable", "warning", `source ${source.source.id} has no embedded snapshot`));
+      diagnostics.push(
+        checkDiagnostic(
+          "pap.source.unavailable",
+          "warning",
+          `source ${source.source.id} has no embedded snapshot`,
+        ),
+      );
       unavailable += 1;
       continue;
     }
@@ -285,7 +365,13 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
     }
     const extractedDigest = input.sourceSpans.get(`${binding.sourceId}\u0000${start}\u0000${end}`);
     if (extractedDigest === undefined) {
-      diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", `binding ${binding.id} span could not be read`));
+      diagnostics.push(
+        checkDiagnostic(
+          "pap.check.not-evaluated",
+          "warning",
+          `binding ${binding.id} span could not be read`,
+        ),
+      );
       unavailable += 1;
       continue;
     }
@@ -301,7 +387,11 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
     if (witnessBytes + witnessSize > input.witnessBudget) {
       budgetExceeded = true;
       diagnostics.push(
-        checkDiagnostic("pap.package.limit-exceeded", "error", "source-span witness output budget exceeded"),
+        checkDiagnostic(
+          "pap.package.limit-exceeded",
+          "error",
+          "source-span witness output budget exceeded",
+        ),
       );
       break;
     }
@@ -324,16 +414,38 @@ export function checkSourceQuote(input: CheckInput): CheckRecord {
     if (budgetExceeded) {
       outcome = "NOT_EVALUATED";
     } else if (evaluated === 0) {
-      diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "no provenance binding could be evaluated"));
+      diagnostics.push(
+        checkDiagnostic(
+          "pap.check.not-evaluated",
+          "warning",
+          "no provenance binding could be evaluated",
+        ),
+      );
       outcome = "NOT_EVALUATED";
     } else if (unavailable > 0) {
-      diagnostics.push(checkDiagnostic("pap.check.partial", "warning", "some provenance bindings could not be evaluated"));
+      diagnostics.push(
+        checkDiagnostic(
+          "pap.check.partial",
+          "warning",
+          "some provenance bindings could not be evaluated",
+        ),
+      );
       outcome = "NOT_EVALUATED";
     } else {
       outcome = "PASS";
     }
   }
-  return quoteRecord(input, claim, witnesses, diagnostics, outcome, sourcesUsed, provenance.bindings.length, evaluated, unavailable);
+  return quoteRecord(
+    input,
+    claim,
+    witnesses,
+    diagnostics,
+    outcome,
+    sourcesUsed,
+    provenance.bindings.length,
+    evaluated,
+    unavailable,
+  );
 }
 
 function quoteRecord(
@@ -357,7 +469,9 @@ function quoteRecord(
     subjectDigests: {
       package: input.packageIdentity,
       sources,
-      ...(claim === undefined ? { claims: [] } : { claims: [{ kind: "provenance", digest: claimSubjectDigest(claim) }] }),
+      ...(claim === undefined
+        ? { claims: [] }
+        : { claims: [{ kind: "provenance", digest: claimSubjectDigest(claim) }] }),
     },
     scope: {
       sources: [...sourcesUsed],
@@ -509,10 +623,17 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
   );
   if (budgetExceeded) {
     diagnostics.push(
-      checkDiagnostic("pap.package.limit-exceeded", "error", "relation witness output budget exceeded"),
+      checkDiagnostic(
+        "pap.package.limit-exceeded",
+        "error",
+        "relation witness output budget exceeded",
+      ),
     );
   }
-  const empty = relations.entities.length === 0 && relations.edges.length === 0 && relations.relations.length === 0;
+  const empty =
+    relations.entities.length === 0 &&
+    relations.edges.length === 0 &&
+    relations.relations.length === 0;
   const outcome: CheckOutcome = budgetExceeded
     ? "NOT_EVALUATED"
     : violations.length > 0
@@ -521,7 +642,13 @@ export function checkRelationConsistency(input: CheckInput): CheckRecord {
         ? "NOT_EVALUATED"
         : "PASS";
   if (empty && !budgetExceeded) {
-    diagnostics.push(checkDiagnostic("pap.check.not-evaluated", "warning", "relations claim declares an empty graph"));
+    diagnostics.push(
+      checkDiagnostic(
+        "pap.check.not-evaluated",
+        "warning",
+        "relations claim declares an empty graph",
+      ),
+    );
   }
   return relationRecord(
     input,
@@ -548,7 +675,9 @@ function relationRecord(
     checkVersion: "1",
     subjectDigests: {
       package: input.packageIdentity,
-      ...(claim === undefined ? { claims: [] } : { claims: [{ kind: "relations", digest: claimSubjectDigest(claim) }] }),
+      ...(claim === undefined
+        ? { claims: [] }
+        : { claims: [{ kind: "relations", digest: claimSubjectDigest(claim) }] }),
     },
     scope: { entities, edges },
     checker: input.checker,

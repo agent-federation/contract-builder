@@ -13,18 +13,9 @@ import {
   type ValidatorContext,
   type VerificationContext,
 } from "./hook.js";
-import {
-  applyVerificationClaims,
-  sourceDigest,
-  sourceVersionOf,
-} from "./provenance.js";
+import { applyVerificationClaims, sourceDigest, sourceVersionOf } from "./provenance.js";
 import { messageOf } from "./guards.js";
-import {
-  loadRenderInputs,
-  normalizeArtifact,
-  type BuildMode,
-  type Renderer,
-} from "./render.js";
+import { loadRenderInputs, normalizeArtifact, type BuildMode, type Renderer } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import {
   computeBuildIdentity,
@@ -191,11 +182,7 @@ async function buildResolvedProject(
     return result(options, diags, null, outputPath, false, "errors");
   }
 
-  const validator = await loadProfileModule<ProfileValidator>(
-    loaded.project,
-    "validator",
-    diags,
-  );
+  const validator = await loadProfileModule<ProfileValidator>(loaded.project, "validator", diags);
   if (validator === null) {
     return result(options, diags, null, outputPath, false, "errors");
   }
@@ -506,7 +493,12 @@ async function loadCatalog(
 ): Promise<DiagnosticCatalog | null> {
   const relative = project.profile.diagnostics;
   if (relative === undefined) {
-    diags.error("core.profile.invalid", "profile.json", "/diagnostics", "Профиль не объявляет каталог");
+    diags.error(
+      "core.profile.invalid",
+      "profile.json",
+      "/diagnostics",
+      "Профиль не объявляет каталог",
+    );
     return null;
   }
 

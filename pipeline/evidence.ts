@@ -77,34 +77,26 @@ export function renderEvidenceMarkdown(batch: C6Batch): string {
   const provenancePull = `https://github.com/${batch.provenance.repository}/pull/${batch.provenance.pullRequest}`;
   const files = Object.entries(batch.package.files);
   const artifact = batch.package.artifacts[0];
-  const artifactDigest =
-    typeof artifact?.digest === "string" ? artifact.digest : undefined;
+  const artifactDigest = typeof artifact?.digest === "string" ? artifact.digest : undefined;
   const source = batch.package.sources[0];
   const sourceDigest =
     source !== null &&
     typeof source === "object" &&
     "digest" in source &&
     typeof (source as { digest?: unknown }).digest === "string"
-      ? ((source as { digest: string }).digest)
+      ? (source as { digest: string }).digest
       : undefined;
   const headers = batch.verifiers.map((entry) => entry.verifier).join(" | ");
-  const independentEntries = batch.verifiers.filter(
-    (entry) => entry.verifier !== "reference",
-  );
-  const executedIndependent = independentEntries.filter(
-    (entry) => entry.status === "EXECUTED",
-  );
+  const independentEntries = batch.verifiers.filter((entry) => entry.verifier !== "reference");
+  const executedIndependent = independentEntries.filter((entry) => entry.status === "EXECUTED");
   const independentVerdictsText = independentEntries
     .map(
       (entry) =>
         `${entry.verifier}: ${entry.status === "EXECUTED" ? (entry.verdict ?? "UNKNOWN") : "NOT_PERFORMED"}`,
     )
     .join(", ");
-  const referenceEntry = batch.verifiers.find(
-    (entry) => entry.verifier === "reference",
-  );
-  const referenceVerdict =
-    batch.comparison.referenceVerdict ?? "NOT_PERFORMED";
+  const referenceEntry = batch.verifiers.find((entry) => entry.verifier === "reference");
+  const referenceVerdict = batch.comparison.referenceVerdict ?? "NOT_PERFORMED";
   const anyIndependentCheckEvaluated = executedIndependent.some((entry) =>
     batch.requiredChecks.some((checkId) =>
       ["PASS", "FAIL"].includes(entry.checks[checkId] ?? "ABSENT"),
@@ -114,9 +106,7 @@ export function renderEvidenceMarkdown(batch: C6Batch): string {
     executedIndependent.length > 0 &&
     executedIndependent.every((entry) =>
       batch.requiredChecks.every((checkId) =>
-        ["UNSUPPORTED", "ABSENT", "NOT_EVALUATED"].includes(
-          entry.checks[checkId] ?? "ABSENT",
-        ),
+        ["UNSUPPORTED", "ABSENT", "NOT_EVALUATED"].includes(entry.checks[checkId] ?? "ABSENT"),
       ),
     );
   const checkScopeText = phase2aOnly
@@ -271,9 +261,7 @@ async function main(): Promise<void> {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--help" || arg === "-h") {
-      console.log(
-        "Usage: bun run pipeline:evidence --batch <batch.json> --out <evidence.md>",
-      );
+      console.log("Usage: bun run pipeline:evidence --batch <batch.json> --out <evidence.md>");
       return;
     }
     const value = argv[index + 1];
@@ -300,13 +288,10 @@ async function main(): Promise<void> {
   console.log(`Wrote ${path.resolve(outPath)}`);
 }
 
-const invokedPath =
-  process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
+const invokedPath = process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   void main().catch((error: unknown) => {
-    console.error(
-      `pipeline-evidence: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    console.error(`pipeline-evidence: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   });
 }

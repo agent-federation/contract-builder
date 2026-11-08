@@ -8,7 +8,12 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas } from "../spec/lib/schema.js";
-import { buildProjectModel, resolvePointer, type Entity, type ProjectModel } from "../spec/lib/ir.js";
+import {
+  buildProjectModel,
+  resolvePointer,
+  type Entity,
+  type ProjectModel,
+} from "../spec/lib/ir.js";
 import { resolveRelations } from "../spec/lib/relations.js";
 import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
@@ -321,9 +326,7 @@ test("ir: duplicate relation targets do not duplicate the inverse", () => {
     entityKinds: { a: { schema: "p:a" }, b: { schema: "p:b" } },
     schemas: {},
     documents: [],
-    relations: [
-      { name: "many", from: "a", to: "b", cardinality: "many", inverse: "back" },
-    ],
+    relations: [{ name: "many", from: "a", to: "b", cardinality: "many", inverse: "back" }],
   } as unknown as Profile;
 
   const source: Entity = { id: "A", kind: "a", fields: {}, relations: {} };

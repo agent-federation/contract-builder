@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { domainHash } from "../src/digest.js";
@@ -40,10 +48,15 @@ function writePolicy(name: string, value: unknown): string {
 }
 
 function unsignedPolicy(): any {
-  return JSON.parse(readFileSync(path.join(fixtures, "trust-policy", "unsigned-valid.json"), "utf8"));
+  return JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "unsigned-valid.json"), "utf8"),
+  );
 }
 
-function verify(dir: string, extra: string[] = []): { status: number; stdout: string; stderr: string } {
+function verify(
+  dir: string,
+  extra: string[] = [],
+): { status: number; stdout: string; stderr: string } {
   return runPap(["verify", ".", "--format", "json", "--now", NOW, ...extra], dir);
 }
 
@@ -73,7 +86,9 @@ test("manifest JSON nesting limit yields a FAIL report, not a crash", () => {
   const report = JSON.parse(result.stdout);
   assert.equal(report.package.identity, null);
   assert.equal(report.dimensions.integrity.package, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("claim JSON nesting limit stops the dependent check but not package integrity", () => {
@@ -91,10 +106,14 @@ test("claim JSON nesting limit stops the dependent check but not package integri
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "PASS");
   assert.equal(
-    report.dimensions.checks.results.find((entry: any) => entry.checkId === "pap.check.relation-consistency/1").outcome,
+    report.dimensions.checks.results.find(
+      (entry: any) => entry.checkId === "pap.check.relation-consistency/1",
+    ).outcome,
     "NOT_EVALUATED",
   );
-  assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.limitations.some((limitation: any) => limitation.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("total payload byte limit is enforced and never yields PASS", () => {
@@ -129,7 +148,9 @@ test("signature envelope count limit reads none and leaves trust unevaluated", (
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.signature.validity, "NOT_EVALUATED");
   assert.equal(report.dimensions.trust.signerIdentity, "NOT_EVALUATED");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("a deep-nesting signature envelope is a limit, not envelope-invalid", () => {
@@ -146,9 +167,17 @@ test("a deep-nesting signature envelope is a limit, not envelope-invalid", () =>
   assert.equal(report.dimensions.trust.signerIdentity, "NOT_EVALUATED");
   assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
   assert.equal(report.coverage.full, false);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
-  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
-  assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
+  assert.ok(
+    !report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid",
+    ),
+  );
+  assert.ok(
+    report.limitations.some((limitation: any) => limitation.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("an oversized signature envelope is a limit, not envelope-invalid", () => {
@@ -177,7 +206,11 @@ test("an oversized signature envelope is a limit, not envelope-invalid", () => {
     /^signature envelope exceeds the configured byte limit: /,
     "the operator-facing limit message must name a signature envelope, not a declared file",
   );
-  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
+  assert.ok(
+    !report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid",
+    ),
+  );
 });
 
 test("a structurally malformed envelope keeps the INVALID path", () => {
@@ -194,8 +227,14 @@ test("a structurally malformed envelope keeps the INVALID path", () => {
   const report = JSON.parse(result.stdout);
   assert.equal(report.verdict, "FAIL");
   assert.equal(report.dimensions.signature.validity, "INVALID");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid"));
-  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.signature.envelope-invalid",
+    ),
+  );
+  assert.ok(
+    !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("a limit on one envelope does not mask an evaluated INVALID envelope", () => {
@@ -213,8 +252,12 @@ test("a limit on one envelope does not mask an evaluated INVALID envelope", () =
   assert.equal(report.verdict, "FAIL");
   assert.equal(report.dimensions.signature.validity, "INVALID");
   assert.equal(report.coverage.full, false);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"),
+  );
 });
 
 test("a limit on one envelope does not mask a rejected signer", () => {
@@ -232,7 +275,9 @@ test("a limit on one envelope does not mask a rejected signer", () => {
   assert.equal(report.verdict, "UNTRUSTED");
   assert.equal(report.dimensions.trust.signerIdentity, "UNKNOWN");
   assert.equal(report.dimensions.trust.policyDecision, "REJECTED");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("a limit on one envelope does not mask a valid signature", () => {
@@ -252,7 +297,9 @@ test("a limit on one envelope does not mask a valid signature", () => {
   assert.equal(report.dimensions.trust.signerIdentity, "TRUSTED");
   assert.equal(report.dimensions.trust.policyDecision, "ACCEPTED");
   assert.equal(report.coverage.full, false);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("a policy limit above the verifier default fails closed", () => {
@@ -308,14 +355,14 @@ test("Ed25519 non-canonical S is rejected", () => {
   assert.equal(result.status, 1);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.signature.validity, "INVALID");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.invalid"),
+  );
 });
 
 test("a producer report that mimics a verifier record is invalid", () => {
   const dir = tempPackage();
-  const report = JSON.parse(
-    readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8"),
-  );
+  const report = JSON.parse(readFileSync(path.join(dir, "claims", "producer-report.json"), "utf8"));
   report.claims[0].outcome = "PASS";
   delete report.claims[0].claimedOutcome;
   const bytes = Buffer.from(JSON.stringify(report));
@@ -327,7 +374,9 @@ test("a producer report that mimics a verifier record is invalid", () => {
   assert.equal(result.status, 1);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.dimensions.integrity.package, "FAIL");
-  assert.ok(parsed.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.claims.spoofed-result"));
+  assert.ok(
+    parsed.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.claims.spoofed-result"),
+  );
 });
 
 test("a symlinked parent path component is rejected", () => {
@@ -346,7 +395,9 @@ test("a symlinked parent path component is rejected", () => {
   assert.equal(result.status, 1);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.artifacts, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.symlink"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.symlink"),
+  );
 });
 
 test("a nested package manifest is rejected", () => {
@@ -357,7 +408,11 @@ test("a nested package manifest is rejected", () => {
   assert.equal(result.status, 1);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.manifest-self-reference"));
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.package.manifest-self-reference",
+    ),
+  );
 });
 
 test("a declared nested package manifest is a structural failure", () => {
@@ -371,7 +426,11 @@ test("a declared nested package manifest is a structural failure", () => {
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "FAIL");
   assert.equal(report.dimensions.integrity.artifacts, "NOT_EVALUATED");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.manifest-self-reference"));
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.package.manifest-self-reference",
+    ),
+  );
 });
 
 test("directory enumeration has a bounded entry budget", () => {
@@ -393,12 +452,19 @@ test("directory enumeration has a bounded entry budget", () => {
   const scan = report.diagnostics.filter(
     (diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete",
   );
-  assert.deepEqual(scan.map((diagnostic: any) => diagnostic.severity), ["warning"]);
+  assert.deepEqual(
+    scan.map((diagnostic: any) => diagnostic.severity),
+    ["warning"],
+  );
   assert.ok(scan.every((diagnostic: any) => diagnostic.scope === "package"));
   assert.ok(
-    report.limitations.some((limitation: any) => limitation.code === "pap.package.undeclared-scan-incomplete"),
+    report.limitations.some(
+      (limitation: any) => limitation.code === "pap.package.undeclared-scan-incomplete",
+    ),
   );
-  assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
   assert.ok(!report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.io"));
 });
 
@@ -438,8 +504,14 @@ test("a symlinked signature directory outside the package is not enumerated", ()
     assert.ok(symlink, "the symlinked directory must be reported as a package symlink");
     assert.equal(symlink.scope, "signatures");
     assert.equal(symlink.severity, "error");
-    assert.ok(!result.stdout.includes("evil.dsse.json"), "a name outside the package must not be reported");
-    assert.ok(!result.stdout.includes("readme.txt"), "a name outside the package must not be reported");
+    assert.ok(
+      !result.stdout.includes("evil.dsse.json"),
+      "a name outside the package must not be reported",
+    );
+    assert.ok(
+      !result.stdout.includes("readme.txt"),
+      "a name outside the package must not be reported",
+    );
     assert.ok(
       !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"),
       "a refused discovery is not a legitimately unsigned package",
@@ -480,7 +552,10 @@ test("inspect reports structure without producing a verdict", () => {
   assert.equal(result.status, 0);
   const document = JSON.parse(result.stdout);
   assert.equal(document.inspection, "COMPLETE");
-  assert.equal(document.package.identity, "sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020");
+  assert.equal(
+    document.package.identity,
+    "sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020",
+  );
   assert.ok(!result.stdout.includes('"verdict"'));
   const text = runPap(["inspect", "."], base);
   assert.ok(text.stdout.startsWith("INSPECTION: COMPLETE"));
@@ -493,11 +568,16 @@ test("explain reports an unsupported declared check with exit 4", () => {
   const value = manifest(dir);
   value.checkSpecs.push({ id: "pap.check.unknown/1", version: "1", required: true });
   writeManifest(dir, value);
-  const result = runPap(["explain", ".", "--check", "pap.check.unknown/1", "--format", "json"], dir);
+  const result = runPap(
+    ["explain", ".", "--check", "pap.check.unknown/1", "--format", "json"],
+    dir,
+  );
   assert.equal(result.status, 4);
   const document = JSON.parse(result.stdout);
   assert.equal(document.checkRecord, null);
-  assert.ok(document.limitations.some((limitation: any) => limitation.code === "pap.check.unsupported"));
+  assert.ok(
+    document.limitations.some((limitation: any) => limitation.code === "pap.check.unsupported"),
+  );
 });
 
 test("verify never reads stdin and does not require HOME or a producer runtime", () => {
@@ -535,7 +615,9 @@ test("a __proto__ manifest member cannot collide with the package identity", () 
   assert.equal(result.status, 1);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.unknown-field"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.unknown-field"),
+  );
 });
 
 test("a required field present only under __proto__ is not accepted", () => {
@@ -555,7 +637,8 @@ test("a required field present only under __proto__ is not accepted", () => {
   assert.equal(report.dimensions.integrity.package, "FAIL");
   assert.ok(
     report.diagnostics.some(
-      (diagnostic: any) => diagnostic.code === "pap.package.schema" && diagnostic.scope === "$.papVersion",
+      (diagnostic: any) =>
+        diagnostic.code === "pap.package.schema" && diagnostic.scope === "$.papVersion",
     ),
   );
   assert.equal(report.package.papVersion, null);
@@ -577,7 +660,9 @@ test("claim data under __proto__ cannot change a check outcome", () => {
   assert.equal(result.status, 1);
   const report = JSON.parse(result.stdout);
   assert.notEqual(report.verdict, "PASS");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"),
+  );
 });
 
 test("an array-valued policy enum fails closed with exit 64 and no report", () => {
@@ -619,8 +704,13 @@ test("an array-valued claim outcome is rejected, not coerced", () => {
   assert.equal(result.status, 1, result.stdout);
   const report = JSON.parse(result.stdout);
   assert.notEqual(report.verdict, "PASS");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
-  assert.equal(report.dimensions.claims === undefined ? undefined : report.dimensions.claims, undefined);
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"),
+  );
+  assert.equal(
+    report.dimensions.claims === undefined ? undefined : report.dimensions.claims,
+    undefined,
+  );
 });
 
 test("a duplicate declared source path fails package integrity", () => {
@@ -632,7 +722,9 @@ test("a duplicate declared source path fails package integrity", () => {
   assert.equal(result.status, 1, result.stdout);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"),
+  );
 });
 
 test("a duplicate declared input path fails package integrity", () => {
@@ -644,7 +736,9 @@ test("a duplicate declared input path fails package integrity", () => {
   assert.equal(result.status, 1, result.stdout);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"),
+  );
 });
 
 test("a duplicate declared claim path across kinds fails package integrity", () => {
@@ -656,5 +750,7 @@ test("a duplicate declared claim path across kinds fails package integrity", () 
   assert.equal(result.status, 1, result.stdout);
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.package, "FAIL");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.path-duplicate"),
+  );
 });

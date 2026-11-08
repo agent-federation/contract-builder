@@ -49,24 +49,16 @@ test("a verifier process that mutates package bytes is detected", async () => {
     if (process.platform !== "win32" && process.getuid?.() !== 0) {
       await assert.rejects(
         writeFile(artifactPath, "not allowed"),
-        (error: NodeJS.ErrnoException) =>
-          error.code === "EACCES" || error.code === "EPERM",
+        (error: NodeJS.ErrnoException) => error.code === "EACCES" || error.code === "EPERM",
       );
     }
 
     runMutator(
       `chmod u+w "${packageDir}" "${artifactPath}" && printf 'mutated' >> "${artifactPath}"`,
     );
-    const changes = await verifyInputsUnchanged(
-      snapshot,
-      packageDir,
-      policyPath,
-      "fake-verifier",
-    );
+    const changes = await verifyInputsUnchanged(snapshot, packageDir, policyPath, "fake-verifier");
     assert.ok(
-      changes.some((change) =>
-        change.includes("package file was modified"),
-      ),
+      changes.some((change) => change.includes("package file was modified")),
       changes.join("\n"),
     );
 
@@ -82,9 +74,7 @@ test("a verifier process that mutates package bytes is detected", async () => {
     });
     assert.equal(outcome.batch.ok, false);
     assert.ok(
-      outcome.batch.problems.some((problem) =>
-        problem.includes("package file was modified"),
-      ),
+      outcome.batch.problems.some((problem) => problem.includes("package file was modified")),
       outcome.batch.problems.join("\n"),
     );
   } finally {
@@ -101,16 +91,9 @@ test("a verifier process that mutates the run-local policy is detected", async (
     runMutator(
       `chmod u+w "${path.dirname(policyPath)}" "${policyPath}" && printf 'x' >> "${policyPath}"`,
     );
-    const changes = await verifyInputsUnchanged(
-      snapshot,
-      packageDir,
-      policyPath,
-      "fake-verifier",
-    );
+    const changes = await verifyInputsUnchanged(snapshot, packageDir, policyPath, "fake-verifier");
     assert.ok(
-      changes.some((change) =>
-        change.includes("run-local trust policy was modified"),
-      ),
+      changes.some((change) => change.includes("run-local trust policy was modified")),
       changes.join("\n"),
     );
   } finally {
@@ -127,12 +110,7 @@ test("a verifier process that removes or adds a package file is detected", async
     runMutator(
       `chmod u+w "${packageDir}" && rm "${artifactPath}" && printf 'new' > "${path.join(packageDir, "unexpected.bin")}"`,
     );
-    const changes = await verifyInputsUnchanged(
-      snapshot,
-      packageDir,
-      policyPath,
-      "fake-verifier",
-    );
+    const changes = await verifyInputsUnchanged(snapshot, packageDir, policyPath, "fake-verifier");
     assert.ok(
       changes.some((change) => change.includes("package file was removed")),
       changes.join("\n"),
@@ -158,12 +136,7 @@ test("a package file replaced by a symlink is a type change, not a clean file", 
     runMutator(
       `chmod u+w "${packageDir}" && rm "${artifactPath}" && ln -s "${target}" "${artifactPath}"`,
     );
-    const changes = await verifyInputsUnchanged(
-      snapshot,
-      packageDir,
-      policyPath,
-      "fake-verifier",
-    );
+    const changes = await verifyInputsUnchanged(snapshot, packageDir, policyPath, "fake-verifier");
     assert.ok(
       changes.some((change) =>
         change.includes("package file type changed: artifact.bin (file -> symlink)"),

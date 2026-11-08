@@ -116,7 +116,12 @@ export async function loadManifest(
     text = await readFile(manifestPath, "utf8");
   } catch (error) {
     if (isMissingFile(error)) {
-      diags.error("core.manifest.missing", "contract-builder.json", "", "Манифест проекта не найден");
+      diags.error(
+        "core.manifest.missing",
+        "contract-builder.json",
+        "",
+        "Манифест проекта не найден",
+      );
     } else {
       diags.error(
         "ERR_IO",
@@ -353,7 +358,11 @@ function validateInputs(
 
     const entities: ManifestEntityDecl[] = [];
     for (const [entityIndex, entity] of item.entities.entries()) {
-      if (!isObject(entity) || !isNonEmptyString(entity.kind) || !isNonEmptyString(entity.pointer)) {
+      if (
+        !isObject(entity) ||
+        !isNonEmptyString(entity.kind) ||
+        !isNonEmptyString(entity.pointer)
+      ) {
         return fail(`/inputs/${index}/entities/${entityIndex}`, "kind и pointer обязательны");
       }
       entities.push({ kind: entity.kind, pointer: entity.pointer });
@@ -401,7 +410,11 @@ function validateSources(
   const sources: ManifestSource[] = [];
   for (const [index, item] of value.entries()) {
     if (!isObject(item)) return fail(`/sources/${index}`, "Источник должен быть объектом");
-    if (!isNonEmptyString(item.id) || !isNonEmptyString(item.path) || !isNonEmptyString(item.adapter)) {
+    if (
+      !isNonEmptyString(item.id) ||
+      !isNonEmptyString(item.path) ||
+      !isNonEmptyString(item.adapter)
+    ) {
       return fail(`/sources/${index}`, "id, path и adapter обязательны");
     }
 
@@ -541,7 +554,8 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
 
   let relations: RelationDecl[] | undefined;
   if (value.relations !== undefined) {
-    if (!Array.isArray(value.relations)) return fail("/relations", "relations должен быть массивом");
+    if (!Array.isArray(value.relations))
+      return fail("/relations", "relations должен быть массивом");
     relations = [];
     for (const [index, item] of value.relations.entries()) {
       if (
@@ -552,7 +566,11 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
       ) {
         return fail(`/relations/${index}`, "name, from и to обязательны");
       }
-      if (item.cardinality !== undefined && item.cardinality !== "one" && item.cardinality !== "many") {
+      if (
+        item.cardinality !== undefined &&
+        item.cardinality !== "one" &&
+        item.cardinality !== "many"
+      ) {
         return fail(`/relations/${index}/cardinality`, "cardinality должен быть one или many");
       }
       // A declared inverse is part of the contract, so a value that is not a name is an error
@@ -703,4 +721,3 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     ...(dependencies !== undefined ? { dependencies } : {}),
   };
 }
-

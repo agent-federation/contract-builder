@@ -354,9 +354,7 @@ export function isDimensionPositive(dimension: DimensionName, states: DimensionS
         .filter((result) => result.required !== false)
         .every((result) => result.outcome === "PASS");
     case "humanReview":
-      return (
-        states.humanReview.status === "PASS" || states.humanReview.status === "NOT_APPLICABLE"
-      );
+      return states.humanReview.status === "PASS" || states.humanReview.status === "NOT_APPLICABLE";
   }
 }
 
@@ -388,8 +386,7 @@ export function isDimensionError(dimension: DimensionName, states: DimensionStat
   switch (dimension) {
     case "integrity":
       return (
-        isErrorIntegrity(states.integrity.package) ||
-        isErrorIntegrity(states.integrity.artifacts)
+        isErrorIntegrity(states.integrity.package) || isErrorIntegrity(states.integrity.artifacts)
       );
     case "integrity.package":
       return isErrorIntegrity(states.integrity.package);

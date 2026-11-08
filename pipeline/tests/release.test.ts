@@ -79,10 +79,13 @@ test("version domains: the current repository declares all three domains", async
   assert.ok(kinds.includes("profile"));
   assert.ok(kinds.includes("project"));
 
-  const packageJson = JSON.parse(
-    await readFile(path.join(REPO_ROOT, "package.json"), "utf8"),
-  ) as { version: string };
-  assert.equal(report.domains.find((domain) => domain.kind === "engine")?.version, packageJson.version);
+  const packageJson = JSON.parse(await readFile(path.join(REPO_ROOT, "package.json"), "utf8")) as {
+    version: string;
+  };
+  assert.equal(
+    report.domains.find((domain) => domain.kind === "engine")?.version,
+    packageJson.version,
+  );
 });
 
 test("version domains: different engine/profile/project versions pass (no equality rule)", async () => {
@@ -227,9 +230,9 @@ test("usage: --help does not require a tag, --tag=value is accepted", () => {
 });
 
 test("cli: release:check passes for v<package version> on the repository", async () => {
-  const packageJson = JSON.parse(
-    await readFile(path.join(REPO_ROOT, "package.json"), "utf8"),
-  ) as { version: string };
+  const packageJson = JSON.parse(await readFile(path.join(REPO_ROOT, "package.json"), "utf8")) as {
+    version: string;
+  };
   const run = spawnSync(
     process.execPath,
     [path.join(REPO_ROOT, "pipeline", "release.ts"), "--tag", `v${packageJson.version}`],

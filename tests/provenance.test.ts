@@ -77,9 +77,11 @@ function claim(overrides: Partial<ProvenanceVerificationClaim> = {}): Provenance
   };
 }
 
-function apply(
-  overrides: Partial<ProvenanceVerificationClaim>,
-): { model: ProjectModel; diagnostics: Diagnostics; ok: boolean } {
+function apply(overrides: Partial<ProvenanceVerificationClaim>): {
+  model: ProjectModel;
+  diagnostics: Diagnostics;
+  ok: boolean;
+} {
   const { model } = bound();
   const diagnostics = new Diagnostics();
   const ok = applyVerificationClaims(model, model.sources, [claim(overrides)], diagnostics);
@@ -357,9 +359,7 @@ test("provenance: the draft artifact labels every direct binding and its evidenc
   const section = text
     .split("## Происхождение: привязка и проверка")[1]!
     .split("## Приложение A")[0]!;
-  const rows = section
-    .split("\n")
-    .filter((line) => /^\| `(?:FRAG|DEC)-/.test(line));
+  const rows = section.split("\n").filter((line) => /^\| `(?:FRAG|DEC)-/.test(line));
 
   assert.equal(rows.length, 8, "every direct provenance binding needs a row");
   for (const row of rows) {

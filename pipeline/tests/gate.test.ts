@@ -20,9 +20,7 @@ import { canonicalJson, canonicalJsonBytes, domainHash } from "../mapping.js";
 import { gateCore000, type AcceptanceDecision } from "../gate.js";
 import { packCore000 } from "../pack.js";
 
-const Ajv2020 = Ajv2020Module as unknown as new (
-  options: Record<string, unknown>,
-) => any;
+const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => any;
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const POLICY = path.join(root, "pipeline", "policy", "core000-trust-policy.json");
@@ -45,11 +43,10 @@ function run(args: readonly string[]): SpawnResult {
 
 /** Null outside a checkout (for example a pre-review extraction with no `.git`). */
 function gitStatus(): string | null {
-  const result = spawnSync(
-    "git",
-    ["status", "--porcelain", "--untracked-files=all"],
-    { cwd: root, encoding: "utf8" },
-  );
+  const result = spawnSync("git", ["status", "--porcelain", "--untracked-files=all"], {
+    cwd: root,
+    encoding: "utf8",
+  });
   return result.status === 0 ? result.stdout : null;
 }
 
@@ -124,10 +121,7 @@ async function decide(reportPath: string, policyPath = POLICY) {
   return gateCore000({ reportPath, policyPath });
 }
 
-async function expectAccepted(
-  name: string,
-  report: Report,
-): Promise<AcceptanceDecision> {
+async function expectAccepted(name: string, report: Report): Promise<AcceptanceDecision> {
   const file = await writeJson(name, report);
   const result = await decide(file);
   assert.equal(result.exitCode, 0, `${name}: ${JSON.stringify(result.decision.reasons)}`);
@@ -165,9 +159,7 @@ function policyWithSignatureMode(mode: "disabled" | "optional" | "required"): {
   policy.signature.mode = mode;
   if (mode === "required") {
     // The Appendix B schema requires at least one key and signer in this mode.
-    policy.keys = [
-      { keyId: "key-test", algorithm: "ed25519", publicKey: "A".repeat(43) },
-    ];
+    policy.keys = [{ keyId: "key-test", algorithm: "ed25519", publicKey: "A".repeat(43) }];
     policy.signers = [
       { keyIds: ["key-test"], identity: "signer:test", allowedRoles: ["producer"] },
     ];
@@ -364,9 +356,7 @@ test("gate rejects a report that is missing, invalid JSON or schema-invalid", as
     "UTF-8 failures keep their own label",
   );
 
-  const schemaInvalid = await decide(
-    await writeJson("schema-invalid", { reportVersion: "0.1" }),
-  );
+  const schemaInvalid = await decide(await writeJson("schema-invalid", { reportVersion: "0.1" }));
   assert.equal(schemaInvalid.exitCode, 1);
   assert.equal(schemaInvalid.decision.decision, "NOT_ACCEPTED");
   assert.match(
@@ -642,10 +632,7 @@ test("gate rejects a policy whose issuedAt is after its expiresAt", async () => 
 
   const result = await decideWithPolicy("policy-window-inverted", report, policy, "disabled");
   assert.equal(result.exitCode, 1);
-  assert.match(
-    result.decision.reasons.join(" | "),
-    /trust policy issuedAt .* is after expiresAt/,
-  );
+  assert.match(result.decision.reasons.join(" | "), /trust policy issuedAt .* is after expiresAt/);
 });
 
 test("gate rejects non-finite coverage counters accepted by Ajv integer", async () => {
@@ -675,23 +662,14 @@ test("gate rejects a deeply nested report with a dedicated reason", async () => 
   const result = await decide(await writeRaw("deeply-nested", nested));
   assert.equal(result.exitCode, 1);
   assert.equal(result.decision.decision, "NOT_ACCEPTED");
-  assert.match(
-    result.decision.reasons.join(" | "),
-    /report JSON nesting exceeds the gate limit/,
-  );
-  assert.doesNotMatch(
-    result.decision.reasons.join(" | "),
-    /Maximum call stack size exceeded/,
-  );
+  assert.match(result.decision.reasons.join(" | "), /report JSON nesting exceeds the gate limit/);
+  assert.doesNotMatch(result.decision.reasons.join(" | "), /Maximum call stack size exceeded/);
 });
 
 test("gate rejects duplicate JSON member names instead of trusting the last value", async () => {
   assert.ok(tempRoot !== null);
   const baselineText = await readFile(baselineReportPath, "utf8");
-  const forged = baselineText.replace(
-    '"verdict":"PASS"',
-    '"verdict":"FAIL","verdict":"PASS"',
-  );
+  const forged = baselineText.replace('"verdict":"PASS"', '"verdict":"FAIL","verdict":"PASS"');
   assert.notEqual(forged, baselineText, "the baseline report has a verdict member");
   assert.equal(
     (JSON.parse(forged) as Record<string, unknown>).verdict,
@@ -704,10 +682,7 @@ test("gate rejects duplicate JSON member names instead of trusting the last valu
   const result = await decide(forgedPath);
   assert.equal(result.exitCode, 1);
   assert.equal(result.decision.decision, "NOT_ACCEPTED");
-  assert.match(
-    result.decision.reasons.join(" | "),
-    /duplicate JSON object member "verdict"/,
-  );
+  assert.match(result.decision.reasons.join(" | "), /duplicate JSON object member "verdict"/);
 });
 
 test("gate decision bytes are deterministic for a fixed report and policy", async () => {
@@ -715,10 +690,7 @@ test("gate decision bytes are deterministic for a fixed report and policy", asyn
   const second = await decide(baselineReportPath);
   assert.equal(first.exitCode, 0);
   assert.deepEqual(first.bytes, second.bytes);
-  assert.equal(
-    new TextDecoder("utf-8").decode(first.bytes),
-    `${canonicalJson(first.decision)}\n`,
-  );
+  assert.equal(new TextDecoder("utf-8").decode(first.bytes), `${canonicalJson(first.decision)}\n`);
 
   assert.ok(tempRoot !== null);
   const outA = path.join(tempRoot, "decision-a.json");
@@ -745,10 +717,7 @@ test("gate decision bytes are deterministic for a fixed report and policy", asyn
   ]);
   assert.equal(runA.status, 0, runA.stderr);
   assert.equal(runB.status, 0, runB.stderr);
-  assert.deepEqual(
-    new Uint8Array(await readFile(outA)),
-    new Uint8Array(await readFile(outB)),
-  );
+  assert.deepEqual(new Uint8Array(await readFile(outA)), new Uint8Array(await readFile(outB)));
 });
 
 test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", async () => {
@@ -766,9 +735,7 @@ test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", a
     acceptedOut,
   ]);
   assert.equal(accepted.status, 0, accepted.stderr);
-  const acceptedDecision = JSON.parse(
-    await readFile(acceptedOut, "utf8"),
-  ) as Record<string, any>;
+  const acceptedDecision = JSON.parse(await readFile(acceptedOut, "utf8")) as Record<string, any>;
   assert.equal(acceptedDecision.decision, "ACCEPTED");
   assert.deepEqual(acceptedDecision.reasons, []);
 
@@ -788,9 +755,7 @@ test("gate CLI writes --out and uses exit 0 for ACCEPTED, 1 for NOT_ACCEPTED", a
     rejectedOut,
   ]);
   assert.equal(rejected.status, 1);
-  const rejectedDecision = JSON.parse(
-    await readFile(rejectedOut, "utf8"),
-  ) as Record<string, any>;
+  const rejectedDecision = JSON.parse(await readFile(rejectedOut, "utf8")) as Record<string, any>;
   assert.equal(rejectedDecision.decision, "NOT_ACCEPTED");
   assert.ok(rejectedDecision.reasons.length > 0);
 });

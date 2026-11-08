@@ -75,7 +75,9 @@ test("a tiny witness budget cannot produce a PASS", () => {
   const record = checkSpecImpl("pap.check.source-quote/1", checkInput(1, claim));
   assert.ok(record);
   assert.equal(record.outcome, "NOT_EVALUATED");
-  assert.ok(record.diagnostics.some((diagnostic) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    record.diagnostics.some((diagnostic) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("a tiny relation witness budget cannot produce a PASS", () => {
@@ -86,7 +88,10 @@ test("a tiny relation witness budget cannot produce a PASS", () => {
     status: "ok",
     parsed: {
       kind: "relations",
-      entities: [{ id: "E", kind: "k" }, { id: "E", kind: "k" }],
+      entities: [
+        { id: "E", kind: "k" },
+        { id: "E", kind: "k" },
+      ],
       relations: [],
       edges: [],
     },
@@ -95,5 +100,7 @@ test("a tiny relation witness budget cannot produce a PASS", () => {
   const record = checkSpecImpl("pap.check.relation-consistency/1", checkInput(1, claim));
   assert.ok(record);
   assert.equal(record.outcome, "NOT_EVALUATED");
-  assert.ok(record.diagnostics.some((diagnostic) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    record.diagnostics.some((diagnostic) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });

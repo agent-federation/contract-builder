@@ -232,16 +232,18 @@ test("relations: the real CORE-000 graph is complete, deterministic and inverse-
   assert.ok(
     claim.edges.some(
       (edge) =>
-        edge.relation === "citedBy" &&
-        edge.from === "SRC-TR-001" &&
-        edge.to === "C000-TR-001",
+        edge.relation === "citedBy" && edge.from === "SRC-TR-001" && edge.to === "C000-TR-001",
     ),
     "inverse edges are explicit",
   );
 
-  const edgeKeys = new Set(claim.edges.map((edge) => `${edge.relation}\u0000${edge.from}\u0000${edge.to}`));
+  const edgeKeys = new Set(
+    claim.edges.map((edge) => `${edge.relation}\u0000${edge.from}\u0000${edge.to}`),
+  );
   for (const relation of claim.relations) {
-    const baseName = relation.name.includes(":") ? relation.name.slice(0, relation.name.indexOf(":")) : relation.name;
+    const baseName = relation.name.includes(":")
+      ? relation.name.slice(0, relation.name.indexOf(":"))
+      : relation.name;
     assert.ok(SUPPORTED_RELATIONS.has(baseName), `relation ${relation.name} is supported`);
     if (relation.inverse === undefined) continue;
     const inverse = declarations.get(relation.inverse);
@@ -304,7 +306,10 @@ test("claims: both files are canonical, deterministic and digest-addressable", a
 
 test("quote resolution: exact matches win and normalized matches map back to raw bytes", () => {
   const exact = resolveExactQuote(utf8("intro unique quote outro"), "unique quote");
-  assert.equal(decoder.decode(utf8("intro unique quote outro").subarray(exact.start, exact.end)), "unique quote");
+  assert.equal(
+    decoder.decode(utf8("intro unique quote outro").subarray(exact.start, exact.end)),
+    "unique quote",
+  );
 
   // The rule is intentionally strict: a whitespace variant elsewhere makes the
   // declaration ambiguous even when the exact bytes occur only once.
@@ -316,8 +321,14 @@ test("quote resolution: exact matches win and normalized matches map back to raw
 
   const wrapped = utf8("intro alpha\n  beta gamma\noutro");
   const normalized = resolveExactQuote(wrapped, "alpha beta gamma");
-  assert.equal(decoder.decode(wrapped.subarray(normalized.start, normalized.end)), "alpha\n  beta gamma");
-  assert.equal(normalized.digest, domainHash("pap.quote.v1", wrapped.subarray(normalized.start, normalized.end)));
+  assert.equal(
+    decoder.decode(wrapped.subarray(normalized.start, normalized.end)),
+    "alpha\n  beta gamma",
+  );
+  assert.equal(
+    normalized.digest,
+    domainHash("pap.quote.v1", wrapped.subarray(normalized.start, normalized.end)),
+  );
 });
 
 test("quote resolution: surrogate pairs keep UTF-16 indices aligned with byte offsets", () => {
@@ -378,7 +389,9 @@ test("provenance: missing, ambiguous, duplicate and mismatched declarations fail
   );
 
   const duplicate = provenanceInput("alpha", "alpha\n");
-  const document = YAML.parse(decoder.decode(duplicate.inputBytes.get("claims.yml") as Uint8Array)) as {
+  const document = YAML.parse(
+    decoder.decode(duplicate.inputBytes.get("claims.yml") as Uint8Array),
+  ) as {
     sourceStatements: unknown[];
   };
   document.sourceStatements.push(document.sourceStatements[0]);
@@ -393,7 +406,8 @@ test("provenance: missing, ambiguous, duplicate and mismatched declarations fail
 test("provenance: the packaged source id must be declared", () => {
   const input = provenanceInput("alpha", "alpha\n");
   assert.throws(
-    () => buildCore000Claims({ ...input, source: { id: "SRC-UNDECLARED", bytes: input.source.bytes } }),
+    () =>
+      buildCore000Claims({ ...input, source: { id: "SRC-UNDECLARED", bytes: input.source.bytes } }),
     /not declared in contract-builder\.json/,
   );
 });

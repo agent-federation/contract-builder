@@ -40,16 +40,10 @@ import { renderEvidenceMarkdown } from "./evidence.js";
 import { assertOutsideRepository, packCore000, REPO_ROOT } from "./pack.js";
 
 /** Single source of the pinned evaluation time, inside the policy window. */
-export const PINNED_NOW_PATH = path.join(
-  REPO_ROOT,
-  "pipeline",
-  "pinned-now.txt",
-);
+export const PINNED_NOW_PATH = path.join(REPO_ROOT, "pipeline", "pinned-now.txt");
 
 export async function readPinnedNow(): Promise<string> {
-  const value = (
-    await readFile(PINNED_NOW_PATH, "utf8")
-  ).trim();
+  const value = (await readFile(PINNED_NOW_PATH, "utf8")).trim();
   if (value.length === 0) {
     throw new Error(`${PINNED_NOW_PATH} is empty`);
   }
@@ -71,12 +65,7 @@ export const REQUIRED_CHECKS = [
 ] as const;
 
 export type VerifierName = "reference" | "rust" | "go" | "python";
-export const VERIFIER_ORDER: readonly VerifierName[] = [
-  "reference",
-  "rust",
-  "go",
-  "python",
-];
+export const VERIFIER_ORDER: readonly VerifierName[] = ["reference", "rust", "go", "python"];
 
 export type Verdict =
   | "PASS"
@@ -121,45 +110,39 @@ export const INDEPENDENT_PINS: readonly IndependentPin[] = [
     name: "rust",
     id: "pap.verifier.rust",
     version: "0.1.0",
-    implementationDigest:
-      "sha256:e5d6ab21a1ea94d17e0ed60f1873ca622db03b2fac70ebda0f172f24c4c1454d",
+    implementationDigest: "sha256:e5d6ab21a1ea94d17e0ed60f1873ca622db03b2fac70ebda0f172f24c4c1454d",
     repository: "agent-federation/contract-builder-independent-rs-v2",
     tag: "pap-rs-p2a-003-result",
     commit: "0b31dac728fbfdfab4f2948ccede3b5957b17fc9",
     tarball:
       "https://github.com/agent-federation/contract-builder-independent-rs-v2/archive/0b31dac728fbfdfab4f2948ccede3b5957b17fc9.tar.gz",
-    tarballSha256:
-      "0539d883aed7a07fe19a3e83187c6a172daf1e4a7637231de6c64339a0f33b68",
+    tarballSha256: "0539d883aed7a07fe19a3e83187c6a172daf1e4a7637231de6c64339a0f33b68",
     build: "cargo build --release --offline",
   },
   {
     name: "go",
     id: "pap.verifier.go",
     version: "0.1.0",
-    implementationDigest:
-      "sha256:f386a6f8712bdb290be2b272d93bc70bfb589d6c4289bfbd9044b2b118c7dc14",
+    implementationDigest: "sha256:f386a6f8712bdb290be2b272d93bc70bfb589d6c4289bfbd9044b2b118c7dc14",
     repository: "agent-federation/contract-builder-independent-go-v2",
     tag: "pap-go-p2a-003-result",
     commit: "8d49d694ce9e3b081959f5325bc6a9972f7708de",
     tarball:
       "https://github.com/agent-federation/contract-builder-independent-go-v2/archive/8d49d694ce9e3b081959f5325bc6a9972f7708de.tar.gz",
-    tarballSha256:
-      "ccafd542b66024b6f64137ebd9af34d3d4a3965dd034f668f7c85a9b163cedbb",
+    tarballSha256: "ccafd542b66024b6f64137ebd9af34d3d4a3965dd034f668f7c85a9b163cedbb",
     build: "go build -o pap .",
   },
   {
     name: "python",
     id: "pap.verifier.python",
     version: "0.1.0",
-    implementationDigest:
-      "sha256:367c40ff74b93d34b927485035000cbeb465f8e4ebcde8cd85c61743efd41393",
+    implementationDigest: "sha256:367c40ff74b93d34b927485035000cbeb465f8e4ebcde8cd85c61743efd41393",
     repository: "agent-federation/contract-builder-independent-py-v2",
     tag: "pap-py-p2a-003-result",
     commit: "58f368cd9b46d88e20e6cd26f9169c65a807fc4b",
     tarball:
       "https://github.com/agent-federation/contract-builder-independent-py-v2/archive/58f368cd9b46d88e20e6cd26f9169c65a807fc4b.tar.gz",
-    tarballSha256:
-      "ad1d3326aec39edc255d1fbdd71e39a116454d9a6fd56302d9a7abb756522140",
+    tarballSha256: "ad1d3326aec39edc255d1fbdd71e39a116454d9a6fd56302d9a7abb756522140",
     build: "none (Python standard library; run from the extracted tree)",
   },
 ];
@@ -168,8 +151,7 @@ const REFERENCE = {
   name: "reference" as const,
   id: "pap.verifier.reference",
   repository: "agent-federation/contract-builder",
-  command:
-    "bun run pap -- verify <package> --trust-policy <policy> --format json --now <pinned>",
+  command: "bun run pap -- verify <package> --trust-policy <policy> --format json --now <pinned>",
 };
 
 type JsonObject = Record<string, unknown>;
@@ -233,9 +215,7 @@ export interface VerifierEntry {
 export interface Comparison {
   readonly samePackageIdentity: boolean;
   readonly referenceVerdict: Verdict | null;
-  readonly independentVerdicts: Readonly<
-    Record<"rust" | "go" | "python", Verdict | null>
-  >;
+  readonly independentVerdicts: Readonly<Record<"rust" | "go" | "python", Verdict | null>>;
   readonly integrityAndSourcesAgreement: boolean;
   /** False when two reports actually evaluated the same required check differently. */
   readonly checkAgreement: boolean;
@@ -314,8 +294,7 @@ function nested(value: unknown, ...keys: readonly string[]): unknown {
 
 function isVerdict(value: unknown): value is Verdict {
   return (
-    typeof value === "string" &&
-    Object.prototype.hasOwnProperty.call(EXIT_CODE_BY_VERDICT, value)
+    typeof value === "string" && Object.prototype.hasOwnProperty.call(EXIT_CODE_BY_VERDICT, value)
   );
 }
 
@@ -366,9 +345,7 @@ function dimensionsFrom(report: JsonObject): Record<string, string | null> {
     "integrity.artifacts": textOf(nested(dimensions, "integrity", "artifacts")),
     "sources.availability": textOf(nested(dimensions, "sources", "availability")),
     "sources.integrity": textOf(nested(dimensions, "sources", "integrity")),
-    "trust.policyDecision": textOf(
-      nested(dimensions, "trust", "policyDecision"),
-    ),
+    "trust.policyDecision": textOf(nested(dimensions, "trust", "policyDecision")),
     verdict: textOf(report.verdict),
   };
 }
@@ -403,11 +380,7 @@ function sourceFor(name: VerifierName, commit: string | null): VerifierEntry["so
   };
 }
 
-function notPerformed(
-  name: VerifierName,
-  reason: string,
-  commit: string | null,
-): VerifierEntry {
+function notPerformed(name: VerifierName, reason: string, commit: string | null): VerifierEntry {
   return {
     verifier: name,
     status: "NOT_PERFORMED",
@@ -655,8 +628,7 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     packageDir,
     policyPath,
   };
-  const packageFileTypes: Readonly<Record<string, string>> =
-    options.packageFileTypes ?? {};
+  const packageFileTypes: Readonly<Record<string, string>> = options.packageFileTypes ?? {};
   if (options.packageFileTypes === undefined) {
     problems.push("package file types were not recorded");
   }
@@ -709,7 +681,9 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
   for (const name of VERIFIER_ORDER) {
     const execution = byName.get(name);
     if (execution === undefined) {
-      entries.push(notPerformed(name, "report missing: the verifier produced no execution", commit || null));
+      entries.push(
+        notPerformed(name, "report missing: the verifier produced no execution", commit || null),
+      );
       continue;
     }
     if (execution.error !== undefined) {
@@ -717,7 +691,9 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
       continue;
     }
     if (execution.exitCode === null) {
-      entries.push(notPerformed(name, "report missing: the verifier produced no exit code", commit || null));
+      entries.push(
+        notPerformed(name, "report missing: the verifier produced no exit code", commit || null),
+      );
       continue;
     }
     if (!EXECUTED_EXIT_CODES.has(execution.exitCode)) {
@@ -740,17 +716,9 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     reports.set(name, report);
     let described: Described;
     try {
-      described = describeExecuted(
-        execution,
-        report,
-        normalized,
-        manifest,
-        commit || null,
-      );
+      described = describeExecuted(execution, report, normalized, manifest, commit || null);
     } catch (error) {
-      entries.push(
-        notPerformed(name, `report shape failure: ${messageOf(error)}`, commit || null),
-      );
+      entries.push(notPerformed(name, `report shape failure: ${messageOf(error)}`, commit || null));
       continue;
     }
     entries.push(described.entry);
@@ -778,12 +746,9 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     );
   }
   if (identities.size > 1) {
-    problems.push(
-      `packageIdentity disagreement: ${[...identities].sort().join(", ")}`,
-    );
+    problems.push(`packageIdentity disagreement: ${[...identities].sort().join(", ")}`);
   }
-  const samePackageIdentity =
-    executed.length === VERIFIER_ORDER.length && identities.size === 1;
+  const samePackageIdentity = executed.length === VERIFIER_ORDER.length && identities.size === 1;
 
   const policyIds = new Set(
     executed
@@ -799,18 +764,14 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     problems.push(`trust policy id disagreement: ${[...policyIds].sort().join(", ")}`);
   }
   if (policyDigests.size > 1) {
-    problems.push(
-      `trust policy digest disagreement: ${[...policyDigests].sort().join(", ")}`,
-    );
+    problems.push(`trust policy digest disagreement: ${[...policyDigests].sort().join(", ")}`);
   }
 
   const reference = entries.find((entry) => entry.verifier === "reference");
   if (reference === undefined) {
     problems.push("reference: no entry was assembled");
   } else if (reference.status === "EXECUTED" && reference.verdict !== "PASS") {
-    problems.push(
-      `reference: verdict is ${JSON.stringify(reference.verdict)}, expected PASS`,
-    );
+    problems.push(`reference: verdict is ${JSON.stringify(reference.verdict)}, expected PASS`);
   }
 
   const identity =
@@ -847,18 +808,11 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
 
   // C6 expects Phase 2a outcomes only: FAIL/UNTRUSTED/NOT_EVALUATED on the
   // independent side are evidence of a broken or ambiguous run, not a pass.
-  const expectedIndependentVerdicts = new Set<Verdict>([
-    "PASS",
-    "UNSUPPORTED",
-    "INCOMPLETE",
-  ]);
+  const expectedIndependentVerdicts = new Set<Verdict>(["PASS", "UNSUPPORTED", "INCOMPLETE"]);
   for (const name of ["rust", "go", "python"] as const) {
     const entry = entries.find((candidate) => candidate.verifier === name);
     if (entry?.status !== "EXECUTED") continue;
-    if (
-      entry.verdict === null ||
-      !expectedIndependentVerdicts.has(entry.verdict)
-    ) {
+    if (entry.verdict === null || !expectedIndependentVerdicts.has(entry.verdict)) {
       problems.push(
         `${name}: independent verdict ${JSON.stringify(entry.verdict)} is outside the expected Phase 2a set (PASS, UNSUPPORTED, INCOMPLETE)`,
       );
@@ -876,12 +830,8 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
   problems.push(...checkDisagreementProblems);
   const checkAgreement = checkDisagreementProblems.length === 0;
 
-  const independentEntries = entries.filter(
-    (entry) => entry.verifier !== "reference",
-  );
-  const executedIndependent = independentEntries.filter(
-    (entry) => entry.status === "EXECUTED",
-  );
+  const independentEntries = entries.filter((entry) => entry.verifier !== "reference");
+  const executedIndependent = independentEntries.filter((entry) => entry.status === "EXECUTED");
   const independentVerdictsText = independentEntries
     .map(
       (entry) =>
@@ -889,17 +839,13 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
     )
     .join(", ");
   const anyIndependentCheckEvaluated = executedIndependent.some((entry) =>
-    REQUIRED_CHECKS.some((checkId) =>
-      ["PASS", "FAIL"].includes(entry.checks[checkId] ?? "ABSENT"),
-    ),
+    REQUIRED_CHECKS.some((checkId) => ["PASS", "FAIL"].includes(entry.checks[checkId] ?? "ABSENT")),
   );
   const phase2aOnly =
     executedIndependent.length > 0 &&
     executedIndependent.every((entry) =>
       REQUIRED_CHECKS.every((checkId) =>
-        ["UNSUPPORTED", "ABSENT", "NOT_EVALUATED"].includes(
-          entry.checks[checkId] ?? "ABSENT",
-        ),
+        ["UNSUPPORTED", "ABSENT", "NOT_EVALUATED"].includes(entry.checks[checkId] ?? "ABSENT"),
       ),
     );
   const differences = [
@@ -924,9 +870,7 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
   ];
 
   const build = isObject(manifest.build) ? manifest.build : {};
-  const artifacts = Array.isArray(manifest.artifacts)
-    ? manifest.artifacts.filter(isObject)
-    : [];
+  const artifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts.filter(isObject) : [];
   const sources = Array.isArray(manifest.sources) ? manifest.sources : [];
 
   const batch: C6Batch = {
@@ -949,8 +893,7 @@ export function assembleBatch(options: AssembleOptions): BatchOutcome {
       files: options.packageFileDigests,
       fileTypes: packageFileTypes,
     },
-    inputIntegrity:
-      options.inputIntegrity ?? { readOnlyDuringRuns: false, mutations: [] },
+    inputIntegrity: options.inputIntegrity ?? { readOnlyDuringRuns: false, mutations: [] },
     requiredChecks: REQUIRED_CHECKS,
     verifiers: entries,
     comparison: {
@@ -1058,17 +1001,12 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-async function fetchArchive(
-  pin: IndependentPin,
-  tarballDir: string,
-): Promise<string> {
+async function fetchArchive(pin: IndependentPin, tarballDir: string): Promise<string> {
   const destination = path.join(tarballDir, `${pin.name}.tar.gz`);
   if (await exists(destination)) {
     const actual = await sha256File(destination);
     if (actual === pin.tarballSha256) return destination;
-    process.stderr.write(
-      `c6: cached ${pin.name} archive does not match the pin; re-downloading\n`,
-    );
+    process.stderr.write(`c6: cached ${pin.name} archive does not match the pin; re-downloading\n`);
     await rm(destination, { force: true });
   }
 
@@ -1134,23 +1072,15 @@ async function assertArchiveSafe(archive: string): Promise<void> {
       );
     }
     if (type !== "-" && type !== "d" && type !== "l") {
-      const kind =
-        type === "h"
-          ? "a hard link"
-          : `entry type ${JSON.stringify(type)}`;
+      const kind = type === "h" ? "a hard link" : `entry type ${JSON.stringify(type)}`;
       throw new Error(
         `archive contains ${kind}, only regular files, directories and contained symlinks are allowed: ${line.slice(0, 200)}`,
       );
     }
     if (type === "l") {
       const target = line.split(" -> ").pop();
-      if (
-        target !== undefined &&
-        (target.startsWith("/") || /^[A-Za-z]:[\\/]/.test(target))
-      ) {
-        throw new Error(
-          `archive symbolic link has an absolute target: ${line.slice(0, 200)}`,
-        );
+      if (target !== undefined && (target.startsWith("/") || /^[A-Za-z]:[\\/]/.test(target))) {
+        throw new Error(`archive symbolic link has an absolute target: ${line.slice(0, 200)}`);
       }
     }
   }
@@ -1197,10 +1127,7 @@ async function assertExtractedTree(destination: string): Promise<void> {
 }
 
 /** Exported for the hostile-archive tests; the builder is its only production caller. */
-export async function extractArchive(
-  archive: string,
-  destination: string,
-): Promise<void> {
+export async function extractArchive(archive: string, destination: string): Promise<void> {
   await assertArchiveSafe(archive);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
@@ -1313,7 +1240,12 @@ async function prepareIndependent(
 function verifierInvocation(
   prepared: PreparedVerifier,
   context: RunContext,
-): { command: string; args: readonly string[]; cwd: string; env: Readonly<Record<string, string>> } {
+): {
+  command: string;
+  args: readonly string[];
+  cwd: string;
+  env: Readonly<Record<string, string>>;
+} {
   return {
     command: prepared.command,
     args: [
@@ -1363,18 +1295,14 @@ interface PackageEntries {
   readonly types: Record<string, string>;
 }
 
-async function listPackageEntries(
-  packageDir: string,
-  prefix = "",
-): Promise<PackageEntries> {
+async function listPackageEntries(packageDir: string, prefix = ""): Promise<PackageEntries> {
   const files: Record<string, string> = {};
   const types: Record<string, string> = {};
   const entries = await readdir(path.join(packageDir, prefix), {
     withFileTypes: true,
   });
   for (const entry of entries) {
-    const relative =
-      prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
+    const relative = prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
     const full = path.join(packageDir, relative);
     const info = await lstat(full);
     if (info.isDirectory()) {
@@ -1383,19 +1311,13 @@ async function listPackageEntries(
       Object.assign(types, nested.types);
       continue;
     }
-    types[relative] = info.isFile()
-      ? "file"
-      : info.isSymbolicLink()
-        ? "symlink"
-        : "other";
+    types[relative] = info.isFile() ? "file" : info.isSymbolicLink() ? "symlink" : "other";
     if (info.isFile()) {
       files[relative] = await sha256File(full);
     }
   }
   const sorted = (record: Record<string, string>): Record<string, string> =>
-    Object.fromEntries(
-      Object.entries(record).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-    );
+    Object.fromEntries(Object.entries(record).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   return { files: sorted(files), types: sorted(types) };
 }
 
@@ -1438,20 +1360,14 @@ async function setTreeMode(target: string, readOnly: boolean): Promise<void> {
  * defence-in-depth measure: the owner can still chmod them back, which is why
  * `verifyInputsUnchanged` re-checks the hashes after every verifier.
  */
-export async function makeInputsReadOnly(
-  packageDir: string,
-  policyPath: string,
-): Promise<void> {
+export async function makeInputsReadOnly(packageDir: string, policyPath: string): Promise<void> {
   await setTreeMode(packageDir, true);
   await chmod(policyPath, 0o444);
   await chmod(path.dirname(policyPath), 0o555);
 }
 
 /** Restore owner write permissions so the output directory can be cleaned up. */
-export async function makeInputsWritable(
-  packageDir: string,
-  policyPath: string,
-): Promise<void> {
+export async function makeInputsWritable(packageDir: string, policyPath: string): Promise<void> {
   await chmod(path.dirname(policyPath), 0o755);
   await chmod(policyPath, 0o644);
   await setTreeMode(packageDir, false);
@@ -1482,9 +1398,7 @@ export async function verifyInputsUnchanged(
     if (observedType === undefined) {
       problems.push(`${label}: package file was removed: ${file}`);
     } else if (observedType !== type) {
-      problems.push(
-        `${label}: package file type changed: ${file} (${type} -> ${observedType})`,
-      );
+      problems.push(`${label}: package file type changed: ${file} (${type} -> ${observedType})`);
     } else if (type !== "file") {
       problems.push(`${label}: package file is not a regular file: ${file} (${type})`);
     }
@@ -1573,12 +1487,7 @@ async function main(): Promise<void> {
   const outDir = path.resolve(options.outDir);
   assertOutsideRepository(outDir);
   const packageDir = path.join(outDir, "package");
-  const policySource = path.join(
-    REPO_ROOT,
-    "pipeline",
-    "policy",
-    "core000-trust-policy.json",
-  );
+  const policySource = path.join(REPO_ROOT, "pipeline", "policy", "core000-trust-policy.json");
   const policyDir = path.join(outDir, "policy");
   const policyPath = path.join(policyDir, "core000-trust-policy.json");
   const reportsDir = path.join(outDir, "reports");
@@ -1609,9 +1518,7 @@ async function main(): Promise<void> {
     await makeInputsReadOnly(packageDir, policyPath);
     inputsReadOnly = true;
   } catch (error) {
-    extraProblems.push(
-      `cannot make package/policy inputs read-only: ${messageOf(error)}`,
-    );
+    extraProblems.push(`cannot make package/policy inputs read-only: ${messageOf(error)}`);
   }
 
   const executions: VerifierExecution[] = [];
@@ -1637,12 +1544,7 @@ async function main(): Promise<void> {
       stderr: outcome.stderr,
       ...(outcome.error === undefined ? {} : { error: outcome.error }),
     });
-    const changes = await verifyInputsUnchanged(
-      snapshot,
-      packageDir,
-      policyPath,
-      name,
-    );
+    const changes = await verifyInputsUnchanged(snapshot, packageDir, policyPath, name);
     if (changes.length > 0) {
       mutated = true;
       mutationProblems.push(...changes);
@@ -1659,8 +1561,7 @@ async function main(): Promise<void> {
           exitCode: null,
           stdout: "",
           stderr: "",
-          error:
-            "skipped after an earlier verifier modified package or policy inputs",
+          error: "skipped after an earlier verifier modified package or policy inputs",
         });
         continue;
       }
@@ -1692,18 +1593,13 @@ async function main(): Promise<void> {
   }
 
   if (mutated) {
-    console.error(
-      "c6: package or policy inputs changed during verifier execution; failing closed",
-    );
+    console.error("c6: package or policy inputs changed during verifier execution; failing closed");
     for (const problem of mutationProblems) console.error(`  - ${problem}`);
   }
 
   for (const execution of executions) {
     if (execution.stdout.length === 0) continue;
-    await writeFile(
-      path.join(reportsDir, `${execution.name}.json`),
-      execution.stdout,
-    );
+    await writeFile(path.join(reportsDir, `${execution.name}.json`), execution.stdout);
   }
 
   const outcome = assembleBatch({
@@ -1720,10 +1616,7 @@ async function main(): Promise<void> {
       mutations: mutationProblems,
     },
   });
-  await writeFile(
-    path.join(outDir, "batch.json"),
-    `${JSON.stringify(outcome.batch, null, 2)}\n`,
-  );
+  await writeFile(path.join(outDir, "batch.json"), `${JSON.stringify(outcome.batch, null, 2)}\n`);
 
   if (outcome.problems.length > 0) {
     console.error("c6: batch is NOT valid:");
@@ -1741,9 +1634,7 @@ async function main(): Promise<void> {
 
   if (options.evidence !== null) {
     if (!outcome.batch.ok) {
-      console.error(
-        `c6: refusing to write ${options.evidence} from an invalid batch`,
-      );
+      console.error(`c6: refusing to write ${options.evidence} from an invalid batch`);
     } else {
       const evidencePath = path.resolve(options.evidence);
       await writeFile(evidencePath, renderEvidenceMarkdown(outcome.batch));
@@ -1754,8 +1645,7 @@ async function main(): Promise<void> {
   process.exitCode = outcome.batch.ok ? 0 : 1;
 }
 
-const invokedPath =
-  process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
+const invokedPath = process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   void main().catch((error: unknown) => {
     console.error(`c6: ${messageOf(error)}`);

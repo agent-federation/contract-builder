@@ -79,7 +79,9 @@ export function renderVerifyText(report: VerificationReport): string {
   lines.push(
     `coverage: checksEvaluated ${coverage.checksEvaluated}, checksPassed ${coverage.checksPassed}, checksFailed ${coverage.checksFailed}, checksUnsupported ${coverage.checksUnsupported}, checksNotEvaluated ${coverage.checksNotEvaluated}, dimensionsEvaluated ${coverage.dimensionsEvaluated}, full: ${coverage.full}`,
   );
-  lines.push(`requiredChecks: ${coverage.requiredChecks.map((checkId) => safe(checkId)).join(", ") || "none"}`);
+  lines.push(
+    `requiredChecks: ${coverage.requiredChecks.map((checkId) => safe(checkId)).join(", ") || "none"}`,
+  );
   lines.push(`requiredDimensions: ${coverage.requiredDimensions.join(", ") || "none"}`);
   lines.push("limitations");
   if (report.limitations.length === 0) {
@@ -149,8 +151,12 @@ export function renderInspectionText(document: InspectionDocument): string {
   }
   lines.push("identities");
   lines.push(`  packageIdentity ${safe(document.identities.packageIdentity ?? "null")}`);
-  lines.push(`  normalizedInputDigest ${safe(document.identities.normalizedInputDigest ?? "null")}`);
-  lines.push(`  extensionClosureDigest ${safe(document.identities.extensionClosureDigest ?? "null")}`);
+  lines.push(
+    `  normalizedInputDigest ${safe(document.identities.normalizedInputDigest ?? "null")}`,
+  );
+  lines.push(
+    `  extensionClosureDigest ${safe(document.identities.extensionClosureDigest ?? "null")}`,
+  );
   lines.push(`  checkerIdentity ${safe(document.identities.checkerIdentity)}`);
   lines.push("limitations");
   if (document.limitations.length === 0) {
@@ -163,7 +169,10 @@ export function renderInspectionText(document: InspectionDocument): string {
   return `${lines.join("\n")}\n`;
 }
 
-export function renderExplanationText(document: ExplanationDocument, requestedCheckId?: string): string {
+export function renderExplanationText(
+  document: ExplanationDocument,
+  requestedCheckId?: string,
+): string {
   const record = document.checkRecord;
   const lines: string[] = [];
   lines.push("NOT A PACKAGE VERDICT");

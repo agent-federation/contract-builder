@@ -12,10 +12,7 @@ import {
 
 export const PACKAGE_DIR = "/tmp/c6-test/package";
 export const POLICY_PATH = "/tmp/c6-test/policy/core000-trust-policy.json";
-export const NOW = readFileSync(
-  new URL("../pinned-now.txt", import.meta.url),
-  "utf8",
-).trim();
+export const NOW = readFileSync(new URL("../pinned-now.txt", import.meta.url), "utf8").trim();
 export const IDENTITY = `sha256:${"a".repeat(64)}`;
 export const POLICY_ID = "policy-core000-unsigned-2026-11";
 export const POLICY_DIGEST = `sha256:${"b".repeat(64)}`;
@@ -75,16 +72,10 @@ export function reportFor(
   const id = overrides.id ?? independent?.id ?? "pap.verifier.reference";
   const version = overrides.version ?? independent?.version ?? "0.1.0";
   const implementationDigest =
-    overrides.implementationDigest ??
-    independent?.implementationDigest ??
-    REFERENCE_DIGEST;
-  const verdict =
-    overrides.verdict ?? (name === "reference" ? "PASS" : "UNSUPPORTED");
-  const checkOutcome =
-    overrides.checkOutcome ?? (name === "reference" ? "PASS" : "UNSUPPORTED");
-  const checks = Object.fromEntries(
-    REQUIRED_CHECKS.map((checkId) => [checkId, checkOutcome]),
-  );
+    overrides.implementationDigest ?? independent?.implementationDigest ?? REFERENCE_DIGEST;
+  const verdict = overrides.verdict ?? (name === "reference" ? "PASS" : "UNSUPPORTED");
+  const checkOutcome = overrides.checkOutcome ?? (name === "reference" ? "PASS" : "UNSUPPORTED");
+  const checks = Object.fromEntries(REQUIRED_CHECKS.map((checkId) => [checkId, checkOutcome]));
   return {
     reportVersion: "0.1",
     verifier: {
@@ -149,19 +140,12 @@ export function executionFor(
 
 export function defaultExecutions(): VerifierExecution[] {
   return VERIFIER_ORDER.map((name) =>
-    executionFor(
-      name,
-      reportFor(name),
-      name === "reference" ? 0 : 4,
-    ),
+    executionFor(name, reportFor(name), name === "reference" ? 0 : 4),
   );
 }
 
 /** Executions whose reports name the supplied package/policy paths. */
-export function executionsForPaths(
-  packageDir: string,
-  policyPath: string,
-): VerifierExecution[] {
+export function executionsForPaths(packageDir: string, policyPath: string): VerifierExecution[] {
   return VERIFIER_ORDER.map((name) =>
     executionFor(
       name,
@@ -171,9 +155,7 @@ export function executionsForPaths(
   );
 }
 
-export function optionsWith(
-  executions: readonly VerifierExecution[],
-): AssembleOptions {
+export function optionsWith(executions: readonly VerifierExecution[]): AssembleOptions {
   return {
     now: NOW,
     packageDir: PACKAGE_DIR,
@@ -195,7 +177,5 @@ export function replaceExecution(
   executions: readonly VerifierExecution[],
   replaced: VerifierExecution,
 ): VerifierExecution[] {
-  return executions.map((entry) =>
-    entry.name === replaced.name ? replaced : entry,
-  );
+  return executions.map((entry) => (entry.name === replaced.name ? replaced : entry));
 }

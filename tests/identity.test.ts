@@ -73,7 +73,10 @@ async function copyLocalProject(name: string): Promise<string> {
   return dir;
 }
 
-async function identityOf(dir: string, overrides: Partial<BuildOptions> = {}): Promise<BuildIdentity> {
+async function identityOf(
+  dir: string,
+  overrides: Partial<BuildOptions> = {},
+): Promise<BuildIdentity> {
   const result = await runBuild(base(dir, overrides));
   assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
   assert.ok(result.identity !== null, "build produced no identity");
@@ -245,11 +248,7 @@ test("identity: a declared source-adapter file change moves its closure and the 
   assert.ok(beforeClosure !== null, diagnostics.report());
   const beforeBuild = (await identityOf(specDir, { adapters: { markdown: adapter } })).inputDigest;
 
-  await writeFile(
-    file,
-    `${await readFile(file, "utf8")}\n// identity sentinel\n`,
-    "utf8",
-  );
+  await writeFile(file, `${await readFile(file, "utf8")}\n// identity sentinel\n`, "utf8");
   const afterClosure = await resolveExtensionClosure(
     "adapter",
     adapter.id,
@@ -314,7 +313,10 @@ test("identity: a pinned dependency or integrity change moves the closure digest
   const diagnostics = new Diagnostics();
   const closure = resolveDependencyClosure({ pkg: "1.0.0" }, lock, diagnostics, "test");
   assert.ok(closure !== null, diagnostics.report());
-  assert.deepEqual(closure.map((item) => `${item.name}@${item.version}`), ["dep@2.1.0", "pkg@1.0.0"]);
+  assert.deepEqual(
+    closure.map((item) => `${item.name}@${item.version}`),
+    ["dep@2.1.0", "pkg@1.0.0"],
+  );
 
   const before = computeClosureDigest([], closure);
   const changedIntegrity = parseLockfile(`{
@@ -509,7 +511,9 @@ test("identity: a relative import outside the extension root is unpinned", async
   );
 
   assert.equal(closure, null);
-  assert.ok(diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"));
+  assert.ok(
+    diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"),
+  );
 });
 
 test("identity: a relative import of an engine module is allowed", async () => {
@@ -560,7 +564,9 @@ test("identity: an absolute engine import is rejected as unpinned", async () => 
   );
 
   assert.equal(closure, null);
-  assert.ok(diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"));
+  assert.ok(
+    diagnostics.sorted().some((item) => item.code === "core.extension.unpinned-dependency"),
+  );
 });
 
 test("identity: literal dynamic imports inside template interpolations are detected", () => {
@@ -573,8 +579,7 @@ test("identity: literal dynamic imports inside template interpolations are detec
 });
 
 test("identity: template expressions with regex braces are scanned", () => {
-  const source =
-    'const value = `${/}/.test("x") ? import("yes-package") : import("no-package")}`;';
+  const source = 'const value = `${/}/.test("x") ? import("yes-package") : import("no-package")}`;';
   assert.deepEqual(importSpecifiers(source), ["yes-package", "no-package"]);
 });
 
@@ -594,14 +599,8 @@ test("identity: record framing resists ambiguous concatenation", () => {
   const shiftedParts = frameRecord("tag", ["a", "bc"]);
   assert.equal(Buffer.from(withinParts).equals(Buffer.from(shiftedParts)), false);
 
-  const firstRecords = concat(
-    frameRecord("x", ["ab"]),
-    frameRecord("y", ["c"]),
-  );
-  const shiftedRecords = concat(
-    frameRecord("x", ["a"]),
-    frameRecord("y", ["bc"]),
-  );
+  const firstRecords = concat(frameRecord("x", ["ab"]), frameRecord("y", ["c"]));
+  const shiftedRecords = concat(frameRecord("x", ["a"]), frameRecord("y", ["bc"]));
   assert.equal(Buffer.from(firstRecords).equals(Buffer.from(shiftedRecords)), false);
 });
 

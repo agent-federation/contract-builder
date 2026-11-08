@@ -130,8 +130,7 @@ function findEntry(
   return (
     catalog.codes.find(
       (entry) => entry.code === finding.code && entry.variant === finding.variant,
-    ) ??
-    catalog.codes.find((entry) => entry.code === finding.code && entry.variant === undefined)
+    ) ?? catalog.codes.find((entry) => entry.code === finding.code && entry.variant === undefined)
   );
 }
 
@@ -140,9 +139,13 @@ function interpolate(template: string, scope: Record<string, unknown>): string |
   const message = template.replace(/\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g, (_match, key: string) => {
     const value = key
       .split(".")
-      .reduce<unknown>((current, part) => (typeof current === "object" && current !== null
-        ? (current as Record<string, unknown>)[part]
-        : undefined), scope);
+      .reduce<unknown>(
+        (current, part) =>
+          typeof current === "object" && current !== null
+            ? (current as Record<string, unknown>)[part]
+            : undefined,
+        scope,
+      );
     if (value === undefined || value === null) {
       missing = true;
       return "";

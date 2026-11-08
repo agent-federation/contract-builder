@@ -24,7 +24,6 @@ const PROFILE_PATH = /["'][^"'\n]*(?:profiles|fixtures|tests)\/[^"'\n]*["']/;
 const DOMAIN_LABEL =
   /обязанность|запрет|разрешение|дословно|пересказ|положение|кейс|термин|фрагмент/i;
 
-
 async function walk(dir: string): Promise<string[]> {
   const files: string[] = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -75,10 +74,7 @@ test("genericity: the guard catches a forbidden reference", async () => {
   await writeFile(asset, 'const labels = "labels.ru.json";\n', "utf8");
   await writeFile(profilePath, 'const profile = "profiles/example/profile.json";\n', "utf8");
 
-  assert.deepEqual(
-    await scanEngine(dir),
-    [quoted, unquoted, imported, asset, profilePath].sort(),
-  );
+  assert.deepEqual(await scanEngine(dir), [quoted, unquoted, imported, asset, profilePath].sort());
 });
 
 test("genericity: the guard leaves generic profile-drive code alone", async () => {

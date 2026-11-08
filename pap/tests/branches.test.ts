@@ -30,16 +30,23 @@ function writePolicy(value: unknown): string {
   return file;
 }
 function unsignedPolicy(): any {
-  return JSON.parse(readFileSync(path.join(fixtures, "trust-policy", "unsigned-valid.json"), "utf8"));
+  return JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "unsigned-valid.json"), "utf8"),
+  );
 }
 function reviewPolicy(): any {
-  return JSON.parse(readFileSync(path.join(fixtures, "trust-policy", "review-required.json"), "utf8"));
+  return JSON.parse(
+    readFileSync(path.join(fixtures, "trust-policy", "review-required.json"), "utf8"),
+  );
 }
 function setReviews(dir: string, approvals: unknown[]): void {
   const bytes = Buffer.from(JSON.stringify({ papClaimsVersion: "0.1", approvals }));
   writeFileSync(path.join(dir, "claims", "reviews.json"), bytes);
   const value = manifest(dir);
-  value.claims.reviews = { path: "claims/reviews.json", digest: domainHash("pap.claims.v1", bytes) };
+  value.claims.reviews = {
+    path: "claims/reviews.json",
+    digest: domainHash("pap.claims.v1", bytes),
+  };
   writeManifest(dir, value);
 }
 function verify(dir: string, policy: string): { status: number; stdout: string; stderr: string } {
@@ -70,7 +77,9 @@ test("human review: out-of-scope approval is binding-invalid", () => {
   const result = verify(dir, writePolicy(reviewPolicy()));
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.humanReview.status, "INCOMPLETE");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.review.binding-invalid"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.review.binding-invalid"),
+  );
 });
 
 test("human review: unknown reviewer is UNKNOWN", () => {
@@ -79,19 +88,20 @@ test("human review: unknown reviewer is UNKNOWN", () => {
   const result = verify(dir, writePolicy(reviewPolicy()));
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.humanReview.status, "UNKNOWN");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.review.unknown-reviewer"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.review.unknown-reviewer"),
+  );
 });
 
 test("human review: an in-scope rejection blocks a valid approval", () => {
   const dir = tempPackage();
-  setReviews(dir, [
-    approval(),
-    approval({ id: "approval:2", decision: "rejected" }),
-  ]);
+  setReviews(dir, [approval(), approval({ id: "approval:2", decision: "rejected" })]);
   const result = verify(dir, writePolicy(reviewPolicy()));
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.humanReview.status, "INCOMPLETE");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.trust.review-required"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.trust.review-required"),
+  );
 });
 
 test("checker recognition: pin match, digest mismatch and unknown pin", () => {
@@ -99,7 +109,11 @@ test("checker recognition: pin match, digest mismatch and unknown pin", () => {
   policy.id = "policy-checker-recognition";
   policy.requiredDimensions = ["trust.checkerRecognition"];
   policy.checkers = [
-    { id: CHECKER.id, version: CHECKER.version, implementationDigest: CHECKER.implementationDigest },
+    {
+      id: CHECKER.id,
+      version: CHECKER.version,
+      implementationDigest: CHECKER.implementationDigest,
+    },
   ];
   const dir = tempPackage();
   let result = verify(dir, writePolicy(policy));
@@ -162,7 +176,9 @@ test("payload count limit reads none of the affected class", () => {
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.integrity.artifacts, "NOT_EVALUATED");
   assert.ok(report.identities.artifacts.every((entry: any) => entry.computed === null));
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+  );
 });
 
 test("signature: duplicate signer is reported and counted once", () => {
@@ -177,15 +193,27 @@ test("signature: duplicate signer is reported and counted once", () => {
   const result = verify(dir, writePolicy(policy));
   const report = JSON.parse(result.stdout);
   assert.equal(report.verdict, "PASS");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.duplicate-signer"));
+  assert.ok(
+    report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.signature.duplicate-signer",
+    ),
+  );
 });
 
 test("signature quorum counts distinct signer entries, not key IDs", () => {
   const dir = tempPackage();
-  const payload = jcsBytes(parseJsonStrict(readFileSync(path.join(dir, "assurance-package.json")), { nesting: 64, stringBytes: 16_777_216 }));
+  const payload = jcsBytes(
+    parseJsonStrict(readFileSync(path.join(dir, "assurance-package.json")), {
+      nesting: 64,
+      stringBytes: 16_777_216,
+    }),
+  );
   const payloadType = "application/vnd.pap.manifest.v0.1+json";
   const pae = paeBytes(payloadType, payload);
-  const makeKey = (): { publicKey: string; envelope: (keyId: string) => Record<string, unknown> } => {
+  const makeKey = (): {
+    publicKey: string;
+    envelope: (keyId: string) => Record<string, unknown>;
+  } => {
     const pair = generateKeyPairSync("ed25519");
     const raw = pair.publicKey.export({ format: "der", type: "spki" }).subarray(-32);
     return {
@@ -200,8 +228,14 @@ test("signature quorum counts distinct signer entries, not key IDs", () => {
   const first = makeKey();
   const second = makeKey();
   mkdirSync(path.join(dir, "signatures"), { recursive: true });
-  writeFileSync(path.join(dir, "signatures/first.dsse.json"), JSON.stringify(first.envelope("key-first")));
-  writeFileSync(path.join(dir, "signatures/second.dsse.json"), JSON.stringify(second.envelope("key-second")));
+  writeFileSync(
+    path.join(dir, "signatures/first.dsse.json"),
+    JSON.stringify(first.envelope("key-first")),
+  );
+  writeFileSync(
+    path.join(dir, "signatures/second.dsse.json"),
+    JSON.stringify(second.envelope("key-second")),
+  );
   const policy = JSON.parse(
     readFileSync(path.join(fixtures, "trust-policy", "signature-required.json"), "utf8"),
   );
@@ -259,7 +293,9 @@ test("signature: missing keyId leaves the entry unknown and rejects the policy d
   const report = JSON.parse(result.stdout);
   assert.equal(report.dimensions.trust.policyDecision, "REJECTED");
   assert.equal(report.verdict, "UNTRUSTED");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.keyid-missing"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.keyid-missing"),
+  );
 });
 
 test("signature quorum: required mode with an unmet minimumValidSigners is INCOMPLETE", () => {
@@ -322,8 +358,12 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
   assert.equal(report.coverage.checksNotEvaluated, 0);
   assert.equal(report.coverage.checksUnsupported, 0);
   assert.equal(report.coverage.dimensionsEvaluated, report.coverage.requiredDimensions.length - 1);
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"));
-  assert.ok(report.limitations.some((limitation: any) => limitation.code === "pap.signature.absent"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.signature.absent"),
+  );
+  assert.ok(
+    report.limitations.some((limitation: any) => limitation.code === "pap.signature.absent"),
+  );
 
   // A met quorum with the same required dimensions still passes.
   policy.id = "policy-quorum-met";
@@ -342,7 +382,10 @@ test("signature quorum: required mode with an unmet minimumValidSigners is INCOM
     "checks",
   ]);
   assert.equal(metReport.coverage.checksEvaluated, metReport.coverage.requiredChecks.length);
-  assert.equal(metReport.coverage.dimensionsEvaluated, metReport.coverage.requiredDimensions.length);
+  assert.equal(
+    metReport.coverage.dimensionsEvaluated,
+    metReport.coverage.requiredDimensions.length,
+  );
 });
 
 test("human review: an array-valued decision is a claim-invalid, not an approval", () => {
@@ -351,6 +394,8 @@ test("human review: an array-valued decision is a claim-invalid, not an approval
   const result = verify(dir, writePolicy(reviewPolicy()));
   const report = JSON.parse(result.stdout);
   assert.notEqual(report.verdict, "PASS");
-  assert.ok(report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"));
+  assert.ok(
+    report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.claim-invalid"),
+  );
   assert.notEqual(report.dimensions.humanReview.status, "PASS");
 });

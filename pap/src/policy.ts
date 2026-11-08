@@ -84,7 +84,9 @@ export async function loadPolicy(
       stringBytes: defaults.jsonStringBytes,
     });
   } catch (error) {
-    throw new PolicyInvalid(error instanceof JsonParseError ? error.message : "trust policy is not valid JSON");
+    throw new PolicyInvalid(
+      error instanceof JsonParseError ? error.message : "trust policy is not valid JSON",
+    );
   }
   if (!isObject(value)) {
     throw new PolicyInvalid("trust policy must be a JSON object");

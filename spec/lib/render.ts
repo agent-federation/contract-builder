@@ -6,11 +6,7 @@ import type { ExtensionClosureDeclaration } from "./extension.js";
 import type { BuildIdentity } from "./identity.js";
 import type { ProjectModel } from "./ir.js";
 import type { Diagnostics } from "./diagnostics.js";
-import {
-  resolveContained,
-  type ManifestRender,
-  type ResolvedProject,
-} from "./manifest.js";
+import { resolveContained, type ManifestRender, type ResolvedProject } from "./manifest.js";
 
 export type BuildMode = "draft" | "release";
 
@@ -93,7 +89,12 @@ export async function loadRenderInputs(
     return null;
   }
 
-  const entry = await resolveProfilePath(project, declaration.template, "/render/0/template", diags);
+  const entry = await resolveProfilePath(
+    project,
+    declaration.template,
+    "/render/0/template",
+    diags,
+  );
   if (entry === null) return null;
 
   const root = path.dirname(entry);
@@ -124,7 +125,12 @@ export async function loadRenderInputs(
     try {
       const parsed: unknown = JSON.parse(await readFile(labelsPath, "utf8"));
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        diags.error("core.manifest.invalid", declaration.labels, "", "Файл меток должен быть объектом");
+        diags.error(
+          "core.manifest.invalid",
+          declaration.labels,
+          "",
+          "Файл меток должен быть объектом",
+        );
         return null;
       }
       labels = {};
@@ -164,9 +170,7 @@ async function resolveProfilePath(
   pointer: string,
   diags: Diagnostics,
 ): Promise<string | null> {
-  const relative = declared.startsWith("profile:")
-    ? declared.slice("profile:".length)
-    : declared;
+  const relative = declared.startsWith("profile:") ? declared.slice("profile:".length) : declared;
 
   const located = await resolveContained(project.profileDir, relative);
   if (!located.inside) {

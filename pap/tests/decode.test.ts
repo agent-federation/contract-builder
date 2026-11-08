@@ -30,8 +30,7 @@ const NON_STRINGS: [string, unknown][] = [
   ["number", 1],
 ];
 
-const unsignedPolicy = () =>
-  readJson(path.join(fixtures, "trust-policy", "unsigned-valid.json"));
+const unsignedPolicy = () => readJson(path.join(fixtures, "trust-policy", "unsigned-valid.json"));
 const baseManifest = () => readJson(path.join(base, "assurance-package.json"));
 const producerReport = () => readJson(path.join(base, "claims", "producer-report.json"));
 const provenance = () => readJson(path.join(base, "claims", "provenance.json"));
@@ -73,9 +72,7 @@ const POLICY_CASES: PolicyCase[] = [
   {
     field: "keys[].algorithm",
     mutate: (policy, value) => {
-      policy.keys = [
-        { keyId: "key-1", algorithm: "ed25519", publicKey: "A".repeat(43) },
-      ];
+      policy.keys = [{ keyId: "key-1", algorithm: "ed25519", publicKey: "A".repeat(43) }];
       (policy.keys as JsonObject[])[0]!.algorithm = value as never;
     },
     message: /keys\[0\]/,
@@ -83,9 +80,7 @@ const POLICY_CASES: PolicyCase[] = [
   {
     field: "signers[].allowedRoles",
     mutate: (policy, value) => {
-      policy.keys = [
-        { keyId: "key-1", algorithm: "ed25519", publicKey: "A".repeat(43) },
-      ];
+      policy.keys = [{ keyId: "key-1", algorithm: "ed25519", publicKey: "A".repeat(43) }];
       policy.signers = [
         { keyIds: ["key-1"], identity: "producer:acme", allowedRoles: ["producer"] },
       ];
@@ -123,8 +118,7 @@ for (const fieldCase of POLICY_CASES) {
       fieldCase.mutate(policy, value);
       assert.throws(
         () => decodeTrustPolicy(policy, DEFAULT_LIMITS),
-        (error: unknown) =>
-          error instanceof PolicyInvalid && fieldCase.message.test(error.message),
+        (error: unknown) => error instanceof PolicyInvalid && fieldCase.message.test(error.message),
       );
     });
   }
@@ -238,7 +232,7 @@ const CLAIM_CASES: ClaimCase[] = [
     kind: "producerReport",
     value: producerReport,
     mutate: (claim, value) => {
-      ((claim.claims as JsonObject[])[0]!).claimedOutcome = value as never;
+      (claim.claims as JsonObject[])[0]!.claimedOutcome = value as never;
     },
   },
   {
@@ -246,7 +240,7 @@ const CLAIM_CASES: ClaimCase[] = [
     kind: "reviews",
     value: reviews,
     mutate: (claim, value) => {
-      ((claim.approvals as JsonObject[])[0]!).decision = value as never;
+      (claim.approvals as JsonObject[])[0]!.decision = value as never;
     },
   },
 ];
@@ -284,8 +278,7 @@ test("claims: valid fixtures decode", () => {
   }
 });
 
-const trustedEnvelope = () =>
-  readJson(path.join(fixtures, "signatures", "trusted.dsse.json"));
+const trustedEnvelope = () => readJson(path.join(fixtures, "signatures", "trusted.dsse.json"));
 
 interface EnvelopeCase {
   field: string;
@@ -314,13 +307,13 @@ const ENVELOPE_CASES: EnvelopeCase[] = [
   {
     field: "signatures[].keyid",
     mutate: (envelope, value) => {
-      ((envelope.signatures as JsonObject[])[0]!).keyid = value as never;
+      (envelope.signatures as JsonObject[])[0]!.keyid = value as never;
     },
   },
   {
     field: "signatures[].sig",
     mutate: (envelope, value) => {
-      ((envelope.signatures as JsonObject[])[0]!).sig = value as never;
+      (envelope.signatures as JsonObject[])[0]!.sig = value as never;
     },
   },
 ];

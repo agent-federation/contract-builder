@@ -41,10 +41,7 @@ interface MutableManifest {
   sources?: Array<Record<string, unknown>>;
 }
 
-async function editProfile(
-  dir: string,
-  mutate: (profile: MutableProfile) => void,
-): Promise<void> {
+async function editProfile(dir: string, mutate: (profile: MutableProfile) => void): Promise<void> {
   const file = path.join(dir, "profiles", "core001", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableProfile;
   mutate(profile);
@@ -181,11 +178,7 @@ test("E2: missing or empty sources is rejected before the model, identity or ren
     assert.equal(diagnostic.file, "contract-builder.json", variant);
     assert.equal(diagnostic.pointer, "/sources", variant);
     assert.match(diagnostic.message, /M1 supports exactly one source/, variant);
-    assert.match(
-      diagnostic.message,
-      /zero-source manifests are not supported by M1/,
-      variant,
-    );
+    assert.match(diagnostic.message, /zero-source manifests are not supported by M1/, variant);
     assert.equal(codes(result).includes("ERR_UNKNOWN_REF"), false, variant);
     assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false, variant);
   }

@@ -69,9 +69,7 @@ export function modelWith(entities: Entity[]): ProjectModel {
       render: [{ outputs: {} }],
     },
     profile: { id: "p", version: "1", entityKinds: {}, schemas: {}, documents: [] },
-    sources: [
-      { id: "SRC", bytes: new TextEncoder().encode(LEGACY_TEXT), adapter: "markdown" },
-    ],
+    sources: [{ id: "SRC", bytes: new TextEncoder().encode(LEGACY_TEXT), adapter: "markdown" }],
     entities,
     documents: DOCUMENTS,
     byId,
@@ -103,8 +101,10 @@ function attachVerification(entity: Entity, outcome: TestOutcome): void {
   if (entity.provenance !== undefined) return;
 
   const fields = entity.fields;
-  const source = entity.kind === "fragment" || entity.kind === "decision" ? fields.source : undefined;
-  const ref = entity.kind === "fragment" || entity.kind === "decision" ? fields.source_ref : undefined;
+  const source =
+    entity.kind === "fragment" || entity.kind === "decision" ? fields.source : undefined;
+  const ref =
+    entity.kind === "fragment" || entity.kind === "decision" ? fields.source_ref : undefined;
   const quote =
     entity.kind === "fragment"
       ? fields.quote

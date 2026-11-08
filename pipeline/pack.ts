@@ -129,9 +129,7 @@ export async function packCore000(options: PackOptions): Promise<PackResult> {
         id: declaration.id,
         path: declaration.path,
         mediaType: declaration.mediaType,
-        bytes: new Uint8Array(
-          await readFile(path.join(workspace.projectDir, declaration.file)),
-        ),
+        bytes: new Uint8Array(await readFile(path.join(workspace.projectDir, declaration.file))),
       });
     }
 
@@ -141,9 +139,7 @@ export async function packCore000(options: PackOptions): Promise<PackResult> {
     };
     const source: SourcePayload = {
       ...SOURCE,
-      bytes: new Uint8Array(
-        await readFile(path.join(workspace.root, SOURCE.file)),
-      ),
+      bytes: new Uint8Array(await readFile(path.join(workspace.root, SOURCE.file))),
       ...acquisitionFor(run),
     };
 
@@ -252,9 +248,7 @@ function acquisitionFor(run: HarnessRun): { acquisition?: { method: string; revi
 }
 
 async function readProjectDeclaration(projectDir: string): Promise<ProjectDeclaration> {
-  const bytes = new Uint8Array(
-    await readFile(path.join(projectDir, "contract-builder.json")),
-  );
+  const bytes = new Uint8Array(await readFile(path.join(projectDir, "contract-builder.json")));
   const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as {
     project?: { id?: unknown; title?: unknown; revision?: unknown };
     profile?: { id?: unknown; version?: unknown };
@@ -374,8 +368,7 @@ async function main(): Promise<void> {
   }
 }
 
-const invokedPath =
-  process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
+const invokedPath = process.argv[1] === undefined ? "" : path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   void main();
 }
