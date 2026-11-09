@@ -118,13 +118,13 @@ Sequencing: D2 format baseline first (so refactor diffs are clean), then split m
 
 ### D8 — PAP verifier packaging boundary: defer the split, record the trigger
 
-RFC §9.1 requires a separate project with its own release and pinned artifacts; today `pap/` is an in-repo boundary with a dev script. Recommendation: **defer the physical split**, and record the trigger conditions:
+RFC §9.1 requires a separate project with its own release and pinned artifacts; today `pap/` is an in-repo boundary with a dev script. Recommendation: **defer the physical split**, and record the trigger conditions in the durable decision record [ODR-PAP-007](../decisions/ODR-PAP-007-pap-verifier-packaging.md) (2026-11-09):
 
-- Phase 2b/2c checks reach a stable caseload and an independent verifier consumes the same package shape (C6 evidence exists);
-- a release model exists (D1) and the verifier can be published with checksums and reproducible builds;
-- then move `pap/` to its own repo/package, publish a versioned artifact, and update the RFC packaging statement.
+- Phase 2b/2c checks reach a stable caseload and independent verifiers evaluate the required checks (the C6 evidence covers that scope);
+- a release model exists (D1) and the verifier can be published as a versioned artifact with checksums and reproducible builds;
+- a maintainer authorizes the split and first release.
 
-Until then, keep the enforced boundary (no imports of `spec/`, `profiles/`, producer code) and the independent-family pre-review.
+All three must hold before `pap/` moves to its own repo/package, a versioned artifact is published or the RFC packaging statement changes. Until then, keep the enforced boundary (no imports of `spec/`, `profiles/`, producer code) and the independent-family pre-review; the ODR records the current evidence, the explicit RFC §9.1 non-conformance and the migration outline.
 
 ## 4. Phases
 

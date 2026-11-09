@@ -2203,6 +2203,12 @@ ship the verifier as a subcommand of its own CLI.
    this contract applies to the executable entry point. The binary and policy are inside the
    operator's trust base (§15.3); their compromise is a limitation, not a security certificate.
 
+> **Implementation status (2026-11-09).** The physical split is deferred by
+> [ODR-PAP-007](../decisions/ODR-PAP-007-pap-verifier-packaging.md); `pap/` remains an enforced
+> in-repo product boundary with a development CLI until that record's three trigger conditions hold.
+> The requirements above remain normative and unchanged. This is a recorded non-conformance with
+> this section, not a conforming distribution; Gate 2 remains open.
+
 ### 9.2 Command surface, options, `--version`, `--help`
 
 ```text
