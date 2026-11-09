@@ -75,8 +75,10 @@ pap/                            PAP v0.1 verifier (independent product boundary)
   README.md                     commands and conformance notes
   bin/pap                       executable entry point
   src/
-    cli.ts, verify.ts,
-    inspect.ts, explain.ts      CLI commands
+    cli.ts, inspect.ts,
+    explain.ts                  CLI commands
+    verify.ts                   verify orchestration facade
+    verify/                     errors/options, loading, checks, trust, report
     decode.ts, manifest.ts,
     input.ts, paths.ts          strict decode boundary and path validation
     digest.ts, json.ts          digests and canonical JSON
