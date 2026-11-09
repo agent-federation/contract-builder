@@ -3,7 +3,7 @@
 **Status:** APPROVED — the maintainer's D8 directive in issue [#270](https://github.com/agent-federation/contract-builder/issues/270) (2026-11-09) records the decision to defer the physical split and the trigger conditions; this record publishes the durable decision and its evidence. It authorizes documentation updates only.
 **Date:** 2026-11-09 (UTC)
 **Decision scope:** PAP v0.1 verifier packaging boundary — the RFC §9.1 conformance status, the trigger conditions for a physical split and release, the boundary guarantees the deferral relies on today, residual risks and limitations, and the migration outline. No `pap/src`, schema, fixture, test, spec, profile, contract or generated-artifact change.
-**Baseline:** `contract-builder` main `39e8d74` (D7d verify split, 2026-11-08).
+**Baseline:** `contract-builder` main `39e8d74` (the PAP verify module split, [#269](https://github.com/agent-federation/contract-builder/pull/269); 2026-11-09).
 **Related:** [#270](https://github.com/agent-federation/contract-builder/issues/270) (this slice), [#170](https://github.com/agent-federation/contract-builder/issues/170) (stream D), [#43](https://github.com/agent-federation/contract-builder/issues/43) (PAP roadmap, Gate 2), [#137](https://github.com/agent-federation/contract-builder/issues/137) (audit umbrella); [ODR-PAP-005](ODR-PAP-005-gate-3-closure-phase-2a.md) (Gate 3 Phase 2a closure), [ODR-PROC-002](ODR-PROC-002-independent-family-pre-review.md) (independent pre-review), [`delivery-governance.md`](../architecture/delivery-governance.md) D8 (design rationale), [`pipeline-evidence.md`](../architecture/pipeline-evidence.md) (C6 evidence), and [RFC §9.1](../architecture/portable-assurance-package-rfc.md#91-position-distribution-and-packaging).
 
 ## 1. Context
