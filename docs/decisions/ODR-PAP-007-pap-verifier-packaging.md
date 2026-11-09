@@ -32,6 +32,8 @@ The physical split and first release start only when **all three** conditions ho
 
 The decision stays in force until all three hold. If any one changes, or a maintainer wants to revisit the deferral earlier, the change is recorded as a new dated decision; it is not inferred from a code or CI change.
 
+**Reading T1.** #270's parenthetical names the Gate-3 set and the C6 record as the evidence for Phase 2b/2c stability. Both exist, but the C6 record is Phase 2a only and the independent implementations report the three required checks `UNSUPPORTED`; this record therefore treats T1 as not met until the evidence covers those check outcomes. A maintainer who intends the existing Phase 2a evidence to satisfy T1 can record that as a new dated decision.
+
 ## 4. What the deferral relies on today
 
 The in-repo arrangement is acceptable only because these boundary guarantees are enforced or evidenced now:
