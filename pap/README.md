@@ -22,11 +22,16 @@ checkers agree field-by-field on the frozen Phase 2a case set. See
 scope and caveats; this implementation remains the reference described below.
 
 **Packaging boundary.** RFC §9.1 requires the verifier to be a separate project
-with its own release and pinned artifacts. During Phase 2, `pap/` is an in-repo
+with its own release and pinned artifacts. The physical split is **deferred, not
+abandoned**: [`ODR-PAP-007`](../docs/decisions/ODR-PAP-007-pap-verifier-packaging.md)
+records the decision and the three trigger conditions that must all hold before
+it starts — Phase 2b/2c check stability with independent C6 evidence, a D1
+release model that can publish a versioned checksummed artifact with reproducible
+builds, and maintainer authorization. Until then `pap/` is an enforced in-repo
 product boundary and the root `package.json` exposes `pap` as a development
-script/bin only. This is a temporary arrangement, not a conforming standalone
-release: no per-platform artifact, published checksum or separate release channel
-is provided here.
+script/bin only. This is a recorded non-conformance with RFC §9.1, not a
+conforming standalone release: no per-platform artifact, published checksum or
+separate release channel is provided here.
 
 ## Commands
 

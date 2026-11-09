@@ -64,8 +64,10 @@ revised only where these changes alter their meaning. §4.3 records the delta it
 The PAP verifier fixes merged in the same period (#152, #154, #156, #157, #163, #169, #171,
 #183, #185, #187) belong to the PAP component record — the PAP RFC, its ODRs and
 `pap/README.md` — not to this engine matrix; only the engine-identity change #145/#158 is
-engine-matrix material (#159's split). This update promotes no row to `independently_verified`,
-changes no claim status and does not close H2, H3 or X3.
+engine-matrix material (#159's split). The packaging-boundary decision (D8, #270) is recorded here
+as a delivery-governance item (snapshot below, row X6), not as an engine or verifier-behavior row.
+This update promotes no row to `independently_verified`, changes no claim status and does not
+close H2, H3 or X3.
 
 **Snapshot update for C6 independent verification (#216).** The `pipeline-independent` job now
 runs the reference verifier and the three blind-lab Phase 2a implementations against one
@@ -89,6 +91,19 @@ delta.
 the legacy build-path `ERR_UNKNOWN_REF` is no longer reachable for a loaded manifest. A2 and §6
 record the implemented rule. Multi-source is still unimplemented and no new semantics are
 introduced.
+
+**Snapshot update for the PAP verifier packaging deferral (D8, #270).**
+[ODR-PAP-007](../decisions/ODR-PAP-007-pap-verifier-packaging.md) records the 2026-11-09 decision
+to defer the RFC §9.1 physical split until three trigger conditions hold: Phase 2b/2c checks are
+stable and independently evaluated by the Gate-3 set with refreshed C6 evidence; the D1 release
+model can publish a versioned verifier artifact with checksums and reproducible builds; and a
+maintainer authorizes the split and release. None holds today, so `pap/` remains an enforced
+in-repo product boundary (`bun run pap`), the §9.1 non-conformance and Gate 2 stay explicitly
+open, and row X6 records the deferred standalone release. The existing C6 evidence is Phase 2a
+only — the independent implementations report `UNSUPPORTED` for the three checks — so it does not
+satisfy the first trigger and does not change H2 (`NOT_TESTED`) or H3
+(`EXECUTED / UNSUPPORTED`); no row moves to `independently_verified`. See
+[pap/README.md](../../pap/README.md) for the boundary guarantees and residual risks.
 
 **Engine-contract snapshot.** `docs/architecture/engine-public-contract.md` has SHA-256
 `712c5127427cb7a0fd57e980a05f32bc05c9fab126b59c7ac41cb24ffe967b19` over its LF-normalized
@@ -284,6 +299,7 @@ carries it.
 | X3b | S1 ephemeral workspace copy and undeclared-write detection: profile/source inputs are copied rather than symlinked into the checkout; workspace snapshot detects undeclared writes | `accepted` | `implemented` | `tested` | `—` | S1 boundary approved in [#72](https://github.com/agent-federation/contract-builder/issues/72#issuecomment-6579841746); implementation [contracts/core000/run.ts](../../contracts/core000/run.ts); regression assertions [tests/core000.test.ts](../../tests/core000.test.ts); [maintainer review #5739321136](https://github.com/agent-federation/contract-builder/pull/77#pullrequestreview-5739321136) independently reviewed these bounded implementation behaviors (real copies, no-symlink condition, whole-workspace write detection and regression test). This is maintainer code review, not independent verification under this matrix's verification axis, not H3, sandboxing or a second verifier implementation. |
 | X4 | Declared runtime matrix (Node 20+ library, Bun development/CI) | `proposed` | `—` | `—` | `—` | D19 `proposed` (contract [§18](engine-public-contract.md)); CI runs Bun only ([ci.yml](../../.github/workflows/ci.yml)) |
 | X5 | Remaining M2–M5 milestones (public API, three-axis diagnostics, code namespacing, rule primitives, multi-source, review dimensions, provenance hardening, packaging, self-hosting) | `deferred` | `—` | `—` | `—` | Plan [§17](m1-implementation-plan.md) "Deferred capabilities"; each has its own row above where material |
+| X6 | PAP verifier as a separate project and release (RFC §9.1: own repository, maintainers, release cadence and licence; pinned per-platform artifact with a published SHA-256 checksum and offline install/verify; `pap` on `PATH`) | `deferred` | `—` | `—` | `—` | D8; [ODR-PAP-007](../decisions/ODR-PAP-007-pap-verifier-packaging.md) records the decision, the three trigger conditions, the enforced in-repo boundary and the migration outline; the C6 evidence and H2/H3 status are in the snapshot update above; Gate 2 remains open |
 
 ---
 
