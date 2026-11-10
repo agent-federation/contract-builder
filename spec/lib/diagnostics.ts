@@ -144,7 +144,7 @@ export class Diagnostics {
       code: item.code,
       file: item.file,
       pointer: item.pointer,
-      message: item.messages[locale],
+      message: item.messages[locale] ?? item.messages[DEFAULT_LOCALE] ?? "",
     }));
   }
 }

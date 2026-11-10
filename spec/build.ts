@@ -27,7 +27,7 @@ interface CliOptions {
  * value falls back to the default; `parseArgs` still rejects it.
  */
 function requestedLocale(argv: string[]): Locale {
-  const index = argv.indexOf("--locale");
+  const index = argv.lastIndexOf("--locale");
   if (index === -1) return DEFAULT_LOCALE;
   const value = argv[index + 1];
   return isLocale(value) ? value : DEFAULT_LOCALE;

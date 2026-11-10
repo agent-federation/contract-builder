@@ -59,6 +59,9 @@ export function interpolate(
 
 type MessageTuple = readonly [code: string, variant: string, en: string, ru: string];
 
+/** Position of each locale in a catalog tuple; a new locale must add an entry here. */
+const MESSAGE_LOCALE_INDEX: Record<Locale, 2 | 3> = { en: 2, ru: 3 };
+
 /**
  * The engine message catalog. One tuple per message: code, variant, English, Russian.
  * The code strings stay complete literals so the diagnostic registry freshness check can
@@ -1026,7 +1029,7 @@ export function messageCode(key: MessageKey): string {
 export function messageText(key: MessageKey, locale: Locale, params: MessageParams = {}): string {
   const entry = MESSAGE_INDEX.get(key);
   if (entry === undefined) throw new Error(`unknown message key: ${key}`);
-  const template = locale === "en" ? entry[2] : entry[3];
+  const template = entry[MESSAGE_LOCALE_INDEX[locale]];
   const text = interpolate(template, params, locale);
   if (text === null) throw new Error(`message ${key} references a missing parameter`);
   return text;
@@ -1111,10 +1114,13 @@ export const CLI_MESSAGES = {
 
 export type CliMessageKey = keyof typeof CLI_MESSAGES;
 
+/** Position of each locale in a CLI string tuple; a new locale must add an entry here. */
+const CLI_LOCALE_INDEX: Record<Locale, 0 | 1> = { en: 0, ru: 1 };
+
 /** Renders one CLI string in one locale. */
 export function cliText(key: CliMessageKey, locale: Locale, params: MessageParams = {}): string {
-  const [en, ru] = CLI_MESSAGES[key];
-  const text = interpolate(locale === "en" ? en : ru, params, locale);
+  const template = CLI_MESSAGES[key][CLI_LOCALE_INDEX[locale]];
+  const text = interpolate(template, params, locale);
   if (text === null) throw new Error(`CLI message ${key} references a missing parameter`);
   return text;
 }

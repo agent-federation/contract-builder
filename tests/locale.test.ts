@@ -160,6 +160,13 @@ test("locale: --json keeps its shape and follows the CLI locale", () => {
   assert.match(ruWarning?.message ?? "", /упоминаются термины вне среза/);
 });
 
+test("locale: the last --locale flag wins, matching argument parsing", () => {
+  const result = cli(["--check", "--locale", "ru", "--locale", "en"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^Build: mode=draft/);
+  assert.match(result.stdout, /^Result: ok/m);
+});
+
 test("locale: an unsupported locale is rejected with a localized CLI error", () => {
   const result = spawnSync(
     process.execPath,
