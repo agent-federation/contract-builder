@@ -1,7 +1,7 @@
 # Contract Builder Engine — Public Contract
 
 **Status:** proposed for maintainer review
-**Document version:** 0.4
+**Document version:** 0.5
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
 **Implementation status (historical, pre-M1 record):** not started at this document's baseline; see the current-status pointer below.
@@ -100,6 +100,7 @@ interface Manifest {
   sources?: SourceDecl[];
   policy?: PolicyOverlay;              // project-level overrides
   render: RenderDecl[];                // M1: exactly one entry; see below
+  locale?: "en" | "ru";                // rendered-artifact locale; default "en"; independent of the CLI locale
   output?: { root?: string };          // default: "."; must stay inside the project root
 }
 
@@ -146,6 +147,11 @@ artifact is written; multi-target rendering is deferred.
 
 `renderer` and `template` may be omitted when `profile.renderDefaults` supplies them; after
 resolution both must be present (`core.manifest.render` otherwise).
+
+`locale` declares the language of the rendered artifact and defaults to `"en"`. It is
+independent of the CLI locale: the manifest field selects the language of the artifact bytes,
+while the CLI flag selects the language of human output (§9, §10). Because it is part of the
+canonical manifest, a declared `locale` participates in `inputDigest` (§8.1).
 
 Path resolution and trust are defined in **5.7**; no path may leave the project root without an
 explicit `external: true` on the declaration that owns it. Output paths are stricter: neither
@@ -323,9 +329,15 @@ interface ProfileValidator {
 ```
 
 The hook reports findings, not diagnostics. The core looks the code up in the profile catalog,
-applies `severity`, `disposition`, `message` and per-mode `blocking`, and sets
+applies `severity`, `disposition`, the per-locale messages and per-mode `blocking`, and sets
 `phase: "consistency"`. A finding with an unknown code fails validation
 (`core.profile.unknown-code`).
+
+The catalog is resolved once per finding, not once per consumer. The core renders the entry in
+every supported locale into one diagnostic collector; consumers then resolve that same snapshot
+for their own output. The renderer receives the diagnostics resolved in the project's artifact
+locale (`Manifest.locale`, §3.1), while the CLI resolves the identical snapshot in its own locale
+(§10). One collector, two resolutions; a build does not resolve the catalog twice.
 
 #### Hook trust and determinism boundary
 
@@ -944,7 +956,7 @@ interface Diagnostic {
   severity: Severity;                  // intrinsic impact
   disposition: Disposition;            // policy decision
   phase: Phase;
-  message: string;                     // human-readable, localizable
+  message: string;                     // human-readable text resolved in the output locale
   location: { file: string; pointer?: string; line?: number; column?: number };
   entityId?: string;
   data: Record<string, unknown>;       // machine-readable details
@@ -974,11 +986,18 @@ interface DiagnosticCatalog {
     code: string;                      // "core.<domain>.<name>" or "<profileId>.<domain>.<name>"
     severity: Severity;
     disposition: Disposition;
-    message: string;                   // simple {{field}} interpolation, no logic
+    messages?: { en?: string; ru?: string };  // per-locale templates, {{field}} interpolation, no logic
+    message?: string;                  // legacy single-locale fallback; used for a locale lacking messages
     remediation?: string;
   }>;
 }
 ```
+
+Each catalog entry carries per-locale `messages` templates. A legacy entry may instead, or
+additionally, carry `message: string`; the core uses it for every locale that lacks a `messages`
+entry. A locale with neither template is a profile validation error (`core.profile.invalid` with
+the `message-locale-missing` variant), never an empty message. CORE-001 declares both locales;
+the CORE-000 profile keeps the legacy `message` field.
 
 Core codes use the `core.` namespace; profile codes use the profile id. Codes are stable
 across releases, messages may be reworded. Unknown codes are a profile validation error. In
@@ -1095,8 +1114,13 @@ extensions. They run in-process, are not sandboxed, and the engine cannot enforc
 avoid clocks, randomness, network, filesystem, environment or mutable external state. If any
 extension violates its deterministic contract, byte-identical output is not guaranteed.
 
-Excluded from `inputDigest`: clock, locale, environment variables, absolute paths, file
-mtimes, user identity, network state.
+`inputDigest` has no ambient inputs: the clock, environment variables, absolute paths, file
+mtimes, user identity and network state are excluded. **Locale is split by kind.** A project's
+declared `Manifest.locale` (§3.1) is part of the canonical manifest and therefore part of
+`inputDigest`: it selects the language of the rendered artifact, so changing it must change the
+identity. The **CLI, runtime and environment locale** selects human output only and never affects
+artifact bytes or build identity; it is not an input. An unqualified "locale is excluded"
+statement is wrong for the declared manifest field.
 
 `inputDigest` is the authoritative digest of the declared project and its extension closures,
 not the whole equality key. `identity.extensions` lists every profile, adapter and renderer
@@ -1212,7 +1236,11 @@ the package.
 The M1 implementation exposes only `runBuild(BuildOptions)` from `spec/lib/build.ts`; the
 operations above are the M2 target and are not implemented (see the
 [implementation-status matrix](implementation-status.md)). `BuildOptions` carries the same
-consent field: `allowExecutableProfile?: boolean`, default `false`, as described in §3.3.
+consent field: `allowExecutableProfile?: boolean`, default `false`, as described in §3.3, and
+`locale?: Locale`, default `"en"`, next to it. `locale` selects the language of human build
+output only; it never changes artifact bytes or build identity (§8.1). The artifact locale is the
+manifest's `locale`, and the renderer receives diagnostics resolved in that project locale
+(§3.3).
 
 ---
 
@@ -1220,7 +1248,7 @@ consent field: `allowExecutableProfile?: boolean`, default `false`, as described
 
 ```text
 contract-builder validate [root] [--json] [--strict]
-contract-builder build    [root] [--mode draft|release] [--check] [--json] [--strict]
+contract-builder build    [root] [--mode draft|release] [--check] [--json] [--strict] [--locale en|ru]
 contract-builder check    [root] [--json]
 ```
 
@@ -1236,6 +1264,12 @@ code, and without the flag no renderer is registered, so the build fails with
 `core.registry.missing` rather than falling back to a built-in one. The contract CLI must
 carry an equivalent explicit consent and renderer-module surface when it is implemented;
 consent must never be supplied by a manifest, profile or environment variable alone.
+
+`--locale en|ru` is M1 CLI surface, not M2. It selects the language of human output
+(diagnostics and framing; `en` is the default); `--json` keeps the same diagnostic shape and
+follows the same locale. The flag never changes artifact bytes, `inputDigest` or build identity:
+the artifact locale is the project's declared `Manifest.locale` (§3.1, §8.1), and the renderer
+receives the diagnostics resolved in that locale (§3.3).
 
 - `validate` runs the pipeline without rendering; exits by the same status rules.
 - `build` writes artifacts only when the mode allows it; `--check` never writes.
