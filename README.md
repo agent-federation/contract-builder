@@ -46,7 +46,7 @@ bun run pap -- verify pap/fixtures/pap-v0.1/base
 ```text
 VERDICT: PASS
 package: sha256:77a8d1d0…4020 (papVersion 0.1)
-verifier: pap 0.1.0  policy: none state: ABSENT
+verifier: pap 0.1.0  policy: none digest: none state: ABSENT
 dimensions
   integrity.package PASS
   integrity.artifacts PASS
@@ -118,7 +118,9 @@ rebuilding an unchanged specification leaves the working tree clean.
 | `spec/`, `profiles/` | the CORE-001 vertical: declared inputs, builder core, profile checks and renderer |
 | `contracts/core000/` | the CORE-000 self-contract: declared inputs, harness, generated artifact |
 | `pap/` | PAP v0.1 verifier: CLI, schemas, conformance corpus, fixtures |
-| `pipeline/` | producer side: deterministic CORE-000 PAP packer (in progress, [#135](https://github.com/agent-federation/contract-builder/issues/135)) |
+| `pipeline/` | producer side: deterministic CORE-000 PAP packer, trust-policy gate and independent-verification batch (C4/C6) |
+| `scripts/` | deterministic CI helpers: documentation link check and coverage floors |
+| `.github/` | CI and CodeQL workflows, issue/PR templates, CODEOWNERS, Renovate |
 | `docs/` | engine public contract, RFCs, decision records, implementation status |
 | `tests/` | builder, profile, provenance, identity and self-contract tests |
 | `fixtures/` | intentionally broken specifications used by tests and examples |
@@ -132,7 +134,7 @@ Full path-by-path tree: [docs/repository-map.md](docs/repository-map.md).
 declared inputs ──▶ Contract Builder ──▶ artifact + BuildIdentity + diagnostics
 (spec/, profiles/)          │                        │
                             │                        ▼
-                            │             pipeline/ packer (CORE-000, in progress)
+                            │             pipeline/ packer (CORE-000)
                             │                        │
                             │                        ▼
                             │             assurance package (PAP v0.1)
@@ -142,6 +144,10 @@ declared inputs ──▶ Contract Builder ──▶ artifact + BuildIdentity + 
                                                      ▼
                        report: PASS / FAIL / INCOMPLETE / UNSUPPORTED
                        with dimensions, witnesses and explicit limitations
+                                                     │
+                                                     ▼
+                        acceptance decision under the CORE-000 trust policy
+                        (C4 pipeline job; C6 adds three independent verifiers)
 ```
 
 The producer never declares its own package identity: the verifier computes it from the canonical
@@ -178,6 +184,9 @@ Proven enough to rely on:
   covered by the test suite in CI;
 - the CORE-000 self-contract builds itself, and its committed artifact is verified by a dedicated
   test (`S2.2 artifact verification`);
+- the producer→verifier→acceptance chain runs in CI: a deterministic pack of CORE-000, verification
+  under a pinned trust policy and a fail-closed acceptance gate (C4, #209), plus a batch in which
+  three independently implemented verifiers agree on the same package (C6, #216);
 - PAP v0.1 Gate 3 is **PASSED for Phase 2a**: three independently written implementations (Go,
   Python, Rust; two model families) agree field-by-field on a frozen case set. Scope and caveats —
   six later-phase cases excluded, no Tier B or full-PAP claim, one owner/harness — are recorded in
@@ -187,7 +196,9 @@ Not proven and not claimed:
 
 - no semantic truth, safety, legitimacy or authorization;
 - no signed human-review approval: PAP v0.1 carries review as an explicitly unbound claim;
-- no standalone, published verifier release yet (the RFC §9.1 packaging boundary is open);
+- no standalone, published verifier release yet: the RFC §9.1 packaging boundary is deferred with
+  recorded trigger conditions in
+  [ODR-PAP-007](docs/decisions/ODR-PAP-007-pap-verifier-packaging.md) (D8);
 - no in-toto mapping, archive transport, online revocation or Sigstore/SCITT integration (outside
   PAP v0.1);
 - the demo slice's source document and its rendered artifact are in Russian; the engine and the
@@ -210,13 +221,20 @@ A snapshot of the full implementation status lives in
 | `bun run lint` | Biome lint and format check |
 | `bun run format` | apply Biome formatting |
 | `bun run format:check` | check formatting without writing |
+| `bun run docs:links` | local relative-link and anchor check for the documentation |
+| `bun run coverage` / `bun run coverage:check` | test suite with an lcov report; enforce the in-process coverage floors |
+| `bun run check:all` | artifact check plus the CORE-000 S2.2 artifact verification |
+| `bun run gate:core000 --report <file> --policy <file> --out <file>` | acceptance gate over a PAP verification report |
+| `bun run pipeline:independent --out <dir>` | reference plus three independent Phase 2a verifiers on one package (C6) |
 | `bun run pap -- verify <PACKAGE>` | PAP v0.1 verifier: `verify`, `inspect`, `explain` |
 | `bun run pap:test` | PAP vectors, conformance corpus, hostile input, CLI |
 | `bun run pack:core000` | deterministic CORE-000 PAP packer (producer side) |
 
-CI runs `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`,
-`bun run format:check`, `bun test`, `bun run check`; all steps must be green before a pull request
-can land.
+CI (`.github/workflows/ci.yml`) runs, in order, `bun install --frozen-lockfile`, `bun audit`,
+`bun run typecheck`, `bun run lint`, `bun run format:check`, `bun run docs:links`,
+`bun run coverage`, `bun run coverage:check` and `bun run check:all`; all of them must be green
+before a pull request can land. Two further jobs — the CORE-000 `pipeline` chain (C4) and the
+`pipeline-independent` batch (C6) — run after `check` and are not required statuses yet.
 
 ## Version domains and releases
 
