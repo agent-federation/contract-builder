@@ -80,6 +80,8 @@ test("golden: draft build is byte-identical to the recorded hash", async () => {
   assert.equal(sha256(result.markdown), await recordedHash());
 });
 
+// The rendered snapshot records what the artifact embeds, so it is resolved in the project's
+// artifact locale (`ru`). The CLI snapshot (emission order) follows the same convention.
 test("golden: rendered diagnostics match the recorded snapshot in order", async () => {
   const { diagnostics } = await draftBuild();
   assert.deepEqual(
