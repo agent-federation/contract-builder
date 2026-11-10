@@ -2,7 +2,10 @@ import path from "node:path";
 import { loadProfileRenderers } from "./cli-renderers.js";
 import { runBuild, type BuildResult } from "./lib/build.js";
 import { Diagnostics, SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
+import { messageOf } from "./lib/guards.js";
 import { loadEngineRoot, verifyEngineVersion } from "./lib/identity.js";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "./lib/locale.js";
+import { LocalizedError, cliText } from "./lib/messages.js";
 import type { BuildMode, Renderer } from "./lib/render.js";
 
 interface CliOptions {
@@ -13,12 +16,22 @@ interface CliOptions {
   strict: boolean;
   json: boolean;
   allowExecutableProfile: boolean;
+  locale: Locale;
   engineRoot?: string;
   rendererModule?: string;
 }
 
-const USAGE =
-  "Использование: tsx spec/build.ts [--mode draft|release] [--spec <dir>] [--engine-root <dir>] [--renderer-module <path>] [--check] [--no-write] [--strict] [--json] [--allow-executable-profile]";
+/**
+ * The locale requested on the command line, resolved before argument validation so even a
+ * parse error is reported in the language the caller asked for. An unsupported or missing
+ * value falls back to the default; `parseArgs` still rejects it.
+ */
+function requestedLocale(argv: string[]): Locale {
+  const index = argv.lastIndexOf("--locale");
+  if (index === -1) return DEFAULT_LOCALE;
+  const value = argv[index + 1];
+  return isLocale(value) ? value : DEFAULT_LOCALE;
+}
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
@@ -29,6 +42,7 @@ function parseArgs(argv: string[]): CliOptions {
     strict: false,
     json: false,
     allowExecutableProfile: false,
+    locale: requestedLocale(argv),
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -37,7 +51,9 @@ function parseArgs(argv: string[]): CliOptions {
       case "--mode": {
         const value = argv[i + 1];
         if (value !== "draft" && value !== "release") {
-          throw new Error(`Недопустимый режим: ${value ?? "(пусто)"}`);
+          throw new LocalizedError("cli.invalid-mode", {
+            value: value ?? cliText("cli.empty-value", options.locale),
+          });
         }
         options.mode = value;
         i += 1;
@@ -45,22 +61,43 @@ function parseArgs(argv: string[]): CliOptions {
       }
       case "--spec": {
         const value = argv[i + 1];
-        if (value === undefined) throw new Error("--spec требует путь к каталогу");
+        if (value === undefined) {
+          throw new LocalizedError("cli.spec-requires-path");
+        }
         options.specDir = path.resolve(value);
         i += 1;
         break;
       }
       case "--engine-root": {
         const value = argv[i + 1];
-        if (value === undefined) throw new Error("--engine-root требует путь к каталогу движка");
+        if (value === undefined) {
+          throw new LocalizedError("cli.engine-root-requires-path");
+        }
         options.engineRoot = path.resolve(value);
         i += 1;
         break;
       }
       case "--renderer-module": {
         const value = argv[i + 1];
-        if (value === undefined) throw new Error("--renderer-module требует путь к модулю");
+        if (value === undefined) {
+          throw new LocalizedError("cli.renderer-module-requires-path");
+        }
         options.rendererModule = path.resolve(value);
+        i += 1;
+        break;
+      }
+      case "--locale": {
+        const value = argv[i + 1];
+        if (value === undefined) {
+          throw new LocalizedError("cli.locale-requires-value");
+        }
+        if (!isLocale(value)) {
+          throw new LocalizedError("cli.invalid-locale", {
+            value,
+            locales: SUPPORTED_LOCALES.join(", "),
+          });
+        }
+        options.locale = value;
         i += 1;
         break;
       }
@@ -81,23 +118,26 @@ function parseArgs(argv: string[]): CliOptions {
         break;
       case "--help":
       case "-h":
-        console.log(USAGE);
+        console.log(cliText("cli.usage", options.locale));
         process.exit(0);
         break;
       default:
-        throw new Error(`Неизвестный аргумент: ${arg}`);
+        throw new LocalizedError("cli.unknown-argument", { argument: arg });
     }
   }
 
   return options;
 }
 
-function printHuman(result: BuildResult, specDir: string): void {
+function printHuman(result: BuildResult, specDir: string, locale: Locale): void {
   const counts: Record<Severity, number> = { error: 0, review: 0, warning: 0 };
   for (const diagnostic of result.diagnostics) counts[diagnostic.severity] += 1;
 
   const lines = [
-    `Сборка: mode=${result.mode} · spec=${path.relative(process.cwd(), specDir) || "."}`,
+    cliText("cli.build-header", locale, {
+      mode: result.mode,
+      spec: path.relative(process.cwd(), specDir) || ".",
+    }),
     `DIAG: ${(["error", "review", "warning"] as Severity[])
       .map((severity) => `${SEVERITY_LABEL[severity]}=${counts[severity]}`)
       .join(" · ")}`,
@@ -115,29 +155,35 @@ function printHuman(result: BuildResult, specDir: string): void {
   }
 
   if (result.blockedBy === "errors") {
-    lines.push("", "Результат: сборка остановлена. Артефакт не записан.");
+    lines.push("", cliText("cli.result.errors", locale));
   } else if (result.blockedBy === "review") {
-    lines.push("", "Результат: выпуск release заблокирован. Артефакт не записан.");
+    lines.push("", cliText("cli.result.review", locale));
   } else if (result.blockedBy === "warnings") {
-    lines.push("", "Результат: сборка заблокирована режимом --strict (есть WARNING).");
+    lines.push("", cliText("cli.result.warnings", locale));
   } else if (result.blockedBy === "stale-output") {
-    lines.push("", "Результат: сохранённый артефакт устарел.");
+    lines.push("", cliText("cli.result.stale", locale));
   } else if (result.written) {
-    lines.push("", `Результат: записан ${path.relative(process.cwd(), result.outputPath)}`);
+    lines.push(
+      "",
+      cliText("cli.result.written", locale, {
+        path: path.relative(process.cwd(), result.outputPath),
+      }),
+    );
   } else {
-    lines.push("", "Результат: ok (артефакт не записан)");
+    lines.push("", cliText("cli.result.ok", locale));
   }
 
   console.log(lines.join("\n"));
 }
 
 async function main(): Promise<void> {
+  const locale = requestedLocale(process.argv.slice(2));
   let cli: CliOptions;
   try {
     cli = parseArgs(process.argv.slice(2));
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    console.error(USAGE);
+    console.error(localizedErrorText(error, locale));
+    console.error(cliText("cli.usage", locale));
     process.exitCode = 1;
     return;
   }
@@ -147,7 +193,7 @@ async function main(): Promise<void> {
   const engineDiagnostics = new Diagnostics();
   const engine = await loadEngineRoot(cli.engineRoot, engineDiagnostics);
   if (engine === null || !(await verifyEngineVersion(engine, engineDiagnostics))) {
-    console.error(engineDiagnostics.report());
+    console.error(engineDiagnostics.report(locale));
     process.exitCode = 1;
     return;
   }
@@ -160,7 +206,7 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     console.error(
-      `Не удалось загрузить рендерер профиля: ${error instanceof Error ? error.message : String(error)}`,
+      cliText("cli.renderer-load-failed", locale, { error: localizedErrorText(error, locale) }),
     );
     process.exitCode = 1;
     return;
@@ -189,10 +235,16 @@ async function main(): Promise<void> {
       ),
     );
   } else {
-    printHuman(result, cli.specDir);
+    printHuman(result, cli.specDir, cli.locale);
   }
 
   process.exitCode = result.exitCode;
+}
+
+/** Renders an error thrown by the CLI; catalog-backed errors are localized. */
+function localizedErrorText(error: unknown, locale: Locale): string {
+  if (error instanceof LocalizedError) return cliText(error.key, locale, error.params);
+  return messageOf(error);
 }
 
 void main();

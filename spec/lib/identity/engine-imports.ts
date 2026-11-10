@@ -7,6 +7,7 @@ import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { messageOf } from "../guards.js";
+import type { DiagnosticMessageKey, MessageParams } from "../messages.js";
 import type { ResolvedProject } from "../manifest.js";
 
 /** One engine-owned import: the lexical subpath and the module resolved under the engine root. */
@@ -22,7 +23,7 @@ export interface EngineImportMapping {
 export type EngineSpecifierClassification =
   | { kind: "engine"; subpath: string }
   | { kind: "extension" }
-  | { kind: "error"; code: string; message: string };
+  | { kind: "error"; key: DiagnosticMessageKey; params?: MessageParams };
 
 /** POSIX form of a filesystem path, used by the lexical mapping rule. */
 function posixPath(value: string): string {
@@ -84,8 +85,8 @@ export function classifyEngineSpecifier(
   ) {
     return {
       kind: "error",
-      code: "core.path.outside-root",
-      message: `Импорт "${specifier}" выходит за пределы корня проекта`,
+      key: "core.path.outside-root#import-outside-project",
+      params: { specifier },
     };
   }
 
@@ -100,8 +101,8 @@ export function classifyEngineSpecifier(
   if (occurrences.length > 1) {
     return {
       kind: "error",
-      code: "core.extension.unpinned-dependency",
-      message: `Импорт "${specifier}" неоднозначен: последовательность spec/lib встречается ${occurrences.length} раз`,
+      key: "core.extension.unpinned-dependency#import-ambiguous",
+      params: { specifier, occurrences: occurrences.length },
     };
   }
 
@@ -113,8 +114,8 @@ export function classifyEngineSpecifier(
   ) {
     return {
       kind: "error",
-      code: "core.extension.unpinned-dependency",
-      message: `Импорт "${specifier}" содержит недопустимый подпуть после spec/lib`,
+      key: "core.extension.unpinned-dependency#import-subpath-invalid",
+      params: { specifier },
     };
   }
   return { kind: "engine", subpath: subpath.join("/") };
@@ -144,17 +145,14 @@ function engineModuleCandidates(target: string): string[] {
 export async function resolveEngineModule(
   engineRoot: string,
   subpath: string,
-): Promise<
-  | { target: string }
-  | { code: "core.path.outside-root" | "core.extension.unpinned-dependency"; message: string }
-> {
+): Promise<{ target: string } | { key: DiagnosticMessageKey; params?: MessageParams }> {
   let libRoot: string;
   try {
     libRoot = await realpath(path.join(engineRoot, "spec", "lib"));
   } catch (error) {
     return {
-      code: "core.path.outside-root",
-      message: `Каталог spec/lib корня движка недоступен: ${messageOf(error)}`,
+      key: "core.path.outside-root#engine-lib-unavailable",
+      params: { error: messageOf(error) },
     };
   }
 
@@ -168,15 +166,15 @@ export async function resolveEngineModule(
     }
     if (!isInside(libRoot, real)) {
       return {
-        code: "core.path.outside-root",
-        message: `Модуль движка "${subpath}" после realpath выходит за пределы ${libRoot}`,
+        key: "core.path.outside-root#engine-module-escape",
+        params: { subpath, libRoot },
       };
     }
     return { target: real };
   }
   return {
-    code: "core.extension.unpinned-dependency",
-    message: `Модуль движка "${subpath}" не найден в ${libRoot}`,
+    key: "core.extension.unpinned-dependency#engine-module-missing",
+    params: { subpath, libRoot },
   };
 }
 

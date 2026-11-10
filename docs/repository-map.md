@@ -19,7 +19,7 @@ package.json                    scripts; Bun 1.4.2 pinned
 tsconfig.json                   TypeScript project configuration
 
 spec/                           CORE-001 project: declared inputs and the builder
-  contract-builder.json         project manifest: inputs, source, profile, outputs
+  contract-builder.json         project manifest: inputs, source, profile, outputs, artifact locale
   build.ts                      CLI
   cli-renderers.ts              CLI renderer loading: validates and imports the caller-supplied module
   lib/
@@ -35,7 +35,9 @@ spec/                           CORE-001 project: declared inputs and the builde
     identity.ts                 build identity facade: inputDigest and profileDigest
     identity/                   digest, engine root/imports, closure and identity assembly
     render.ts                   renderer boundary and artifact normalization
-    diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING
+    diagnostics.ts              ERROR / REVIEW_REQUIRED / WARNING, locale-neutral snapshot
+    locale.ts                   supported output locales; English is the default
+    messages.ts                 per-locale engine message and CLI-string catalogs
     guards.ts                   shared type checks
     source.ts                   SourceDocument and SourceAdapter
     adapters/markdown.ts        markdown locators and source adapter
@@ -56,7 +58,7 @@ profiles/                       domain contracts
     checks/*.ts                 checks by family (cases, coverage, dependencies,
                                 ontology, provision, review, source, terms)
     checks/verification.ts      CORE-001 provenance verification
-    catalog.json                diagnostic codes, severity and messages (Russian)
+    catalog.json                diagnostic codes, severity and per-locale messages
     renderer.ts                 CORE-001 Markdown renderer
     labels.ru.json              view labels
     templates/core001.md.j2     renderer template

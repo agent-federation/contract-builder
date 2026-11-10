@@ -6,7 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { compare, type Diagnostics } from "../diagnostics.js";
-import { messageOf } from "../guards.js";
+import { localizedDetail } from "../messages.js";
 import type { LoadedSpec } from "../load.js";
 import type { ResolvedProject } from "../manifest.js";
 import type { Renderer } from "../render.js";
@@ -44,23 +44,17 @@ export async function computeBuildIdentity(input: IdentityInput): Promise<BuildI
   try {
     engineVersion = await readEngineVersion(engineRoot);
   } catch (error) {
-    diagnostics.error(
-      "ERR_IO",
-      "package.json",
-      "/version",
-      `Не удалось определить версию движка: ${messageOf(error)}`,
-    );
+    diagnostics.error("ERR_IO#engine-version-failed", "package.json", "/version", {
+      error: localizedDetail(error),
+    });
     return null;
   }
   try {
     lockfile = await readLockfile(engineRoot);
   } catch (error) {
-    diagnostics.error(
-      "ERR_IO",
-      "bun.lock",
-      "",
-      `Не удалось прочитать bun.lock: ${messageOf(error)}`,
-    );
+    diagnostics.error("ERR_IO#lockfile-read-failed", "bun.lock", "", {
+      error: localizedDetail(error),
+    });
     return null;
   }
 

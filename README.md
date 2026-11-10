@@ -201,12 +201,27 @@ Not proven and not claimed:
   [ODR-PAP-007](docs/decisions/ODR-PAP-007-pap-verifier-packaging.md) (D8);
 - no in-toto mapping, archive transport, online revocation or Sigstore/SCITT integration (outside
   PAP v0.1);
-- the demo slice's source document and its rendered artifact are in Russian; the engine and the
-  verifier are language-neutral, but engine diagnostics are currently Russian-only
-  ([#208](https://github.com/agent-federation/contract-builder/issues/208)).
+- the demo slice's source document and its rendered artifact are in Russian by design; the engine
+  and the verifier are language-neutral. Engine diagnostics and CLI output are English by default
+  since [#208](https://github.com/agent-federation/contract-builder/issues/208), and Russian stays
+  available with `--locale ru`. A project declares its artifact locale separately in
+  `contract-builder.json` (`"locale": "ru"` for CORE-001), so the rendered document keeps Russian
+  diagnostics while the CLI prints English ones.
 
 A snapshot of the full implementation status lives in
 [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
+
+## Output languages
+
+English is the default locale for the CLI and for build diagnostics. Pass `--locale en|ru` to
+`bun spec/build.ts` to select the human-output locale; `--json` keeps the same diagnostic shape
+and follows the same locale. The locale affects human text only, never artifact bytes or the build
+identity.
+
+A project declares the locale of its rendered artifact separately, in `contract-builder.json`
+(`"locale": "ru"` for CORE-001). The renderer receives the diagnostic snapshot resolved in that
+locale, so CORE-001 keeps its Russian Appendix B while the CLI prints the same diagnostics in
+English. A project without a declared locale renders in English.
 
 ## Commands
 

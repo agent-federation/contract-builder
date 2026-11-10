@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Diagnostics } from "./diagnostics.js";
+import type { LocalizedMessage } from "./messages.js";
 import { isNonEmptyString, isObject } from "./guards.js";
 import type {
   Entity,
@@ -109,10 +110,10 @@ export function bindProvenance(
 
       if (!isNonEmptyString(source) || !isNonEmptyString(ref) || !isNonEmptyString(quote)) {
         diags.error(
-          "core.provenance.incomplete",
+          "core.provenance.incomplete#provenance-incomplete",
           location.file,
           location.pointer,
-          `Происхождение "${entity.id}" неполно: нужны ${mapping.source}, ${mapping.ref} и ${mapping.quote}`,
+          { entityId: entity.id, source: mapping.source, ref: mapping.ref, quote: mapping.quote },
         );
         ok = false;
         continue;
@@ -121,10 +122,10 @@ export function bindProvenance(
       const declared = sources.get(source);
       if (declared === undefined) {
         diags.error(
-          "ERR_UNKNOWN_REF",
+          "ERR_UNKNOWN_REF#unknown-source",
           location.file,
           `${location.pointer}/${mapping.source}`,
-          `Неизвестный источник "${source}"`,
+          { source: source },
         );
         ok = false;
         continue;
@@ -163,24 +164,19 @@ export function applyVerificationClaims(
     const binding = entity?.provenance;
 
     if (entity === undefined || binding === undefined) {
-      diags.error(
-        "core.provenance.verification",
-        "profile.json",
-        "",
-        `Запись проверки ссылается на "${claim.entityId}", но у сущности нет прямой привязки происхождения`,
-      );
+      diags.error("core.provenance.verification#verification-binding-missing", "profile.json", "", {
+        entityId: claim.entityId,
+      });
       ok = false;
       continue;
     }
 
     const problem = invalidClaim(claim);
     if (problem !== null) {
-      diags.error(
-        "core.provenance.verification",
-        "profile.json",
-        "",
-        `Некорректная запись проверки для "${claim.entityId}": ${problem}`,
-      );
+      diags.error("core.provenance.verification#verification-invalid", "profile.json", "", {
+        entityId: claim.entityId,
+        problem,
+      });
       ok = false;
       continue;
     }
@@ -188,12 +184,9 @@ export function applyVerificationClaims(
     const currentDigest = digests.get(binding.source) ?? null;
     const status = settleStatus(claim, currentDigest);
     if (status === null) {
-      diags.error(
-        "core.provenance.verification",
-        "profile.json",
-        "",
-        `Запись проверки для "${claim.entityId}" объявлена stale, но её digest совпадает с текущим источником`,
-      );
+      diags.error("core.provenance.verification#verification-stale-digest", "profile.json", "", {
+        entityId: claim.entityId,
+      });
       ok = false;
       continue;
     }
@@ -217,25 +210,38 @@ export function applyVerificationClaims(
   return ok;
 }
 
-/** Returns a human-readable problem with the claim, or null when its shape is valid. */
-function invalidClaim(claim: ProvenanceVerificationClaim): string | null {
-  if (!STATUSES.includes(claim.status)) return `неизвестный статус "${claim.status}"`;
-  if (!isNonEmptyString(claim.method)) return "method должен быть непустой строкой";
-  if (!isNonEmptyString(claim.outcome)) return "outcome должен быть непустой строкой";
+/** Returns a localized problem with the claim, or null when its shape is valid. */
+function invalidClaim(claim: ProvenanceVerificationClaim): LocalizedMessage | null {
+  const detail = (en: string, ru: string): LocalizedMessage => ({ en, ru });
+  if (!STATUSES.includes(claim.status)) {
+    return detail(`unknown status "${claim.status}"`, `неизвестный статус "${claim.status}"`);
+  }
+  if (!isNonEmptyString(claim.method)) {
+    return detail("method must be a non-empty string", "method должен быть непустой строкой");
+  }
+  if (!isNonEmptyString(claim.outcome)) {
+    return detail("outcome must be a non-empty string", "outcome должен быть непустой строкой");
+  }
   if (claim.verifier !== null && !isNonEmptyString(claim.verifier)) {
-    return "verifier должен быть строкой или null";
+    return detail("verifier must be a string or null", "verifier должен быть строкой или null");
   }
   if (claim.checkedAt !== null && !isNonEmptyString(claim.checkedAt)) {
-    return "checkedAt должен быть строкой или null";
+    return detail("checkedAt must be a string or null", "checkedAt должен быть строкой или null");
   }
   if (claim.sourceVersion !== null && !isNonEmptyString(claim.sourceVersion)) {
-    return "sourceVersion должен быть строкой или null";
+    return detail(
+      "sourceVersion must be a string or null",
+      "sourceVersion должен быть строкой или null",
+    );
   }
   if (claim.sourceDigest !== null && !/^sha256:[0-9a-f]{64}$/.test(claim.sourceDigest)) {
-    return 'sourceDigest должен быть "sha256:<64 hex>" или null';
+    return detail(
+      'sourceDigest must be "sha256:<64 hex>" or null',
+      'sourceDigest должен быть "sha256:<64 hex>" или null',
+    );
   }
   if (claim.status === "stale" && claim.sourceDigest === null) {
-    return "stale требует sourceDigest";
+    return detail("stale requires sourceDigest", "stale требует sourceDigest");
   }
 
   // A checked status is evidence that a verifier ran and produced an outcome. A record that
@@ -244,13 +250,22 @@ function invalidClaim(claim: ProvenanceVerificationClaim): string | null {
     claim.status === "verified" || claim.status === "failed" || claim.status === "stale";
   if (checked) {
     if (!isNonEmptyString(claim.verifier)) {
-      return `${claim.status} требует непустой verifier`;
+      return detail(
+        `${claim.status} requires a non-empty verifier`,
+        `${claim.status} требует непустой verifier`,
+      );
     }
     if (claim.method === "none") {
-      return `${claim.status} требует method, отличный от "none"`;
+      return detail(
+        `${claim.status} requires a method other than "none"`,
+        `${claim.status} требует method, отличный от "none"`,
+      );
     }
     if (claim.outcome === "not-checked") {
-      return `${claim.status} требует outcome, отличный от "not-checked"`;
+      return detail(
+        `${claim.status} requires an outcome other than "not-checked"`,
+        `${claim.status} требует outcome, отличный от "not-checked"`,
+      );
     }
   }
   return null;

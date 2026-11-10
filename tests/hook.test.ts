@@ -10,8 +10,17 @@ import path from "node:path";
 
 const catalog: DiagnosticCatalog = {
   codes: [
-    { code: "X", severity: "warning", message: "id={{id}} name={{name}}" },
-    { code: "Y", variant: "v", severity: "review", message: "y={{value}}" },
+    {
+      code: "X",
+      severity: "warning",
+      messages: { en: "id={{id}} name={{name}}", ru: "id={{id}} name={{name}}" },
+    },
+    {
+      code: "Y",
+      variant: "v",
+      severity: "review",
+      messages: { en: "y={{value}}", ru: "y={{value}}" },
+    },
   ],
 };
 

@@ -8,6 +8,7 @@ import {
   validateProfileClosure,
 } from "./lib/identity.js";
 import { loadManifest, type ResolvedProject } from "./lib/manifest.js";
+import { LocalizedError } from "./lib/messages.js";
 import type { Renderer } from "./lib/render.js";
 
 /**
@@ -42,7 +43,7 @@ export interface ProfileRendererOptions {
 const importRendererModule: RendererImporter = async (modulePath) => {
   const loaded = (await import(pathToFileURL(modulePath).href)) as { renderer?: Renderer };
   if (loaded.renderer === undefined || loaded.renderer === null) {
-    throw new Error(`Модуль рендерера "${modulePath}" не экспортирует renderer`);
+    throw new LocalizedError("cli.renderer-not-exported", { path: modulePath });
   }
   return loaded.renderer;
 };

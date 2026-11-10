@@ -15,6 +15,7 @@ import {
 } from "./hook.js";
 import { applyVerificationClaims, sourceDigest, sourceVersionOf } from "./provenance.js";
 import { messageOf } from "./guards.js";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./locale.js";
 import { loadRenderInputs, normalizeArtifact, type BuildMode, type Renderer } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import {
@@ -58,6 +59,12 @@ export interface BuildOptions {
    * not isolation.
    */
   allowExecutableProfile?: boolean;
+  /**
+   * Locale for human-readable CLI/build output (diagnostics and framing). Defaults to
+   * English. It never affects artifact bytes: a project declares its artifact locale in the
+   * manifest, and the renderer receives diagnostics resolved in that locale.
+   */
+  locale?: Locale;
 }
 
 export interface BuildResult {
@@ -85,12 +92,7 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
     return result(options, diags, null, "", false, "errors");
   }
   if (!installEngineImportPlugin()) {
-    diags.error(
-      "core.engine.root-unavailable",
-      "package.json",
-      "",
-      "Среда выполнения не поддерживает перенаправление импортов движка; сборка остановлена, чтобы не выполнить модули не из engineRoot",
-    );
+    diags.error("core.engine.root-unavailable#import-remap-unavailable", "package.json", "");
     return result(options, diags, null, "", false, "errors");
   }
 
@@ -143,12 +145,7 @@ async function buildResolvedProject(
   }
 
   if ((loaded.project.manifest.sources ?? []).length === 0) {
-    diags.error(
-      "ERR_UNKNOWN_REF",
-      "contract-builder.json",
-      "/sources",
-      "Не объявлен источник документа",
-    );
+    diags.error("ERR_UNKNOWN_REF#source-undeclared", "contract-builder.json", "/sources");
     return result(options, diags, null, outputPath, false, "errors");
   }
 
@@ -163,22 +160,14 @@ async function buildResolvedProject(
   }
   for (const key of viewModule.requires ?? []) {
     if (model.documents[key] === undefined) {
-      diags.error(
-        "core.profile.invalid",
-        "profile.json",
-        "/documents",
-        `Профиль не связывает обязательный документ "${key}"`,
-      );
+      diags.error("core.profile.invalid#document-unbound", "profile.json", "/documents", {
+        key,
+      });
       return result(options, diags, null, outputPath, false, "errors");
     }
   }
   if (typeof viewModule.buildView !== "function") {
-    diags.error(
-      "core.profile.invalid",
-      "profile.json",
-      "/view",
-      "Модуль представления профиля не экспортирует buildView",
-    );
+    diags.error("core.profile.invalid#view-export-missing", "profile.json", "/view");
     return result(options, diags, null, outputPath, false, "errors");
   }
 
@@ -187,12 +176,7 @@ async function buildResolvedProject(
     return result(options, diags, null, outputPath, false, "errors");
   }
   if (typeof validator.validate !== "function") {
-    diags.error(
-      "core.profile.invalid",
-      "profile.json",
-      "/validator",
-      "Модуль валидатора профиля не экспортирует validate",
-    );
+    diags.error("core.profile.invalid#validator-export-missing", "profile.json", "/validator");
     return result(options, diags, null, outputPath, false, "errors");
   }
 
@@ -255,12 +239,7 @@ async function buildResolvedProject(
   // build safe for a manifest constructed outside the loader.
   const renderDeclaration = loaded.project.manifest.render[0];
   if (renderDeclaration === undefined) {
-    diags.error(
-      "core.manifest.invalid",
-      "contract-builder.json",
-      "/render",
-      "M1 поддерживает ровно один render target; объявлено 0",
-    );
+    diags.error("core.manifest.invalid#render-target-missing", "contract-builder.json", "/render");
     return result(options, diags, null, outputPath, false, "errors");
   }
 
@@ -297,41 +276,35 @@ async function buildResolvedProject(
       mode: options.mode,
       templates: renderInputs.templates,
       ...(renderInputs.labels !== undefined ? { labels: renderInputs.labels } : {}),
-      diagnostics: diags.sorted(),
+      diagnostics: diags.sorted(artifactLocale(loaded.project)),
       identity,
     });
     if (artifacts.length !== 1) {
-      diags.error(
-        "core.render.invalid",
-        "contract-builder.json",
-        "/render/0",
-        `Рендерер должен вернуть ровно один артефакт в M1, получено ${artifacts.length}`,
-      );
+      diags.error("core.render.invalid#artifact-count", "contract-builder.json", "/render/0", {
+        count: artifacts.length,
+      });
       return result(options, diags, null, outputPath, false, "errors", identity);
     }
     const artifact = artifacts[0]!;
     const declared = renderDeclaration.outputs[options.mode] ?? "";
     if (artifact.path !== declared) {
       diags.error(
-        "core.render.invalid",
+        "core.render.invalid#artifact-path-mismatch",
         "contract-builder.json",
         "/render/0",
-        `Рендерер вернул путь "${artifact.path}", ожидается "${declared}"`,
+        { path: artifact.path, declared: declared },
       );
       return result(options, diags, null, outputPath, false, "errors", identity);
     }
     markdown = new TextDecoder().decode(normalizeArtifact(artifact.bytes));
   } catch (error) {
-    diags.error(
-      "core.render.failed",
-      "contract-builder.json",
-      "/render/0",
-      `Рендерер завершился с ошибкой: ${messageOf(error)}`,
-    );
+    diags.error("core.render.failed#render-failed", "contract-builder.json", "/render/0", {
+      error: messageOf(error),
+    });
     return result(options, diags, null, outputPath, false, "errors", identity);
   }
 
-  const blocking = diags.sorted().filter((d) => {
+  const blocking = diags.sorted(options.locale ?? DEFAULT_LOCALE).filter((d) => {
     if (d.severity === "error" || d.severity === "review") return true;
     return options.strict && d.severity === "warning";
   });
@@ -347,12 +320,7 @@ async function buildResolvedProject(
   if (options.check) {
     const existing = await readFile(outputPath, "utf8").catch(() => null);
     if (existing !== markdown) {
-      diags.error(
-        "ERR_OUTPUT_STALE",
-        path.relative(specDir, outputPath),
-        "",
-        "Сгенерированный документ отличается от сохранённого. Запустите сборку без --check.",
-      );
+      diags.error("ERR_OUTPUT_STALE#output-stale", path.relative(specDir, outputPath), "");
       return result(options, diags, markdown, outputPath, false, "stale-output", identity);
     }
     return result(options, diags, markdown, outputPath, false, null, identity);
@@ -379,22 +347,17 @@ async function resolveOutputPath(
 ): Promise<string | null> {
   const render = project.manifest.render[0];
   if (render === undefined) {
-    diags.error(
-      "core.manifest.invalid",
-      "contract-builder.json",
-      "/render",
-      "M1 поддерживает ровно один render target; объявлено 0",
-    );
+    diags.error("core.manifest.invalid#render-target-missing", "contract-builder.json", "/render");
     return null;
   }
 
   const relative = render.outputs[mode];
   if (relative === undefined) {
     diags.error(
-      "core.manifest.invalid",
+      "core.manifest.invalid#output-mode-missing",
       "contract-builder.json",
       `/render/0/outputs/${mode}`,
-      `Не объявлен выход для режима ${mode}`,
+      { mode: mode },
     );
     return null;
   }
@@ -402,10 +365,9 @@ async function resolveOutputPath(
   const outputRoot = await resolveContained(project.root, project.manifest.output?.root ?? ".");
   if (!outputRoot.inside) {
     diags.error(
-      "core.path.outside-root",
+      "core.path.outside-root#output-root-escape",
       "contract-builder.json",
       "/output/root",
-      "Корень вывода выходит за пределы проекта",
     );
     return null;
   }
@@ -413,10 +375,10 @@ async function resolveOutputPath(
   const target = await resolveContained(outputRoot.abs, relative);
   if (!target.inside) {
     diags.error(
-      "core.path.outside-root",
+      "core.path.outside-root#output-path-escape",
       "contract-builder.json",
       `/render/0/outputs/${mode}`,
-      `Путь вывода "${relative}" выходит за пределы корня вывода`,
+      { relative: relative },
     );
     return null;
   }
@@ -443,12 +405,9 @@ function hasExecutableProfileConsent(
     (relative): relative is string => relative !== undefined,
   );
 
-  diags.error(
-    "core.profile.consent-required",
-    "profile.json",
-    "",
-    `Профиль объявляет исполняемые модули (${executable.join(", ")}). Их загрузка требует явного согласия вызывающего: allowExecutableProfile: true в runBuild или --allow-executable-profile в CLI. Согласие разрешает выполнить доверенный код в процессе сборщика и не является изоляцией.`,
-  );
+  diags.error("core.profile.consent-required#consent-required", "profile.json", "", {
+    modules: executable.join(", "),
+  });
   return false;
 }
 
@@ -459,30 +418,26 @@ async function loadProfileModule<T>(
 ): Promise<T | null> {
   const relative = key === "view" ? project.profile.view : project.profile.validator;
   if (relative === undefined) {
-    diags.error("core.profile.invalid", "profile.json", `/${key}`, `Профиль не объявляет ${key}`);
+    diags.error("core.profile.invalid#profile-module-missing", "profile.json", `/${key}`, {
+      key,
+    });
     return null;
   }
 
   const located = await resolveContained(project.profileDir, relative);
   if (!located.inside) {
-    diags.error(
-      "core.path.outside-root",
-      "profile.json",
-      `/${key}`,
-      `Модуль профиля "${relative}" выходит за пределы каталога профиля`,
-    );
+    diags.error("core.path.outside-root#module-path-escape", "profile.json", `/${key}`, {
+      relative,
+    });
     return null;
   }
 
   try {
     return (await import(pathToFileURL(located.abs).href)) as T;
   } catch (error) {
-    diags.error(
-      "core.profile.invalid",
-      relative,
-      "",
-      `Модуль профиля не загружен: ${messageOf(error)}`,
-    );
+    diags.error("core.profile.invalid#module-load-failed", relative, "", {
+      error: messageOf(error),
+    });
     return null;
   }
 }
@@ -493,45 +448,29 @@ async function loadCatalog(
 ): Promise<DiagnosticCatalog | null> {
   const relative = project.profile.diagnostics;
   if (relative === undefined) {
-    diags.error(
-      "core.profile.invalid",
-      "profile.json",
-      "/diagnostics",
-      "Профиль не объявляет каталог",
-    );
+    diags.error("core.profile.invalid#catalog-missing", "profile.json", "/diagnostics");
     return null;
   }
 
   const located = await resolveContained(project.profileDir, relative);
   if (!located.inside) {
-    diags.error(
-      "core.path.outside-root",
-      "profile.json",
-      "/diagnostics",
-      `Каталог "${relative}" выходит за пределы каталога профиля`,
-    );
+    diags.error("core.path.outside-root#catalog-path-escape", "profile.json", "/diagnostics", {
+      relative,
+    });
     return null;
   }
 
   try {
     const parsed: unknown = JSON.parse(await readFile(located.abs, "utf8"));
     if (!isCatalog(parsed)) {
-      diags.error(
-        "core.profile.invalid",
-        relative,
-        "",
-        "Каталог профиля должен содержать массив codes с полями code, severity и message",
-      );
+      diags.error("core.profile.invalid#catalog-invalid", relative, "");
       return null;
     }
     return parsed;
   } catch (error) {
-    diags.error(
-      "core.profile.invalid",
-      relative,
-      "",
-      `Каталог профиля не прочитан: ${messageOf(error)}`,
-    );
+    diags.error("core.profile.invalid#catalog-unreadable", relative, "", {
+      error: messageOf(error),
+    });
     return null;
   }
 }
@@ -543,10 +482,9 @@ function resolveRenderer(
 ): Renderer | null {
   if (id === undefined) {
     diags.error(
-      "core.manifest.invalid",
+      "core.manifest.invalid#renderer-required",
       "contract-builder.json",
       "/render/0/renderer",
-      "render.renderer обязателен",
     );
     return null;
   }
@@ -554,10 +492,10 @@ function resolveRenderer(
   const renderer = registry?.[id];
   if (renderer === undefined) {
     diags.error(
-      "core.registry.missing",
+      "core.registry.missing#renderer-not-registered",
       "contract-builder.json",
       "/render/0/renderer",
-      `Рендерер "${id}" не зарегистрирован`,
+      { id: id },
     );
     return null;
   }
@@ -573,14 +511,24 @@ function isCatalog(value: unknown): value is DiagnosticCatalog {
   return codes.every((entry) => {
     if (typeof entry !== "object" || entry === null) return false;
     const candidate = entry as Record<string, unknown>;
-    return (
-      typeof candidate.code === "string" &&
-      typeof candidate.message === "string" &&
-      (candidate.severity === "error" ||
-        candidate.severity === "warning" ||
-        candidate.severity === "review")
+    const severityOk =
+      candidate.severity === "error" ||
+      candidate.severity === "warning" ||
+      candidate.severity === "review";
+    if (typeof candidate.code !== "string" || !severityOk) return false;
+    if (candidate.message !== undefined && typeof candidate.message !== "string") return false;
+    if (candidate.messages === undefined) return candidate.message !== undefined;
+    if (typeof candidate.messages !== "object" || candidate.messages === null) return false;
+    const messages = candidate.messages as Record<string, unknown>;
+    return Object.entries(messages).every(
+      ([locale, text]) => isLocale(locale) && typeof text === "string",
     );
   });
+}
+
+/** The locale a project declares for its rendered artifact; English when absent. */
+function artifactLocale(project: ResolvedProject): Locale {
+  return project.manifest.locale ?? DEFAULT_LOCALE;
 }
 
 function result(
@@ -595,7 +543,7 @@ function result(
   return {
     exitCode: blockedBy === null ? 0 : 1,
     mode: options.mode,
-    diagnostics: diags.sorted(),
+    diagnostics: diags.sorted(options.locale ?? DEFAULT_LOCALE),
     markdown,
     outputPath,
     written,

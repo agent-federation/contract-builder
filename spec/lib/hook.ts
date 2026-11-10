@@ -1,5 +1,7 @@
 import type { Diagnostics } from "./diagnostics.js";
 import type { ProjectModel } from "./ir.js";
+import { SUPPORTED_LOCALES, type Locale } from "./locale.js";
+import { interpolate, type LocalizedMessage, type MessageParams } from "./messages.js";
 import type { ProvenanceVerificationClaim } from "./provenance.js";
 import type { LocatorResult, SourceDocument } from "./source.js";
 
@@ -58,7 +60,14 @@ export interface DiagnosticCatalogEntry {
   code: string;
   variant?: string;
   severity: "error" | "warning" | "review";
-  message: string;
+  /**
+   * A single message used for every locale. Kept for catalogs that predate per-locale
+   * entries (the CORE-000 profile); it also acts as the fallback for a locale missing from
+   * `messages`.
+   */
+  message?: string;
+  /** Per-locale message templates; `{{name}}` is interpolated from the finding's data. */
+  messages?: Partial<Record<Locale, string>>;
   remediation?: string;
 }
 
@@ -81,29 +90,29 @@ export function resolveFindings(
   for (const finding of findings) {
     const entry = findEntry(catalog, finding);
     if (entry === undefined) {
-      diags.error(
-        "core.profile.unknown-code",
-        "profile.json",
-        "/diagnostics",
-        `Код "${finding.code}"${finding.variant !== undefined ? ` (${finding.variant})` : ""} не объявлен в каталоге профиля`,
-      );
+      diags.error("core.profile.unknown-code#unknown-code", "profile.json", "/diagnostics", {
+        code: finding.code,
+        variantSuffix: finding.variant !== undefined ? ` (${finding.variant})` : "",
+      });
       ok = false;
       continue;
     }
 
     const entity = finding.entityId !== undefined ? model.byId.get(finding.entityId) : undefined;
-    const scope: Record<string, unknown> = {
+    const scope: MessageParams = {
       ...(entity !== undefined ? { id: entity.id, kind: entity.kind, ...entity.fields } : {}),
       ...(finding.data ?? {}),
     };
 
-    const message = interpolate(entry.message, scope);
-    if (message === null) {
+    const message = localizedCatalogMessage(entry, scope);
+    if (!message.ok) {
       diags.error(
-        "core.profile.invalid",
+        message.reason === "missing-locale"
+          ? "core.profile.invalid#message-locale-missing"
+          : "core.profile.invalid#message-field-missing",
         "profile.json",
         "/diagnostics",
-        `Сообщение "${entry.code}" ссылается на поле, которого нет ни в данных находки, ни в сущности`,
+        { code: entry.code, locale: message.locale ?? "" },
       );
       ok = false;
       continue;
@@ -111,16 +120,34 @@ export function resolveFindings(
 
     const location = finding.location ?? { file: "profile.json", pointer: "" };
     const pointer = location.pointer ?? "";
-    if (entry.severity === "error") {
-      diags.error(entry.code, location.file, pointer, message);
-    } else if (entry.severity === "warning") {
-      diags.warning(entry.code, location.file, pointer, message);
-    } else {
-      diags.review(entry.code, location.file, pointer, message);
-    }
+    diags.add(entry.severity, entry.code, location.file, pointer, message.messages);
   }
 
   return ok;
+}
+
+type CatalogMessageResult =
+  | { ok: true; messages: LocalizedMessage }
+  | { ok: false; reason: "missing-locale" | "missing-field"; locale?: Locale };
+
+/**
+ * Renders a catalog entry in every supported locale. A locale without its own entry falls
+ * back to the legacy single-locale `message`; a missing template or interpolation field is
+ * an error rather than an empty string.
+ */
+function localizedCatalogMessage(
+  entry: DiagnosticCatalogEntry,
+  scope: MessageParams,
+): CatalogMessageResult {
+  const localized: Partial<Record<Locale, string>> = {};
+  for (const locale of SUPPORTED_LOCALES) {
+    const template = entry.messages?.[locale] ?? entry.message;
+    if (template === undefined) return { ok: false, reason: "missing-locale", locale };
+    const text = interpolate(template, scope, locale);
+    if (text === null) return { ok: false, reason: "missing-field", locale };
+    localized[locale] = text;
+  }
+  return { ok: true, messages: localized as LocalizedMessage };
 }
 
 function findEntry(
@@ -132,25 +159,4 @@ function findEntry(
       (entry) => entry.code === finding.code && entry.variant === finding.variant,
     ) ?? catalog.codes.find((entry) => entry.code === finding.code && entry.variant === undefined)
   );
-}
-
-function interpolate(template: string, scope: Record<string, unknown>): string | null {
-  let missing = false;
-  const message = template.replace(/\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g, (_match, key: string) => {
-    const value = key
-      .split(".")
-      .reduce<unknown>(
-        (current, part) =>
-          typeof current === "object" && current !== null
-            ? (current as Record<string, unknown>)[part]
-            : undefined,
-        scope,
-      );
-    if (value === undefined || value === null) {
-      missing = true;
-      return "";
-    }
-    return String(value);
-  });
-  return missing ? null : message;
 }
