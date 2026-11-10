@@ -179,8 +179,9 @@ function describe(err: ErrorObject): LocalizedMessage {
     case "minLength":
       return { en: "The string must not be empty", ru: "Строка не должна быть пустой" };
     default: {
-      const text = err.message ?? "Schema violation";
-      return { en: text, ru: err.message ?? "Нарушение схемы" };
+      // An unknown Ajv keyword has no catalog entry here, so keep the Ajv detail for English
+      // and render a Russian-only fallback instead of leaking the English text as `ru`.
+      return { en: err.message ?? "Schema violation", ru: "Нарушение схемы" };
     }
   }
 }

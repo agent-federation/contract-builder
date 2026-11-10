@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { resolveFindings, type DiagnosticCatalog } from "../spec/lib/hook.js";
+import { SUPPORTED_LOCALES } from "../spec/lib/locale.js";
 import { ORDER } from "../profiles/core001/validator.js";
 import { entity, modelWith, copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
 import { runBuild } from "../spec/lib/build.js";
@@ -221,6 +222,107 @@ test("hook: a project without a source fails at manifest validation", async () =
     result.diagnostics.some((item) => item.code === "ERR_SOURCE_QUOTE_NOT_FOUND"),
     false,
   );
+});
+
+test("hook: a legacy-only catalog entry renders every locale from message", () => {
+  const diagnostics = new Diagnostics();
+  const legacyCatalog: DiagnosticCatalog = {
+    codes: [{ code: "LEGACY", severity: "warning", message: "id={{id}}" }],
+  };
+  const model = modelWith([entity("E1", "thing", {})]);
+
+  const ok = resolveFindings(
+    [{ code: "LEGACY", entityId: "E1", location: { file: "f.yml", pointer: "" } }],
+    model,
+    legacyCatalog,
+    diagnostics,
+  );
+
+  assert.equal(ok, true);
+  for (const locale of SUPPORTED_LOCALES) {
+    assert.equal(diagnostics.emissionOrder(locale)[0]?.message, "id=E1", locale);
+  }
+});
+
+test("hook: a partial messages map falls back to the legacy message", () => {
+  const diagnostics = new Diagnostics();
+  const partialCatalog: DiagnosticCatalog = {
+    codes: [
+      {
+        code: "PARTIAL",
+        severity: "error",
+        messages: { en: "en {{value}}" },
+        message: "legacy {{value}}",
+      },
+    ],
+  };
+
+  const ok = resolveFindings(
+    [{ code: "PARTIAL", location: { file: "f.yml", pointer: "" }, data: { value: 3 } }],
+    modelWith([]),
+    partialCatalog,
+    diagnostics,
+  );
+
+  assert.equal(ok, true);
+  // The documented contract fallback: only the locale with no messages entry uses `message`.
+  assert.equal(diagnostics.emissionOrder("en")[0]?.message, "en 3");
+  assert.equal(diagnostics.emissionOrder("ru")[0]?.message, "legacy 3");
+});
+
+test("hook: a locale without any template fails with message-locale-missing", () => {
+  const diagnostics = new Diagnostics();
+  const incompleteCatalog: DiagnosticCatalog = {
+    codes: [{ code: "INCOMPLETE", severity: "error", messages: { en: "only English" } }],
+  };
+
+  const ok = resolveFindings(
+    [{ code: "INCOMPLETE", location: { file: "f.yml", pointer: "" } }],
+    modelWith([]),
+    incompleteCatalog,
+    diagnostics,
+  );
+
+  assert.equal(ok, false);
+  const [diagnostic] = diagnostics.emissionOrder();
+  assert.equal(diagnostic?.code, "core.profile.invalid");
+  assert.match(diagnostic?.message ?? "", /no text for locale "ru"/);
+});
+
+test("hook: a non-locale key in messages is rejected as a catalog error", async () => {
+  const dir = await copyProjectWithProfile("bad-locale-key");
+  await writeFile(
+    path.join(dir, "profiles", "core001", "catalog.json"),
+    `${JSON.stringify(
+      {
+        codes: [
+          {
+            code: "X",
+            severity: "warning",
+            messages: { en: "ok", ru: "ok", xx: "not-a-locale" },
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+
+  const result = await runBuild({
+    specDir: dir,
+    mode: "draft",
+    write: false,
+    check: false,
+    strict: false,
+    renderers: TEST_RENDERERS,
+    allowExecutableProfile: true,
+  });
+
+  assert.equal(result.exitCode, 1);
+  const diagnostic = result.diagnostics.find((item) => item.code === "core.profile.invalid");
+  assert.ok(diagnostic !== undefined);
+  assert.match(diagnostic.message, /catalog must contain/);
 });
 
 test("hook: interpolation resolves dotted paths", () => {

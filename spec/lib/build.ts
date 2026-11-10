@@ -15,7 +15,7 @@ import {
 } from "./hook.js";
 import { applyVerificationClaims, sourceDigest, sourceVersionOf } from "./provenance.js";
 import { messageOf } from "./guards.js";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "./locale.js";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "./locale.js";
 import { loadRenderInputs, normalizeArtifact, type BuildMode, type Renderer } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
 import {
@@ -61,8 +61,10 @@ export interface BuildOptions {
   allowExecutableProfile?: boolean;
   /**
    * Locale for human-readable CLI/build output (diagnostics and framing). Defaults to
-   * English. It never affects artifact bytes: a project declares its artifact locale in the
-   * manifest, and the renderer receives diagnostics resolved in that locale.
+   * English when omitted; any other value outside `SUPPORTED_LOCALES` (`en`, `ru`) throws a
+   * `TypeError` naming the supported locales. It never affects artifact bytes: a project
+   * declares its artifact locale in the manifest, and the renderer receives diagnostics
+   * resolved in that locale.
    */
   locale?: Locale;
 }
@@ -79,6 +81,14 @@ export interface BuildResult {
 }
 
 export async function runBuild(options: BuildOptions): Promise<BuildResult> {
+  // A JavaScript caller can bypass the type. Fail closed instead of silently rendering the
+  // default locale, so an unsupported choice is visible rather than producing mixed output.
+  if (options.locale !== undefined && !isLocale(options.locale)) {
+    throw new TypeError(
+      `Unsupported locale "${String(options.locale)}"; supported locales: ${SUPPORTED_LOCALES.join(", ")}`,
+    );
+  }
+
   const specDir = path.resolve(options.specDir);
   const diags = options.diagnostics ?? new Diagnostics();
 
