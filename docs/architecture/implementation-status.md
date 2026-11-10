@@ -106,7 +106,7 @@ satisfy the first trigger and does not change H2 (`NOT_TESTED`) or H3
 [pap/README.md](../../pap/README.md) for the boundary guarantees and residual risks.
 
 **Engine-contract snapshot.** `docs/architecture/engine-public-contract.md` has SHA-256
-`edb46d595bd0dff986dd4a0e391f68912f00bb16f4474a634b6fae57ae3a4534` over its LF-normalized
+`b68a27f0221b29eb62bfc96ed1c02617f7e80ff70f3aff5b6add28450139c06a` over its LF-normalized
 bytes; `tests/docs-freshness.test.ts` fails when the contract changes without updating this
 hash. Update the hash in the same pull request that changes the contract.
 

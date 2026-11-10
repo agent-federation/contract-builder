@@ -329,7 +329,7 @@ interface ProfileValidator {
 ```
 
 The hook reports findings, not diagnostics. The core looks the code up in the profile catalog,
-applies `severity`, `disposition`, the per-locale messages and per-mode `blocking`, and sets
+applies `severity`, `disposition`, the per-locale `messages` and per-mode `blocking`, and sets
 `phase: "consistency"`. A finding with an unknown code fails validation
 (`core.profile.unknown-code`).
 
@@ -1167,7 +1167,7 @@ such a violation visible only if the extension's bytes or closure change.
 ## 9. Public TypeScript API
 
 ```ts
-import type { BuildMode, BuildResult, Diagnostic } from "@contract-builder/core";
+import type { BuildMode, BuildResult, Diagnostic, Locale } from "@contract-builder/core";
 
 interface FileSystem {
   readFile(path: string): Promise<Uint8Array>;
