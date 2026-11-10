@@ -326,7 +326,10 @@ test("example: the validator is selected through the declared profile path", asy
   catalog.codes.push({
     code: "example.selected",
     severity: "warning",
-    message: "The declared profile validator ran.",
+    messages: {
+      en: "The declared profile validator ran.",
+      ru: "The declared profile validator ran.",
+    },
   });
   await writeFile(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`, "utf8");
 

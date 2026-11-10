@@ -24,19 +24,19 @@ export function resolveRelations(
   for (const [position, decl] of declarations.entries()) {
     if (!isDeclaredKind(profile, decl.from)) {
       diags.error(
-        "core.profile.unknown-relation",
+        "core.profile.unknown-relation#from-kind-unknown",
         "profile.json",
         `/relations/${position}/from`,
-        `Связь "${decl.name}" ссылается на неизвестный вид "${decl.from}"`,
+        { name: decl.name, from: decl.from },
       );
       failed = true;
     }
     if (decl.to !== "*" && !isDeclaredKind(profile, decl.to)) {
       diags.error(
-        "core.profile.unknown-relation",
+        "core.profile.unknown-relation#to-kind-unknown",
         "profile.json",
         `/relations/${position}/to`,
-        `Связь "${decl.name}" ссылается на неизвестный вид "${decl.to}"`,
+        { name: decl.name, to: decl.to },
       );
       failed = true;
     }
@@ -70,10 +70,10 @@ export function resolveRelations(
       const decl = declaration(entity.kind, name);
       if (decl === undefined) {
         diags.error(
-          "core.relation.unknown",
+          "core.relation.unknown#relation-unknown",
           location.file,
           `${location.pointer}/relations/${name}`,
-          `Связь "${name}" не объявлена для вида "${entity.kind}"`,
+          { name, kind: entity.kind },
         );
         failed = true;
         continue;
@@ -81,10 +81,10 @@ export function resolveRelations(
 
       if (decl.cardinality === "one" && Array.isArray(value)) {
         diags.error(
-          "core.relation.cardinality",
+          "core.relation.cardinality#single-value-array",
           location.file,
           `${location.pointer}/relations/${name}`,
-          `Связь "${name}" допускает одно значение, получен массив`,
+          { name: name },
         );
         failed = true;
         continue;
@@ -93,10 +93,10 @@ export function resolveRelations(
       const targets = normalizeTargets(value);
       if (targets === null) {
         diags.error(
-          "core.schema.entity",
+          "core.schema.entity#relation-value-type",
           location.file,
           `${location.pointer}/relations/${name}`,
-          `Значение связи "${name}" должно быть строкой или массивом строк`,
+          { name: name },
         );
         failed = true;
         continue;
@@ -107,20 +107,20 @@ export function resolveRelations(
         const target = byId.get(targetId);
         if (target === undefined) {
           diags.error(
-            "ERR_UNKNOWN_REF",
+            "ERR_UNKNOWN_REF#target-unknown",
             location.file,
             `${location.pointer}/relations/${name}/${position}`,
-            `Неизвестная цель связи "${targetId}"`,
+            { targetId: targetId },
           );
           failed = true;
           continue;
         }
         if (decl.to !== "*" && target.kind !== decl.to) {
           diags.error(
-            "ERR_UNKNOWN_REF",
+            "ERR_UNKNOWN_REF#target-kind-mismatch",
             location.file,
             `${location.pointer}/relations/${name}/${position}`,
-            `Цель "${targetId}" имеет вид "${target.kind}", ожидается "${decl.to}"`,
+            { targetId, kind: target.kind, to: decl.to },
           );
           failed = true;
           continue;
@@ -145,10 +145,10 @@ export function resolveRelations(
           // declared by profile validation, but a resolver called directly may not be.
           if (inverse?.cardinality === "one" && list.length > 0) {
             diags.error(
-              "core.relation.cardinality",
+              "core.relation.cardinality#inverse-multiple-references",
               location.file,
               `${location.pointer}/relations/${name}`,
-              `Обратная связь "${decl.inverse}" допускает одно значение, но на "${targetId}" ссылаются несколько сущностей`,
+              { inverse: decl.inverse, targetId: targetId },
             );
             failed = true;
             continue;

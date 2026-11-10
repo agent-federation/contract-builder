@@ -1,3 +1,12 @@
+import { DEFAULT_LOCALE, type Locale } from "./locale.js";
+import {
+  localizedMessage,
+  messageCode,
+  type DiagnosticMessageKey,
+  type LocalizedMessage,
+  type MessageParams,
+} from "./messages.js";
+
 export type Severity = "error" | "warning" | "review";
 
 export interface Diagnostic {
@@ -20,23 +29,50 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
   warning: "WARNING",
 };
 
+interface StoredDiagnostic {
+  severity: Severity;
+  code: string;
+  file: string;
+  pointer: string;
+  messages: LocalizedMessage;
+}
+
 /**
  * Diagnostics are collected, never thrown. Ordering is fixed so that two runs
  * over the same input produce byte-identical reports.
+ *
+ * A diagnostic stores its text in every supported locale, not the locale selected for one
+ * output. The CLI resolves the catalog in its own locale; the renderer resolves the same
+ * snapshot in the project's artifact locale, so a Russian artifact and English CLI output
+ * come from one build.
  */
 export class Diagnostics {
-  private readonly items: Diagnostic[] = [];
+  private readonly items: StoredDiagnostic[] = [];
 
-  error(code: string, file: string, pointer: string, message: string): void {
-    this.items.push({ severity: "error", code, file, pointer, message });
+  error(key: DiagnosticMessageKey, file: string, pointer: string, params?: MessageParams): void {
+    this.push("error", key, file, pointer, params);
   }
 
-  warning(code: string, file: string, pointer: string, message: string): void {
-    this.items.push({ severity: "warning", code, file, pointer, message });
+  warning(key: DiagnosticMessageKey, file: string, pointer: string, params?: MessageParams): void {
+    this.push("warning", key, file, pointer, params);
   }
 
-  review(code: string, file: string, pointer: string, message: string): void {
-    this.items.push({ severity: "review", code, file, pointer, message });
+  review(key: DiagnosticMessageKey, file: string, pointer: string, params?: MessageParams): void {
+    this.push("review", key, file, pointer, params);
+  }
+
+  /**
+   * Adds a diagnostic whose text is already localized (profile catalog findings). The engine
+   * resolves those through the profile catalog, not the engine catalog.
+   */
+  add(
+    severity: Severity,
+    code: string,
+    file: string,
+    pointer: string,
+    messages: LocalizedMessage,
+  ): void {
+    this.items.push({ severity, code, file, pointer, messages });
   }
 
   get errors(): number {
@@ -55,8 +91,8 @@ export class Diagnostics {
     return this.items.filter((d) => d.severity === severity).length;
   }
 
-  sorted(): Diagnostic[] {
-    return [...this.items].sort((a, b) => {
+  sorted(locale: Locale = DEFAULT_LOCALE): Diagnostic[] {
+    return this.resolve(locale).sort((a, b) => {
       const bySeverity = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
       if (bySeverity !== 0) return bySeverity;
       return (
@@ -72,18 +108,44 @@ export class Diagnostics {
    * Diagnostics in the order the checks emitted them, before the rendering sort.
    * Returns copies, so a caller cannot reorder or mutate the collector's state.
    */
-  emissionOrder(): Diagnostic[] {
-    return this.items.map((item) => ({ ...item }));
+  emissionOrder(locale: Locale = DEFAULT_LOCALE): Diagnostic[] {
+    return this.resolve(locale);
   }
 
   /** Stable, human-readable report. No timings, no paths outside the spec. */
-  report(): string {
+  report(locale: Locale = DEFAULT_LOCALE): string {
     const lines: string[] = [];
-    for (const d of this.sorted()) {
+    for (const d of this.sorted(locale)) {
       lines.push(`${SEVERITY_LABEL[d.severity]} ${d.code} ${d.file}${d.pointer}`);
       lines.push(`  ${d.message}`);
     }
     return lines.join("\n");
+  }
+
+  private push(
+    severity: Severity,
+    key: DiagnosticMessageKey,
+    file: string,
+    pointer: string,
+    params?: MessageParams,
+  ): void {
+    this.items.push({
+      severity,
+      code: messageCode(key),
+      file,
+      pointer,
+      messages: localizedMessage(key, params),
+    });
+  }
+
+  private resolve(locale: Locale): Diagnostic[] {
+    return this.items.map((item) => ({
+      severity: item.severity,
+      code: item.code,
+      file: item.file,
+      pointer: item.pointer,
+      message: item.messages[locale],
+    }));
   }
 }
 

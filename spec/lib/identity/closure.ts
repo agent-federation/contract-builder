@@ -10,6 +10,7 @@ import path from "node:path";
 import { compare, type Diagnostics } from "../diagnostics.js";
 import type { ExtensionClosureDeclaration } from "../extension.js";
 import { isNonEmptyString, messageOf } from "../guards.js";
+import { localizedDetail } from "../messages.js";
 import { resolveContained, type ResolvedProject } from "../manifest.js";
 import { computeClosureDigest } from "./digest.js";
 import {
@@ -55,10 +56,10 @@ export function resolveDependencyClosure(
     if (resolved.has(key)) return;
     if (pkg.integrity.length === 0) {
       diagnostics.error(
-        "core.extension.unpinned-dependency",
+        "core.extension.unpinned-dependency#dependency-unpinned",
         diagnosticFile,
         "/dependencies",
-        `У зависимости "${pkg.name}@${pkg.version}" отсутствует integrity в bun.lock`,
+        { name: pkg.name, version: pkg.version },
       );
       ok = false;
       return;
@@ -72,12 +73,12 @@ export function resolveDependencyClosure(
           : candidates.find((candidate) => candidate.version === range);
       if (next === undefined) {
         diagnostics.error(
-          "core.extension.unpinned-dependency",
+          candidates.length === 0
+            ? "core.extension.unpinned-dependency#transitive-missing"
+            : "core.extension.unpinned-dependency#transitive-ambiguous",
           diagnosticFile,
           "/dependencies",
-          candidates.length === 0
-            ? `Транзитивная зависимость "${name}" не найдена в bun.lock`
-            : `Транзитивная зависимость "${name}" из bun.lock неоднозначна`,
+          { name },
         );
         ok = false;
         continue;
@@ -91,10 +92,10 @@ export function resolveDependencyClosure(
     const exact = candidates.find((candidate) => candidate.version === version);
     if (candidates.length === 0) {
       diagnostics.error(
-        "core.extension.unpinned-dependency",
+        "core.extension.unpinned-dependency#dependency-not-found",
         diagnosticFile,
         "/dependencies",
-        `Зависимость "${name}" не найдена в bun.lock`,
+        { name: name },
       );
       ok = false;
       continue;
@@ -105,10 +106,10 @@ export function resolveDependencyClosure(
         .sort(compare)
         .join(", ");
       diagnostics.error(
-        "core.extension.unpinned-dependency",
+        "core.extension.unpinned-dependency#dependency-version-mismatch",
         diagnosticFile,
         "/dependencies",
-        `Версия зависимости "${name}" объявлена как "${version}", а bun.lock содержит ${found}`,
+        { name, version: version, found: found },
       );
       ok = false;
       continue;
@@ -196,10 +197,9 @@ export async function resolveProfileClosure(
   const declared = project.profile.files;
   if (declared === undefined || declared.length === 0) {
     diagnostics.error(
-      "core.extension.unpinned-dependency",
+      "core.extension.unpinned-dependency#profile-files-missing",
       "profile.json",
       "/files",
-      "Профиль не объявляет files, поэтому его замыкание нельзя определить",
     );
     return null;
   }
@@ -220,10 +220,10 @@ export async function resolveProfileClosure(
     if (normalized !== null && declaredPaths.has(normalized)) continue;
 
     diagnostics.error(
-      "core.extension.unpinned-dependency",
+      "core.extension.unpinned-dependency#profile-file-uncovered",
       "profile.json",
       "/files",
-      `Файл профиля "${entry}" (${required.origin}) не объявлен в profile.files: добавьте его в files, чтобы замыкание профиля и скан импортов покрывали этот файл`,
+      { entry, origin: required.origin },
     );
     covered = false;
   }
@@ -266,12 +266,9 @@ export async function validateProfileClosure(
   try {
     lockfile = await reader();
   } catch (error) {
-    diagnostics.error(
-      "ERR_IO",
-      "bun.lock",
-      "",
-      `Не удалось прочитать bun.lock: ${messageOf(error)}`,
-    );
+    diagnostics.error("ERR_IO#lockfile-read-failed", "bun.lock", "", {
+      error: localizedDetail(error),
+    });
     return false;
   }
   return (await resolveProfileClosure(project, lockfile, diagnostics, mapping)) !== null;
@@ -292,10 +289,10 @@ async function resolveClosure(request: ClosureRequest): Promise<ResolvedExtensio
   const { kind, id, version, declaration, lockfile, diagnostics, diagnosticFile, engine } = request;
   if (declaration === undefined) {
     diagnostics.error(
-      "core.extension.unpinned-dependency",
+      "core.extension.unpinned-dependency#extension-closure-missing",
       diagnosticFile,
       "/closure",
-      `Расширение "${kind}:${id}" не объявляет files и dependencies`,
+      { kind, id: id },
     );
     return null;
   }
@@ -303,10 +300,10 @@ async function resolveClosure(request: ClosureRequest): Promise<ResolvedExtensio
   const declared = declaration.files;
   if (declared.length > 0 && !isNonEmptyString(declaration.root)) {
     diagnostics.error(
-      "core.extension.unpinned-dependency",
+      "core.extension.unpinned-dependency#extension-root-missing",
       diagnosticFile,
       "/closure/root",
-      `Расширение "${kind}:${id}" объявляет files без корневого каталога`,
+      { kind, id: id },
     );
     return null;
   }
@@ -363,10 +360,10 @@ async function readDeclaredFiles(
     const relative = normalizeRelativePath(value);
     if (relative === null) {
       diagnostics.error(
-        "core.extension.unpinned-dependency",
+        "core.extension.unpinned-dependency#declared-path-escape",
         diagnosticFile,
         "/files",
-        `Объявленный путь "${value}" должен оставаться внутри каталога расширения`,
+        { value: value },
       );
       ok = false;
       continue;
@@ -377,10 +374,10 @@ async function readDeclaredFiles(
     const located = await resolveContained(root, relative);
     if (!located.inside) {
       diagnostics.error(
-        "core.extension.unpinned-dependency",
+        "core.extension.unpinned-dependency#declared-file-escape",
         diagnosticFile,
         "/files",
-        `Объявленный файл "${relative}" выходит за пределы каталога расширения`,
+        { relative: relative },
       );
       ok = false;
       continue;
@@ -390,10 +387,10 @@ async function readDeclaredFiles(
       files.push({ path: relative, bytes: new Uint8Array(await readFile(located.abs)) });
     } catch (error) {
       diagnostics.error(
-        "core.extension.unpinned-dependency",
+        "core.extension.unpinned-dependency#declared-file-unreadable",
         diagnosticFile,
         "/files",
-        `Объявленный файл "${relative}" не прочитан: ${messageOf(error)}`,
+        { relative, error: messageOf(error) },
       );
       ok = false;
     }
@@ -425,12 +422,9 @@ async function scanImports(
     const importer = path.join(root, file.path);
     for (const specifier of importSpecifiers(text)) {
       if (specifier.startsWith("/")) {
-        diagnostics.error(
-          "core.extension.unpinned-dependency",
-          file.path,
-          "",
-          `Абсолютный импорт "${specifier}" недопустим в коде расширения`,
-        );
+        diagnostics.error("core.extension.unpinned-dependency#absolute-import", file.path, "", {
+          specifier,
+        });
         ok = false;
         continue;
       }
@@ -438,12 +432,10 @@ async function scanImports(
       const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(specifier);
       if (scheme !== null) {
         if (scheme[1] === "node") continue; // standard-library import, not a closure file
-        diagnostics.error(
-          "core.extension.unpinned-dependency",
-          file.path,
-          "",
-          `Импорт "${specifier}" использует недопустимую URL-схему: ${scheme[1]}:`,
-        );
+        diagnostics.error("core.extension.unpinned-dependency#import-scheme", file.path, "", {
+          specifier,
+          scheme: scheme[1],
+        });
         ok = false;
         continue;
       }
@@ -451,15 +443,15 @@ async function scanImports(
       if (specifier.startsWith(".")) {
         const classification = classifyEngineSpecifier(specifier, importer, engine.layoutRoot);
         if (classification.kind === "error") {
-          diagnostics.error(classification.code, file.path, "", classification.message);
+          diagnostics.error(classification.key, file.path, "", classification.params);
           ok = false;
           continue;
         }
 
         if (classification.kind === "engine") {
           const resolved = await resolveEngineModule(engine.engineRoot, classification.subpath);
-          if ("code" in resolved) {
-            diagnostics.error(resolved.code, file.path, "", resolved.message);
+          if ("key" in resolved) {
+            diagnostics.error(resolved.key, file.path, "", resolved.params);
             ok = false;
             continue;
           }
@@ -470,20 +462,20 @@ async function scanImports(
         const resolved = resolveImport(root, file.path, specifier);
         if (resolved.escapes) {
           diagnostics.error(
-            "core.extension.unpinned-dependency",
+            "core.extension.unpinned-dependency#import-outside-files",
             file.path,
             "",
-            `Импорт "${specifier}" выходит за пределы files расширения и не является модулем движка`,
+            { specifier: specifier },
           );
           ok = false;
           continue;
         }
         if (!resolved.relative.some((candidate) => declared.has(candidate))) {
           diagnostics.error(
-            "core.extension.unpinned-dependency",
+            "core.extension.unpinned-dependency#relative-import-undeclared",
             file.path,
             "",
-            `Относительный импорт "${specifier}" не входит в объявленные files расширения`,
+            { specifier: specifier },
           );
           ok = false;
         }
@@ -496,10 +488,10 @@ async function scanImports(
       if (packageName === null) continue;
       if (!(packageName in dependencies)) {
         diagnostics.error(
-          "core.extension.unpinned-dependency",
+          "core.extension.unpinned-dependency#import-dependency-undeclared",
           file.path,
           "",
-          `Импорт "${specifier}" не объявлен в dependencies расширения`,
+          { specifier: specifier },
         );
         ok = false;
       }

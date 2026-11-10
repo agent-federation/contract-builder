@@ -81,10 +81,9 @@ export async function loadRenderInputs(
 ): Promise<{ templates: TemplateSet; labels?: Record<string, string> } | null> {
   if (declaration.template === undefined) {
     diags.error(
-      "core.manifest.invalid",
+      "core.manifest.invalid#render-template-required",
       "contract-builder.json",
       "/render/0/template",
-      "render.template обязателен",
     );
     return null;
   }
@@ -104,12 +103,9 @@ export async function loadRenderInputs(
       files[path.relative(root, file).split(path.sep).join("/")] = await readFile(file, "utf8");
     }
   } catch (error) {
-    diags.error(
-      "core.manifest.invalid",
-      declaration.template,
-      "",
-      `Шаблоны не прочитаны: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    diags.error("core.manifest.invalid#templates-unreadable", declaration.template, "", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 
@@ -125,34 +121,21 @@ export async function loadRenderInputs(
     try {
       const parsed: unknown = JSON.parse(await readFile(labelsPath, "utf8"));
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        diags.error(
-          "core.manifest.invalid",
-          declaration.labels,
-          "",
-          "Файл меток должен быть объектом",
-        );
+        diags.error("core.manifest.invalid#labels-not-object", declaration.labels, "");
         return null;
       }
       labels = {};
       for (const [key, value] of Object.entries(parsed)) {
         if (typeof value !== "string") {
-          diags.error(
-            "core.manifest.invalid",
-            declaration.labels,
-            `/${key}`,
-            "Значение метки должно быть строкой",
-          );
+          diags.error("core.manifest.invalid#label-not-string", declaration.labels, `/${key}`);
           return null;
         }
         labels[key] = value;
       }
     } catch (error) {
-      diags.error(
-        "core.manifest.invalid",
-        declaration.labels,
-        "",
-        `Метки не прочитаны: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      diags.error("core.manifest.invalid#labels-unreadable", declaration.labels, "", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
@@ -174,12 +157,9 @@ async function resolveProfilePath(
 
   const located = await resolveContained(project.profileDir, relative);
   if (!located.inside) {
-    diags.error(
-      "core.path.outside-root",
-      "contract-builder.json",
-      pointer,
-      `Путь "${declared}" выходит за пределы каталога профиля`,
-    );
+    diags.error("core.path.outside-root#profile-path-escape", "contract-builder.json", pointer, {
+      declared,
+    });
     return null;
   }
   return located.abs;

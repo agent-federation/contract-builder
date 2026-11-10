@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import type { AnySchema, ErrorObject, ValidateFunction } from "ajv";
 import type { Diagnostics } from "./diagnostics.js";
+import type { LocalizedMessage } from "./messages.js";
 import { isNonEmptyString, isObject, messageOf } from "./guards.js";
 import type { LoadedSpec } from "./load.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
@@ -25,10 +26,10 @@ export async function loadSchemas(
     const located = await resolveContained(project.profileDir, relative);
     if (!located.inside) {
       diags.error(
-        "core.path.outside-root",
+        "core.path.outside-root#schema-path-escape",
         "profile.json",
         `/schemas/${schemaId}`,
-        `Схема "${relative}" выходит за пределы каталога профиля`,
+        { relative: relative },
       );
       return null;
     }
@@ -37,24 +38,23 @@ export async function loadSchemas(
     try {
       schema = JSON.parse(await readFile(located.abs, "utf8"));
     } catch (error) {
-      diags.error("ERR_SCHEMA_DEFINITION", relative, "", `Схема не разобрана: ${messageOf(error)}`);
+      diags.error("ERR_SCHEMA_DEFINITION#schema-parse-failed", relative, "", {
+        error: messageOf(error),
+      });
       return null;
     }
 
     if (!isObject(schema) || !isNonEmptyString(schema.$id)) {
-      diags.error("ERR_SCHEMA_DEFINITION", relative, "", "Схема должна объявлять $id");
+      diags.error("ERR_SCHEMA_DEFINITION#schema-id-required", relative, "");
       return null;
     }
 
     try {
       ajv.addSchema(schema as AnySchema);
     } catch (error) {
-      diags.error(
-        "ERR_SCHEMA_DEFINITION",
-        relative,
-        "",
-        `Схема не компилируется: ${messageOf(error)}`,
-      );
+      diags.error("ERR_SCHEMA_DEFINITION#schema-compile-failed", relative, "", {
+        error: messageOf(error),
+      });
       return null;
     }
 
@@ -66,10 +66,10 @@ export async function loadSchemas(
     const validate = ajv.getSchema(id);
     if (validate === undefined) {
       diags.error(
-        "ERR_SCHEMA_DEFINITION",
+        "ERR_SCHEMA_DEFINITION#schema-not-registered",
         "profile.json",
         `/schemas/${schemaId}`,
-        `Схема "${id}" не зарегистрирована`,
+        { id: id },
       );
       return null;
     }
@@ -96,12 +96,9 @@ export async function validateDocuments(
 
     const validate = schemas.get(input.schema);
     if (validate === undefined) {
-      diags.error(
-        "core.profile.invalid",
-        "profile.json",
-        "/schemas",
-        `Схема "${input.schema}" не объявлена в профиле`,
-      );
+      diags.error("core.profile.invalid#schema-undeclared", "profile.json", "/schemas", {
+        schema: input.schema,
+      });
       ok = false;
       continue;
     }
@@ -109,7 +106,9 @@ export async function validateDocuments(
     if (!validate(document)) {
       ok = false;
       for (const err of validate.errors ?? []) {
-        diags.error("ERR_SCHEMA", input.path, err.instancePath || "", describe(err));
+        diags.error("ERR_SCHEMA#validation", input.path, err.instancePath || "", {
+          detail: describe(err),
+        });
       }
     }
   }
@@ -127,12 +126,9 @@ export function validateEntityValue(
 ): boolean {
   const validate = schemas.get(schemaId);
   if (validate === undefined) {
-    diags.error(
-      "core.profile.invalid",
-      "profile.json",
-      "/schemas",
-      `Схема вида "${schemaId}" не объявлена в профиле`,
-    );
+    diags.error("core.profile.invalid#kind-schema-undeclared", "profile.json", "/schemas", {
+      schemaId,
+    });
     return false;
   }
 
@@ -140,33 +136,51 @@ export function validateEntityValue(
 
   for (const err of validate.errors ?? []) {
     diags.error(
-      "core.schema.entity",
+      "core.schema.entity#validation",
       location.file,
       `${location.pointer}${err.instancePath}`,
-      describe(err),
+      { detail: describe(err) },
     );
   }
   return false;
 }
 
-function describe(err: ErrorObject): string {
+/** One Ajv error as a localized detail; nested inside an `ERR_SCHEMA` diagnostic. */
+function describe(err: ErrorObject): LocalizedMessage {
   const params = err.params as Record<string, unknown>;
   switch (err.keyword) {
     case "required":
-      return `Отсутствует обязательное поле "${String(params.missingProperty)}"`;
+      return {
+        en: `Missing required field "${String(params.missingProperty)}"`,
+        ru: `Отсутствует обязательное поле "${String(params.missingProperty)}"`,
+      };
     case "additionalProperties":
-      return `Неизвестное поле "${String(params.additionalProperty)}"`;
+      return {
+        en: `Unknown field "${String(params.additionalProperty)}"`,
+        ru: `Неизвестное поле "${String(params.additionalProperty)}"`,
+      };
     case "enum":
-      return `Недопустимое значение; ожидается одно из: ${JSON.stringify(params.allowedValues)}`;
+      return {
+        en: `Invalid value; expected one of: ${JSON.stringify(params.allowedValues)}`,
+        ru: `Недопустимое значение; ожидается одно из: ${JSON.stringify(params.allowedValues)}`,
+      };
     case "pattern":
-      return `Значение не соответствует шаблону ${String(params.pattern)}`;
+      return {
+        en: `Value does not match the pattern ${String(params.pattern)}`,
+        ru: `Значение не соответствует шаблону ${String(params.pattern)}`,
+      };
     case "type":
-      return `Ожидается тип ${String(params.type)}`;
+      return {
+        en: `Expected type ${String(params.type)}`,
+        ru: `Ожидается тип ${String(params.type)}`,
+      };
     case "minItems":
-      return "Массив не должен быть пустым";
+      return { en: "The array must not be empty", ru: "Массив не должен быть пустым" };
     case "minLength":
-      return "Строка не должна быть пустой";
-    default:
-      return err.message ?? "Нарушение схемы";
+      return { en: "The string must not be empty", ru: "Строка не должна быть пустой" };
+    default: {
+      const text = err.message ?? "Schema violation";
+      return { en: text, ru: err.message ?? "Нарушение схемы" };
+    }
   }
 }

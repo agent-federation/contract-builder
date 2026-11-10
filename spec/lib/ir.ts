@@ -104,24 +104,18 @@ export async function buildProjectModel(
     for (const decl of input.entities) {
       const list = resolvePointer(document, decl.pointer);
       if (!Array.isArray(list)) {
-        diags.error(
-          "core.extract.pointer",
-          input.path,
-          decl.pointer,
-          `Указатель "${decl.pointer}" не ведёт к массиву объектов`,
-        );
+        diags.error("core.extract.pointer#pointer-not-array", input.path, decl.pointer, {
+          pointer: decl.pointer,
+        });
         failed = true;
         continue;
       }
 
       const kindDecl = loaded.project.profile.entityKinds[decl.kind];
       if (kindDecl === undefined) {
-        diags.error(
-          "core.profile.unknown-kind",
-          input.path,
-          decl.pointer,
-          `Вид "${decl.kind}" не объявлен в профиле`,
-        );
+        diags.error("core.profile.unknown-kind#kind-unknown", input.path, decl.pointer, {
+          kind: decl.kind,
+        });
         failed = true;
         continue;
       }
@@ -129,7 +123,7 @@ export async function buildProjectModel(
       for (const [index, raw] of list.entries()) {
         const pointer = `${decl.pointer}/${index}`;
         if (!isObject(raw)) {
-          diags.error("core.schema.entity", input.path, pointer, "Сущность должна быть объектом");
+          diags.error("core.schema.entity#entity-not-object", input.path, pointer);
           failed = true;
           continue;
         }
@@ -145,21 +139,18 @@ export async function buildProjectModel(
         const id = raw[identityField];
         if (!isNonEmptyString(id)) {
           diags.error(
-            "core.identity.missing",
+            "core.identity.missing#identity-missing",
             input.path,
             `${pointer}/${identityField}`,
-            `Идентификатор "${identityField}" отсутствует или пуст`,
+            { identityField: identityField },
           );
           failed = true;
           continue;
         }
         if (byId.has(id)) {
-          diags.error(
-            "ERR_DUPLICATE_ID",
-            input.path,
-            `${pointer}/${identityField}`,
-            `ID "${id}" уже объявлен`,
-          );
+          diags.error("ERR_DUPLICATE_ID#duplicate-id", input.path, `${pointer}/${identityField}`, {
+            id,
+          });
           failed = true;
           continue;
         }
@@ -235,10 +226,10 @@ async function loadSources(
     const adapter = adapters[decl.adapter];
     if (adapter === undefined) {
       diags.error(
-        "core.registry.missing",
+        "core.registry.missing#adapter-not-registered",
         "contract-builder.json",
         `/sources/${index}/adapter`,
-        `Адаптер "${decl.adapter}" не зарегистрирован`,
+        { adapter: decl.adapter },
       );
       return null;
     }
@@ -253,7 +244,7 @@ async function loadSources(
         }),
       );
     } catch (error) {
-      diags.error("ERR_IO", decl.path, "", `Не удалось прочитать источник: ${messageOf(error)}`);
+      diags.error("ERR_IO#source-read-failed", decl.path, "", { error: messageOf(error) });
       return null;
     }
   }

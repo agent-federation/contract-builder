@@ -83,7 +83,7 @@ test("golden: draft build is byte-identical to the recorded hash", async () => {
 test("golden: rendered diagnostics match the recorded snapshot in order", async () => {
   const { diagnostics } = await draftBuild();
   assert.deepEqual(
-    diagnostics.sorted().map(toSnapshot),
+    diagnostics.sorted("ru").map(toSnapshot),
     await recordedSnapshot("core001.diagnostics.json"),
   );
 });
@@ -91,7 +91,7 @@ test("golden: rendered diagnostics match the recorded snapshot in order", async 
 test("golden: emission order matches the recorded snapshot", async () => {
   const { diagnostics } = await draftBuild();
   assert.deepEqual(
-    diagnostics.emissionOrder().map(toSnapshot),
+    diagnostics.emissionOrder("ru").map(toSnapshot),
     await recordedSnapshot("core001.emission.json"),
   );
 });
@@ -103,7 +103,10 @@ test("golden: recorded hash matches the committed artifact", async () => {
 
 test("golden: emissionOrder() returns a copy and cannot mutate the collector", () => {
   const diagnostics = new Diagnostics();
-  diagnostics.warning("WARN_SENTINEL", "sentinel.yml", "/sentinel", "sentinel message");
+  diagnostics.add("warning", "WARN_SENTINEL", "sentinel.yml", "/sentinel", {
+    en: "sentinel message",
+    ru: "sentinel message",
+  });
 
   const first = diagnostics.emissionOrder();
   first.reverse();

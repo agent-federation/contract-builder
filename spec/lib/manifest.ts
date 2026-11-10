@@ -2,6 +2,11 @@ import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { Diagnostics } from "./diagnostics.js";
 import { isMissingFile, isNonEmptyString, isObject, messageOf } from "./guards.js";
+import { SUPPORTED_LOCALES, isLocale, type Locale } from "./locale.js";
+import type { DiagnosticMessageKey, MessageParams } from "./messages.js";
+
+/** The `fail` callback every manifest/profile validator shares: pointer + catalog key. */
+type Fail = (pointer: string, key: DiagnosticMessageKey, params?: MessageParams) => null;
 
 export type InputFormat = "json" | "yaml";
 
@@ -44,6 +49,12 @@ export interface Manifest {
   /** M1 supports exactly one render declaration; zero or many are rejected by the loader. */
   render: ManifestRender[];
   output?: { root?: string };
+  /**
+   * Locale of the rendered artifact. English when absent. The CLI locale is independent:
+   * diagnostics print in the CLI locale, while an artifact embeds the diagnostics resolved
+   * in this project locale.
+   */
+  locale?: Locale;
 }
 
 export interface ProfileEntityKind {
@@ -116,19 +127,11 @@ export async function loadManifest(
     text = await readFile(manifestPath, "utf8");
   } catch (error) {
     if (isMissingFile(error)) {
-      diags.error(
-        "core.manifest.missing",
-        "contract-builder.json",
-        "",
-        "Манифест проекта не найден",
-      );
+      diags.error("core.manifest.missing#manifest-missing", "contract-builder.json", "");
     } else {
-      diags.error(
-        "ERR_IO",
-        "contract-builder.json",
-        "",
-        `Не удалось прочитать манифест: ${messageOf(error)}`,
-      );
+      diags.error("ERR_IO#manifest-read-failed", "contract-builder.json", "", {
+        error: messageOf(error),
+      });
     }
     return null;
   }
@@ -137,12 +140,9 @@ export async function loadManifest(
   try {
     raw = JSON.parse(text);
   } catch (error) {
-    diags.error(
-      "core.manifest.invalid",
-      "contract-builder.json",
-      "",
-      `Манифест не разобран: ${messageOf(error)}`,
-    );
+    diags.error("core.manifest.invalid#manifest-parse-failed", "contract-builder.json", "", {
+      error: messageOf(error),
+    });
     return null;
   }
 
@@ -152,10 +152,10 @@ export async function loadManifest(
   const profileLocated = await resolveContained(root, manifest.profile.source);
   if (!profileLocated.inside && manifest.profile.external !== true) {
     diags.error(
-      "core.path.outside-root",
+      "core.path.outside-root#profile-external-required",
       "contract-builder.json",
       "/profile/source",
-      `Профиль "${manifest.profile.source}" вне корня проекта требует external: true`,
+      { source: manifest.profile.source },
     );
     return null;
   }
@@ -166,10 +166,15 @@ export async function loadManifest(
 
   if (profile.id !== manifest.profile.id || profile.version !== manifest.profile.version) {
     diags.error(
-      "core.profile.invalid",
+      "core.profile.invalid#profile-version-mismatch",
       "contract-builder.json",
       "/profile",
-      `Профиль "${profile.id}@${profile.version}" не совпадает с объявленным "${manifest.profile.id}@${manifest.profile.version}"`,
+      {
+        id: profile.id,
+        version: profile.version,
+        declaredId: manifest.profile.id,
+        declaredVersion: manifest.profile.version,
+      },
     );
     return null;
   }
@@ -179,10 +184,10 @@ export async function loadManifest(
     const located = await resolveContained(root, input.path);
     if (!located.inside && input.external !== true) {
       diags.error(
-        "core.path.outside-root",
+        "core.path.outside-root#input-external-required",
         "contract-builder.json",
         `/inputs/${index}/path`,
-        `Вход "${input.path}" вне корня проекта требует external: true`,
+        { path: input.path },
       );
       failed = true;
     }
@@ -191,10 +196,10 @@ export async function loadManifest(
     const located = await resolveContained(root, source.path);
     if (!located.inside && source.external !== true) {
       diags.error(
-        "core.path.outside-root",
+        "core.path.outside-root#source-external-required",
         "contract-builder.json",
         `/sources/${index}/path`,
-        `Источник "${source.path}" вне корня проекта требует external: true`,
+        { path: source.path },
       );
       failed = true;
     }
@@ -211,12 +216,9 @@ async function loadProfile(profileDir: string, diags: Diagnostics): Promise<Prof
   try {
     text = await readFile(profilePath, "utf8");
   } catch (error) {
-    diags.error(
-      "core.profile.invalid",
-      "profile.json",
-      "",
-      `Профиль не прочитан: ${messageOf(error)}`,
-    );
+    diags.error("core.profile.invalid#profile-read-failed", "profile.json", "", {
+      error: messageOf(error),
+    });
     return null;
   }
 
@@ -224,12 +226,9 @@ async function loadProfile(profileDir: string, diags: Diagnostics): Promise<Prof
   try {
     raw = JSON.parse(text);
   } catch (error) {
-    diags.error(
-      "core.profile.invalid",
-      "profile.json",
-      "",
-      `profile.json не разобран: ${messageOf(error)}`,
-    );
+    diags.error("core.profile.invalid#profile-parse-failed", "profile.json", "", {
+      error: messageOf(error),
+    });
     return null;
   }
 
@@ -273,28 +272,28 @@ async function realpathNearest(target: string): Promise<string> {
 }
 
 function validateManifest(value: unknown, diags: Diagnostics): Manifest | null {
-  const fail = (pointer: string, message: string): null => {
-    diags.error("core.manifest.invalid", "contract-builder.json", pointer, message);
+  const fail: Fail = (pointer, key, params) => {
+    diags.error(key, "contract-builder.json", pointer, params);
     return null;
   };
 
-  if (!isObject(value)) return fail("", "Манифест должен быть объектом");
+  if (!isObject(value)) return fail("", "core.manifest.invalid#manifest-not-object");
   if (!isNonEmptyString(value.manifestVersion)) {
-    return fail("/manifestVersion", "manifestVersion обязателен");
+    return fail("/manifestVersion", "core.manifest.invalid#manifest-version-required");
   }
 
   const project = value.project;
   if (!isObject(project) || !isNonEmptyString(project.id)) {
-    return fail("/project", "project.id обязателен");
+    return fail("/project", "core.manifest.invalid#project-id-required");
   }
 
   const profile = value.profile;
-  if (!isObject(profile)) return fail("/profile", "profile обязателен");
+  if (!isObject(profile)) return fail("/profile", "core.manifest.invalid#profile-required");
   if (!isNonEmptyString(profile.id) || !isNonEmptyString(profile.version)) {
-    return fail("/profile", "profile.id и profile.version обязательны");
+    return fail("/profile", "core.manifest.invalid#profile-id-version-required");
   }
   if (!isNonEmptyString(profile.source)) {
-    return fail("/profile/source", "M1 требует локальный profile.source");
+    return fail("/profile/source", "core.manifest.invalid#profile-source-local-required");
   }
 
   const inputs = validateInputs(value.inputs, fail);
@@ -308,11 +307,22 @@ function validateManifest(value: unknown, diags: Diagnostics): Manifest | null {
 
   let output: { root?: string } | undefined;
   if (value.output !== undefined) {
-    if (!isObject(value.output)) return fail("/output", "output должен быть объектом");
+    if (!isObject(value.output)) return fail("/output", "core.manifest.invalid#output-not-object");
     if (value.output.root !== undefined && !isNonEmptyString(value.output.root)) {
-      return fail("/output/root", "output.root должен быть непустой строкой");
+      return fail("/output/root", "core.manifest.invalid#output-root-required");
     }
     output = isNonEmptyString(value.output.root) ? { root: value.output.root } : {};
+  }
+
+  let locale: Locale | undefined;
+  if (value.locale !== undefined) {
+    if (!isLocale(value.locale)) {
+      return fail("/locale", "core.manifest.invalid#locale", {
+        value: String(value.locale),
+        locales: SUPPORTED_LOCALES.join(", "),
+      });
+    }
+    locale = value.locale;
   }
 
   return {
@@ -332,28 +342,26 @@ function validateManifest(value: unknown, diags: Diagnostics): Manifest | null {
     sources,
     render,
     ...(output !== undefined ? { output } : {}),
+    ...(locale !== undefined ? { locale } : {}),
   };
 }
 
-function validateInputs(
-  value: unknown,
-  fail: (pointer: string, message: string) => null,
-): ManifestInput[] | null {
+function validateInputs(value: unknown, fail: Fail): ManifestInput[] | null {
   if (!Array.isArray(value) || value.length === 0) {
-    return fail("/inputs", "inputs обязателен и непуст");
+    return fail("/inputs", "core.manifest.invalid#inputs-required");
   }
 
   const inputs: ManifestInput[] = [];
   for (const [index, item] of value.entries()) {
-    if (!isObject(item)) return fail(`/inputs/${index}`, "Вход должен быть объектом");
+    if (!isObject(item)) return fail(`/inputs/${index}`, "core.manifest.invalid#input-not-object");
     if (!isNonEmptyString(item.path) || !isNonEmptyString(item.schema)) {
-      return fail(`/inputs/${index}`, "path и schema обязательны");
+      return fail(`/inputs/${index}`, "core.manifest.invalid#input-path-schema-required");
     }
     if (item.format !== "json" && item.format !== "yaml") {
-      return fail(`/inputs/${index}/format`, "format должен быть json или yaml");
+      return fail(`/inputs/${index}/format`, "core.manifest.invalid#input-format-invalid");
     }
     if (!Array.isArray(item.entities)) {
-      return fail(`/inputs/${index}/entities`, "entities обязателен");
+      return fail(`/inputs/${index}/entities`, "core.manifest.invalid#entities-required");
     }
 
     const entities: ManifestEntityDecl[] = [];
@@ -363,7 +371,10 @@ function validateInputs(
         !isNonEmptyString(entity.kind) ||
         !isNonEmptyString(entity.pointer)
       ) {
-        return fail(`/inputs/${index}/entities/${entityIndex}`, "kind и pointer обязательны");
+        return fail(
+          `/inputs/${index}/entities/${entityIndex}`,
+          "core.manifest.invalid#entry-kind-pointer-required",
+        );
       }
       entities.push({ kind: entity.kind, pointer: entity.pointer });
     }
@@ -381,18 +392,11 @@ function validateInputs(
   return inputs;
 }
 
-function validateSources(
-  value: unknown,
-  fail: (pointer: string, message: string) => null,
-): ManifestSource[] | null {
+function validateSources(value: unknown, fail: Fail): ManifestSource[] | null {
   if (value === undefined || (Array.isArray(value) && value.length === 0)) {
-    return fail(
-      "/sources",
-      "M1 supports exactly one source: manifest.sources must contain exactly one entry; " +
-        "zero-source manifests are not supported by M1 (declared 0)",
-    );
+    return fail("/sources", "core.manifest.invalid#sources-single-zero");
   }
-  if (!Array.isArray(value)) return fail("/sources", "sources должен быть массивом");
+  if (!Array.isArray(value)) return fail("/sources", "core.manifest.invalid#sources-not-array");
 
   // M1 supports exactly one source (ODR-ENG-001 B4). Reject zero, absent and multiple
   // sources here, during manifest validation, so neither the model, the identity nor the
@@ -400,22 +404,21 @@ function validateSources(
   // array passed this check and failed later on the build path with ERR_UNKNOWN_REF; that
   // legacy behaviour is not the policy for this structural violation.
   if (value.length > 1) {
-    return fail(
-      "/sources",
-      "M1 supports exactly one source: manifest.sources must contain exactly one entry; " +
-        `multi-source manifests are not supported by M1 (declared ${value.length})`,
-    );
+    return fail("/sources", "core.manifest.invalid#sources-single-many", {
+      count: value.length,
+    });
   }
 
   const sources: ManifestSource[] = [];
   for (const [index, item] of value.entries()) {
-    if (!isObject(item)) return fail(`/sources/${index}`, "Источник должен быть объектом");
+    if (!isObject(item))
+      return fail(`/sources/${index}`, "core.manifest.invalid#source-not-object");
     if (
       !isNonEmptyString(item.id) ||
       !isNonEmptyString(item.path) ||
       !isNonEmptyString(item.adapter)
     ) {
-      return fail(`/sources/${index}`, "id, path и adapter обязательны");
+      return fail(`/sources/${index}`, "core.manifest.invalid#source-fields-required");
     }
 
     const identity = item.identity;
@@ -424,10 +427,7 @@ function validateSources(
       !isNonEmptyString(identity.document) ||
       !isNonEmptyString(identity.revision)
     ) {
-      return fail(
-        `/sources/${index}/identity`,
-        "identity.document и identity.revision обязательны в M1",
-      );
+      return fail(`/sources/${index}/identity`, "core.manifest.invalid#source-identity-required");
     }
 
     sources.push({
@@ -442,31 +442,29 @@ function validateSources(
   return sources;
 }
 
-function validateRender(
-  value: unknown,
-  fail: (pointer: string, message: string) => null,
-): ManifestRender[] | null {
+function validateRender(value: unknown, fail: Fail): ManifestRender[] | null {
   if (!Array.isArray(value)) {
-    return fail("/render", "M1 поддерживает ровно один render target: render должен быть массивом");
+    return fail("/render", "core.manifest.invalid#render-not-array");
   }
   if (value.length !== 1) {
-    return fail(
-      "/render",
-      `M1 поддерживает ровно один render target; объявлено ${value.length}. ` +
-        "Оставьте ровно одно объявление в render[]",
-    );
+    return fail("/render", "core.manifest.invalid#render-single-count", {
+      count: value.length,
+    });
   }
 
   const render: ManifestRender[] = [];
   for (const [index, item] of value.entries()) {
     if (!isObject(item) || !isObject(item.outputs)) {
-      return fail(`/render/${index}`, "outputs обязателен");
+      return fail(`/render/${index}`, "core.manifest.invalid#outputs-required");
     }
 
     const outputs: Record<string, string> = {};
     for (const [mode, target] of Object.entries(item.outputs)) {
       if (!isNonEmptyString(target)) {
-        return fail(`/render/${index}/outputs/${mode}`, "Путь вывода должен быть непустой строкой");
+        return fail(
+          `/render/${index}/outputs/${mode}`,
+          "core.manifest.invalid#output-path-required",
+        );
       }
       outputs[mode] = target;
     }
@@ -474,7 +472,9 @@ function validateRender(
     // An omitted optional field is fine; a present but invalid one is not.
     for (const key of ["renderer", "template", "labels"] as const) {
       if (item[key] !== undefined && !isNonEmptyString(item[key])) {
-        return fail(`/render/${index}/${key}`, `${key} должен быть непустой строкой`);
+        return fail(`/render/${index}/${key}`, "core.manifest.invalid#render-field-required", {
+          key,
+        });
       }
     }
 
@@ -490,21 +490,22 @@ function validateRender(
 }
 
 function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
-  const fail = (pointer: string, message: string): null => {
-    diags.error("core.profile.invalid", "profile.json", pointer, message);
+  const fail: Fail = (pointer, key, params) => {
+    diags.error(key, "profile.json", pointer, params);
     return null;
   };
 
-  if (!isObject(value)) return fail("", "profile.json должен быть объектом");
+  if (!isObject(value)) return fail("", "core.profile.invalid#profile-not-object");
   if (!isNonEmptyString(value.id) || !isNonEmptyString(value.version)) {
-    return fail("", "id и version обязательны");
+    return fail("", "core.profile.invalid#profile-id-version-missing");
   }
 
-  if (!isObject(value.entityKinds)) return fail("/entityKinds", "entityKinds обязателен");
+  if (!isObject(value.entityKinds))
+    return fail("/entityKinds", "core.profile.invalid#entity-kinds-required");
   const entityKinds: Record<string, ProfileEntityKind> = {};
   for (const [kind, decl] of Object.entries(value.entityKinds)) {
     if (!isObject(decl) || !isNonEmptyString(decl.schema)) {
-      return fail(`/entityKinds/${kind}`, "schema обязателен");
+      return fail(`/entityKinds/${kind}`, "core.profile.invalid#schema-required");
     }
     entityKinds[kind] = {
       schema: decl.schema,
@@ -512,20 +513,21 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     };
   }
 
-  if (!isObject(value.schemas)) return fail("/schemas", "schemas обязателен");
+  if (!isObject(value.schemas)) return fail("/schemas", "core.profile.invalid#schemas-required");
   const schemas: Record<string, string> = {};
   for (const [id, relative] of Object.entries(value.schemas)) {
     if (!isNonEmptyString(relative)) {
-      return fail(`/schemas/${id}`, "Путь схемы должен быть непустой строкой");
+      return fail(`/schemas/${id}`, "core.profile.invalid#schema-path-required");
     }
     schemas[id] = relative;
   }
 
-  if (!Array.isArray(value.documents)) return fail("/documents", "documents обязателен");
+  if (!Array.isArray(value.documents))
+    return fail("/documents", "core.profile.invalid#documents-required");
   const documents: ProfileDocumentBinding[] = [];
   for (const [index, item] of value.documents.entries()) {
     if (!isObject(item) || !isNonEmptyString(item.key) || !isNonEmptyString(item.input)) {
-      return fail(`/documents/${index}`, "key и input обязательны");
+      return fail(`/documents/${index}`, "core.profile.invalid#document-key-input-required");
     }
     documents.push({ key: item.key, input: item.input });
   }
@@ -533,7 +535,7 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
   let files: string[] | undefined;
   if (value.files !== undefined) {
     if (!Array.isArray(value.files) || !value.files.every(isNonEmptyString)) {
-      return fail("/files", "files должен быть массивом непустых строк");
+      return fail("/files", "core.profile.invalid#files-array-required");
     }
     files = value.files;
   }
@@ -541,12 +543,12 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
   let dependencies: Record<string, string> | undefined;
   if (value.dependencies !== undefined) {
     if (!isObject(value.dependencies)) {
-      return fail("/dependencies", "dependencies должен быть объектом");
+      return fail("/dependencies", "core.profile.invalid#dependencies-not-object");
     }
     dependencies = {};
     for (const [name, version] of Object.entries(value.dependencies)) {
       if (!isNonEmptyString(version)) {
-        return fail(`/dependencies/${name}`, "Версия зависимости должна быть непустой строкой");
+        return fail(`/dependencies/${name}`, "core.profile.invalid#dependency-version-required");
       }
       dependencies[name] = version;
     }
@@ -555,7 +557,7 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
   let relations: RelationDecl[] | undefined;
   if (value.relations !== undefined) {
     if (!Array.isArray(value.relations))
-      return fail("/relations", "relations должен быть массивом");
+      return fail("/relations", "core.profile.invalid#relations-not-array");
     relations = [];
     for (const [index, item] of value.relations.entries()) {
       if (
@@ -564,20 +566,23 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
         !isNonEmptyString(item.from) ||
         !isNonEmptyString(item.to)
       ) {
-        return fail(`/relations/${index}`, "name, from и to обязательны");
+        return fail(`/relations/${index}`, "core.profile.invalid#relation-fields-required");
       }
       if (
         item.cardinality !== undefined &&
         item.cardinality !== "one" &&
         item.cardinality !== "many"
       ) {
-        return fail(`/relations/${index}/cardinality`, "cardinality должен быть one или many");
+        return fail(
+          `/relations/${index}/cardinality`,
+          "core.profile.invalid#relation-cardinality-invalid",
+        );
       }
       // A declared inverse is part of the contract, so a value that is not a name is an error
       // rather than an implicit "no inverse": normalizing it away would let a malformed
       // declaration pass as if it had never been declared.
       if (item.inverse !== undefined && !isNonEmptyString(item.inverse)) {
-        return fail(`/relations/${index}/inverse`, "inverse должен быть непустой строкой");
+        return fail(`/relations/${index}/inverse`, "core.profile.invalid#inverse-required");
       }
       relations.push({
         name: item.name,
@@ -596,10 +601,10 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     for (const [index, decl] of relations.entries()) {
       const key = `${decl.from}\u0000${decl.name}`;
       if (seen.has(key)) {
-        return fail(
-          `/relations/${index}`,
-          `Связь "${decl.name}" для вида "${decl.from}" объявлена повторно`,
-        );
+        return fail(`/relations/${index}`, "core.profile.invalid#relation-duplicate", {
+          name: decl.name,
+          from: decl.from,
+        });
       }
       seen.add(key);
     }
@@ -615,47 +620,50 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
     for (const [index, decl] of relations.entries()) {
       if (decl.inverse === undefined) continue;
       if (decl.to === "*") {
-        return fail(
-          `/relations/${index}/inverse`,
-          `Связь "${decl.name}" с видом цели "*" не может объявлять обратную связь "${decl.inverse}": целевой вид не определён`,
-        );
+        return fail(`/relations/${index}/inverse`, "core.profile.invalid#wildcard-inverse", {
+          name: decl.name,
+          inverse: decl.inverse,
+        });
       }
       const inverse = declared.get(`${decl.to}\u0000${decl.inverse}`);
       if (inverse === undefined) {
-        return fail(
-          `/relations/${index}/inverse`,
-          `Обратная связь "${decl.inverse}" не объявлена для вида "${decl.to}"`,
-        );
+        return fail(`/relations/${index}/inverse`, "core.profile.invalid#inverse-unknown", {
+          inverse: decl.inverse,
+          to: decl.to,
+        });
       }
       if (inverse.inverse !== decl.name) {
-        const summary =
-          inverse.inverse === undefined
-            ? "не объявляет обратной связи"
-            : `объявляет обратной связью "${inverse.inverse}"`;
-        return fail(
-          `/relations/${index}/inverse`,
-          `Обратная связь "${decl.inverse}" ${summary}, ожидалось "${decl.name}"`,
-        );
+        return inverse.inverse === undefined
+          ? fail(`/relations/${index}/inverse`, "core.profile.invalid#relation-inverse-missing", {
+              inverse: decl.inverse,
+              expected: decl.name,
+            })
+          : fail(`/relations/${index}/inverse`, "core.profile.invalid#relation-inverse-other", {
+              inverse: decl.inverse,
+              actual: inverse.inverse,
+              expected: decl.name,
+            });
       }
       if (inverse.to !== decl.from) {
-        return fail(
-          `/relations/${index}/inverse`,
-          `Обратная связь "${decl.inverse}" ведёт на вид "${inverse.to}", ожидался "${decl.from}"`,
-        );
+        return fail(`/relations/${index}/inverse`, "core.profile.invalid#inverse-target-mismatch", {
+          inverse: decl.inverse,
+          to: inverse.to,
+          from: decl.from,
+        });
       }
     }
   }
 
   let view: string | undefined;
   if (value.view !== undefined) {
-    if (!isNonEmptyString(value.view)) return fail("/view", "view должен быть непустой строкой");
+    if (!isNonEmptyString(value.view)) return fail("/view", "core.profile.invalid#view-required");
     view = value.view;
   }
 
   let validator: string | undefined;
   if (value.validator !== undefined) {
     if (!isNonEmptyString(value.validator)) {
-      return fail("/validator", "validator должен быть непустой строкой");
+      return fail("/validator", "core.profile.invalid#validator-required");
     }
     validator = value.validator;
   }
@@ -666,17 +674,13 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
   // the later generic "profile does not declare view" from the module loader.
   if (view === undefined || validator === undefined) {
     const pointer = view === undefined ? (validator === undefined ? "" : "/view") : "/validator";
-    return fail(
-      pointer,
-      "M1 requires an executable profile: profile.view and profile.validator must be declared; " +
-        "data-only profiles are not supported by M1",
-    );
+    return fail(pointer, "core.profile.invalid#executable-profile");
   }
 
   let diagnostics: string | undefined;
   if (value.diagnostics !== undefined) {
     if (!isNonEmptyString(value.diagnostics)) {
-      return fail("/diagnostics", "diagnostics должен быть непустой строкой");
+      return fail("/diagnostics", "core.profile.invalid#diagnostics-required");
     }
     diagnostics = value.diagnostics;
   }
@@ -684,7 +688,7 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
   let provenance: ProvenanceMapping[] | undefined;
   if (value.provenance !== undefined) {
     if (!Array.isArray(value.provenance)) {
-      return fail("/provenance", "provenance должен быть массивом");
+      return fail("/provenance", "core.profile.invalid#provenance-not-array");
     }
     provenance = [];
     for (const [index, item] of value.provenance.entries()) {
@@ -695,7 +699,7 @@ function validateProfile(value: unknown, diags: Diagnostics): Profile | null {
         !isNonEmptyString(item.ref) ||
         !isNonEmptyString(item.quote)
       ) {
-        return fail(`/provenance/${index}`, "kind, source, ref и quote обязательны");
+        return fail(`/provenance/${index}`, "core.profile.invalid#provenance-fields-required");
       }
       provenance.push({
         kind: item.kind,

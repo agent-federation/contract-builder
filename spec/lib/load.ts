@@ -34,7 +34,7 @@ export async function loadProject(specDir: string, diags: Diagnostics): Promise<
       raw = new Uint8Array(await readFile(located.abs));
     } catch (error) {
       if (isMissingFile(error) && input.optional === true) continue;
-      diags.error("ERR_IO", input.path, "", `Не удалось прочитать файл: ${messageOf(error)}`);
+      diags.error("ERR_IO#file-read-failed", input.path, "", { error: messageOf(error) });
       failed = true;
       continue;
     }
@@ -43,14 +43,14 @@ export async function loadProject(specDir: string, diags: Diagnostics): Promise<
       const text = new TextDecoder().decode(raw);
       const parsed = input.format === "json" ? JSON.parse(text) : parseYaml(text);
       if (parsed === null || typeof parsed !== "object") {
-        diags.error("ERR_PARSE", input.path, "", "Файл должен содержать объект верхнего уровня");
+        diags.error("ERR_PARSE#top-level-object-required", input.path, "");
         failed = true;
         continue;
       }
       bytes[input.path] = raw;
       documents[input.path] = parsed;
     } catch (error) {
-      diags.error("ERR_PARSE", input.path, "", `Ошибка разбора: ${messageOf(error)}`);
+      diags.error("ERR_PARSE#parse-error", input.path, "", { error: messageOf(error) });
       failed = true;
     }
   }
@@ -62,10 +62,10 @@ export async function loadProject(specDir: string, diags: Diagnostics): Promise<
     const document = documents[binding.input];
     if (document === undefined) {
       diags.error(
-        "core.profile.invalid",
+        "core.profile.invalid#binding-input-unloaded",
         "profile.json",
         `/documents/${index}/input`,
-        `Привязка "${binding.key}" ссылается на незагруженный вход "${binding.input}"`,
+        { key: binding.key, input: binding.input },
       );
       return null;
     }

@@ -269,13 +269,16 @@ test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths"
   );
   assert.equal(ambiguous.kind, "error");
   assert.equal(
-    ambiguous.kind === "error" ? ambiguous.code : "",
-    "core.extension.unpinned-dependency",
+    ambiguous.kind === "error" ? ambiguous.key : "",
+    "core.extension.unpinned-dependency#import-ambiguous",
   );
 
   const empty = classifyEngineSpecifier("../../spec/lib", path.join(profile, "view.ts"), layout);
   assert.equal(empty.kind, "error");
-  assert.equal(empty.kind === "error" ? empty.code : "", "core.extension.unpinned-dependency");
+  assert.equal(
+    empty.kind === "error" ? empty.key : "",
+    "core.extension.unpinned-dependency#import-subpath-invalid",
+  );
 
   const escapes = classifyEngineSpecifier(
     "../../../spec/lib/ir.js",
@@ -283,7 +286,10 @@ test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths"
     layout,
   );
   assert.equal(escapes.kind, "error");
-  assert.equal(escapes.kind === "error" ? escapes.code : "", "core.path.outside-root");
+  assert.equal(
+    escapes.kind === "error" ? escapes.key : "",
+    "core.path.outside-root#import-outside-project",
+  );
 
   const traversal = classifyEngineSpecifier(
     "../../spec/lib/../secret.js",

@@ -94,7 +94,7 @@ test("consent: the public API rejects an executable profile without explicit con
   assert.equal(diagnostic.file, "profile.json");
   assert.match(diagnostic.message, /allowExecutableProfile/);
   assert.match(diagnostic.message, /--allow-executable-profile/);
-  assert.match(diagnostic.message, /не является изоляцией/);
+  assert.match(diagnostic.message, /is not isolation/);
 });
 
 test("consent: the public API builds CORE-001 only with explicit consent", async () => {
@@ -358,7 +358,7 @@ test("consent: a module exporting a null renderer fails loudly", async () => {
 
   await assert.rejects(
     loadProfileRenderers(true, dir, { rendererModule: module }),
-    /не экспортирует renderer/,
+    /does not export a renderer/,
   );
 });
 

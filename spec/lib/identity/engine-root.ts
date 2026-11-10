@@ -8,7 +8,8 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Diagnostics } from "../diagnostics.js";
-import { isNonEmptyString, isObject, messageOf } from "../guards.js";
+import { isNonEmptyString, isObject } from "../guards.js";
+import { LocalizedTextError, cliLocalized, localizedDetail } from "../messages.js";
 import type { Lockfile, LockfilePackage } from "./types.js";
 
 /**
@@ -37,12 +38,9 @@ export async function loadEngineRoot(
 ): Promise<EngineRoot | null> {
   const candidate = requested ?? defaultEngineRoot();
   if (!path.isAbsolute(candidate)) {
-    diagnostics.error(
-      "core.path.outside-root",
-      "package.json",
-      "",
-      `Корень движка "${candidate}" должен быть абсолютным путём`,
-    );
+    diagnostics.error("core.path.outside-root#engine-root-absolute", "package.json", "", {
+      candidate,
+    });
     return null;
   }
 
@@ -50,12 +48,10 @@ export async function loadEngineRoot(
   try {
     root = await realpath(candidate);
   } catch (error) {
-    diagnostics.error(
-      "core.path.outside-root",
-      "package.json",
-      "",
-      `Корень движка "${candidate}" недоступен: ${messageOf(error)}`,
-    );
+    diagnostics.error("core.path.outside-root#engine-root-unavailable", "package.json", "", {
+      candidate,
+      error: localizedDetail(error),
+    });
     return null;
   }
 
@@ -66,12 +62,9 @@ export async function loadEngineRoot(
     .then((entry) => entry.isFile())
     .catch(() => false);
   if (!libOk || !packageOk) {
-    diagnostics.error(
-      "core.path.outside-root",
-      "package.json",
-      "",
-      `Корень движка "${root}" должен содержать spec/lib и package.json`,
-    );
+    diagnostics.error("core.path.outside-root#engine-root-layout", "package.json", "", {
+      root,
+    });
     return null;
   }
 
@@ -80,10 +73,10 @@ export async function loadEngineRoot(
     version = await readEngineVersion(root);
   } catch (error) {
     diagnostics.error(
-      "core.engine.version-mismatch",
+      "core.engine.version-mismatch#engine-root-version-failed",
       "package.json",
       "/version",
-      `Не удалось определить версию движка в "${root}": ${messageOf(error)}`,
+      { root, error: localizedDetail(error) },
     );
     return null;
   }
@@ -103,21 +96,18 @@ export async function verifyEngineVersion(
   try {
     running = await readEngineVersion();
   } catch (error) {
-    diagnostics.error(
-      "ERR_IO",
-      "package.json",
-      "/version",
-      `Не удалось определить версию запущенного движка: ${messageOf(error)}`,
-    );
+    diagnostics.error("ERR_IO#running-engine-version-failed", "package.json", "/version", {
+      error: localizedDetail(error),
+    });
     return false;
   }
 
   if (running !== engine.version) {
     diagnostics.error(
-      "core.engine.version-mismatch",
+      "core.engine.version-mismatch#engine-version-mismatch",
       "package.json",
       "/version",
-      `Корень движка "${engine.root}" объявляет версию ${engine.version}, но выполняется движок ${running}: модули не соответствуют отчётной версии`,
+      { root: engine.root, version: engine.version, running: running },
     );
     return false;
   }
@@ -129,7 +119,7 @@ export async function readEngineVersion(engineRoot: string = defaultEngineRoot()
   const text = await readFile(path.join(engineRoot, "package.json"), "utf8");
   const parsed: unknown = JSON.parse(text);
   if (!isObject(parsed) || !isNonEmptyString(parsed.version)) {
-    throw new Error("package.json не содержит version");
+    throw new LocalizedTextError(cliLocalized("engine.version-missing"));
   }
   return parsed.version;
 }
@@ -147,7 +137,7 @@ export async function readLockfile(engineRoot: string = defaultEngineRoot()): Pr
 export function parseLockfile(text: string): Lockfile {
   const raw: unknown = JSON.parse(stripJsonc(text));
   if (!isObject(raw) || !isObject(raw.packages)) {
-    throw new Error("bun.lock не содержит packages");
+    throw new LocalizedTextError(cliLocalized("engine.lockfile-no-packages"));
   }
 
   const packages: LockfilePackage[] = [];

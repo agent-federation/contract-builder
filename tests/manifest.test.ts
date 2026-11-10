@@ -148,7 +148,7 @@ test("manifest: zero render declarations are rejected before writing", async () 
   const diagnostic = result.diagnostics.find((d) => d.code === "core.manifest.invalid");
   assert.ok(diagnostic);
   assert.equal(diagnostic.pointer, "/render");
-  assert.match(diagnostic.message, /ровно один render target/);
+  assert.match(diagnostic.message, /exactly one render target/);
   assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
 });
 
@@ -169,7 +169,7 @@ test("manifest: more than one render declaration is rejected before writing", as
   const diagnostic = result.diagnostics.find((d) => d.code === "core.manifest.invalid");
   assert.ok(diagnostic);
   assert.equal(diagnostic.pointer, "/render");
-  assert.match(diagnostic.message, /ровно один render target/);
+  assert.match(diagnostic.message, /exactly one render target/);
   assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
   assert.equal(existsSync(path.join(dir, "output", "extra.draft.md")), false);
 });
@@ -395,7 +395,7 @@ test("manifest: an inverse declaration must reverse the forward endpoints", asyn
   const diagnostic = profileInvalid(result);
   assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
   assert.equal(diagnostic.pointer, "/relations/4/inverse");
-  assert.ok(diagnostic.message.includes("ведёт на вид"), diagnostic.message);
+  assert.ok(diagnostic.message.includes("points to kind"), diagnostic.message);
   assert.ok(diagnostic.message.includes('"fragment"'), diagnostic.message);
   assert.ok(diagnostic.message.includes('"case"'), diagnostic.message);
 });
