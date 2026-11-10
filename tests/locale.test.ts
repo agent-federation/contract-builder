@@ -13,13 +13,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "../spec/lib/locale.js";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type Locale } from "../spec/lib/locale.js";
 import { ENGINE_MESSAGES, cliText, messageText } from "../spec/lib/messages.js";
-import { TEST_RENDERERS } from "./support.js";
+import { TEST_RENDERERS, copyProjectWithProfile } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const specDir = path.join(root, "spec");
@@ -97,23 +97,72 @@ test("locale: the CORE-001 artifact renders diagnostics in ru while the CLI is E
   );
 });
 
-test("locale: fixtures print English engine diagnostics by default and Russian in ru", async () => {
-  const english = await runBuild(base({ specDir: fixture("broken-modality") }));
-  assert.notEqual(english.exitCode, 0);
-  const englishDiagnostic = english.diagnostics.find(
-    (item) => item.code === "ERR_MODALITY_UPGRADE" || item.code === "ERR_MODALITY_MARKER",
-  );
-  assert.ok(englishDiagnostic !== undefined, "fixture must emit its modality diagnostic");
-  assert.match(englishDiagnostic.message, /[A-Za-z]/);
-  assert.equal(/[А-Яа-яЁё]/.test(englishDiagnostic.message), false, englishDiagnostic.message);
+/**
+ * One engine diagnostic each fixture is expected to emit, with a message the engine catalog
+ * owns in full (no Russian domain text quoted from `semantics.json`).
+ */
+const FIXTURE_DIAGNOSTICS = [
+  { name: "broken-modality", code: "ERR_MODALITY_UPGRADE" },
+  { name: "broken-source-drift", code: "ERR_SOURCE_QUOTE_NOT_FOUND" },
+  { name: "open-decision", code: "REVIEW_OPEN_NORMATIVE_DEPENDENCY" },
+] as const;
 
-  const russian = await runBuild(base({ specDir: fixture("broken-modality"), locale: "ru" }));
-  const russianDiagnostic = russian.diagnostics.find(
-    (item) => item.code === englishDiagnostic.code,
+test("locale: every fixture prints English engine diagnostics by default and Russian in ru", async () => {
+  for (const { name, code } of FIXTURE_DIAGNOSTICS) {
+    const english = await runBuild(base({ specDir: fixture(name) }));
+    const englishDiagnostic = english.diagnostics.find((item) => item.code === code);
+    assert.ok(englishDiagnostic !== undefined, `${name} must emit ${code}`);
+    assert.match(englishDiagnostic.message, /[A-Za-z]/, name);
+    assert.equal(
+      /[А-Яа-яЁё]/.test(englishDiagnostic.message),
+      false,
+      `${name}: ${englishDiagnostic.message}`,
+    );
+
+    const russian = await runBuild(base({ specDir: fixture(name), locale: "ru" }));
+    const russianDiagnostic = russian.diagnostics.find((item) => item.code === code);
+    assert.ok(russianDiagnostic !== undefined, `${name} must emit ${code} in ru`);
+    assert.match(russianDiagnostic.message, /[А-Яа-яЁё]/, `${name}: ${russianDiagnostic.message}`);
+    assert.notEqual(russianDiagnostic.message, englishDiagnostic.message, name);
+  }
+});
+
+test("locale: a JavaScript caller cannot smuggle an unsupported locale past the API", async () => {
+  const result = await runBuild(base({ locale: "en" }));
+  assert.equal(result.exitCode, 0);
+  // `undefined` keeps the English default, as every other test's base() shows.
+  assert.equal((await runBuild(base())).exitCode, 0);
+  assert.equal((await runBuild(base({ locale: "ru" }))).exitCode, 0);
+
+  await assert.rejects(
+    runBuild(base({ locale: "xx" as unknown as Locale })),
+    (error: unknown) =>
+      error instanceof TypeError && /supported locales: en, ru/.test(error.message),
   );
-  assert.ok(russianDiagnostic !== undefined);
-  assert.match(russianDiagnostic.message, /[А-Яа-яЁё]/, russianDiagnostic.message);
-  assert.notEqual(russianDiagnostic.message, englishDiagnostic.message);
+});
+
+test("locale: the schema fallback keeps Ajv detail for en and Russian-only text for ru", async () => {
+  const dir = await copyProjectWithProfile("schema-oneof");
+  const schemaPath = path.join(dir, "profiles", "core001", "schemas", "sources.schema.json");
+  const schema = JSON.parse(await readFile(schemaPath, "utf8")) as Record<string, unknown>;
+  // Both branches match, so the only Ajv error comes from the `oneOf` keyword itself, which
+  // `describe()` has no catalog entry for and resolves through its fallback.
+  schema.oneOf = [{ required: ["slice"] }, { required: ["slice"] }];
+  await writeFile(schemaPath, `${JSON.stringify(schema, null, 2)}\n`, "utf8");
+
+  const english = await runBuild(base({ specDir: dir }));
+  const russian = await runBuild(base({ specDir: dir, locale: "ru" }));
+  const englishDiagnostic = english.diagnostics.find((item) => item.code === "ERR_SCHEMA");
+  const russianDiagnostic = russian.diagnostics.find((item) => item.code === "ERR_SCHEMA");
+  assert.ok(englishDiagnostic !== undefined, "the oneOf schema must fail validation");
+  assert.ok(russianDiagnostic !== undefined, "the oneOf schema must fail validation in ru");
+  assert.match(englishDiagnostic.message, /must match exactly one schema in oneOf/);
+  assert.equal(
+    /must match exactly one schema in oneOf/.test(russianDiagnostic.message),
+    false,
+    russianDiagnostic.message,
+  );
+  assert.match(russianDiagnostic.message, /Нарушение схемы/);
 });
 
 test("locale: the CLI prints English framing and diagnostics by default", () => {
