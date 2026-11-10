@@ -222,7 +222,7 @@ A snapshot of the full implementation status lives in
 | `bun run format` | apply Biome formatting |
 | `bun run format:check` | check formatting without writing |
 | `bun run docs:links` | local relative-link and anchor check for the documentation |
-| `bun run coverage` / `coverage:check` | test suite with an lcov report; enforce the in-process coverage floors |
+| `bun run coverage` / `bun run coverage:check` | test suite with an lcov report; enforce the in-process coverage floors |
 | `bun run check:all` | artifact check plus the CORE-000 S2.2 artifact verification |
 | `bun run gate:core000 --report <file> --policy <file> --out <file>` | acceptance gate over a PAP verification report |
 | `bun run pipeline:independent --out <dir>` | reference plus three independent Phase 2a verifiers on one package (C6) |
