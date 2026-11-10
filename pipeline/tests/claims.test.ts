@@ -145,7 +145,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
         id: "binding:SRC-TR-001",
         entityId: "SRC-TR-001",
         sourceId: "SRC-ENGINE-CONTRACT",
-        locator: { kind: "byte-range", start: 15301, end: 15484 },
+        locator: { kind: "byte-range", start: 16254, end: 16437 },
         quote: {
           normalization: "none",
           digest: "sha256:90ee79643882758a5891418c9353e9dd9891cf7877a4407358f334f6051ba015",
@@ -158,7 +158,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
         id: "binding:SRC-MANIFEST-001",
         entityId: "SRC-MANIFEST-001",
         sourceId: "SRC-ENGINE-CONTRACT",
-        locator: { kind: "byte-range", start: 6321, end: 6629 },
+        locator: { kind: "byte-range", start: 6433, end: 6741 },
         quote: {
           normalization: "none",
           digest: "sha256:352e7118930c09d22fcfd7f2e67b4cf27132a4a1779f16a1e74ca697e790bd0c",
@@ -171,7 +171,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
         id: "binding:SRC-PROVENANCE-001",
         entityId: "SRC-PROVENANCE-001",
         sourceId: "SRC-ENGINE-CONTRACT",
-        locator: { kind: "byte-range", start: 24629, end: 24867 },
+        locator: { kind: "byte-range", start: 25582, end: 25820 },
         quote: {
           normalization: "none",
           digest: "sha256:c45bbddfaf5a7d81d9591b1da778e55e6b3b716b0d7af97a501f70702aa7bad5",
@@ -191,7 +191,7 @@ test("provenance: the real CORE-000 quotes resolve to exact raw source byte rang
   }
 
   assert.equal(
-    domainHash("pap.quote.v1", input.source.bytes.subarray(15301, 15484)),
+    domainHash("pap.quote.v1", input.source.bytes.subarray(16254, 16437)),
     "sha256:90ee79643882758a5891418c9353e9dd9891cf7877a4407358f334f6051ba015",
     "quote-digest vector",
   );
