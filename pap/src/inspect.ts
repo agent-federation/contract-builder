@@ -226,7 +226,7 @@ export async function inspectPackage(packagePath: string): Promise<InspectResult
     };
   }
 
-  const payloads = await loadPayloads(root, limits, manifest, false, false, diagnostics, diag);
+  const payloads = await loadPayloads(root, limits, manifest, false, diagnostics, diag);
   const scan = await reportUndeclared(root, manifest, limits, diag);
   const declared: InspectionDocument["declared"] = [];
   for (const state of payloads.artifacts) {
