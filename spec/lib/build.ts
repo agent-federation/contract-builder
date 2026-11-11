@@ -11,10 +11,12 @@ import {
   type ProfileValidator,
   type ProfileViewModule,
   type ValidatorContext,
+  type ValidatorFinding,
   type VerificationContext,
 } from "./hook.js";
 import { applyVerificationClaims, sourceDigest, sourceVersionOf } from "./provenance.js";
 import { messageOf } from "./guards.js";
+import { localizedDetail } from "./messages.js";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "./locale.js";
 import { loadRenderInputs, normalizeArtifact, type BuildMode, type Renderer } from "./render.js";
 import { resolveContained, type ResolvedProject } from "./manifest.js";
@@ -204,7 +206,15 @@ async function buildResolvedProject(
     if (source === undefined) return "unknown-locator" as const;
     const adapter = adapters[source.adapter];
     if (adapter === undefined) return "unknown-locator" as const;
-    return adapter.verifyQuote(source, ref, quote);
+    try {
+      return await adapter.verifyQuote(source, ref, quote);
+    } catch (error) {
+      // The adapter is invoked by profile code; a throw must become a diagnostic, never escape
+      // the build as a stack trace. `unknown-locator` keeps the context callable while the
+      // recorded error stops the build at the diagnostics gate.
+      profileHookFailed(diags, "quote adapter", "contract-builder.json", "/sources", error);
+      return "unknown-locator" as const;
+    }
   };
 
   if (typeof validator.verifyProvenance === "function") {
@@ -223,14 +233,25 @@ async function buildResolvedProject(
       sourceVersion: (sourceId) => sourceVersionOf(declaration.get(sourceId)),
     };
 
-    const claims = await validator.verifyProvenance(model, verificationContext);
-    if (!applyVerificationClaims(model, model.sources, claims, diags)) {
+    try {
+      const claims = await validator.verifyProvenance(model, verificationContext);
+      if (!applyVerificationClaims(model, model.sources, claims, diags)) {
+        return result(options, diags, null, outputPath, false, "errors");
+      }
+    } catch (error) {
+      profileHookFailed(diags, "provenance verifier", "profile.json", "/validator", error);
       return result(options, diags, null, outputPath, false, "errors");
     }
   }
 
   // Build the view after verification so it carries the records the renderer must show.
-  const view = viewModule.buildView(model);
+  let view: unknown;
+  try {
+    view = viewModule.buildView(model);
+  } catch (error) {
+    profileHookFailed(diags, "view", "profile.json", "/view", error);
+    return result(options, diags, null, outputPath, false, "errors");
+  }
 
   const context: ValidatorContext = {
     view,
@@ -240,8 +261,23 @@ async function buildResolvedProject(
     verifyQuote,
   };
 
-  const findings = await validator.validate(model, context);
-  if (!resolveFindings(findings, model, catalog, diags)) {
+  let findings: ValidatorFinding[];
+  try {
+    findings = await validator.validate(model, context);
+  } catch (error) {
+    profileHookFailed(diags, "validator", "profile.json", "/validator", error);
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+
+  let findingsOk: boolean;
+  try {
+    findingsOk = resolveFindings(findings, model, catalog, diags);
+  } catch (error) {
+    // A malformed return value is also profile misbehaviour; keep it a diagnostic, not a crash.
+    profileHookFailed(diags, "validator", "profile.json", "/validator", error);
+    return result(options, diags, null, outputPath, false, "errors");
+  }
+  if (!findingsOk) {
     return result(options, diags, null, outputPath, false, "errors");
   }
 
@@ -539,6 +575,23 @@ function isCatalog(value: unknown): value is DiagnosticCatalog {
 /** The locale a project declares for its rendered artifact; English when absent. */
 function artifactLocale(project: ResolvedProject): Locale {
   return project.manifest.locale ?? DEFAULT_LOCALE;
+}
+
+/**
+ * Converts a thrown profile value into a diagnostic. Diagnostics are collected, never thrown:
+ * the build stops through the normal result path with exit code 1 and a localized message.
+ */
+function profileHookFailed(
+  diags: Diagnostics,
+  hook: string,
+  file: string,
+  pointer: string,
+  error: unknown,
+): void {
+  diags.error("core.profile.hook-failed#hook-failed", file, pointer, {
+    hook,
+    error: localizedDetail(error),
+  });
 }
 
 function result(
