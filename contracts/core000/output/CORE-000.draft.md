@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:d3ed216c577df27850380a341894d433cabb3f5dcea33e75a711e92e89ed8b7d` |
+| inputDigest | `sha256:11b1297be810e17dc40b869601296d24936854b4bc0d05f2feb8390deb4361e5` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -847,7 +847,7 @@ _2 claims: 2 accepted, 0 proposed, 0 deferred, 0 none_
 - Lifecycle: `active`
 - Statement: `inputDigest` covers the canonical manifest (including its declared `locale`), declared inputs, sources, profile closure and adapter/renderer closures; the clock, environment, mtimes and absolute paths are excluded, and the CLI/runtime locale is not an input.
 
-- Conditions: Given a project whose canonical manifest declares its inputs, sources and artifact locale, and whose profile, source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the canonical manifest (including its declared `locale`), declared input bytes, source bytes, and those closures; the clock, environment, mtimes and absolute paths are excluded, and the CLI/runtime locale is not an input.
+- Conditions: Given a project whose canonical manifest declares its inputs, sources and its `locale`, and whose profile, source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the canonical manifest (including its declared `locale`), declared input bytes, source bytes, and those closures; the clock, environment, mtimes and absolute paths are excluded, and the CLI/runtime locale is not an input.
 
 - Scope: CORE-000 accepted design §4.2 row C000-CT-011 at the accepted design baseline
 - Verification method: Accepted design §4.2 evidence/method column for C000-CT-011 at the accepted design baseline: M:B2; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI
