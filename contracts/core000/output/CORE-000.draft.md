@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:cf22218465872ceb4f32c74951c1ee5cf8189ca0342cc1c8f6841db5612b8b1d` |
+| inputDigest | `sha256:11b1297be810e17dc40b869601296d24936854b4bc0d05f2feb8390deb4361e5` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -845,9 +845,9 @@ _2 claims: 2 accepted, 0 proposed, 0 deferred, 0 none_
 - Status: decision=`accepted`, implementation=`implemented`, tests=`tested`, verification=`none`
 - Authority: `engine`
 - Lifecycle: `active`
-- Statement: `inputDigest` covers the canonical manifest, declared inputs, sources, profile closure and adapter/renderer closures; clock, locale, environment, mtimes and absolute paths are excluded.
+- Statement: `inputDigest` covers the canonical manifest (including its declared `locale`), declared inputs, sources, profile closure and adapter/renderer closures; the clock, environment, mtimes and absolute paths are excluded, and the CLI/runtime locale is not an input.
 
-- Conditions: Given a project whose canonical manifest declares its inputs and sources, and whose profile, source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the canonical manifest, declared input bytes, source bytes, and those closures; clock, locale, environment, mtimes and absolute paths are excluded.
+- Conditions: Given a project whose canonical manifest declares its inputs, sources and its `locale`, and whose profile, source-adapter and renderer closures are loaded from the declared paths, `inputDigest` covers the canonical manifest (including its declared `locale`), declared input bytes, source bytes, and those closures; the clock, environment, mtimes and absolute paths are excluded, and the CLI/runtime locale is not an input.
 
 - Scope: CORE-000 accepted design §4.2 row C000-CT-011 at the accepted design baseline
 - Verification method: Accepted design §4.2 evidence/method column for C000-CT-011 at the accepted design baseline: M:B2; `spec/lib/identity.ts`; `tests/identity.test.ts`; BI
