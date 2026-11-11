@@ -58,9 +58,14 @@ duplicated in the engine.
 6. `renderer` — the renderer used, sorted by id (M1 uses one):
    `{ id, version, closureDigest }`.
 
-Excluded from the digest: clock, locale, environment variables, absolute project root, file
-mtimes, user identity, network state and artifact bytes. The artifact is excluded because the
-identity describes inputs, not output.
+Excluded from the digest: clock, environment variables, absolute project root, file mtimes, user
+identity, network state and artifact bytes. The artifact is excluded because the identity describes
+inputs, not output.
+
+Locale is split by kind. A project's declared `Manifest.locale` is part of the canonical manifest
+and is therefore covered by `inputDigest`: it selects the language of the rendered artifact, so
+changing it must change the identity. The **CLI/runtime/environment locale** selects human output
+only, never artifact bytes, and is not an input.
 
 ### Canonical manifest
 
