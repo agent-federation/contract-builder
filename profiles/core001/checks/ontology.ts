@@ -6,6 +6,23 @@ export const check: Check = (ctx: CheckContext) => {
   const findings: ValidatorFinding[] = [];
   const fragmentById = new Map(ctx.view.fragments.map((fragment) => [fragment.id, fragment]));
 
+  // The ontology is rendered against the source the build loaded; if their declared
+  // revisions diverge, the artifact claims a revision the source header never confirmed.
+  const ontologyRevision = ctx.view.document.revision;
+  const sourceRevision = ctx.view.source.revision;
+  if (ontologyRevision !== sourceRevision) {
+    findings.push({
+      code: "ERR_SOURCE_REVISION_MISMATCH",
+      variant: "ontology",
+      location: { file: "ontology.yml", pointer: "/document/revision" },
+      data: {
+        ontologyRevision,
+        sourceRevision,
+        sourceId: ctx.view.source.id,
+      },
+    });
+  }
+
   for (const [index, term] of ctx.view.terms.entries()) {
     const pointer = `/terms/${index}`;
     const fragment = fragmentById.get(term.fragment);

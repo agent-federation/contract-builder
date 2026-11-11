@@ -9,6 +9,15 @@
       }
     },
     {
+      "code": "ERR_SOURCE_REVISION_MISMATCH",
+      "variant": "ontology",
+      "severity": "error",
+      "messages": {
+        "en": "The ontology revision \"{{ontologyRevision}}\" does not match the declared source revision \"{{sourceRevision}}\" of \"{{sourceId}}\". Bump one revision to match the other.",
+        "ru": "Ревизия онтологии \"{{ontologyRevision}}\" не совпадает с объявленной ревизией источника \"{{sourceRevision}}\" (\"{{sourceId}}\"). Приведите ревизии в соответствие."
+      }
+    },
+    {
       "code": "ERR_SOURCE_QUOTE_NOT_FOUND",
       "variant": "fragment",
       "severity": "error",

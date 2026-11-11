@@ -77,6 +77,22 @@ test("checks/ontology: accepts a verbatim definition and rejects a paraphrase", 
   assert.deepEqual(codes(findings), ["ERR_QUOTE_NOT_IN_FRAGMENT"]);
 });
 
+test("checks/ontology: rejects an ontology revision that differs from the source revision", async () => {
+  const model = modelWith([fragment()]);
+  const documents = structuredClone(model.documents);
+  const ontologyDocument = documents.ontology as { document: { revision: string } };
+  ontologyDocument.document.revision = "2";
+
+  const findings = await ontology(context({ ...model, documents }));
+  assert.deepEqual(codes(findings), ["ERR_SOURCE_REVISION_MISMATCH"]);
+  assert.equal(findings[0]?.variant, "ontology");
+  assert.deepEqual(findings[0]?.data, {
+    ontologyRevision: "2",
+    sourceRevision: "1",
+    sourceId: "SRC",
+  });
+});
+
 test("checks/provision: accepts a consistent provision and rejects a modality upgrade", async () => {
   const ok = await provision(context(modelWith([fragment(), provisionEntity()])));
   assert.deepEqual(ok, []);

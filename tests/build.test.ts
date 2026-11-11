@@ -353,6 +353,29 @@ test("ревизия источника: заголовок legacy не совп
   assert.deepEqual(errCodes(result), ["ERR_SOURCE_REVISION_MISMATCH"]);
 });
 
+test("ontology: the real slice declares the source revision", async () => {
+  const result = await runBuild(base());
+  assert.equal(result.exitCode, 0, result.diagnostics.map((d) => d.message).join("\n"));
+  assert.equal(codes(result).includes("ERR_SOURCE_REVISION_MISMATCH"), false);
+});
+
+test("ontology: a revision that diverges from the source — ERR_SOURCE_REVISION_MISMATCH", async () => {
+  const dir = await copySpec("ontology-revision-mismatch");
+  const ontologyPath = path.join(dir, "ontology.yml");
+  const ontology = parseYaml(await readFile(ontologyPath, "utf8")) as {
+    document: { revision: string };
+  };
+  ontology.document.revision = "9.9.9";
+  await writeFile(ontologyPath, stringifyYaml(ontology), "utf8");
+
+  const result = await runBuild(base({ specDir: dir }));
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.deepEqual(errCodes(result), ["ERR_SOURCE_REVISION_MISMATCH"]);
+  const mismatch = result.diagnostics.find((d) => d.code === "ERR_SOURCE_REVISION_MISMATCH");
+  assert.match(mismatch?.message ?? "", /9\.9\.9/);
+});
+
 test("локатор: неизвестный раздел — ERR_SOURCE_LOCATOR_UNKNOWN", async () => {
   const dir = await copySpec("locator-unknown");
   const sourcesPath = path.join(dir, "sources.yml");
