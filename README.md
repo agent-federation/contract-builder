@@ -216,7 +216,9 @@ A snapshot of the full implementation status lives in
 English is the default locale for the CLI and for build diagnostics. Pass `--locale en|ru` to
 `bun spec/build.ts` to select the human-output locale; `--json` keeps the same diagnostic shape
 and follows the same locale. The locale affects human text only, never artifact bytes or the build
-identity.
+identity. If the CLI cannot produce a build result, `--json` still writes one error document
+instead of a stack trace; its shape and stable codes are in
+[docs/reference/cli-json-error.md](docs/reference/cli-json-error.md).
 
 A project declares the locale of its rendered artifact separately, in `contract-builder.json`
 (`"locale": "ru"` for CORE-001). The renderer receives the diagnostic snapshot resolved in that

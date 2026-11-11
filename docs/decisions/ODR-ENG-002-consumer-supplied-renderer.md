@@ -37,6 +37,7 @@ Keeping that hardcode blocks the CORE-001 extraction (#220): once the project mo
 - The CLI carries no domain token; a project can only use a renderer module that lives inside its own profile directory and is declared in `profile.files`. The module body executes on import; the declared renderer id is compared afterwards and only gates registration.
 - **Residual assumption (TOCTOU).** Containment resolves the module path and the profile directory once, before the closure preflight and the import; a file swapped between the check and the import is outside the guarantee. This is the engine's existing trust model — integrity and accounting mechanisms are not a security boundary, and process/isolation is deferred (contract §3.3, D32) — and it applies equally to the engine's own profile imports.
 - **Import failure under `--json`.** A renderer import failure is a configuration error, not a build result: the CLI writes the real cause to stderr and exits 1, and `--json` emits no result object on this path. Missing, unnamed, undeclared or mismatched modules still produce `core.registry.missing` through the normal result object.
+  **Update (CB-285, [#285](https://github.com/agent-federation/contract-builder/issues/285)):** with `--json` this path now writes the documented CLI error document (`kind: "error"`, code `cli.renderer-load-failed`) to stdout and still exits 1; the real cause stays on stderr and the document is still not a `BuildResult`. See [cli-json-error.md](../reference/cli-json-error.md).
 
 ## 5. Verification
 
