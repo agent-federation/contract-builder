@@ -453,7 +453,11 @@ test("вывод: ошибка записи артефакта — диагно�
   assert.ok(diagnostic !== undefined, result.diagnostics.map((d) => d.message).join("\n"));
   assert.equal(diagnostic.file, "output/CORE-001.draft.md");
   assert.match(diagnostic.message, /Failed to write the output/);
-  assert.equal(codes(result).includes("core.cli.internal-error"), false);
+  assert.equal(
+    result.diagnostics.some((item) => item.code.startsWith("core.")),
+    false,
+    "the write failure was classified as an engine diagnostic",
+  );
 });
 
 async function copySpec(name: string, mutateLegacy?: (text: string) => string): Promise<string> {

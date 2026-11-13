@@ -51,10 +51,12 @@ returns a normal build result with exit code 1. In `--json` mode that result car
 diagnostic; in human mode the CLI prints it and no stack trace. A valid build is unaffected: the
 existing CORE-001 and CORE-000 artifacts stay byte-identical.
 
-Each `try` encloses the profile call only. Engine code that consumes its return value —
-`applyVerificationClaims` for the provenance claims and `resolveFindings` for the validator
-findings — runs outside the catch, so an engine throw is not mislabelled
-`core.profile.hook-failed`.
+The provenance catch encloses only the `validator.verifyProvenance` call. Its return value is
+profile-supplied data, so a non-array return is classified as profile misbehaviour
+(`core.profile.hook-failed`) before the engine's `applyVerificationClaims` pass runs outside the
+catch. `resolveFindings` keeps its own catch: it consumes the profile-returned finding list, so a
+throw while resolving a malformed list is conservatively attributed to the validator, and an
+engine bug in the resolver would land in that same tier. That is a deliberate attribution limit.
 
 ## Classification tiers and attribution limits
 
@@ -72,7 +74,7 @@ The codes above are one tier of a three-tier classification:
    profile hook; the tiers stay distinct instead of guessing an owner.
 
 `verifyQuote` has one further attribution limit. The adapter contract returns only `found`,
-`mismatch` or `unknown-locator`; when an adapter throws, the engine records
+`outside`, `unsupported` or `unknown-locator`; when an adapter throws, the engine records
 `core.profile.hook-failed` with the real cause and returns the `unknown-locator` sentinel so the
 profile's `verifyProvenance` pass can finish. A provenance validator may therefore see
 "couldn't locate" for a real adapter throw, but the blocking diagnostic is already on the result

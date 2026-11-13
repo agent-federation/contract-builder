@@ -245,9 +245,19 @@ async function buildResolvedProject(
       profileHookFailed(diags, "provenance verifier", "profile.json", "/validator", error);
       return result(options, diags, null, outputPath, false, "errors");
     }
-    // Claim application is engine code, so it runs outside the profile-hook catch: a throw
-    // here is an engine fault, not profile misbehaviour, and must not be labelled
-    // `core.profile.hook-failed`.
+    // The claims are profile-supplied data, so a non-array return is profile misbehaviour and
+    // stays a hook diagnostic. Claim application itself is engine code and runs outside the
+    // catch: an engine throw there must not be labelled `core.profile.hook-failed`.
+    if (!Array.isArray(claims)) {
+      profileHookFailed(
+        diags,
+        "provenance verifier",
+        "profile.json",
+        "/validator",
+        new TypeError("verifyProvenance must return an array of claims"),
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
     if (!applyVerificationClaims(model, model.sources, claims, diags)) {
       return result(options, diags, null, outputPath, false, "errors");
     }
@@ -392,9 +402,12 @@ async function buildResolvedProject(
     await mkdir(path.dirname(outputPath), { recursive: true });
     await writeFile(outputPath, markdown, "utf8");
   } catch (error) {
-    diags.error("ERR_IO#output-write-failed", path.relative(specDir, outputPath), "", {
-      error: messageOf(error),
-    });
+    diags.error(
+      "ERR_IO#output-write-failed",
+      path.relative(specDir, outputPath).split(path.sep).join("/"),
+      "",
+      { error: messageOf(error) },
+    );
     return result(options, diags, markdown, outputPath, false, "errors", identity);
   }
   return result(options, diags, markdown, outputPath, true, null, identity);

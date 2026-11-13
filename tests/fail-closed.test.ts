@@ -138,6 +138,32 @@ test("fail-closed: a validator that returns a malformed finding list is a diagno
   assert.match(diagnostic.message, /validator/);
 });
 
+test("fail-closed: a provenance verifier that returns a non-array is a diagnostic", async () => {
+  const dir = await copyProjectWithProfile("malformed-provenance");
+  await writeProfileFile(
+    dir,
+    "validator.ts",
+    [
+      "export async function validate() {",
+      "  return [];",
+      "}",
+      "export async function verifyProvenance() {",
+      "  return undefined;",
+      "}",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await runBuild(base(dir));
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  const diagnostic = result.diagnostics.find((item) => item.code === "core.profile.hook-failed");
+  assert.ok(diagnostic !== undefined, failure(result));
+  assert.match(diagnostic.message, /provenance verifier/);
+  assert.match(diagnostic.message, /array of claims/);
+});
+
 test("fail-closed: a throwing quote adapter becomes a diagnostic", async () => {
   const dir = await copyProjectWithProfile("throwing-adapter");
   const throwingAdapter: SourceAdapter = {
@@ -276,7 +302,9 @@ test("fail-closed: --json engine preflight failure emits the documented CLI code
   assert.equal(output.kind, "error");
   assert.equal(output.exitCode, 1);
   assert.equal(output.error.code, "cli.engine-preflight");
-  assert.ok(output.error.message.length > 0);
+  // The message must be the engine diagnostic report, not the generic fallback text.
+  assert.match(output.error.message, /core\.path\.outside-root/);
+  assert.match(output.error.message, /package\.json/);
   assert.equal("mode" in output, false, "the error document fakes a build result");
   assert.equal("diagnostics" in output, false, "the error document fakes a build result");
   assert.equal(STACK_FRAME.test(run.stdout), false);
