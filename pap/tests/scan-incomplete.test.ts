@@ -1,15 +1,24 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { opendir } from "node:fs/promises";
 import path from "node:path";
+import type { DirectoryOpener } from "../src/paths.js";
+import { parseRfc3339 } from "../src/time.js";
+import { verifyPackage } from "../src/verify.js";
 import { fixtures, runPap } from "./support.js";
 import { cleanupTempDirs, tempDir } from "./temp.js";
 
 after(cleanupTempDirs);
 
 const NOW = "2026-11-02T00:00:00Z";
+const NOW_INSTANT = parseRfc3339(NOW);
+if (NOW_INSTANT === null) throw new Error(`invalid test clock: ${NOW}`);
 const base = path.join(fixtures, "base");
 const scanIncompleteCode = "pap.package.undeclared-scan-incomplete";
+const scanIncompleteMessage =
+  "the undeclared-file scan is incomplete; the absence of undeclared files was not established";
+const requiredPolicy = path.join(fixtures, "trust-policy", "signature-required.json");
 const runningAsRoot = typeof process.getuid === "function" && process.getuid() === 0;
 const skipPermissionTest = runningAsRoot
   ? "permission bits do not bind a root process"
@@ -30,31 +39,69 @@ function verify(
   return runPap(["verify", ".", "--format", "json", "--now", NOW, ...extra], dir);
 }
 
+function inProcessVerify(
+  dir: string,
+  options: { policyPath?: string; openDirectory?: DirectoryOpener } = {},
+): ReturnType<typeof verifyPackage> {
+  return verifyPackage({
+    packagePath: dir,
+    now: NOW_INSTANT as bigint,
+    ...(options.policyPath === undefined ? {} : { policyPath: options.policyPath }),
+    ...(options.openDirectory === undefined ? {} : { openDirectory: options.openDirectory }),
+  });
+}
+
+/**
+ * Wrap `opendir` and fail the nth call for one directory. This makes an
+ * enumeration failure deterministic even when `mode 000` does not bind (for
+ * example under an elevated test process).
+ */
+function failingOpener(directoryName: string, failOnCall: number): DirectoryOpener {
+  const calls = new Map<string, number>();
+  return (async (absolute, options) => {
+    const key = String(absolute);
+    if (path.basename(key) === directoryName) {
+      const count = (calls.get(key) ?? 0) + 1;
+      calls.set(key, count);
+      if (count === failOnCall) {
+        throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+      }
+    }
+    return options === undefined
+      ? opendir(absolute)
+      : opendir(absolute, options as Parameters<typeof opendir>[1]);
+  }) as DirectoryOpener;
+}
+
 function codes(report: any): string[] {
   return report.diagnostics.map((diagnostic: any) => diagnostic.code);
+}
+
+function assertCanonicalScanIncomplete(report: any): void {
+  const scan = report.diagnostics.filter(
+    (diagnostic: any) => diagnostic.code === scanIncompleteCode,
+  );
+  assert.equal(scan.length, 1, "exactly one canonical scan-incomplete diagnostic");
+  assert.equal(scan[0].code, "pap.package.undeclared-scan-incomplete");
+  assert.equal(scan[0].severity, "warning");
+  assert.equal(scan[0].scope, "package");
+  assert.equal(scan[0].message, scanIncompleteMessage);
+  const limitations = report.limitations.filter(
+    (limitation: any) => limitation.code === scanIncompleteCode,
+  );
+  assert.equal(limitations.length, 1, "exactly one canonical scan-incomplete limitation");
+  assert.equal(limitations[0].detail, scanIncompleteMessage);
+  assert.equal(report.coverage.full, false);
+  assert.ok(!codes(report).includes("pap.package.io"));
+  assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
 }
 
 function assertScanIncompleteReport(report: any, result: { status: number }): void {
   assert.equal(result.status, 2);
   assert.equal(report.verdict, "INCOMPLETE");
-  assert.equal(report.coverage.full, false);
   assert.equal(report.dimensions.integrity.package, "PASS");
   assert.equal(report.dimensions.integrity.artifacts, "PASS");
-  const scan = report.diagnostics.filter(
-    (diagnostic: any) => diagnostic.code === scanIncompleteCode,
-  );
-  assert.equal(scan.length >= 1, true);
-  assert.ok(
-    report.diagnostics.some(
-      (diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete",
-    ),
-    "the scan-incomplete diagnostic must be reported",
-  );
-  assert.ok(scan.every((diagnostic: any) => diagnostic.severity === "warning"));
-  assert.ok(scan.every((diagnostic: any) => diagnostic.scope === "package"));
-  assert.ok(report.limitations.some((limitation: any) => limitation.code === scanIncompleteCode));
-  assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
-  assert.ok(!codes(report).includes("pap.package.io"));
+  assertCanonicalScanIncomplete(report);
 }
 
 test("an unlistable package root with a readable manifest is scan-incomplete, not a package FAIL", {
@@ -99,6 +146,51 @@ test("the private traversal-depth budget is scan-incomplete, never a limit viola
   assertScanIncompleteReport(JSON.parse(result.stdout), result);
 });
 
+test("an unreadable signatures/ directory is scan-incomplete, not a package-I/O FAIL", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage();
+  const signatures = path.join(dir, "signatures");
+  mkdirSync(signatures);
+  try {
+    chmodSync(signatures, 0o000);
+    const result = verify(dir);
+    const report = JSON.parse(result.stdout);
+    assertScanIncompleteReport(report, result);
+    // RFC §4.3.3: no dimension is NOT_EVALUATED solely for the scan condition.
+    assert.equal(report.dimensions.signature.validity, "NOT_APPLICABLE");
+    assert.equal(report.dimensions.sources.integrity, "PASS");
+    assert.equal(report.dimensions.checks.results.length, 3);
+  } finally {
+    chmodSync(signatures, 0o755);
+  }
+});
+
+test("an unreadable signatures/ directory under a required-signature policy is scan-incomplete", {
+  skip: skipPermissionTest,
+}, () => {
+  const dir = tempPackage();
+  const signatures = path.join(dir, "signatures");
+  mkdirSync(signatures);
+  try {
+    chmodSync(signatures, 0o000);
+    const result = verify(dir, ["--trust-policy", requiredPolicy]);
+    const report = JSON.parse(result.stdout);
+    assertScanIncompleteReport(report, result);
+    // The ordinary required-signature evaluation of an empty directory is
+    // preserved; the discovery failure does not change it to something else.
+    assert.equal(report.dimensions.signature.validity, "NOT_EVALUATED");
+    assert.equal(report.dimensions.trust.signerIdentity, "NOT_APPLICABLE");
+    assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+    assert.ok(
+      !codes(report).includes("pap.signature.absent"),
+      "an incomplete scan does not establish that no signature is present",
+    );
+  } finally {
+    chmodSync(signatures, 0o755);
+  }
+});
+
 test("an independently established FAIL stays FAIL under scan-incomplete coverage", {
   skip: skipPermissionTest,
 }, () => {
@@ -121,6 +213,68 @@ test("an independently established FAIL stays FAIL under scan-incomplete coverag
   } finally {
     chmodSync(notes, 0o755);
   }
+});
+
+test("an injected signatures/ opendir failure is scan-incomplete, not a package-I/O FAIL", async () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  const { report, exitCode } = await inProcessVerify(dir, {
+    openDirectory: failingOpener("signatures", 1),
+  });
+  assert.equal(exitCode, 2);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.integrity.package, "PASS");
+  assert.equal(report.dimensions.integrity.artifacts, "PASS");
+  assert.equal(report.dimensions.sources.integrity, "PASS");
+  assert.equal(report.dimensions.signature.validity, "NOT_APPLICABLE");
+  assertCanonicalScanIncomplete(report);
+});
+
+test("signature discovery alone reports the scan-incomplete condition exactly once", async () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  // The general walker enumerates `signatures/` first and succeeds; signature
+  // discovery is then the only enumeration that fails.
+  const { report, exitCode } = await inProcessVerify(dir, {
+    openDirectory: failingOpener("signatures", 2),
+  });
+  assert.equal(exitCode, 2);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.integrity.package, "PASS");
+  assert.equal(report.dimensions.signature.validity, "NOT_APPLICABLE");
+  assertCanonicalScanIncomplete(report);
+});
+
+test("an injected signatures/ failure under a required policy keeps the ordinary dimensions", async () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  const { report, exitCode } = await inProcessVerify(dir, {
+    policyPath: requiredPolicy,
+    openDirectory: failingOpener("signatures", 2),
+  });
+  assert.equal(exitCode, 2);
+  assert.equal(report.verdict, "INCOMPLETE");
+  assert.equal(report.dimensions.signature.validity, "NOT_EVALUATED");
+  assert.equal(report.dimensions.trust.signerIdentity, "NOT_APPLICABLE");
+  assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+  assert.ok(!codes(report).includes("pap.signature.absent"));
+  assert.equal(report.coverage.full, false);
+  assertCanonicalScanIncomplete(report);
+});
+
+test("an injected independent FAIL stays FAIL under the scan condition", async () => {
+  const dir = tempPackage(path.join(fixtures, "F02-artifact-byte"));
+  mkdirSync(path.join(dir, "signatures"));
+  const { report, exitCode } = await inProcessVerify(dir, {
+    openDirectory: failingOpener("signatures", 2),
+  });
+  assert.equal(exitCode, 1);
+  assert.equal(report.verdict, "FAIL");
+  assert.equal(report.coverage.full, false);
+  assert.equal(report.dimensions.integrity.artifacts, "FAIL");
+  assert.equal(report.dimensions.integrity.package, "PASS");
+  assert.ok(codes(report).includes("pap.integrity.artifact-mismatch"));
+  assertCanonicalScanIncomplete(report);
 });
 
 test("a missing declared payload remains a package FAIL, not scan-incomplete", () => {

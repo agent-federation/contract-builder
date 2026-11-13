@@ -465,10 +465,21 @@ export interface WalkResult {
 }
 
 /**
+ * Directory-enumeration seam. Production code uses `opendir`; tests inject a
+ * failing opener to exercise enumeration failures deterministically, including
+ * when the test process has elevated privileges and `mode 000` does not bind.
+ */
+export type DirectoryOpener = typeof opendir;
+
+/**
  * Bound directory enumeration by entry count and depth. Directory read errors
  * other than an absent directory are returned, never silently ignored.
  */
-export async function walkPackageFiles(root: PackageRoot, limits: Limits): Promise<WalkResult> {
+export async function walkPackageFiles(
+  root: PackageRoot,
+  limits: Limits,
+  openDirectory: DirectoryOpener = opendir,
+): Promise<WalkResult> {
   const files: string[] = [];
   const maxEntries = Math.max(1_024, limits.payloadFiles * 2);
   let entries = 0;
@@ -484,7 +495,7 @@ export async function walkPackageFiles(root: PackageRoot, limits: Limits): Promi
       relativeDir === "" ? root.real : path.join(root.real, ...relativeDir.split("/"));
     let directory;
     try {
-      directory = await opendir(absolute);
+      directory = await openDirectory(absolute);
     } catch (readError) {
       const code = (readError as NodeJS.ErrnoException).code;
       if (code !== "ENOENT") {

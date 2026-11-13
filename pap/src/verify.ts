@@ -23,7 +23,12 @@ import { IoFailure, UsageError } from "./verify/errors.js";
 import { loadPayloads } from "./verify/loading.js";
 import { exitCodeForVerdict } from "./verify/options.js";
 import type { Payloads, VerifyOptions, VerifyResult } from "./verify/options.js";
-import { assembleReport, failedManifestReport, reportUndeclaredFiles } from "./verify/report.js";
+import {
+  assembleReport,
+  failedManifestReport,
+  reportScanIncomplete,
+  reportUndeclaredFiles,
+} from "./verify/report.js";
 import { evaluateSignatureTrust } from "./verify/trust.js";
 
 export async function verifyPackage(options: VerifyOptions): Promise<VerifyResult> {
@@ -208,7 +213,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   let scanIncomplete = false;
   let nestedManifestFailure = false;
   if (manifest !== null && !structuralFailure) {
-    const scan = await reportUndeclaredFiles(root, manifest, limits, diag);
+    const scan = await reportUndeclaredFiles(root, manifest, limits, diag, options.openDirectory);
     scanIncomplete = scan.incomplete;
     nestedManifestFailure = scan.nestedManifest;
   }
@@ -326,9 +331,18 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     evaluatedAt,
     reviews: payloads.claimMap.reviews,
     diag,
+    openDirectory: options.openDirectory,
   });
   if (trustPhase.integrityFailure) {
     integrityPackage = "FAIL";
+  }
+  // RFC §4.3.3: the undeclared-file walker and signature discovery enumerate
+  // the same tree. Either one failing to enumerate establishes one canonical
+  // scan-incomplete condition, reported exactly once here, never twice and
+  // never as a package I/O failure.
+  scanIncomplete = scanIncomplete || trustPhase.signature.scanIncomplete;
+  if (scanIncomplete) {
+    reportScanIncomplete(diag);
   }
 
   return assembleReport({

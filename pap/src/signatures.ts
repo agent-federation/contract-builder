@@ -13,7 +13,7 @@ import { decodeSignatureEnvelope } from "./decode.js";
 import type { EnvelopeSignature } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { readPackageFile, resolvePackageDirectory } from "./paths.js";
-import type { PackageRoot } from "./paths.js";
+import type { DirectoryOpener, PackageRoot } from "./paths.js";
 import type { TrustPolicy } from "./policy.js";
 import type { Diagnostic, Limits, SignatureEntry } from "./types.js";
 
@@ -26,7 +26,14 @@ export interface SignatureEvaluation {
   signerIdentity: "TRUSTED" | "UNTRUSTED" | "UNKNOWN" | "NOT_EVALUATED" | "NOT_APPLICABLE";
   policyDecision: "ACCEPTED" | "REJECTED" | "STALE" | "NOT_EVALUATED";
   envelopeLimitHit: boolean;
+  /** A path-safety or structural discovery failure: a package-scope failure. */
   discoveryFailure: boolean;
+  /**
+   * An ordinary I/O/enumeration failure while listing `signatures/`. It affects
+   * only the undeclared-file scan (RFC §4.3.3), never `integrity.package`, and
+   * the caller reports the single canonical scan-incomplete condition.
+   */
+  scanIncomplete: boolean;
   /**
    * True when the envelope-count limit stopped discovery before the verifier
    * read any envelope. The signature scope is then NOT_EVALUATED rather than
@@ -49,6 +56,8 @@ export async function evaluateSignatures(options: {
   packageIdentity: string;
   mode: "disabled" | "optional" | "required";
   limits: Limits;
+  /** Filesystem seam used by tests to inject deterministic enumeration failures. */
+  openDirectory?: DirectoryOpener;
 }): Promise<SignatureEvaluation> {
   const diagnostics: Diagnostic[] = [];
   const entries: SignatureEntry[] = [];
@@ -67,6 +76,7 @@ export async function evaluateSignatures(options: {
     policyDecision: "NOT_EVALUATED",
     envelopeLimitHit: false,
     discoveryFailure: false,
+    scanIncomplete: false,
     readNone: false,
     diagnostics,
   });
@@ -74,8 +84,16 @@ export async function evaluateSignatures(options: {
     return empty();
   }
 
-  const discovered = await discoverEnvelopes(options.root, options.limits);
-  if (discovered.error !== null) {
+  const discovered = await discoverEnvelopes(
+    options.root,
+    options.limits,
+    options.openDirectory ?? opendir,
+  );
+  // RFC §4.3.3: an ordinary enumeration failure of `signatures/` is the
+  // scan-incomplete condition (the caller emits its one canonical diagnostic),
+  // not a package I/O failure. Path-safety and structural failures stay
+  // package-scope errors.
+  if (discovered.error !== null && !discovered.scanIncomplete) {
     diagnostics.push({
       code: discovered.errorCode ?? "pap.package.io",
       severity: "error",
@@ -97,6 +115,7 @@ export async function evaluateSignatures(options: {
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: true,
       discoveryFailure: false,
+      scanIncomplete: false,
       readNone: true,
       diagnostics,
     };
@@ -338,7 +357,8 @@ export async function evaluateSignatures(options: {
       options.policy === undefined && entries.length > 0 ? "NOT_EVALUATED" : signerIdentity,
     policyDecision,
     envelopeLimitHit,
-    discoveryFailure: discovered.error !== null,
+    discoveryFailure: discovered.error !== null && !discovered.scanIncomplete,
+    scanIncomplete: discovered.scanIncomplete,
     readNone: false,
     diagnostics,
   };
@@ -364,18 +384,27 @@ interface EnvelopeDiscovery {
   limitHit: boolean;
   error: string | null;
   errorCode?: "pap.package.symlink" | "pap.package.path-escape";
+  /** An ordinary I/O/enumeration failure, mapped to scan-incomplete. */
+  scanIncomplete: boolean;
 }
 
-async function discoverEnvelopes(root: PackageRoot, limits: Limits): Promise<EnvelopeDiscovery> {
+async function discoverEnvelopes(
+  root: PackageRoot,
+  limits: Limits,
+  openDirectory: DirectoryOpener,
+): Promise<EnvelopeDiscovery> {
   const resolved = await resolvePackageDirectory(root, "signatures");
   if (!resolved.ok) {
     if (resolved.failure === "missing") {
-      return { names: [], limitHit: false, error: null };
+      return { names: [], limitHit: false, error: null, scanIncomplete: false };
     }
     return {
       names: [],
       limitHit: false,
       error: resolved.message,
+      // A path-safety failure or a non-directory `signatures/` entry stays a
+      // package failure; an ordinary stat/resolve I/O failure is scan-incomplete.
+      scanIncomplete: resolved.failure === "io",
       ...(resolved.failure === "symlink"
         ? { errorCode: "pap.package.symlink" as const }
         : resolved.failure === "path-escape"
@@ -386,9 +415,14 @@ async function discoverEnvelopes(root: PackageRoot, limits: Limits): Promise<Env
   const names: string[] = [];
   let directoryHandle;
   try {
-    directoryHandle = await opendir(resolved.absolute);
+    directoryHandle = await openDirectory(resolved.absolute);
   } catch {
-    return { names, limitHit: false, error: "cannot read the signatures directory" };
+    return {
+      names,
+      limitHit: false,
+      error: "cannot read the signatures directory",
+      scanIncomplete: true,
+    };
   }
   try {
     let entries = 0;
@@ -396,20 +430,25 @@ async function discoverEnvelopes(root: PackageRoot, limits: Limits): Promise<Env
     for await (const entry of directoryHandle) {
       entries += 1;
       if (entries > maxEntries) {
-        return { names: [], limitHit: true, error: null };
+        return { names: [], limitHit: true, error: null, scanIncomplete: false };
       }
       if (entry.isFile() && ENVELOPE_NAME.test(entry.name)) {
         names.push(`signatures/${entry.name}`);
         if (names.length > limits.signatureEnvelopes) {
-          return { names: [], limitHit: true, error: null };
+          return { names: [], limitHit: true, error: null, scanIncomplete: false };
         }
       }
     }
   } catch {
-    return { names, limitHit: false, error: "cannot enumerate the signatures directory" };
+    return {
+      names,
+      limitHit: false,
+      error: "cannot enumerate the signatures directory",
+      scanIncomplete: true,
+    };
   }
   names.sort();
-  return { names, limitHit: false, error: null };
+  return { names, limitHit: false, error: null, scanIncomplete: false };
 }
 
 type Parsed =
