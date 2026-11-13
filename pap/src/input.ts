@@ -112,7 +112,15 @@ export async function hashPlannedInputs(
   return { outcomes, setDigest: complete ? setHasher.digest() : null };
 }
 
-/** Hash a single input file under `pap.input.file.v1` with streamed framing. */
+/**
+ * Hash a single input file under `pap.input.file.v1` with streamed framing.
+ *
+ * Kept as the single-input regression vehicle for
+ * `pap/tests/streaming.test.ts`, which pins the 64 KiB CRLF chunk-boundary
+ * normalization without building a package plan. The verifier itself hashes
+ * declared inputs through `hashPlannedInputs`, which feeds the per-file and set
+ * hashers from one descriptor; this helper is not called by production code.
+ */
 export async function hashInput(
   root: PackageRoot,
   relative: string,
