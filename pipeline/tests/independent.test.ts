@@ -5,7 +5,17 @@ import { createHash } from "node:crypto";
 import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { assembleBatch, extractArchive, parseVerifierReport } from "../independent.js";
+import {
+  ARCHIVE_FETCH_MAX_ATTEMPTS,
+  ARCHIVE_FETCH_MAX_DELAY_MS,
+  type ArchiveFetch,
+  archiveRetryDelayMs,
+  assembleBatch,
+  extractArchive,
+  fetchArchive,
+  type IndependentPin,
+  parseVerifierReport,
+} from "../independent.js";
 import { renderEvidenceMarkdown } from "../evidence.js";
 import {
   COMMIT,
@@ -503,4 +513,243 @@ test("archive extraction accepts a regular top-level-directory archive", {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Archive download retry policy: offline stubs, no network.
+// ---------------------------------------------------------------------------
+
+const ARCHIVE_BODY = new TextEncoder().encode("pinned archive bytes\n");
+
+const RETRY_PIN: IndependentPin = {
+  name: "rust",
+  id: "pap.verifier.rust",
+  version: "0.1.0",
+  implementationDigest: `sha256:${"1".repeat(64)}`,
+  repository: "example/pinned-archive",
+  tag: "test",
+  commit: "0123456789abcdef0123456789abcdef01234567",
+  tarball: "https://example.invalid/pinned-archive.tar.gz",
+  tarballSha256: createHash("sha256").update(ARCHIVE_BODY).digest("hex"),
+  build: "none",
+};
+
+function statusResponse(status: number, body = "unavailable"): Response {
+  return new Response(body, {
+    status,
+    statusText: status === 503 ? "Service Unavailable" : "",
+  });
+}
+
+interface RetryStub {
+  readonly fetch: ArchiveFetch;
+  readonly sleep: (milliseconds: number) => Promise<void>;
+  readonly sleeps: number[];
+  readonly calls: () => number;
+}
+
+/** A fetch stub that serves the given responses in order and records the backoff. */
+function retryStub(responses: readonly (() => Response | Promise<Response>)[]): RetryStub {
+  let calls = 0;
+  const sleeps: number[] = [];
+  return {
+    fetch: async () => {
+      calls += 1;
+      const next = responses[calls - 1];
+      if (next === undefined) throw new Error(`unexpected fetch call ${calls}`);
+      return next();
+    },
+    sleep: async (milliseconds) => {
+      sleeps.push(milliseconds);
+    },
+    sleeps,
+    calls: () => calls,
+  };
+}
+
+test("fetchArchive retries a 503/503/200 sequence and verifies the pin", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-retry-"));
+  try {
+    const stub = retryStub([
+      () => statusResponse(503),
+      () => statusResponse(503),
+      () => new Response(ARCHIVE_BODY, { status: 200 }),
+    ]);
+    const archive = await fetchArchive(RETRY_PIN, root, {
+      fetch: stub.fetch,
+      sleep: stub.sleep,
+      random: () => 0.5,
+    });
+
+    assert.equal(archive, path.join(root, "rust.tar.gz"));
+    assert.deepEqual(new Uint8Array(await readFile(archive)), ARCHIVE_BODY);
+    assert.equal(stub.calls(), 3);
+    assert.equal(stub.sleeps.length, 2);
+    assert.ok(stub.sleeps[0] !== undefined && stub.sleeps[0] >= 500 && stub.sleeps[0] <= 1_000);
+    assert.ok(stub.sleeps[1] !== undefined && stub.sleeps[1] >= 1_000 && stub.sleeps[1] <= 2_000);
+
+    // The verified cached archive is reused without another network attempt.
+    await fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep });
+    assert.equal(stub.calls(), 3);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetchArchive retries every retryable HTTP status once", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-statuses-"));
+  try {
+    for (const status of [429, 500, 502, 503, 504]) {
+      await rm(path.join(root, "rust.tar.gz"), { force: true });
+      const stub = retryStub([
+        () => statusResponse(status),
+        () => new Response(ARCHIVE_BODY, { status: 200 }),
+      ]);
+      await fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep });
+      assert.equal(stub.calls(), 2, `${status} must be retried once`);
+      assert.equal(stub.sleeps.length, 1);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetchArchive exhausts persistent 5xx failures and names URL, status and attempts", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-exhausted-"));
+  try {
+    const stub = retryStub([
+      () => statusResponse(503),
+      () => statusResponse(503),
+      () => statusResponse(503),
+    ]);
+    let message = "";
+    await assert.rejects(
+      fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep }),
+      (error: unknown) => {
+        message = error instanceof Error ? error.message : String(error);
+        return true;
+      },
+    );
+
+    assert.ok(message.includes(RETRY_PIN.tarball), message);
+    assert.match(message, /HTTP 503/);
+    assert.match(message, new RegExp(`after ${ARCHIVE_FETCH_MAX_ATTEMPTS} attempts`));
+    assert.equal(stub.calls(), ARCHIVE_FETCH_MAX_ATTEMPTS);
+    assert.equal(stub.sleeps.length, ARCHIVE_FETCH_MAX_ATTEMPTS - 1);
+    await assert.rejects(access(path.join(root, "rust.tar.gz")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetchArchive does not retry a sha256 pin mismatch and writes no archive", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-mismatch-"));
+  try {
+    const tampered = new TextEncoder().encode("tampered archive bytes\n");
+    const stub = retryStub([() => new Response(tampered, { status: 200 })]);
+    await assert.rejects(
+      fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep }),
+      /sha256 mismatch for/,
+    );
+
+    assert.equal(stub.calls(), 1);
+    assert.equal(stub.sleeps.length, 0);
+    await assert.rejects(access(path.join(root, "rust.tar.gz")));
+    await assert.rejects(access(path.join(root, "rust.tar.gz.tmp")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetchArchive does not retry a 403 or 404 response", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-terminal-"));
+  try {
+    for (const status of [403, 404]) {
+      const stub = retryStub([() => statusResponse(status)]);
+      await assert.rejects(
+        fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep }),
+        new RegExp(`HTTP ${status}`),
+      );
+      assert.equal(stub.calls(), 1, `${status} must not be retried`);
+      assert.equal(stub.sleeps.length, 0);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetchArchive retries a network error and then succeeds", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-network-"));
+  try {
+    const stub = retryStub([
+      () => {
+        throw new TypeError("fetch failed: connection reset by peer");
+      },
+      () => new Response(ARCHIVE_BODY, { status: 200 }),
+    ]);
+    const archive = await fetchArchive(RETRY_PIN, root, {
+      fetch: stub.fetch,
+      sleep: stub.sleep,
+    });
+
+    assert.deepEqual(new Uint8Array(await readFile(archive)), ARCHIVE_BODY);
+    assert.equal(stub.calls(), 2);
+    assert.equal(stub.sleeps.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetchArchive exhausts persistent network errors with the attempt count", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-network-exhausted-"));
+  try {
+    const stub = retryStub([
+      () => {
+        throw new TypeError("fetch failed: socket hang up");
+      },
+      () => {
+        throw new TypeError("fetch failed: socket hang up");
+      },
+      () => {
+        throw new TypeError("fetch failed: socket hang up");
+      },
+    ]);
+    let message = "";
+    await assert.rejects(
+      fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep }),
+      (error: unknown) => {
+        message = error instanceof Error ? error.message : String(error);
+        return true;
+      },
+    );
+
+    assert.match(message, /after 3 attempts/);
+    assert.match(message, /network error/);
+    assert.match(message, /socket hang up/);
+    assert.equal(stub.calls(), ARCHIVE_FETCH_MAX_ATTEMPTS);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("archive retry backoff is exponential, capped and jittered", () => {
+  assert.equal(
+    archiveRetryDelayMs(1, () => 0),
+    500,
+  );
+  assert.equal(
+    archiveRetryDelayMs(1, () => 0.999_999),
+    1_000,
+  );
+  assert.equal(
+    archiveRetryDelayMs(2, () => 0),
+    1_000,
+  );
+  assert.equal(
+    archiveRetryDelayMs(2, () => 0.999_999),
+    2_000,
+  );
+  const capped = archiveRetryDelayMs(10, () => 0.5);
+  assert.ok(capped >= ARCHIVE_FETCH_MAX_DELAY_MS / 2);
+  assert.ok(capped <= ARCHIVE_FETCH_MAX_DELAY_MS);
 });
