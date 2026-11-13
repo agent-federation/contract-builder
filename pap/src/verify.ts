@@ -204,15 +204,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
   const declaredSpecs: CheckSpec[] = manifest?.checkSpecs ?? validation.checkSpecs;
   const policyChecks = loadedPolicy?.policy.requiredChecks ?? [];
 
-  const payloads = await loadPayloads(
-    root,
-    limits,
-    manifest,
-    structuralFailure,
-    artifactPathFailure,
-    diagnostics,
-    diag,
-  );
+  const payloads = await loadPayloads(root, limits, manifest, structuralFailure, diagnostics, diag);
   let scanIncomplete = false;
   let nestedManifestFailure = false;
   if (manifest !== null && !structuralFailure) {

@@ -64,6 +64,11 @@ input is rejected rather than normalised: an unparsable `--now` is a usage error
 invalid package input. The pipeline gate applies the same grammar when it
 re-derives policy freshness.
 
+**Signature report order.** `dimensions.signature.signatures[]` is ordered by
+`path` then `keyId` (RFC §9.9). An entry whose envelope signature has a missing
+or empty `keyId` has no key to compare and sorts after every named key at the
+same path.
+
 ## Tests
 
 ```bash
