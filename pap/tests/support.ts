@@ -8,6 +8,7 @@ import { onTempCleanup, tempDir } from "./temp.js";
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const fixtures = path.join(root, "fixtures", "pap-v0.1");
 export const cli = path.join(root, "src", "cli.ts");
+export const fsProbe = path.join(root, "tests", "support", "fs-probe.ts");
 export const BASE_IDENTITY =
   "sha256:77a8d1d0882428efdfa5bfc38faa1ff7ba772aff9373b9e6135a8bb744119020";
 
@@ -44,9 +45,16 @@ function sentinelEnv(): { dir: string; log: string } {
   return sentinel;
 }
 
-export function runPap(argv: string[], cwd: string): RunResult {
+export interface ProbeOptions {
+  target: string;
+  log: string;
+  action: "none" | "replace" | "mutate" | "fail-read" | "short-read" | "grow";
+}
+
+export function runPap(argv: string[], cwd: string, probe?: ProbeOptions): RunResult {
   const env = sentinelEnv();
-  const result = spawnSync(process.execPath, [cli, ...argv], {
+  const args = probe === undefined ? [cli, ...argv] : ["--preload", fsProbe, cli, ...argv];
+  const result = spawnSync(process.execPath, args, {
     cwd,
     encoding: "utf8",
     env: {
@@ -58,6 +66,13 @@ export function runPap(argv: string[], cwd: string): RunResult {
       LANG: "tr_TR.UTF-8",
       NO_COLOR: "1",
       SENTINEL_LOG: env.log,
+      ...(probe === undefined
+        ? {}
+        : {
+            PAP_FS_PROBE_TARGET: probe.target,
+            PAP_FS_PROBE_LOG: probe.log,
+            PAP_FS_PROBE_ACTION: probe.action,
+          }),
     },
     timeout: 60_000,
   });

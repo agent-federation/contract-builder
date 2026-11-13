@@ -6,7 +6,8 @@
 import { parseClaimFile } from "../claims.js";
 import type { ClaimState } from "../checks.js";
 import { domainHash } from "../digest.js";
-import { hashInput, normalizedInputSetDigestStream } from "../input.js";
+import { hashPlannedInputs, planInput } from "../input.js";
+import type { InputHash, PlannedInput, StreamFailure } from "../input.js";
 import type { Manifest } from "../manifest.js";
 import {
   hashPackageFile,
@@ -18,6 +19,14 @@ import {
 import type { PackageRoot } from "../paths.js";
 import type { Diagnostic, Limits } from "../types.js";
 import type { Diag, Payloads } from "./options.js";
+
+type InputPlanState =
+  | { kind: "blocked" }
+  | { kind: "invalid" }
+  | { kind: "stopped" }
+  | { kind: "cap-limit" }
+  | { kind: "failure"; failure: StreamFailure["failure"]; message: string }
+  | { kind: "planned" };
 
 export async function loadPayloads(
   root: PackageRoot,
@@ -88,59 +97,6 @@ export async function loadPayloads(
       stopped = true;
       result.limitHit = true;
       result.limitedClasses.add(kind);
-    }
-    return {
-      ok: false,
-      failure: outcome.failure ?? "io",
-      message: outcome.message ?? "payload is not readable",
-    };
-  };
-  const hashInputPayload = async (
-    input: Manifest["inputs"][number],
-  ): Promise<
-    | { ok: true; digest: string; normalizedSize: number; mode: "lf" | "raw" }
-    | {
-        ok: false;
-        failure: "limit" | "missing" | "symlink" | "non-regular" | "path-escape" | "io";
-        message: string;
-      }
-  > => {
-    if (stopped) {
-      result.limitedClasses.add("inputs");
-      return {
-        ok: false,
-        failure: "limit",
-        message: "payload evaluation stopped by an earlier limit",
-      };
-    }
-    const remaining = Math.max(0, limits.totalPayloadBytes - totalBytes);
-    const cap = Math.min(limits.fileBytes, remaining);
-    if (cap <= 0) {
-      stopped = true;
-      result.limitHit = true;
-      result.limitedClasses.add("inputs");
-      return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
-    }
-    const outcome = await hashInput(root, input.path, input.normalization, limits, cap);
-    if (outcome.ok) {
-      totalBytes += outcome.rawSize;
-      if (totalBytes > limits.totalPayloadBytes) {
-        stopped = true;
-        result.limitHit = true;
-        result.limitedClasses.add("inputs");
-        return { ok: false, failure: "limit", message: "total payload byte limit exceeded" };
-      }
-      return {
-        ok: true,
-        digest: outcome.digest,
-        normalizedSize: outcome.normalizedSize,
-        mode: outcome.mode,
-      };
-    }
-    if (outcome.failure === "limit") {
-      stopped = true;
-      result.limitHit = true;
-      result.limitedClasses.add("inputs");
     }
     return {
       ok: false,
@@ -315,10 +271,74 @@ export async function loadPayloads(
     }
   }
 
-  const inputEntries: { path: string; mode: "lf" | "raw"; normalizedSize: number }[] = [];
-  let inputSetComplete = true;
-  for (const input of manifest.inputs) {
+  // ODR-PAP-008 phase 1: resolve and stat inputs in manifest order, charging
+  // the total-byte budget without reading any content.
+  const inputStates: InputPlanState[] = [];
+  const plannedInputs: PlannedInput[] = [];
+  for (let index = 0; index < manifest.inputs.length; index += 1) {
+    const input = manifest.inputs[index] as Manifest["inputs"][number];
     if (inputsBlocked) {
+      inputStates.push({ kind: "blocked" });
+      continue;
+    }
+    if (!usablePath(input.path, "inputs/")) {
+      inputStates.push({ kind: "invalid" });
+      continue;
+    }
+    if (stopped) {
+      result.limitedClasses.add("inputs");
+      inputStates.push({ kind: "stopped" });
+      continue;
+    }
+    const remaining = Math.max(0, limits.totalPayloadBytes - totalBytes);
+    const cap = Math.min(limits.fileBytes, remaining);
+    if (cap <= 0) {
+      stopped = true;
+      result.limitHit = true;
+      result.limitedClasses.add("inputs");
+      inputStates.push({ kind: "cap-limit" });
+      continue;
+    }
+    const plan = await planInput(root, input.path, cap);
+    if (!plan.ok) {
+      if (plan.failure === "limit") {
+        stopped = true;
+        result.limitHit = true;
+        result.limitedClasses.add("inputs");
+      }
+      inputStates.push({ kind: "failure", failure: plan.failure, message: plan.message });
+      continue;
+    }
+    totalBytes += plan.resolved.size;
+    plannedInputs.push({
+      index,
+      relative: input.path,
+      resolved: plan.resolved,
+      normalization: input.normalization,
+      cap,
+    });
+    inputStates.push({ kind: "planned" });
+  }
+
+  // ODR-PAP-008 phase 2: every planned input is opened once, in ascending path
+  // order, and its content pass feeds both the per-file and set hashers.
+  const plannedResults = await hashPlannedInputs(plannedInputs);
+  const outcomeByIndex = new Map<number, InputHash | StreamFailure>();
+  for (const entry of plannedResults.outcomes) outcomeByIndex.set(entry.index, entry.outcome);
+  for (const plan of plannedInputs) {
+    const outcome = outcomeByIndex.get(plan.index);
+    if (outcome !== undefined && outcome.ok) {
+      totalBytes += outcome.rawSize - plan.resolved.size;
+    } else {
+      totalBytes -= plan.resolved.size;
+    }
+  }
+
+  let inputSetComplete = true;
+  for (let index = 0; index < manifest.inputs.length; index += 1) {
+    const input = manifest.inputs[index] as Manifest["inputs"][number];
+    const state = inputStates[index] as InputPlanState;
+    if (state.kind === "blocked") {
       result.inputs.push({
         input,
         computed: null,
@@ -330,7 +350,7 @@ export async function loadPayloads(
       inputSetComplete = false;
       continue;
     }
-    if (!usablePath(input.path, "inputs/")) {
+    if (state.kind === "invalid") {
       result.inputs.push({
         input,
         computed: null,
@@ -342,16 +362,63 @@ export async function loadPayloads(
       inputSetComplete = false;
       continue;
     }
-    const outcome = await hashInputPayload(input);
-    if (!outcome.ok) {
-      failState(outcome.failure, input.id, outcome.message);
+    if (state.kind === "stopped") {
+      const message = "payload evaluation stopped by an earlier limit";
+      failState("limit", input.id, message);
       result.inputs.push({
         input,
         computed: null,
         normalizedSize: null,
         mode: null,
-        status: outcome.failure === "limit" ? "unread" : "missing",
-        message: outcome.message,
+        status: "unread",
+        message,
+      });
+      inputSetComplete = false;
+      continue;
+    }
+    if (state.kind === "cap-limit") {
+      const message = "total payload byte limit exceeded";
+      failState("limit", input.id, message);
+      result.inputs.push({
+        input,
+        computed: null,
+        normalizedSize: null,
+        mode: null,
+        status: "unread",
+        message,
+      });
+      inputSetComplete = false;
+      continue;
+    }
+    if (state.kind === "failure") {
+      failState(state.failure, input.id, state.message);
+      result.inputs.push({
+        input,
+        computed: null,
+        normalizedSize: null,
+        mode: null,
+        status: state.failure === "limit" ? "unread" : "missing",
+        message: state.message,
+      });
+      inputSetComplete = false;
+      continue;
+    }
+    const outcome = outcomeByIndex.get(index);
+    if (outcome === undefined || !outcome.ok) {
+      const failure = outcome?.failure ?? "io";
+      const message = outcome?.message ?? "payload is not readable";
+      if (failure === "limit") {
+        result.limitHit = true;
+        result.limitedClasses.add("inputs");
+      }
+      failState(failure, input.id, message);
+      result.inputs.push({
+        input,
+        computed: null,
+        normalizedSize: null,
+        mode: null,
+        status: failure === "limit" ? "unread" : "missing",
+        message,
       });
       inputSetComplete = false;
       continue;
@@ -376,15 +443,9 @@ export async function loadPayloads(
         status: "ok",
       });
     }
-    inputEntries.push({
-      path: input.path,
-      mode: outcome.mode,
-      normalizedSize: outcome.normalizedSize,
-    });
   }
   if (manifest.inputs.length > 0 && inputSetComplete) {
-    const setDigest = await normalizedInputSetDigestStream(root, inputEntries, limits);
-    if (setDigest === null) {
+    if (plannedResults.setDigest === null) {
       result.limitHit = true;
       diag(
         "pap.package.limit-exceeded",
@@ -393,7 +454,7 @@ export async function loadPayloads(
         "normalized input set could not be read within limits",
       );
     } else {
-      result.normalizedInputDigest = setDigest;
+      result.normalizedInputDigest = plannedResults.setDigest;
     }
   }
 
