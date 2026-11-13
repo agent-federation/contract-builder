@@ -22,7 +22,6 @@ import {
   resolvePackageFile,
 } from "./paths.js";
 import type { OpenPackageFile, PackageRoot, ResolvedPath } from "./paths.js";
-import type { Limits } from "./types.js";
 
 export type InputMode = "lf" | "raw";
 
@@ -113,32 +112,11 @@ export async function hashPlannedInputs(
   return { outcomes, setDigest: complete ? setHasher.digest() : null };
 }
 
-/**
- * One pass: determine whether the declared `lf` normalization applies and
- * measure the normalized byte length. `none` is always raw.
- */
-export async function analyzeInput(
-  root: PackageRoot,
-  relative: string,
-  normalization: "lf" | "none",
-  _limits: Limits,
-  cap: number,
-): Promise<InputAnalysis | StreamFailure> {
-  const opened = await openPackageFile(root, relative, cap);
-  if (!opened.ok) return opened;
-  try {
-    return await analyzeOpenInput(opened.file, normalization, cap);
-  } finally {
-    await closePackageFile(opened.file.handle);
-  }
-}
-
 /** Hash a single input file under `pap.input.file.v1` with streamed framing. */
 export async function hashInput(
   root: PackageRoot,
   relative: string,
   normalization: "lf" | "none",
-  _limits: Limits,
   cap: number,
 ): Promise<InputHash | StreamFailure> {
   const opened = await openPackageFile(root, relative, cap);

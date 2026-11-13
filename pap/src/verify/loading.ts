@@ -309,6 +309,10 @@ export async function loadPayloads(
       inputStates.push({ kind: "failure", failure: plan.failure, message: plan.message });
       continue;
     }
+    // Provisional per ODR-PAP-008: this stat-based charge fixes the caps of
+    // later manifest inputs. A phase-2 read failure releases the accounting
+    // charge but deliberately does not re-plan those already-fixed caps; the
+    // record's narrow difference names that order dependence.
     totalBytes += plan.resolved.size;
     plannedInputs.push({
       index,

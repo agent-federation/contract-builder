@@ -41,10 +41,11 @@ function verify(
   target: string,
   action: "none" | "replace" | "mutate" | "fail-read" | "short-read" | "grow",
   extra: string[] = [],
+  policyPath: string = policy,
 ): { status: number; stdout: string; stderr: string; ops: Op[] } {
   const log = path.join(tempDir("open-once-log-"), "ops.jsonl");
   const result = runPap(
-    ["verify", ".", "--trust-policy", policy, "--format", "json", "--now", NOW, ...extra],
+    ["verify", ".", "--trust-policy", policyPath, "--format", "json", "--now", NOW, ...extra],
     dir,
     { target, log, action },
   );
@@ -290,5 +291,105 @@ test("the set digest is assembled in ascending path order regardless of manifest
       1,
       `${relative} is opened exactly once`,
     );
+  }
+});
+
+const KNOWN_INPUT_DIAGNOSTIC_CODES = new Set([
+  "pap.package.io",
+  "pap.package.limit-exceeded",
+  "pap.check.not-evaluated",
+  "pap.limit.lowered",
+  "pap.package.declared-file-missing",
+  "pap.integrity.input-mismatch",
+]);
+
+test("stat-plan ordering: an earlier failing input can limit a later input (documented narrow difference)", () => {
+  const dir = tempPackage();
+  const target = path.join(dir, "inputs", "project.yml");
+  // Manifest order: project (unreadable, 49 B), second (390 B), third (6 B).
+  // 80 artifact + 127 source + 49 + 390 leaves no cap for third.
+  addInputs(dir, [
+    { id: "input:second", file: "inputs/second.yml", bytes: Buffer.from("s".repeat(390)) },
+    { id: "input:third", file: "inputs/third.yml", bytes: Buffer.from("third\n") },
+  ]);
+  const budget = writeBudgetPolicy(646);
+  const result = verify(dir, target, "fail-read", [], budget);
+
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "FAIL");
+  assert.equal(report.identities.normalizedInputDigest, null);
+  const io = report.diagnostics.find(
+    (diagnostic: any) =>
+      diagnostic.code === "pap.package.io" && diagnostic.scope === "input:project",
+  );
+  assert.ok(io, "the unreadable input keeps its primary I/O diagnostic");
+  const limited = report.diagnostics.find(
+    (diagnostic: any) =>
+      diagnostic.code === "pap.package.limit-exceeded" && diagnostic.scope === "input:third",
+  );
+  assert.ok(limited, "the stat charge fixed later caps before the failure is known");
+  assert.equal(limited.message, "total payload byte limit exceeded");
+  assert.ok(
+    !report.diagnostics.some(
+      (diagnostic: any) =>
+        diagnostic.code === "pap.package.limit-exceeded" && diagnostic.scope === "input:second",
+    ),
+    "the readable input that fits its planned cap is still hashed",
+  );
+  const integrity = report.checks.find(
+    (check: any) => check.checkId === "pap.check.digest-integrity/1",
+  );
+  assert.equal(integrity.outcome, "NOT_EVALUATED");
+  assert.ok(
+    report.diagnostics.every((diagnostic: any) =>
+      KNOWN_INPUT_DIAGNOSTIC_CODES.has(diagnostic.code),
+    ),
+    "the narrow difference adds no new diagnostic code",
+  );
+  assert.equal(openCount(result.ops, target), 1);
+  assert.equal(openCount(result.ops, path.join(dir, "inputs", "second.yml")), 1);
+  assert.equal(
+    openCount(result.ops, path.join(dir, "inputs", "third.yml")),
+    0,
+    "a cap-limited input is never opened",
+  );
+});
+
+test("stat-plan ordering: a failing input last in manifest and first in path leaves earlier caps intact", () => {
+  const dir = tempPackage();
+  // Manifest order: project, second, a-fail (last). Path order: a-fail, project,
+  // second: the failing input is opened first but planned last, so it cannot
+  // constrain the caps of the readable inputs.
+  addInputs(dir, [
+    { id: "input:second", file: "inputs/second.yml", bytes: Buffer.from("s".repeat(390)) },
+    { id: "input:a-fail", file: "inputs/a-fail.yml", bytes: Buffer.from("failing\n") },
+  ]);
+  const target = path.join(dir, "inputs", "a-fail.yml");
+  const result = verify(dir, target, "fail-read");
+
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, "FAIL");
+  const io = report.diagnostics.find(
+    (diagnostic: any) =>
+      diagnostic.code === "pap.package.io" && diagnostic.scope === "input:a-fail",
+  );
+  assert.ok(io, "the failing input is reported as pap.package.io");
+  assert.ok(
+    !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+    "the earlier planned caps are unaffected when the failure is last in manifest order",
+  );
+  assert.ok(
+    !report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.integrity.input-mismatch",
+    ),
+    "the readable inputs keep their correct digests",
+  );
+  assert.ok(
+    report.diagnostics.every((diagnostic: any) =>
+      KNOWN_INPUT_DIAGNOSTIC_CODES.has(diagnostic.code),
+    ),
+  );
+  for (const relative of ["inputs/a-fail.yml", "inputs/project.yml", "inputs/second.yml"]) {
+    assert.equal(openCount(result.ops, path.join(dir, relative)), 1);
   }
 });
