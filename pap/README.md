@@ -94,8 +94,9 @@ sentinel `bun`/`node`/`contract-builder` shims, and asserts:
 Payload hashing is streamed: artifacts and inputs are never buffered in full,
 source bytes are retained only as bounded quoted ranges, signature discovery and
 undeclared-file scanning are entry/depth-bounded, and each check has an aggregate
-16 MiB serialized-witness budget. A budget stop is `NOT_EVALUATED` with
-`pap.package.limit-exceeded`, never `PASS`.
+16 MiB serialized-witness budget. A §4.3.4 resource-limit stop is `NOT_EVALUATED`
+with `pap.package.limit-exceeded`, never `PASS`; a private scan entry/depth budget
+stop is the §4.3.3 `pap.package.undeclared-scan-incomplete` condition instead.
 
 `fixtures/vectors/e4-identity-form.json` is the Appendix E.4 identity form used by
 the record-identity and E.10 mutation tests.

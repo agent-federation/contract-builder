@@ -145,6 +145,13 @@ test("signature envelope count limit reads none and leaves trust unevaluated", (
   assert.ok(
     report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
   );
+  // The declared envelope-count limit is not the private scan budget, so it
+  // never carries the canonical scan-incomplete condition.
+  assert.ok(
+    !report.diagnostics.some(
+      (diagnostic: any) => diagnostic.code === "pap.package.undeclared-scan-incomplete",
+    ),
+  );
 });
 
 test("a deep-nesting signature envelope is a limit, not envelope-invalid", () => {
