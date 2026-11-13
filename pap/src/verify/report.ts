@@ -10,6 +10,8 @@ import { pathKey, walkPackageFiles } from "../paths.js";
 import type { DirectoryOpener, PackageRoot } from "../paths.js";
 import type { LoadedPolicy } from "../policy.js";
 import {
+  SCAN_INCOMPLETE_CODE,
+  SCAN_INCOMPLETE_MESSAGE,
   computeCoverage,
   computeVerdict,
   deriveRequiredDimensions,
@@ -277,21 +279,9 @@ interface UndeclaredScan {
   nestedManifest: boolean;
 }
 
-/** RFC §4.3.3: the one canonical package-scope scan-incomplete condition. */
-const SCAN_INCOMPLETE_CODE = "pap.package.undeclared-scan-incomplete";
-
-/**
- * Emit the single canonical scan-incomplete diagnostic/limitation. The
- * undeclared-file walker and signature discovery both enumerate the package
- * tree, so the caller combines their results and reports this once.
- */
+/** Emit the single canonical scan-incomplete diagnostic/limitation. */
 export function reportScanIncomplete(diag: Diag): void {
-  diag(
-    SCAN_INCOMPLETE_CODE,
-    "warning",
-    "package",
-    "the undeclared-file scan is incomplete; the absence of undeclared files was not established",
-  );
+  diag(SCAN_INCOMPLETE_CODE, "warning", "package", SCAN_INCOMPLETE_MESSAGE);
 }
 
 export async function reportUndeclaredFiles(

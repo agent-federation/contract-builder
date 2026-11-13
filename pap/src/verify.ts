@@ -332,6 +332,7 @@ export async function verifyPackage(options: VerifyOptions): Promise<VerifyResul
     reviews: payloads.claimMap.reviews,
     diag,
     openDirectory: options.openDirectory,
+    resolveDirectory: options.resolveDirectory,
   });
   if (trustPhase.integrityFailure) {
     integrityPackage = "FAIL";

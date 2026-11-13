@@ -4,7 +4,7 @@
  */
 
 import type { ArtifactState, ClaimState, InputState, SourceState } from "../checks.js";
-import type { DirectoryOpener } from "../paths.js";
+import type { DirectoryOpener, DirectoryResolver } from "../paths.js";
 import type { Instant } from "../time.js";
 import type { ClaimKind, Diagnostic, Verdict, VerificationReport } from "../types.js";
 
@@ -25,6 +25,12 @@ export interface VerifyOptions {
    * failures. Production callers omit it; the verifier then uses `opendir`.
    */
   openDirectory?: DirectoryOpener;
+  /**
+   * Filesystem seam used by tests to inject a deterministic package-directory
+   * resolution failure. Production callers omit it; the verifier then uses the
+   * contained resolver.
+   */
+  resolveDirectory?: DirectoryResolver;
 }
 
 export interface VerifyResult {

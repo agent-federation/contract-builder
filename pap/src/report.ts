@@ -29,6 +29,14 @@ import { ZERO_DIGEST } from "./types.js";
 export { deriveRequiredDimensions, impliedDimensions, isEmptyRequiredSet } from "./state.js";
 export type { VerdictContext } from "./state.js";
 
+/**
+ * RFC §4.3.3: the one canonical scan-incomplete code and message, shared by
+ * the verifier report and `pap inspect`.
+ */
+export const SCAN_INCOMPLETE_CODE = "pap.package.undeclared-scan-incomplete";
+export const SCAN_INCOMPLETE_MESSAGE =
+  "the undeclared-file scan is incomplete; the absence of undeclared files was not established";
+
 export function statusForDimension(
   report: VerificationReport,
   dimension: DimensionName,

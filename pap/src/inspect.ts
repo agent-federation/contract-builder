@@ -9,6 +9,7 @@ import { JsonParseError, parseJsonStrict } from "./json.js";
 import { decodeManifest } from "./decode.js";
 import type { Manifest } from "./manifest.js";
 import { readPackageFile, resolvePackageRoot, walkPackageFiles } from "./paths.js";
+import { SCAN_INCOMPLETE_CODE, SCAN_INCOMPLETE_MESSAGE } from "./report.js";
 import { loadPayloads } from "./verify.js";
 import type { Payloads } from "./verify.js";
 import { IoFailure, UsageError } from "./verify.js";
@@ -385,24 +386,10 @@ async function reportUndeclared(
     if (ref !== undefined) declared.add(ref.path.toLowerCase());
   }
   const walk = await walkPackageFiles(root, limits);
-  // R-PAP-2/R-PAP-3: the same scan-incomplete code covers enumeration
-  // failures and private entry/depth budget stops; inspect is not a
-  // verification report, so the code is only a warning plus a limitation.
-  if (walk.limitHit) {
-    diag(
-      "pap.package.undeclared-scan-incomplete",
-      "warning",
-      "package",
-      "the undeclared-file scan stopped at the verifier entry or depth budget",
-    );
-  }
-  if (walk.error !== null) {
-    diag(
-      "pap.package.undeclared-scan-incomplete",
-      "warning",
-      "package",
-      `${walk.error}; the absence of undeclared files was not established`,
-    );
+  // R-PAP-2/R-PAP-3: inspect reports the same code and message as the
+  // verifier, as a warning plus a limitation (not a verification report).
+  if (walk.limitHit || walk.error !== null) {
+    diag(SCAN_INCOMPLETE_CODE, "warning", "package", SCAN_INCOMPLETE_MESSAGE);
   }
   let nestedManifest = false;
   for (const file of walk.files) {

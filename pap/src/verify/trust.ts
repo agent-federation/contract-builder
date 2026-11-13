@@ -5,7 +5,7 @@
 import type { ClaimState } from "../checks.js";
 import { jcsBytes } from "../json.js";
 import type { Manifest } from "../manifest.js";
-import type { DirectoryOpener, PackageRoot } from "../paths.js";
+import type { DirectoryOpener, DirectoryResolver, PackageRoot } from "../paths.js";
 import type { LoadedPolicy, TrustPolicy } from "../policy.js";
 import { evaluateSignatures } from "../signatures.js";
 import type { SignatureEvaluation } from "../signatures.js";
@@ -35,6 +35,7 @@ export async function evaluateSignatureTrust(options: {
   reviews: ClaimState | undefined;
   diag: Diag;
   openDirectory?: DirectoryOpener;
+  resolveDirectory?: DirectoryResolver;
 }): Promise<SignatureTrustEvaluation> {
   const {
     root,
@@ -66,6 +67,9 @@ export async function evaluateSignatureTrust(options: {
       mode,
       limits,
       ...(options.openDirectory === undefined ? {} : { openDirectory: options.openDirectory }),
+      ...(options.resolveDirectory === undefined
+        ? {}
+        : { resolveDirectory: options.resolveDirectory }),
     });
   } else {
     signatureEvaluation = {
