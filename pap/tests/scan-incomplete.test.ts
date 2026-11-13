@@ -293,7 +293,9 @@ test("the private signature entry budget is scan-incomplete, never a limit viola
   // RFC §4.3.3: no dimension is NOT_EVALUATED solely for the private stop.
   assert.equal(report.dimensions.signature.validity, "NOT_APPLICABLE");
   assert.equal(report.dimensions.trust.signerIdentity, "NOT_APPLICABLE");
-  assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
+  // Exact comparisons, not URL-like substring checks (CodeQL js/incomplete-url-substring-sanitization).
+  assert.ok(codes(report).every((code) => code !== "pap.package.io"));
+  assert.ok(codes(report).every((code) => code !== "pap.package.limit-exceeded"));
   // The synthetic stream must have reached signature discovery, not the
   // undeclared-file walk (which sees the real, empty directory).
   assert.ok(!codes(report).includes("pap.package.undeclared-file"));
@@ -313,7 +315,7 @@ test("the private signature entry budget under a required policy keeps the ordin
   assert.equal(report.dimensions.trust.signerIdentity, "NOT_APPLICABLE");
   assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
   assert.ok(!codes(report).includes("pap.signature.absent"));
-  assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
+  assert.ok(codes(report).every((code) => code !== "pap.package.limit-exceeded"));
 });
 
 test("an injected signatures/ failure under a required policy keeps the ordinary dimensions", async () => {
