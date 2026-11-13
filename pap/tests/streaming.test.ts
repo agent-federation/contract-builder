@@ -21,7 +21,7 @@ test("streamed input normalization crosses the 64 KiB chunk boundary", async () 
   const bytes = Buffer.alloc(70_000, 0x61);
   bytes.write("\r\n", 65_535);
   writeFileSync(path.join(root.real, "big.yml"), bytes);
-  const result = await hashInput(root, "big.yml", "lf", DEFAULT_LIMITS, 1_000_000);
+  const result = await hashInput(root, "big.yml", "lf", 1_000_000);
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.digest, inputFileDigest("big.yml", normalizeLf(new Uint8Array(bytes))));

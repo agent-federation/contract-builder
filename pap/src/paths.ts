@@ -11,6 +11,7 @@
 
 import { constants } from "node:fs";
 import { lstat, open, opendir, realpath } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 import { concatBytes, createDomainHasher } from "./digest.js";
 import type { Limits } from "./types.js";
@@ -119,8 +120,15 @@ export async function resolvePackageRoot(
   return { ok: true, root: { supplied, real } };
 }
 
-interface ResolvedPath {
+export interface ResolvedPath {
   absolute: string;
+  size: number;
+}
+
+/** A package file that has been resolved, opened and checked exactly once. */
+export interface OpenPackageFile {
+  handle: FileHandle;
+  relative: string;
   size: number;
 }
 
@@ -212,7 +220,7 @@ async function resolvePackagePath(
   return { ok: true, resolved: { absolute: current, size: finalSize } };
 }
 
-async function resolvePackageFile(
+export async function resolvePackageFile(
   root: PackageRoot,
   relative: string,
   cap: number,
@@ -237,47 +245,100 @@ export async function resolvePackageDirectory(
   return { ok: true, absolute: outcome.resolved.absolute };
 }
 
+function payloadOpenFlags(): number {
+  return constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
+}
+
 /**
- * Stream a package file through a bounded reader. The callback receives chunks
- * that are safe to retain; the whole payload is never buffered here.
+ * Close a payload descriptor without letting a close failure mask the read or
+ * limit result that made the caller close it.
  */
-export async function streamPackageFile(
-  root: PackageRoot,
-  relative: string,
-  limits: Limits,
-  cap: number,
-  onChunk: (chunk: Uint8Array) => void | Promise<void>,
-): Promise<{ ok: true; size: number } | { ok: false; failure: ReadFailure; message: string }> {
-  const resolved = await resolvePackageFile(root, relative, cap);
-  if (!resolved.ok) return resolved;
-  let handle;
+export async function closePackageFile(handle: FileHandle): Promise<void> {
   try {
-    const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
-    handle = await open(resolved.file.absolute, flags);
+    await handle.close();
+  } catch {
+    // The descriptor is unusable either way; the caller's diagnostic wins.
+  }
+}
+
+/**
+ * Open a previously resolved package file exactly once. The caller owns the
+ * returned handle and must close it in a `finally` block.
+ */
+export async function openResolvedPackageFile(
+  resolved: ResolvedPath,
+  relative: string,
+  cap: number,
+): Promise<
+  { ok: true; file: OpenPackageFile } | { ok: false; failure: ReadFailure; message: string }
+> {
+  let handle: FileHandle;
+  try {
+    handle = await open(resolved.absolute, payloadOpenFlags());
   } catch {
     return { ok: false, failure: "io", message: `cannot open declared file: ${relative}` };
   }
+  let size: number;
   try {
     const opened = await handle.stat();
     if (!opened.isFile()) {
+      await closePackageFile(handle);
       return {
         ok: false,
         failure: "non-regular",
         message: `declared file is not a regular file: ${relative}`,
       };
     }
-    if (opened.size > cap) {
+    size = opened.size;
+    if (size > cap) {
+      await closePackageFile(handle);
       return {
         ok: false,
         failure: "limit",
         message: `declared file exceeds the byte limit: ${relative}`,
       };
     }
+  } catch {
+    await closePackageFile(handle);
+    return { ok: false, failure: "io", message: `cannot read declared file: ${relative}` };
+  }
+  return { ok: true, file: { handle, relative, size } };
+}
+
+/** Resolve and open a package file once; the caller owns and closes the handle. */
+export async function openPackageFile(
+  root: PackageRoot,
+  relative: string,
+  cap: number,
+): Promise<
+  { ok: true; file: OpenPackageFile } | { ok: false; failure: ReadFailure; message: string }
+> {
+  const resolved = await resolvePackageFile(root, relative, cap);
+  if (!resolved.ok) return resolved;
+  return openResolvedPackageFile(resolved.file, relative, cap);
+}
+
+/**
+ * Read a package file from an already-open descriptor starting at an explicit
+ * byte position. Node and Bun expose no separate seek, so every chunk read
+ * passes its position to `handle.read`. The descriptor is never reopened or
+ * re-resolved here.
+ */
+export async function readPackageFileChunks(
+  handle: FileHandle,
+  relative: string,
+  start: number,
+  cap: number,
+  onChunk: (chunk: Uint8Array) => void | Promise<void>,
+): Promise<{ ok: true; size: number } | { ok: false; failure: ReadFailure; message: string }> {
+  try {
     const buffer = new Uint8Array(65_536);
+    let position = start;
     let total = 0;
     for (;;) {
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, position);
       if (bytesRead === 0) break;
+      position += bytesRead;
       total += bytesRead;
       if (total > cap) {
         return {
@@ -291,8 +352,26 @@ export async function streamPackageFile(
     return { ok: true, size: total };
   } catch {
     return { ok: false, failure: "io", message: `cannot read declared file: ${relative}` };
+  }
+}
+
+/**
+ * Stream a package file through a bounded reader. The callback receives chunks
+ * that are safe to retain; the whole payload is never buffered here.
+ */
+export async function streamPackageFile(
+  root: PackageRoot,
+  relative: string,
+  _limits: Limits,
+  cap: number,
+  onChunk: (chunk: Uint8Array) => void | Promise<void>,
+): Promise<{ ok: true; size: number } | { ok: false; failure: ReadFailure; message: string }> {
+  const opened = await openPackageFile(root, relative, cap);
+  if (!opened.ok) return opened;
+  try {
+    return await readPackageFileChunks(opened.file.handle, relative, 0, cap, onChunk);
   } finally {
-    await handle.close();
+    await closePackageFile(opened.file.handle);
   }
 }
 
@@ -375,7 +454,7 @@ export async function hashPackageRange(
   } catch {
     return { ok: false, failure: "io", message: `cannot read declared range: ${relative}` };
   } finally {
-    await handle.close();
+    await closePackageFile(handle);
   }
 }
 
