@@ -13,7 +13,8 @@ import { decodeSignatureEnvelope } from "./decode.js";
 import type { EnvelopeSignature } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
 import { readPackageFile, resolvePackageDirectory } from "./paths.js";
-import type { DirectoryOpener, PackageRoot } from "./paths.js";
+import type { DirectoryOpener, DirectoryResolver, PackageRoot } from "./paths.js";
+import { privateEntryBudget } from "./paths.js";
 import type { TrustPolicy } from "./policy.js";
 import type { Diagnostic, Limits, SignatureEntry } from "./types.js";
 
@@ -58,6 +59,8 @@ export async function evaluateSignatures(options: {
   limits: Limits;
   /** Filesystem seam used by tests to inject deterministic enumeration failures. */
   openDirectory?: DirectoryOpener;
+  /** Filesystem seam used by tests to inject a deterministic resolution failure. */
+  resolveDirectory?: DirectoryResolver;
 }): Promise<SignatureEvaluation> {
   const diagnostics: Diagnostic[] = [];
   const entries: SignatureEntry[] = [];
@@ -87,7 +90,8 @@ export async function evaluateSignatures(options: {
   const discovered = await discoverEnvelopes(
     options.root,
     options.limits,
-    options.openDirectory ?? opendir,
+    options.openDirectory ?? ((absolute) => opendir(absolute)),
+    options.resolveDirectory ?? resolvePackageDirectory,
   );
   // RFC §4.3.3: an ordinary enumeration failure of `signatures/` is the
   // scan-incomplete condition (the caller emits its one canonical diagnostic),
@@ -393,8 +397,9 @@ async function discoverEnvelopes(
   root: PackageRoot,
   limits: Limits,
   openDirectory: DirectoryOpener,
+  resolveDirectory: DirectoryResolver,
 ): Promise<EnvelopeDiscovery> {
-  const resolved = await resolvePackageDirectory(root, "signatures");
+  const resolved = await resolveDirectory(root, "signatures");
   if (!resolved.ok) {
     if (resolved.failure === "missing") {
       return { names: [], limitHit: false, error: null, scanIncomplete: false };
@@ -416,7 +421,7 @@ async function discoverEnvelopes(
   const names: string[] = [];
   let directoryHandle;
   try {
-    directoryHandle = await openDirectory(resolved.absolute);
+    directoryHandle = await openDirectory(resolved.absolute, "signatures");
   } catch {
     return {
       names,
@@ -427,7 +432,7 @@ async function discoverEnvelopes(
   }
   try {
     let entries = 0;
-    const maxEntries = Math.max(1_024, limits.payloadFiles * 2);
+    const maxEntries = privateEntryBudget(limits);
     for await (const entry of directoryHandle) {
       entries += 1;
       if (entries > maxEntries) {

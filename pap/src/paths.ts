@@ -245,6 +245,15 @@ export async function resolvePackageDirectory(
   return { ok: true, absolute: outcome.resolved.absolute };
 }
 
+/**
+ * Package-directory resolution seam. Production code uses the contained
+ * `resolvePackageDirectory`; tests inject a deterministic resolution failure so
+ * the `failure === "io"` scan-incomplete branch does not depend on permission
+ * bits binding the test process. The returned `absolute` is enumerated without
+ * re-validation, so an injected resolver must itself stay root-confined.
+ */
+export type DirectoryResolver = typeof resolvePackageDirectory;
+
 function payloadOpenFlags(): number {
   return constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
 }
@@ -468,8 +477,24 @@ export interface WalkResult {
  * Directory-enumeration seam. Production code uses `opendir`; tests inject a
  * failing opener to exercise enumeration failures deterministically, including
  * when the test process has elevated privileges and `mode 000` does not bind.
+ * The purpose identifies the scan (`walk` for the package walk,
+ * `signatures` for envelope discovery) so a test can target one scan without
+ * depending on the fixed open ordering.
  */
-export type DirectoryOpener = typeof opendir;
+export type DirectoryPurpose = "walk" | "signatures";
+export type DirectoryOpener = (
+  absolute: string,
+  purpose: DirectoryPurpose,
+) => Promise<Awaited<ReturnType<typeof opendir>>>;
+
+/**
+ * The private robustness entry budget formula shared by the undeclared-file
+ * walk and signature discovery. Each scan keeps its own counter against this
+ * per-scan budget; one formula keeps the limits and their tests from drifting.
+ */
+export function privateEntryBudget(limits: Limits): number {
+  return Math.max(1_024, limits.payloadFiles * 2);
+}
 
 /**
  * Bound directory enumeration by entry count and depth. Directory read errors
@@ -478,10 +503,10 @@ export type DirectoryOpener = typeof opendir;
 export async function walkPackageFiles(
   root: PackageRoot,
   limits: Limits,
-  openDirectory: DirectoryOpener = opendir,
+  openDirectory: DirectoryOpener = (absolute) => opendir(absolute),
 ): Promise<WalkResult> {
   const files: string[] = [];
-  const maxEntries = Math.max(1_024, limits.payloadFiles * 2);
+  const maxEntries = privateEntryBudget(limits);
   let entries = 0;
   let limitHit = false;
   let error: string | null = null;
@@ -495,7 +520,7 @@ export async function walkPackageFiles(
       relativeDir === "" ? root.real : path.join(root.real, ...relativeDir.split("/"));
     let directory;
     try {
-      directory = await openDirectory(absolute);
+      directory = await openDirectory(absolute, "walk");
     } catch (readError) {
       const code = (readError as NodeJS.ErrnoException).code;
       if (code !== "ENOENT") {
