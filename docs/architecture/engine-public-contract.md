@@ -1035,8 +1035,8 @@ example a draft build carrying `REVIEW_REQUIRED` diagnostics), and `1` for a blo
 and for every terminal failure that cannot produce one — a usage error, an engine-root or
 engine-version preflight failure, a renderer-module import failure, or an unexpected internal
 error. In `--json` mode that last group writes the fail-closed error document of §10.1, whose
-`exitCode` is `1`. M1 therefore emits only `0` and `1`; the `io-error` row and exit `2` are the M2
-target (§18 correction 3), not current behaviour.
+`exitCode` is `1`. M1 therefore emits only `0` and `1`; the exit-2 mapping is the M2 target (§18
+correction 3), not current behaviour.
 
 M2 consumers must use `status` from the API/`--json`, not the exit code alone; an M1 `--json`
 consumer uses `kind` to tell the error document from a build result and `blockedBy` for the
@@ -1320,8 +1320,9 @@ a `BuildResult`:
   `cli.engine-preflight`, `cli.renderer-load-failed` or `core.cli.internal-error`.
 - `error.message` is localized in the run's `--locale` (`en` by default) and never contains a
   stack trace.
-- The document carries none of the build-result fields (`mode`, `blockedBy`, `diagnostics`,
-  `identity`, `output`, `written`); a consumer must not treat it as a result.
+- The document carries none of the other build-result fields (`mode`, `blockedBy`, `diagnostics`,
+  `identity`, `output`, `written`); `exitCode` is the one shared field, deliberately pinned to
+  `1`. A consumer must not treat the document as a result.
 
 Human mode writes the localized message to stderr and exits `1` instead; neither mode prints a
 stack trace. `--help`, when argument parsing reaches it, is the deliberate exception: it prints
