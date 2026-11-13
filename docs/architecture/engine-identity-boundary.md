@@ -18,10 +18,10 @@ This note fixes the remaining boundary: the contract must be complete, the ident
 | Identity part | Source | Where |
 |---|---|---|
 | `inputDigest` | canonical manifest bytes, declared inputs (LF-normalized text; raw bytes for binaries), source-adapter closure, renderer closure, profile closure | `computeBuildIdentity` (`703ab7e:spec/lib/identity.ts:425-541`) |
-| extension identity | `{id, version, closureDigest}` | `resolveClosure` (`703ab7e:identity.ts:560-610`) |
-| profile closure | `profile.files` + `profile.dependencies` resolved against the lockfile | `resolveProfileClosure` (`703ab7e:identity.ts:339`), `requiredProfileFiles` (`703ab7e:identity.ts:315`) |
-| lockfile pinning | exact versions + integrity; absent dependency ⇒ `core.extension.unpinned-dependency` | `identity.ts` lockfile resolver |
-| import scan | static scan of declared extension files; relative imports must stay inside the extension closure; `ENGINE_SOURCE_ROOT` is the running engine's source directory | `703ab7e:identity.ts:672-720`, root at `703ab7e:identity.ts:74` |
+| extension identity | `{id, version, closureDigest}` | `resolveClosure` (`703ab7e:spec/lib/identity.ts:560-610`) |
+| profile closure | `profile.files` + `profile.dependencies` resolved against the lockfile | `resolveProfileClosure` (`703ab7e:spec/lib/identity.ts:339`), `requiredProfileFiles` (`703ab7e:spec/lib/identity.ts:315`) |
+| lockfile pinning | exact versions + integrity; absent dependency ⇒ `core.extension.unpinned-dependency` | `spec/lib/identity.ts` lockfile resolver |
+| import scan | static scan of declared extension files; relative imports must stay inside the extension closure; `ENGINE_SOURCE_ROOT` is the running engine's source directory | `703ab7e:spec/lib/identity.ts:672-720`, root at `703ab7e:spec/lib/identity.ts:74` |
 
 The consumed-file rule (post #158) covers `view`, `validator`, `diagnostics`, every `schemas[*]` entry, and the manifest's `render.template`/`render.labels`.
 
@@ -29,7 +29,7 @@ The consumed-file rule (post #158) covers `view`, `validator`, `diagnostics`, ev
 
 ### B2 — identity depends on the launch location of the engine
 
-- The import scan treats a relative import as engine-owned only when it resolves inside `ENGINE_SOURCE_ROOT`, the directory of the **running** `spec/lib` (`703ab7e:identity.ts:74`, `703ab7e:identity.ts:697`).
+- The import scan treats a relative import as engine-owned only when it resolves inside `ENGINE_SOURCE_ROOT`, the directory of the **running** `spec/lib` (`703ab7e:spec/lib/identity.ts:74`, `703ab7e:spec/lib/identity.ts:697`).
 - A project copy (`spec/` + `profiles/` + the source document) built by the engine from another checkout fails with four `core.extension.unpinned-dependency` errors (`renderer.ts` ×2, `slice.ts`, `view.ts`), because its profile imports `../../spec/lib/*.js` resolve against the copy, not the running engine.
 - `contracts/core000/run.ts:136` works around this by rewriting profile imports to the repository engine with a regex before building — a text rewrite of source files, not a contract.
 - **Consequence:** the same project produces different results (or fails) depending on where the engine is launched; identity is not a property of the declared project alone.
@@ -44,7 +44,7 @@ The consumed-file rule (post #158) covers `view`, `validator`, `diagnostics`, ev
 
 - The manifest validator accepts an array of any length (`manifest.ts:375-405`); `build.ts:107` rejects only the empty array.
 - **Amended 2026-11-07 (#233):** this observation records the pre-decision state. `validateSources` now rejects `undefined`, `[]` and more than one source with `core.manifest.invalid` during manifest validation (ODR-ENG-001 B4).
-- The implementation is mixed: the M1 hook consumes the first source (`build.ts:170-171`), while other build/provenance paths index all `model.sources` by ID; the identity hashes **all** sources (`identity.ts` input-digest frame for sources). Multi-source M1 behaviour is therefore not established — some paths see all sources, the hook sees only the first.
+- The implementation is mixed: the M1 hook consumes the first source (`build.ts:170-171`), while other build/provenance paths index all `model.sources` by ID; the identity hashes **all** sources (`spec/lib/identity.ts` input-digest frame for sources). Multi-source M1 behaviour is therefore not established — some paths see all sources, the hook sees only the first.
 - **Reproduction:** adding a second source with a different document header builds with exit 0 and no diagnostics — the second document is never checked.
 - **Consequence:** an unsupported configuration is accepted, the digest covers data the semantics ignore, and a reader can believe both sources were verified.
 
