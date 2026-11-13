@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:11b1297be810e17dc40b869601296d24936854b4bc0d05f2feb8390deb4361e5` |
+| inputDigest | `sha256:3b18e159dbff905df93f9bbc31f3b18d43e7b4f068fa6d09404bc6421071618d` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -1586,8 +1586,8 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Outcome: `found`
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
-- Source version: Contract Builder Engine — Public Contract (Rev 0.5)
-- Source digest: `sha256:b68a27f0221b29eb62bfc96ed1c02617f7e80ff70f3aff5b6add28450139c06a`
+- Source version: Contract Builder Engine — Public Contract (Rev 0.6)
+- Source digest: `sha256:b55cfbbb944ee39d876f99a28b5974968943a3cd37e4ee46797fb3c54debf742`
 - Quote: The hook is **trusted executable code**. The engine loads it with a dynamic `import()` and runs it in the same process, with the same privileges. **The engine does not sandbox it.**
 
 ### SRC-MANIFEST-001
@@ -1597,8 +1597,8 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Outcome: `found`
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
-- Source version: Contract Builder Engine — Public Contract (Rev 0.5)
-- Source digest: `sha256:b68a27f0221b29eb62bfc96ed1c02617f7e80ff70f3aff5b6add28450139c06a`
+- Source version: Contract Builder Engine — Public Contract (Rev 0.6)
+- Source digest: `sha256:b55cfbbb944ee39d876f99a28b5974968943a3cd37e4ee46797fb3c54debf742`
 - Quote: `render` keeps its array shape for forward compatibility, but **M1 supports exactly one render declaration**. Zero declarations and more than one are rejected with `core.manifest.invalid` during manifest validation, before any input is rendered or any artifact is written; multi-target rendering is deferred.
 
 ### SRC-PROVENANCE-001
@@ -1608,8 +1608,8 @@ _3 claims: 3 accepted, 0 proposed, 0 deferred, 0 none_
 - Outcome: `found`
 - Method: `markdown:locator`
 - Verifier: `core000/verifyProvenance`
-- Source version: Contract Builder Engine — Public Contract (Rev 0.5)
-- Source digest: `sha256:b68a27f0221b29eb62bfc96ed1c02617f7e80ff70f3aff5b6add28450139c06a`
+- Source version: Contract Builder Engine — Public Contract (Rev 0.6)
+- Source digest: `sha256:b55cfbbb944ee39d876f99a28b5974968943a3cd37e4ee46797fb3c54debf742`
 - Quote: A `ProvenanceBinding` says where evidence is claimed to come from. It does not say that the claim was checked. The core attaches a `not-checked` verification record when it binds, so an unverified binding is explicit rather than implicit.
 
 ## Evidence

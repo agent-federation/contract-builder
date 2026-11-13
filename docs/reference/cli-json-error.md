@@ -60,9 +60,8 @@ prints the human usage text, because the caller explicitly asked for it.
 
 ## Relationship to the engine contract
 
-`docs/architecture/engine-public-contract.md` §10 describes the M2 CLI contract surface and says
-`--json` emits the build or validation result only. This page records the M1 fail-closed
-extension: when no result exists, the error document is the only stdout output. The contract file
-is intentionally unchanged in the CB-285 pull request because the CORE-000 self-contract embeds
-its digest and the ticket requires the committed CORE-001 and CORE-000 artifacts to stay
-byte-identical.
+[`docs/architecture/engine-public-contract.md` §10.1](../architecture/engine-public-contract.md#101-m1-fail-closed-error-document)
+defines this error document as the documented M1 fail-closed extension of the `--json` surface;
+[§7.2](../architecture/engine-public-contract.md#72-exit-codes) pins its `exitCode: 1` for M1 and
+records exit `2` as the M2 target. The M2 contract keeps the rule that `--json` emits exactly one
+document on every terminal path, and that a failure without a result is never presented as one.

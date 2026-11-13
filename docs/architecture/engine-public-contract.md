@@ -1,7 +1,7 @@
 # Contract Builder Engine — Public Contract
 
 **Status:** proposed for maintainer review
-**Document version:** 0.5
+**Document version:** 0.6
 **Baseline:** `1641540` (main after #11)
 **Related:** #12 (this task), #2–#10
 **Implementation status (historical, pre-M1 record):** not started at this document's baseline; see the current-status pointer below.
@@ -1021,12 +1021,22 @@ M1 code-string policy above; namespacing remains M2 work.
 
 ### 7.2 Exit codes
 
+The M2 target mapping:
+
 | Condition | Exit |
 |---|---|
 | `status: ok` | 0 |
 | `status: review-required` in draft | 0 |
 | `status: review-required`, `invalid` or blocked in release | 1 |
 | `io-error`, usage error, internal error | 2 |
+
+**M1 CLI surface.** The shipped M1 CLI exits `0` for a completed draft build that is not blocked
+(including one carrying `REVIEW_REQUIRED` diagnostics), and `1` for a blocked build result and for
+every terminal failure that cannot produce one — a usage error, an engine-root or engine-version
+preflight failure, a renderer-module import failure, or an unexpected internal error. In `--json`
+mode that last group writes the fail-closed error document of §10.1, whose `exitCode` is `1`. M1
+therefore emits only `0` and `1`; the `io-error` row and exit `2` are the M2 target (§18
+correction 3), not current behaviour.
 
 Consumers must use `status` from the API/`--json`, not the exit code alone.
 
@@ -1274,11 +1284,46 @@ receives the diagnostics resolved in that locale (§3.3).
 - `validate` runs the pipeline without rendering; exits by the same status rules.
 - `build` writes artifacts only when the mode allows it; `--check` never writes.
 - `check` verifies existing artifacts against a fresh in-memory build.
-- `--json` emits the `BuildResult`/`ValidationResult` object only, to stdout.
+- `--json` emits exactly one document to stdout: the `BuildResult`/`ValidationResult` object for
+  a completed run, or — in the M1 CLI — the fail-closed error document of §10.1 when no result
+  exists.
 - `--strict` promotes `disposition: allow` + severity `warning` to blocking for this run.
 - Human output goes to stdout; machine consumers use `--json`.
 
 The CLI owns no validation logic: it parses arguments, calls the API, and formats output.
+
+### 10.1 M1 fail-closed error document
+
+The subcommand surface above is the M2 target. The shipped M1 CLI (`bun spec/build.ts`, with or
+without `--check`) already implements the fail-closed `--json` rule: `--json` writes exactly one
+JSON document to stdout on every terminal path. When the CLI cannot produce a build result — an
+argument or usage error, an engine-root or engine-version preflight failure, a renderer-module
+import failure, or an unexpected internal error — that document is not a `BuildResult`:
+
+```json
+{
+  "kind": "error",
+  "exitCode": 1,
+  "error": {
+    "code": "core.cli.internal-error",
+    "message": "An unexpected error stopped the build: <detail>"
+  }
+}
+```
+
+- `kind: "error"` distinguishes it from a build result, which has no `kind` field.
+- `exitCode` is always `1` in M1 (§7.2).
+- `error.code` is a stable machine identifier for the failure class: `cli.usage`,
+  `cli.engine-preflight`, `cli.renderer-load-failed` or `core.cli.internal-error`.
+- `error.message` is localized in the run's `--locale` (`en` by default) and never contains a
+  stack trace.
+- The document carries none of the build-result fields (`mode`, `blockedBy`, `diagnostics`,
+  `identity`, `output`, `written`); a consumer must not treat it as a result.
+
+Human mode writes the localized message to stderr and exits `1` instead; neither mode prints a
+stack trace. `--help` is the deliberate exception: it always prints human usage text and exits
+`0`. The error document is the M1 CLI's fail-closed fallback; it does not replace the M2 result
+object. The operational reference is [CLI `--json` error document](../reference/cli-json-error.md).
 
 ---
 
