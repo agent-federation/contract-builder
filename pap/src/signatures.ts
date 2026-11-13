@@ -440,6 +440,8 @@ async function discoverEnvelopes(
       if (entry.isFile() && ENVELOPE_NAME.test(entry.name)) {
         names.push(`signatures/${entry.name}`);
         if (names.length > limits.signatureEnvelopes) {
+          // Enforced before discovery returns, so an over-limit `names` array
+          // can never reach `evaluateSignatures` without `limitHit`.
           return { names: [], limitHit: true, error: null, scanIncomplete: false };
         }
       }

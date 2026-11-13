@@ -92,7 +92,12 @@ function overBudgetOpener(directoryName: string, openNumber: number): DirectoryO
           close: async () => {},
           async *[Symbol.asyncIterator]() {
             for (let index = 0; index <= budget; index += 1) {
-              yield { name: `filler-${index}.txt`, isFile: () => true };
+              yield {
+                name: `filler-${index}.txt`,
+                isFile: () => true,
+                isDirectory: () => false,
+                isSymbolicLink: () => false,
+              };
             }
           },
         } as unknown as Awaited<ReturnType<DirectoryOpener>>;
@@ -287,8 +292,28 @@ test("the private signature entry budget is scan-incomplete, never a limit viola
   assertScanIncompleteReport(report, { status: exitCode });
   // RFC §4.3.3: no dimension is NOT_EVALUATED solely for the private stop.
   assert.equal(report.dimensions.signature.validity, "NOT_APPLICABLE");
+  assert.equal(report.dimensions.trust.signerIdentity, "NOT_APPLICABLE");
   assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
-  assert.ok(!codes(report).includes("pap.package.io"));
+  // The synthetic stream must have reached signature discovery, not the
+  // undeclared-file walk (which sees the real, empty directory).
+  assert.ok(!codes(report).includes("pap.package.undeclared-file"));
+});
+
+test("the private signature entry budget under a required policy keeps the ordinary dimensions", async () => {
+  const dir = tempPackage();
+  mkdirSync(path.join(dir, "signatures"));
+  const { report, exitCode } = await inProcessVerify(dir, {
+    policyPath: requiredPolicy,
+    openDirectory: overBudgetOpener("signatures", 2),
+  });
+  assertScanIncompleteReport(report, { status: exitCode });
+  // An incomplete scan does not establish that no signature is present; the
+  // ordinary required-mode empty-directory result is preserved.
+  assert.equal(report.dimensions.signature.validity, "NOT_EVALUATED");
+  assert.equal(report.dimensions.trust.signerIdentity, "NOT_APPLICABLE");
+  assert.equal(report.dimensions.trust.policyDecision, "NOT_EVALUATED");
+  assert.ok(!codes(report).includes("pap.signature.absent"));
+  assert.ok(!codes(report).includes("pap.package.limit-exceeded"));
 });
 
 test("an injected signatures/ failure under a required policy keeps the ordinary dimensions", async () => {
