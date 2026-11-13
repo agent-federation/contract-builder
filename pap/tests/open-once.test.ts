@@ -65,6 +65,30 @@ function closeCount(ops: Op[], target: string): number {
   return ops.filter((op) => op.op === "close" && op.path === target).length;
 }
 
+function resolutionCount(ops: Op[], target: string, op: "lstat" | "realpath"): number {
+  return ops.filter((entry) => entry.op === op && entry.path === target).length;
+}
+
+/**
+ * Pin ODR-PAP-008 for one declared input: exactly one resolution in the plan
+ * phase, exactly one open, and no pathname re-resolution after that open. The
+ * exact counts catch a phase-2 re-resolution that happens before the open even
+ * though the "after the first open" window stays clean.
+ */
+function assertResolvedAndOpenedOnce(ops: Op[], target: string, label = target): void {
+  assert.equal(resolutionCount(ops, target, "lstat"), 1, `${label}: lstat'd exactly once`);
+  assert.equal(resolutionCount(ops, target, "realpath"), 1, `${label}: realpath'd exactly once`);
+  assert.equal(openCount(ops, target), 1, `${label}: opened exactly once`);
+  const openedAt = ops.findIndex((entry) => entry.op === "open" && entry.path === target);
+  assert.ok(openedAt >= 0, `${label}: open is recorded`);
+  assert.ok(
+    !ops
+      .slice(openedAt + 1)
+      .some((entry) => entry.path === target && (entry.op === "lstat" || entry.op === "realpath")),
+    `${label}: no pathname resolution after the first open`,
+  );
+}
+
 test("open-once: a pathname replacement after the first open cannot redirect later passes", () => {
   const dir = tempPackage();
   const target = path.join(dir, "inputs", "project.yml");
@@ -81,19 +105,8 @@ test("open-once: a pathname replacement after the first open cannot redirect lat
     ),
   );
 
-  const opens = result.ops.filter((op) => op.op === "open" && op.path === target);
-  assert.equal(opens.length, 1, "each declared input must be opened exactly once");
+  assertResolvedAndOpenedOnce(result.ops, target, "the replaced input");
   assert.equal(closeCount(result.ops, target), 1, "the descriptor must be closed");
-
-  const firstOpen = result.ops.findIndex((op) => op.op === "open" && op.path === target);
-  assert.ok(firstOpen >= 0);
-  const afterOpen = result.ops.slice(firstOpen + 1);
-  assert.ok(
-    !afterOpen.some(
-      (op) => op.path === target && (op.op === "lstat" || op.op === "realpath" || op.op === "open"),
-    ),
-    "no path resolution or open may follow the first open",
-  );
 
   const reads = result.ops.filter((op) => op.op === "read" && op.path === target);
   assert.equal(reads[0]?.position, 0, "the analysis pass starts at byte 0");
@@ -125,7 +138,7 @@ test("open-once: concurrent in-place mutation is visible and never claimed as a 
     declaredSetDigest(dir),
     "the set digest is computed from the bytes actually read",
   );
-  assert.equal(openCount(result.ops, target), 1);
+  assertResolvedAndOpenedOnce(result.ops, target, "the mutated input");
   assert.equal(closeCount(result.ops, target), 1);
 });
 
@@ -146,7 +159,7 @@ test("open-once: a read-position failure maps to pap.package.io and closes the d
     !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
     "an unreadable input must not be reported as a byte limit",
   );
-  assert.equal(openCount(result.ops, target), 1);
+  assertResolvedAndOpenedOnce(result.ops, target, "the unreadable input");
   assert.equal(closeCount(result.ops, target), 1, "the descriptor is closed on the error path");
 });
 
@@ -170,7 +183,7 @@ test("open-once: hitting a read limit closes the descriptor and releases the cha
   assert.ok(limit, "the growth past the planned cap is a limit, not a silent truncation");
   assert.equal(limit.severity, "error");
   assert.equal(limit.message, "declared file exceeds the byte limit: inputs/project.yml");
-  assert.equal(openCount(ops, target), 1);
+  assertResolvedAndOpenedOnce(ops, target, "the grown input");
   assert.equal(closeCount(ops, target), 1, "the descriptor is closed on the limit path");
 });
 
@@ -189,7 +202,7 @@ test("open-once: short reads during the content pass still hash the same bytes",
   );
   assert.ok(reads.length > 2);
   assert.ok(short.length > 0, "the probe returned short reads after the analysis pass");
-  assert.equal(openCount(result.ops, target), 1);
+  assertResolvedAndOpenedOnce(result.ops, target, "the short-read input");
   assert.equal(closeCount(result.ops, target), 1);
 });
 
@@ -267,8 +280,13 @@ test("manifest-order budget still limits the same input while the set digest is 
   );
   assert.notEqual(report.verdict, "PASS");
   assert.equal(openCount(ops, target), 0, "a limited input is never opened");
+  assert.equal(
+    resolutionCount(ops, target, "lstat") + resolutionCount(ops, target, "realpath"),
+    0,
+    "a cap-limited input is never resolved",
+  );
   for (const relative of ["inputs/project.yml", "inputs/z.yml"]) {
-    assert.equal(openCount(ops, path.join(dir, relative)), 1);
+    assertResolvedAndOpenedOnce(ops, path.join(dir, relative), relative);
   }
 });
 
@@ -286,11 +304,7 @@ test("the set digest is assembled in ascending path order regardless of manifest
   assert.equal(report.verdict, "PASS");
   assert.equal(report.identities.normalizedInputDigest, expected);
   for (const relative of ["inputs/project.yml", "inputs/z.yml", "inputs/a.yml"]) {
-    assert.equal(
-      openCount(result.ops, path.join(dir, relative)),
-      1,
-      `${relative} is opened exactly once`,
-    );
+    assertResolvedAndOpenedOnce(result.ops, path.join(dir, relative), relative);
   }
 });
 
@@ -346,12 +360,19 @@ test("stat-plan ordering: an earlier failing input can limit a later input (docu
     ),
     "the narrow difference adds no new diagnostic code",
   );
-  assert.equal(openCount(result.ops, target), 1);
-  assert.equal(openCount(result.ops, path.join(dir, "inputs", "second.yml")), 1);
   assert.equal(
     openCount(result.ops, path.join(dir, "inputs", "third.yml")),
     0,
     "a cap-limited input is never opened",
+  );
+  for (const relative of ["inputs/project.yml", "inputs/second.yml"]) {
+    assertResolvedAndOpenedOnce(result.ops, path.join(dir, relative), relative);
+  }
+  assert.equal(
+    resolutionCount(result.ops, path.join(dir, "inputs", "third.yml"), "lstat") +
+      resolutionCount(result.ops, path.join(dir, "inputs", "third.yml"), "realpath"),
+    0,
+    "a cap-limited input is never resolved",
   );
 });
 
@@ -390,6 +411,6 @@ test("stat-plan ordering: a failing input last in manifest and first in path lea
     ),
   );
   for (const relative of ["inputs/a-fail.yml", "inputs/project.yml", "inputs/second.yml"]) {
-    assert.equal(openCount(result.ops, path.join(dir, relative)), 1);
+    assertResolvedAndOpenedOnce(result.ops, path.join(dir, relative), relative);
   }
 });

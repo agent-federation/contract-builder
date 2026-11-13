@@ -16,6 +16,9 @@ function packageRoot(): PackageRoot {
   return { supplied: real, real };
 }
 
+// `hashInput` is kept as the single-open regression vehicle for the streamed
+// normalization boundary; verifier code hashes declared inputs through
+// `hashPlannedInputs` (see the comment in pap/src/input.ts).
 test("streamed input normalization crosses the 64 KiB chunk boundary", async () => {
   const root = packageRoot();
   const bytes = Buffer.alloc(70_000, 0x61);

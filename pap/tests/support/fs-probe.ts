@@ -1,10 +1,15 @@
 /**
  * Test-only filesystem probe, loaded with `bun --preload` in a child process.
  *
- * It records `open`/`read`/`close`/`lstat`/`realpath` operations for one
- * declared input path and can deterministically replace or mutate that path
- * after the verifier has opened it. Subprocess isolation keeps the module mock
- * out of the main `bun test` process.
+ * It records every `open` and every path resolution (`lstat`/`realpath`), plus
+ * `read`/`close` for one declared input path, and can deterministically
+ * replace or mutate that path after the verifier has opened it. Recording all
+ * resolutions lets tests assert per-input resolution counts and that no input
+ * pathname is re-resolved after its first open. Subprocess isolation keeps the
+ * module mock out of the main `bun test` process.
+ *
+ * Every mutation is a constant write in the test process, so the probe never
+ * performs a check-then-write and stays deterministic (test-only; not shipped).
  *
  * Environment:
  *   PAP_FS_PROBE_TARGET  absolute path of the declared input to watch
@@ -59,11 +64,11 @@ function growPath(): void {
 mock.module("node:fs/promises", () => ({
   ...actual,
   async lstat(candidate: Parameters<typeof actual.lstat>[0], ...rest: unknown[]) {
-    if (isTarget(candidate)) record({ op: "lstat", path: String(candidate) });
+    record({ op: "lstat", path: String(candidate) });
     return (actual.lstat as (...args: unknown[]) => Promise<unknown>)(candidate, ...rest);
   },
   async realpath(candidate: Parameters<typeof actual.realpath>[0], ...rest: unknown[]) {
-    if (isTarget(candidate)) record({ op: "realpath", path: String(candidate) });
+    record({ op: "realpath", path: String(candidate) });
     return (actual.realpath as (...args: unknown[]) => Promise<unknown>)(candidate, ...rest);
   },
   async open(candidate: Parameters<typeof actual.open>[0], ...rest: unknown[]) {
