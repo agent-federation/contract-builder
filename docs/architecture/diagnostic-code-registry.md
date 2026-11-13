@@ -28,6 +28,7 @@ actually emits.
 
 | Code | Component | Meaning |
 |---|---|---|
+| `core.cli.internal-error` | CLI | An unexpected error escaped the build; the `--json` error document carries this code instead of a stack trace or a fabricated result. |
 | `core.engine.root-unavailable` | Engine | The runtime cannot install the import remapping needed to load profile modules from the declared engine root. |
 | `core.engine.version-mismatch` | Engine | The engine root version cannot be read or differs from the running engine. |
 | `core.extension.unpinned-dependency` | Engine | An import is not engine-owned, is undeclared in the profile closure, or is not pinned in the lockfile. |
@@ -37,6 +38,7 @@ actually emits.
 | `core.manifest.missing` | Engine | The project manifest file is absent. |
 | `core.path.outside-root` | Engine | A project, profile, output or engine-root path escapes its containment root. |
 | `core.profile.consent-required` | Engine | An executable profile was supplied without the caller's explicit consent. |
+| `core.profile.hook-failed` | Engine | A profile hook (view, validator, provenance verifier or quote adapter) threw; the thrown value became this diagnostic and the build stopped. |
 | `core.profile.invalid` | Engine | The profile declaration is invalid (shape, consumed files, `view`/`validator` requirements). |
 | `core.profile.unknown-code` | Engine | A validator hook reported a finding code that is absent from the profile diagnostic catalog. |
 | `core.profile.unknown-kind` | Engine | An entity uses a kind the profile does not declare. |

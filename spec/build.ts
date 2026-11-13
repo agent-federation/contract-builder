@@ -1,6 +1,7 @@
 import path from "node:path";
 import { loadProfileRenderers } from "./cli-renderers.js";
 import { runBuild, type BuildResult } from "./lib/build.js";
+import { CLI_INTERNAL_ERROR, emitCliError, internalErrorMessage } from "./lib/cli-errors.js";
 import { Diagnostics, SEVERITY_LABEL, type Severity } from "./lib/diagnostics.js";
 import { messageOf } from "./lib/guards.js";
 import { loadEngineRoot, verifyEngineVersion } from "./lib/identity.js";
@@ -176,15 +177,19 @@ function printHuman(result: BuildResult, specDir: string, locale: Locale): void 
   console.log(lines.join("\n"));
 }
 
-async function main(): Promise<void> {
-  const locale = requestedLocale(process.argv.slice(2));
+async function run(argv: string[], locale: Locale): Promise<void> {
   let cli: CliOptions;
   try {
-    cli = parseArgs(process.argv.slice(2));
+    cli = parseArgs(argv);
   } catch (error) {
-    console.error(localizedErrorText(error, locale));
-    console.error(cliText("cli.usage", locale));
-    process.exitCode = 1;
+    const message = localizedErrorText(error, locale);
+    if (argv.includes("--json")) {
+      emitCliError("cli.usage", message, true);
+    } else {
+      console.error(message);
+      console.error(cliText("cli.usage", locale));
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -193,8 +198,12 @@ async function main(): Promise<void> {
   const engineDiagnostics = new Diagnostics();
   const engine = await loadEngineRoot(cli.engineRoot, engineDiagnostics);
   if (engine === null || !(await verifyEngineVersion(engine, engineDiagnostics))) {
-    console.error(engineDiagnostics.report(locale));
-    process.exitCode = 1;
+    const report = engineDiagnostics.report(locale);
+    emitCliError(
+      "cli.engine-preflight",
+      report.length > 0 ? report : cliText("cli.engine-preflight-failed", locale),
+      cli.json,
+    );
     return;
   }
 
@@ -205,10 +214,10 @@ async function main(): Promise<void> {
       rendererModule: cli.rendererModule,
     });
   } catch (error) {
-    console.error(
-      cliText("cli.renderer-load-failed", locale, { error: localizedErrorText(error, locale) }),
-    );
-    process.exitCode = 1;
+    const message = cliText("cli.renderer-load-failed", locale, {
+      error: localizedErrorText(error, locale),
+    });
+    emitCliError("cli.renderer-load-failed", message, cli.json);
     return;
   }
 
@@ -239,6 +248,18 @@ async function main(): Promise<void> {
   }
 
   process.exitCode = result.exitCode;
+}
+
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+  const locale = requestedLocale(argv);
+  try {
+    await run(argv, locale);
+  } catch (error) {
+    // Final safety net: an unexpected error must not escape as a stack trace. With --json it
+    // still produces exactly one JSON document, and the document is not a fabricated result.
+    emitCliError(CLI_INTERNAL_ERROR, internalErrorMessage(locale, error), argv.includes("--json"));
+  }
 }
 
 /** Renders an error thrown by the CLI; catalog-backed errors are localized. */

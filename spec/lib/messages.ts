@@ -179,6 +179,12 @@ export const ENGINE_MESSAGES = [
     'Неизвестный источник "{{source}}"',
   ],
   [
+    "core.cli.internal-error",
+    "internal-error",
+    "An unexpected error stopped the build: {{error}}",
+    "Неожиданная ошибка остановила сборку: {{error}}",
+  ],
+  [
     "core.engine.root-unavailable",
     "import-remap-unavailable",
     "The runtime does not support engine import remapping; the build stopped to avoid executing modules from outside engineRoot",
@@ -638,6 +644,12 @@ export const ENGINE_MESSAGES = [
     "Профиль объявляет исполняемые модули ({{modules}}). Их загрузка требует явного согласия вызывающего: allowExecutableProfile: true в runBuild или --allow-executable-profile в CLI. Согласие разрешает выполнить доверенный код в процессе сборщика и не является изоляцией.",
   ],
   [
+    "core.profile.hook-failed",
+    "hook-failed",
+    "The profile hook {{hook}} threw: {{error}}",
+    "Профильный хук {{hook}} завершился с ошибкой: {{error}}",
+  ],
+  [
     "core.profile.invalid",
     "binding-input-unloaded",
     'Binding "{{key}}" references an input "{{input}}" that was not loaded',
@@ -1080,6 +1092,10 @@ export const CLI_MESSAGES = {
   "cli.renderer-load-failed": [
     "Failed to load the profile renderer: {{error}}",
     "Не удалось загрузить рендерер профиля: {{error}}",
+  ],
+  "cli.engine-preflight-failed": [
+    "The engine preflight failed",
+    "Предварительная проверка движка не удалась",
   ],
   "cli.renderer-not-exported": [
     'Renderer module "{{path}}" does not export a renderer',

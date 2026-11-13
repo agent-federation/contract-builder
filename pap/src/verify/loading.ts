@@ -24,7 +24,6 @@ export async function loadPayloads(
   limits: Limits,
   manifest: Manifest | null,
   structuralFailure: boolean,
-  _artifactPathFailure: boolean,
   diagnostics: Diagnostic[],
   diag: Diag,
 ): Promise<Payloads> {
