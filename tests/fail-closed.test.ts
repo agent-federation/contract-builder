@@ -9,7 +9,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
@@ -137,6 +138,41 @@ test("fail-closed: a validator that returns a malformed finding list is a diagno
   assert.match(diagnostic.message, /validator/);
 });
 
+test("fail-closed: a malformed provenance verifier return is a diagnostic", async () => {
+  const cases = [
+    { returns: "undefined", message: /array of claims/ },
+    { returns: "[null]", message: /non-empty entityId/ },
+    { returns: "[{}]", message: /non-empty entityId/ },
+    { returns: '["garbage"]', message: /non-empty entityId/ },
+  ];
+
+  for (const [index, testCase] of cases.entries()) {
+    const dir = await copyProjectWithProfile(`malformed-provenance-${index}`);
+    await writeProfileFile(
+      dir,
+      "validator.ts",
+      [
+        "export async function validate() {",
+        "  return [];",
+        "}",
+        "export async function verifyProvenance() {",
+        `  return ${testCase.returns};`,
+        "}",
+        "",
+      ].join("\n"),
+    );
+
+    const result = await runBuild(base(dir));
+
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.blockedBy, "errors");
+    const diagnostic = result.diagnostics.find((item) => item.code === "core.profile.hook-failed");
+    assert.ok(diagnostic !== undefined, `${testCase.returns}: ${failure(result)}`);
+    assert.match(diagnostic.message, /provenance verifier/);
+    assert.match(diagnostic.message, testCase.message);
+  }
+});
+
 test("fail-closed: a throwing quote adapter becomes a diagnostic", async () => {
   const dir = await copyProjectWithProfile("throwing-adapter");
   const throwingAdapter: SourceAdapter = {
@@ -251,6 +287,62 @@ test("fail-closed: human mode reports an unexpected error without a stack trace"
   assert.equal(run.status, 1, run.stdout);
   assert.match(run.stderr, /An unexpected error stopped the build/);
   assert.match(run.stderr, /renderer closure exploded/);
+  assert.equal(STACK_FRAME.test(run.stderr), false);
+});
+
+test("fail-closed: --json engine preflight failure emits the documented CLI code", async () => {
+  const emptyEngineRoot = await mkdtemp(path.join(tmpdir(), "cli-engine-preflight-"));
+
+  const run = spawnSync(
+    process.execPath,
+    [cliPath, "--json", "--engine-root", emptyEngineRoot, "--spec", root],
+    { cwd: root, encoding: "utf8" },
+  );
+
+  assert.equal(run.status, 1, run.stderr);
+  assert.equal(run.stderr, "");
+  const output = JSON.parse(run.stdout) as {
+    kind: string;
+    exitCode: number;
+    error: { code: string; message: string };
+    mode?: unknown;
+    diagnostics?: unknown;
+  };
+  assert.equal(output.kind, "error");
+  assert.equal(output.exitCode, 1);
+  assert.equal(output.error.code, "cli.engine-preflight");
+  // The message must be the engine diagnostic report, not the generic fallback text.
+  assert.match(output.error.message, /core\.path\.outside-root/);
+  assert.match(output.error.message, /package\.json/);
+  assert.equal("mode" in output, false, "the error document fakes a build result");
+  assert.equal("diagnostics" in output, false, "the error document fakes a build result");
+  assert.equal(STACK_FRAME.test(run.stdout), false);
+});
+
+test("fail-closed: --json renderer import failure emits the documented CLI code", async () => {
+  const dir = await copyProjectWithProfile("cli-renderer-load-failed");
+  // A syntactically invalid module fails while it is imported, after the pre-import gates
+  // and before registration: the real cause must reach the document, not a generic error.
+  await writeProfileFile(dir, "renderer.ts", "export const renderer = ;\n");
+
+  const run = spawnSync(process.execPath, cliArgs(dir, true), { cwd: root, encoding: "utf8" });
+
+  assert.equal(run.status, 1, run.stderr);
+  assert.equal(run.stderr, "");
+  const output = JSON.parse(run.stdout) as {
+    kind: string;
+    exitCode: number;
+    error: { code: string; message: string };
+    mode?: unknown;
+    diagnostics?: unknown;
+  };
+  assert.equal(output.kind, "error");
+  assert.equal(output.exitCode, 1);
+  assert.equal(output.error.code, "cli.renderer-load-failed");
+  assert.match(output.error.message, /Failed to load the profile renderer/);
+  assert.equal("mode" in output, false, "the error document fakes a build result");
+  assert.equal("diagnostics" in output, false, "the error document fakes a build result");
+  assert.equal(STACK_FRAME.test(run.stdout), false);
   assert.equal(STACK_FRAME.test(run.stderr), false);
 });
 
