@@ -1001,7 +1001,122 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-async function fetchArchive(pin: IndependentPin, tarballDir: string): Promise<string> {
+/**
+ * Archive downloads are retried only for failures that are plausibly transient:
+ * HTTP 429, 500, 502, 503 and 504, plus a fetch rejection (connection reset,
+ * DNS failure, timeout). A 403/404, a SHA-256 pin mismatch and an invalid
+ * archive are never retried: those are pin or input errors, not flakes.
+ */
+const RETRYABLE_HTTP_STATUSES: ReadonlySet<number> = new Set([429, 500, 502, 503, 504]);
+
+/** Total attempts per pinned archive, including the first one. */
+export const ARCHIVE_FETCH_MAX_ATTEMPTS = 3;
+/** Backoff delay after the first failed attempt; each retry doubles it. */
+export const ARCHIVE_FETCH_BASE_DELAY_MS = 1_000;
+/** Upper bound on the backoff delay before jitter. */
+export const ARCHIVE_FETCH_MAX_DELAY_MS = 30_000;
+/** Per-attempt request timeout; every attempt gets a fresh timeout. */
+export const ARCHIVE_FETCH_TIMEOUT_MS = 120_000;
+
+export type ArchiveFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
+export interface ArchiveFetchDependencies {
+  /** Fetch implementation; tests inject an offline stub. */
+  readonly fetch?: ArchiveFetch;
+  /** Backoff sleep; tests inject a recorder so no wall-clock delay runs. */
+  readonly sleep?: (milliseconds: number) => Promise<void>;
+  /** Jitter source in [0, 1); tests pin it for a deterministic delay. */
+  readonly random?: () => number;
+}
+
+/** Exponential backoff with equal jitter: the delay is in [cap/2, cap]. */
+export function archiveRetryDelayMs(attempt: number, random: () => number = Math.random): number {
+  const exponential = ARCHIVE_FETCH_BASE_DELAY_MS * 2 ** (attempt - 1);
+  const capped = Math.min(exponential, ARCHIVE_FETCH_MAX_DELAY_MS);
+  const half = Math.floor(capped / 2);
+  return half + Math.floor(random() * (capped - half + 1));
+}
+
+function defaultSleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+/**
+ * Download the pinned archive bytes, retrying transient failures with bounded
+ * exponential backoff. The bytes are returned unverified; the caller checks
+ * the pin digest, and a mismatch is a hard failure rather than a retry.
+ */
+async function downloadArchiveBytes(
+  pin: IndependentPin,
+  dependencies: ArchiveFetchDependencies,
+): Promise<Uint8Array> {
+  const fetchImpl =
+    dependencies.fetch ??
+    ((input: string | URL | Request, init?: RequestInit) => globalThis.fetch(input, init));
+  const sleep = dependencies.sleep ?? defaultSleep;
+  const random = dependencies.random ?? Math.random;
+
+  for (let attempt = 1; attempt <= ARCHIVE_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetchImpl(pin.tarball, {
+        headers: { "user-agent": "contract-builder-c6-independent" },
+        signal: AbortSignal.timeout(ARCHIVE_FETCH_TIMEOUT_MS),
+      });
+    } catch (error) {
+      if (attempt === ARCHIVE_FETCH_MAX_ATTEMPTS) {
+        throw new Error(
+          `cannot download ${pin.tarball} after ${attempt} attempts: network error: ${messageOf(error)}`,
+          { cause: error },
+        );
+      }
+      await sleep(archiveRetryDelayMs(attempt, random));
+      continue;
+    }
+
+    if (response.ok) {
+      try {
+        return new Uint8Array(await response.arrayBuffer());
+      } catch (error) {
+        if (attempt === ARCHIVE_FETCH_MAX_ATTEMPTS) {
+          throw new Error(
+            `cannot download ${pin.tarball} after ${attempt} attempts: network error while reading the body: ${messageOf(error)}`,
+            { cause: error },
+          );
+        }
+        await sleep(archiveRetryDelayMs(attempt, random));
+        continue;
+      }
+    }
+
+    const status = response.status;
+    const failure = `HTTP ${status} ${response.statusText}`;
+    try {
+      await response.body?.cancel();
+    } catch {
+      // The response is being retried or discarded; nothing depends on the cancel.
+    }
+    if (!RETRYABLE_HTTP_STATUSES.has(status)) {
+      throw new Error(`cannot download ${pin.tarball}: ${failure}; the status is not retryable`);
+    }
+    if (attempt === ARCHIVE_FETCH_MAX_ATTEMPTS) {
+      throw new Error(`cannot download ${pin.tarball} after ${attempt} attempts: ${failure}`);
+    }
+    await sleep(archiveRetryDelayMs(attempt, random));
+  }
+
+  throw new Error(
+    `cannot download ${pin.tarball} after ${ARCHIVE_FETCH_MAX_ATTEMPTS} attempts: retries exhausted`,
+  );
+}
+
+export async function fetchArchive(
+  pin: IndependentPin,
+  tarballDir: string,
+  dependencies: ArchiveFetchDependencies = {},
+): Promise<string> {
   const destination = path.join(tarballDir, `${pin.name}.tar.gz`);
   if (await exists(destination)) {
     const actual = await sha256File(destination);
@@ -1011,16 +1126,7 @@ async function fetchArchive(pin: IndependentPin, tarballDir: string): Promise<st
   }
 
   process.stderr.write(`c6: downloading ${pin.name} ${pin.commit}\n`);
-  const response = await fetch(pin.tarball, {
-    headers: { "user-agent": "contract-builder-c6-independent" },
-    signal: AbortSignal.timeout(120_000),
-  });
-  if (!response.ok) {
-    throw new Error(
-      `cannot download ${pin.tarball}: HTTP ${response.status} ${response.statusText}`,
-    );
-  }
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await downloadArchiveBytes(pin, dependencies);
   const temp = `${destination}.tmp`;
   await writeFile(temp, bytes);
   const actual = sha256Hex(bytes);

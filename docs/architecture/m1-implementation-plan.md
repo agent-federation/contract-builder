@@ -114,7 +114,7 @@ contract-builder/
       provenance.ts                  # binding shape + declared source
       diagnostics.ts                 # unchanged
       registry.ts                    # renderer registry lookup
-      identity.ts                    # inputDigest, closure digests
+      identity/                      # inputDigest, closure digests
       render.ts                      # TemplateSet preload + artifact normalization
       build.ts                       # orchestration
       adapters/markdown.ts           # locator behind SourceAdapter
@@ -766,7 +766,7 @@ the relation inventory, the provenance choice and the PR sequence.
 
 ### PR 6 — Build identity
 
-- `lib/identity.ts`: canonical manifest, LF-normalized inputs, `profileDigest`, extension
+- `lib/identity/`: canonical manifest, LF-normalized inputs, `profileDigest`, extension
   closures, static import scan, `core.extension.unpinned-dependency`.
 - `BuildResult.identity` populated (not rendered at M1; C5b later exposes and renders it — see the
   §11 amendment).
@@ -787,7 +787,7 @@ the relation inventory, the provenance choice and the PR sequence.
    `inputDigest` stays equal, and `BuildResult` exposes no determinism guarantee — the digest is
    the only claim.
 
-**Revert:** remove `identity.ts` and the `identity` field.
+**Revert:** remove `identity/` and the `identity` field.
 
 ### PR 7 — Minimal independent profile
 
