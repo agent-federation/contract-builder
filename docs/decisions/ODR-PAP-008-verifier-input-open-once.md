@@ -102,6 +102,43 @@ call it out rather than adjust expectations silently.
   set-digest ordering;
 - existing LF/raw, hostile-input, path-safety and limit suites, plus the full conformance corpus.
 
+### 3.1 Implementation addendum — 2026-11-13 (recorded after PR #301, merged `55eb9fd`)
+
+The implementation and its independent pre-reviews (`glm-5.3-flash`, `glm-5.3`; both the PR tree and
+the merged tree) confirmed the design above and surfaced four consequences that belong in the durable
+record. None changes the decision, the guarantee wording, the digest framing or any diagnostic; this
+subsection documents the implementation outcome.
+
+1. **A phase-2 failure releases the accounting charge but does not re-plan fixed caps.** Phase 1
+   fixes each input's cap from the manifest-order `stat` plan. If an input later fails to open or
+   read, its planned charge is released from the accounting total, but caps already fixed by the plan
+   are not re-planned, and the per-file/set hashing pass has already consumed the path-ordered
+   contributions it processed. A readable input processed later may therefore be reported as unread
+   and limited where the legacy sequential path would have hashed it. This is the documented narrow
+   difference; it cannot improve or mask a failure: the unreadable declared input keeps its primary
+   `pap.package.io`/`FAIL`, and a secondary limit diagnostic cannot upgrade the verdict. The two
+   ordering cases (failing input earlier in manifest order; failing input last in manifest and first
+   in path) are pinned by `pap/tests/open-once.test.ts`. Re-planning was considered and rejected: it
+   cannot restore legacy equality without re-reading or reordering, which this record forbids.
+2. **Close errors are swallowed on success paths.** `closePackageFile()` catches every close error,
+   so a successful hash stays a `PASS` where the legacy `finally { await handle.close() }` could have
+   propagated. Accepted deliberately: the descriptor is read-only, the bytes and digests are already
+   established, and a close error cannot change what was verified. If strict legacy-equivalence is
+   ever required, emit a warning rather than propagate.
+3. **Racing-only decode-failure wording.** A mid-stream decode exception now reports
+   `cannot decode normalized input: <path>` instead of the legacy `cannot read declared file: <path>`.
+   Both are `pap.package.io` with the same severity and verdict; the path is unreachable for static
+   inputs because pass 1 validates the identical bytes with identical chunking, so only concurrent
+   in-place mutation can reach it — outside the v0.1 threat model.
+4. **Residual resolve→open window.** Phase 1 resolves and stats the path; phase 2 opens the resolved
+   absolute path with `O_NOFOLLOW`, which guards the final path component. Intermediate directory
+   components could in principle be swapped between resolution and the first open. This is the
+   pre-existing resolve-then-open behaviour, not a regression: the open-once guarantee begins at the
+   first open, and passes after it never re-resolve the pathname. The window is outside the v0.1
+   threat model, as recorded in T16.
+
+Test-hardening items that are not part of this record are tracked in #303/#304.
+
 ## 4. RFC erratum (dated 2026-11-13)
 
 > **Input hashing clarification (ODR-PAP-008, 2026-11-13).** Each declared input is opened once and
