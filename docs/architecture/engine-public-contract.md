@@ -1030,15 +1030,17 @@ The M2 target mapping:
 | `status: review-required`, `invalid` or blocked in release | 1 |
 | `io-error`, usage error, internal error | 2 |
 
-**M1 CLI surface.** The shipped M1 CLI exits `0` for a completed draft build that is not blocked
-(including one carrying `REVIEW_REQUIRED` diagnostics), and `1` for a blocked build result and for
-every terminal failure that cannot produce one — a usage error, an engine-root or engine-version
-preflight failure, a renderer-module import failure, or an unexpected internal error. In `--json`
-mode that last group writes the fail-closed error document of §10.1, whose `exitCode` is `1`. M1
-therefore emits only `0` and `1`; the `io-error` row and exit `2` are the M2 target (§18
-correction 3), not current behaviour.
+**M1 CLI surface.** The shipped M1 CLI exits `0` for a completed build that is not blocked (for
+example a draft build carrying `REVIEW_REQUIRED` diagnostics), and `1` for a blocked build result
+and for every terminal failure that cannot produce one — a usage error, an engine-root or
+engine-version preflight failure, a renderer-module import failure, or an unexpected internal
+error. In `--json` mode that last group writes the fail-closed error document of §10.1, whose
+`exitCode` is `1`. M1 therefore emits only `0` and `1`; the `io-error` row and exit `2` are the M2
+target (§18 correction 3), not current behaviour.
 
-Consumers must use `status` from the API/`--json`, not the exit code alone.
+M2 consumers must use `status` from the API/`--json`, not the exit code alone; an M1 `--json`
+consumer uses `kind` to tell the error document from a build result and `blockedBy` for the
+result's outcome.
 
 ---
 
@@ -1296,9 +1298,10 @@ The CLI owns no validation logic: it parses arguments, calls the API, and format
 
 The subcommand surface above is the M2 target. The shipped M1 CLI (`bun spec/build.ts`, with or
 without `--check`) already implements the fail-closed `--json` rule: `--json` writes exactly one
-JSON document to stdout on every terminal path. When the CLI cannot produce a build result — an
-argument or usage error, an engine-root or engine-version preflight failure, a renderer-module
-import failure, or an unexpected internal error — that document is not a `BuildResult`:
+JSON document to stdout on every terminal path except `--help` (below). When the CLI cannot
+produce a build result — an argument or usage error, an engine-root or engine-version preflight
+failure, a renderer-module import failure, or an unexpected internal error — that document is not
+a `BuildResult`:
 
 ```json
 {
@@ -1321,9 +1324,10 @@ import failure, or an unexpected internal error — that document is not a `Buil
   `identity`, `output`, `written`); a consumer must not treat it as a result.
 
 Human mode writes the localized message to stderr and exits `1` instead; neither mode prints a
-stack trace. `--help` is the deliberate exception: it always prints human usage text and exits
-`0`. The error document is the M1 CLI's fail-closed fallback; it does not replace the M2 result
-object. The operational reference is [CLI `--json` error document](../reference/cli-json-error.md).
+stack trace. `--help`, when argument parsing reaches it, is the deliberate exception: it prints
+human usage text and exits `0`; an earlier invalid argument still takes the usage-error path. The
+error document is the M1 CLI's fail-closed fallback; it does not replace the M2 result object. The
+operational reference is [CLI `--json` error document](../reference/cli-json-error.md).
 
 ---
 

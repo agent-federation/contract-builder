@@ -55,8 +55,9 @@ existing CORE-001 and CORE-000 artifacts stay byte-identical.
 
 Without `--json`, each failure above writes its localized message to stderr and exits 1. An
 argument error also prints the usage line; an engine preflight failure prints the diagnostic
-report. No path prints a stack trace. `--help` is the one exception to the JSON rule: it always
-prints the human usage text, because the caller explicitly asked for it.
+report. No path prints a stack trace. `--help` is the one exception to the JSON rule: when
+argument parsing reaches it, it prints the human usage text, because the caller explicitly asked
+for it.
 
 ## Relationship to the engine contract
 
