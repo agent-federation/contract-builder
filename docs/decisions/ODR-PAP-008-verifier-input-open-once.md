@@ -63,17 +63,25 @@ This preserves which inputs are limited by the total budget without reading cont
 
 **Phase 2 — content, ascending path order, one open per input.**
 For each evaluable input: open once without following symlinks; **pass 1** re-runs the existing
-analysis to determine mode (`lf`/`raw`) and `normalizedSize`; `seek(0)`; **pass 2** is a single
-content read that feeds **two** hashers at once — the per-file hasher (`pap.input.file.v1`, framed
-with path and `normalizedSize`) and the set hasher (`pap.input.set.v1`, the same framing, in
-ascending path order). The per-file result is stored keyed by input; the set hasher accumulates in
-path order. Close the descriptor in `finally` on every path (success, limit, read/seek failure,
-exception). At most one input descriptor is open at a time; the implementation must not depend on
-`payloadFiles` as a descriptor budget. Paths are never reopened for the set pass.
+analysis to determine mode (`lf`/`raw`) and `normalizedSize`; then the reader re-positions at byte
+0 and **pass 2** is a single content read that feeds **two** hashers at once — the per-file hasher
+(`pap.input.file.v1`, framed with path and `normalizedSize`) and the set hasher
+(`pap.input.set.v1`, the same framing, in ascending path order). The per-file result is stored keyed
+by input; the set hasher accumulates in path order. Close the descriptor in `finally` on every path
+(success, limit, read/position failure, exception). At most one input descriptor is open at a time;
+the implementation must not depend on `payloadFiles` as a descriptor budget. Paths are never
+reopened for the set pass.
+
+Node and Bun expose no separate `lseek`/`seek` on `FileHandle`: positioning is done by passing an
+explicit integer `position` to `handle.read(buffer, offset, length, position)`. The current
+`streamPackageFile`/`streamInputBytes` read with `position: null` (sequential), so the
+implementation extends the payload reader with an explicit-position mode (or an equivalent reader)
+that resets to 0 between passes. "Seek" in this record means exactly that explicit positioning; it
+is not an assumption about a missing API.
 
 **Preserved behaviour:** LF/raw classification, normalized sizes, all digest values, limit
-diagnostics and ordering, report identity and CLI output. Short reads or seek failures map to the
-input's existing failure class (`pap.package.io`), never to a silent skip.
+diagnostics and ordering, report identity and CLI output. Short reads or read-position failures map
+to the input's existing failure class (`pap.package.io`), never to a silent skip.
 
 **Documented narrow difference:** because the budget is planned from `stat` sizes before content is
 read, an unreadable or racing input releases its planned charge and reports its existing I/O
@@ -89,7 +97,7 @@ call it out rather than adjust expectations silently.
   object;
 - concurrent in-place mutation is exercised to demonstrate the limited guarantee, without claiming
   snapshot consistency;
-- seek/read failures and short reads; descriptor cleanup on every failure path;
+- read-position/read failures and short reads; descriptor cleanup on every failure path;
 - manifest-order total-byte-budget behaviour (the same input is limited as today) and ascending-path
   set-digest ordering;
 - existing LF/raw, hostile-input, path-safety and limit suites, plus the full conformance corpus.
