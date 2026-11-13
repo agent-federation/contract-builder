@@ -101,7 +101,7 @@ export async function evaluateSignatures(options: {
       message: discovered.error,
     });
   }
-  if (discovered.limitHit || discovered.names.length > options.limits.signatureEnvelopes) {
+  if (discovered.limitHit) {
     diagnostics.push({
       code: "pap.package.limit-exceeded",
       severity: "error",
@@ -381,6 +381,7 @@ function compareSignatureEntries(a: SignatureEntry, b: SignatureEntry): number {
 
 interface EnvelopeDiscovery {
   names: string[];
+  /** The declared §11.2 envelope-count limit stopped discovery. */
   limitHit: boolean;
   error: string | null;
   errorCode?: "pap.package.symlink" | "pap.package.path-escape";
@@ -430,7 +431,11 @@ async function discoverEnvelopes(
     for await (const entry of directoryHandle) {
       entries += 1;
       if (entries > maxEntries) {
-        return { names: [], limitHit: true, error: null, scanIncomplete: false };
+        // RFC §4.3.3: this is a private robustness budget, not a §4.3.4 limit.
+        // Stop discovery and let the caller report the canonical
+        // scan-incomplete condition; only the declared envelope-count limit
+        // below is `pap.package.limit-exceeded`.
+        return { names: [], limitHit: false, error: null, scanIncomplete: true };
       }
       if (entry.isFile() && ENVELOPE_NAME.test(entry.name)) {
         names.push(`signatures/${entry.name}`);
