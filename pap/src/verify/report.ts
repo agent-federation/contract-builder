@@ -7,7 +7,7 @@ import { isImplementedCheck } from "../checks.js";
 import type { ClaimState } from "../checks.js";
 import type { Manifest, ManifestValidation } from "../manifest.js";
 import { pathKey, walkPackageFiles } from "../paths.js";
-import type { PackageRoot } from "../paths.js";
+import type { DirectoryOpener, PackageRoot } from "../paths.js";
 import type { LoadedPolicy } from "../policy.js";
 import {
   computeCoverage,
@@ -277,11 +277,29 @@ interface UndeclaredScan {
   nestedManifest: boolean;
 }
 
+/** RFC §4.3.3: the one canonical package-scope scan-incomplete condition. */
+const SCAN_INCOMPLETE_CODE = "pap.package.undeclared-scan-incomplete";
+
+/**
+ * Emit the single canonical scan-incomplete diagnostic/limitation. The
+ * undeclared-file walker and signature discovery both enumerate the package
+ * tree, so the caller combines their results and reports this once.
+ */
+export function reportScanIncomplete(diag: Diag): void {
+  diag(
+    SCAN_INCOMPLETE_CODE,
+    "warning",
+    "package",
+    "the undeclared-file scan is incomplete; the absence of undeclared files was not established",
+  );
+}
+
 export async function reportUndeclaredFiles(
   root: PackageRoot,
   manifest: Manifest,
   limits: Limits,
   diag: Diag,
+  openDirectory?: DirectoryOpener,
 ): Promise<UndeclaredScan> {
   const declared = new Set<string>();
   const add = (relative: string): void => {
@@ -295,27 +313,12 @@ export async function reportUndeclaredFiles(
   for (const ref of Object.values(manifest.claims)) {
     if (ref !== undefined) add(ref.path);
   }
-  const walk = await walkPackageFiles(root, limits);
+  const walk = await walkPackageFiles(root, limits, openDirectory);
   // RFC §4.3.3/R-PAP-2 and R-PAP-3: an enumeration failure or a private
   // entry/depth budget stop leaves the absence of undeclared files
-  // unestablished. It is a scan-incomplete warning, never a package I/O
-  // failure and never a §4.3.4 limit violation.
-  if (walk.limitHit) {
-    diag(
-      "pap.package.undeclared-scan-incomplete",
-      "warning",
-      "package",
-      "the undeclared-file scan stopped at the verifier entry or depth budget",
-    );
-  }
-  if (walk.error !== null) {
-    diag(
-      "pap.package.undeclared-scan-incomplete",
-      "warning",
-      "package",
-      `${walk.error}; the absence of undeclared files was not established`,
-    );
-  }
+  // unestablished. The caller combines this with signature discovery and emits
+  // the canonical scan-incomplete diagnostic exactly once; it is never a
+  // package I/O failure and never a §4.3.4 limit violation.
   let nestedManifest = false;
   for (const file of walk.files) {
     if (pathKey(file) === pathKey("assurance-package.json")) continue;

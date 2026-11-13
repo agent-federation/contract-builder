@@ -5,7 +5,7 @@
 import type { ClaimState } from "../checks.js";
 import { jcsBytes } from "../json.js";
 import type { Manifest } from "../manifest.js";
-import type { PackageRoot } from "../paths.js";
+import type { DirectoryOpener, PackageRoot } from "../paths.js";
 import type { LoadedPolicy, TrustPolicy } from "../policy.js";
 import { evaluateSignatures } from "../signatures.js";
 import type { SignatureEvaluation } from "../signatures.js";
@@ -34,6 +34,7 @@ export async function evaluateSignatureTrust(options: {
   evaluatedAt: Instant;
   reviews: ClaimState | undefined;
   diag: Diag;
+  openDirectory?: DirectoryOpener;
 }): Promise<SignatureTrustEvaluation> {
   const {
     root,
@@ -64,6 +65,7 @@ export async function evaluateSignatureTrust(options: {
       packageIdentity,
       mode,
       limits,
+      ...(options.openDirectory === undefined ? {} : { openDirectory: options.openDirectory }),
     });
   } else {
     signatureEvaluation = {
@@ -73,6 +75,7 @@ export async function evaluateSignatureTrust(options: {
       policyDecision: "NOT_EVALUATED",
       envelopeLimitHit: false,
       discoveryFailure: false,
+      scanIncomplete: false,
       readNone: false,
       diagnostics: [],
     };
@@ -87,6 +90,7 @@ export async function evaluateSignatureTrust(options: {
   if (
     loadedPolicy !== undefined &&
     !signatureEvaluation.discoveryFailure &&
+    !signatureEvaluation.scanIncomplete &&
     signatureEvaluation.entries.length === 0 &&
     !signatureEvaluation.envelopeLimitHit
   ) {
@@ -104,6 +108,7 @@ export async function evaluateSignatureTrust(options: {
   if (
     loadedPolicy?.policy.signature.mode === "required" &&
     signatureEvaluation.entries.length > 0 &&
+    !signatureEvaluation.scanIncomplete &&
     signatureEvaluation.validity !== "INVALID" &&
     signatureEvaluation.policyDecision === "NOT_EVALUATED" &&
     !signatureEvaluation.envelopeLimitHit
