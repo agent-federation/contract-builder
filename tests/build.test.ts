@@ -372,8 +372,13 @@ test("ontology: a revision that diverges from the source — ERR_SOURCE_REVISION
   assert.equal(result.exitCode, 1);
   assert.equal(result.blockedBy, "errors");
   assert.deepEqual(errCodes(result), ["ERR_SOURCE_REVISION_MISMATCH"]);
-  const mismatch = result.diagnostics.find((d) => d.code === "ERR_SOURCE_REVISION_MISMATCH");
-  assert.match(mismatch?.message ?? "", /9\.9\.9/);
+  // `errCodes` deduplicates codes, so a second mismatch from the source-header check would
+  // still satisfy the assertion above. Pin the ontology variant and its count instead.
+  const mismatches = result.diagnostics.filter((d) => d.code === "ERR_SOURCE_REVISION_MISMATCH");
+  assert.equal(mismatches.length, 1);
+  assert.equal(mismatches[0]?.file, "ontology.yml");
+  assert.equal(mismatches[0]?.pointer, "/document/revision");
+  assert.match(mismatches[0]?.message ?? "", /ontology revision "9\.9\.9" does not match/);
 });
 
 test("локатор: неизвестный раздел — ERR_SOURCE_LOCATOR_UNKNOWN", async () => {
@@ -431,6 +436,24 @@ test("онтология: source_ref термина расходится с фр
   assert.equal(result.exitCode, 1);
   assert.equal(result.blockedBy, "errors");
   assert.deepEqual(errCodes(result), ["ERR_SOURCE_REF_MISMATCH"]);
+});
+
+test("вывод: ошибка записи артефакта — диагностика ERR_IO, а не внутренняя ошибка", async () => {
+  const dir = await copySpec("output-write-failure");
+  // A regular file where the output directory must go makes the final mkdir fail.
+  await writeFile(path.join(dir, "output"), "not a directory\n", "utf8");
+
+  const result = await runBuild(base({ specDir: dir, write: true }));
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.blockedBy, "errors");
+  assert.equal(result.written, false);
+  assert.ok(result.markdown !== null, "the rendered markdown was discarded");
+  const diagnostic = result.diagnostics.find((d) => d.code === "ERR_IO");
+  assert.ok(diagnostic !== undefined, result.diagnostics.map((d) => d.message).join("\n"));
+  assert.equal(diagnostic.file, "output/CORE-001.draft.md");
+  assert.match(diagnostic.message, /Failed to write the output/);
+  assert.equal(codes(result).includes("core.cli.internal-error"), false);
 });
 
 async function copySpec(name: string, mutateLegacy?: (text: string) => string): Promise<string> {

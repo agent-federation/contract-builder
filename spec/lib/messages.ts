@@ -100,6 +100,12 @@ export const ENGINE_MESSAGES = [
   ],
   [
     "ERR_IO",
+    "output-write-failed",
+    "Failed to write the output: {{error}}",
+    "Не удалось записать артефакт: {{error}}",
+  ],
+  [
+    "ERR_IO",
     "profile-lockfile-read-failed",
     "Failed to read bun.lock: {{error}}",
     "Не удалось прочитать bun.lock: {{error}}",

@@ -14,7 +14,12 @@ import {
   type ValidatorFinding,
   type VerificationContext,
 } from "./hook.js";
-import { applyVerificationClaims, sourceDigest, sourceVersionOf } from "./provenance.js";
+import {
+  applyVerificationClaims,
+  sourceDigest,
+  sourceVersionOf,
+  type ProvenanceVerificationClaim,
+} from "./provenance.js";
 import { messageOf } from "./guards.js";
 import { localizedDetail } from "./messages.js";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "./locale.js";
@@ -233,13 +238,17 @@ async function buildResolvedProject(
       sourceVersion: (sourceId) => sourceVersionOf(declaration.get(sourceId)),
     };
 
+    let claims: ProvenanceVerificationClaim[];
     try {
-      const claims = await validator.verifyProvenance(model, verificationContext);
-      if (!applyVerificationClaims(model, model.sources, claims, diags)) {
-        return result(options, diags, null, outputPath, false, "errors");
-      }
+      claims = await validator.verifyProvenance(model, verificationContext);
     } catch (error) {
       profileHookFailed(diags, "provenance verifier", "profile.json", "/validator", error);
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    // Claim application is engine code, so it runs outside the profile-hook catch: a throw
+    // here is an engine fault, not profile misbehaviour, and must not be labelled
+    // `core.profile.hook-failed`.
+    if (!applyVerificationClaims(model, model.sources, claims, diags)) {
       return result(options, diags, null, outputPath, false, "errors");
     }
   }
@@ -376,8 +385,18 @@ async function buildResolvedProject(
     return result(options, diags, markdown, outputPath, false, null, identity);
   }
 
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, markdown, "utf8");
+  // The build produced its markdown, but the artifact could not be persisted. An OS-level
+  // mkdir/write failure is an expected I/O failure, not an internal crash: report it as a
+  // normal blocking diagnostic so the CLI still emits a build result.
+  try {
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, markdown, "utf8");
+  } catch (error) {
+    diags.error("ERR_IO#output-write-failed", path.relative(specDir, outputPath), "", {
+      error: messageOf(error),
+    });
+    return result(options, diags, markdown, outputPath, false, "errors", identity);
+  }
   return result(options, diags, markdown, outputPath, true, null, identity);
 }
 
