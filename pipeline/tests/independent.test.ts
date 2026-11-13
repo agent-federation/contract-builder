@@ -614,6 +614,24 @@ test("fetchArchive retries every retryable HTTP status once", async () => {
   }
 });
 
+test("fetchArchive re-downloads a cached archive that does not match the pin", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-stale-cache-"));
+  try {
+    const cached = path.join(root, "rust.tar.gz");
+    await writeFile(cached, "stale bytes");
+    const stub = retryStub([
+      () => statusResponse(503),
+      () => new Response(ARCHIVE_BODY, { status: 200 }),
+    ]);
+    await fetchArchive(RETRY_PIN, root, { fetch: stub.fetch, sleep: stub.sleep });
+    assert.deepEqual(new Uint8Array(await readFile(cached)), ARCHIVE_BODY);
+    assert.equal(stub.calls(), 2);
+    await assert.rejects(access(`${cached}.tmp`));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("fetchArchive exhausts persistent 5xx failures and names URL, status and attempts", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "c6-fetch-exhausted-"));
   try {
