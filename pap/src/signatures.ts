@@ -8,7 +8,7 @@
 
 import { opendir } from "node:fs/promises";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
-import { utf8 } from "./digest.js";
+import { compareBytes, utf8 } from "./digest.js";
 import { decodeSignatureEnvelope } from "./decode.js";
 import type { EnvelopeSignature } from "./decode.js";
 import { JsonParseError, parseJsonStrict } from "./json.js";
@@ -288,6 +288,13 @@ export async function evaluateSignatures(options: {
     }
   }
 
+  // RFC §9.9 fixes the report order as `path` then `keyId`. Discovery already
+  // sorts envelope paths, but one envelope may carry several signatures in
+  // producer order, so sort the assembled entries once. An entry with a
+  // missing or empty `keyId` has no key to compare and sorts last at its path;
+  // entries that tie completely keep their producer order (stable sort).
+  entries.sort(compareSignatureEntries);
+
   const byKey = new Map<string, number>();
   for (const entry of entries) {
     if (entry.keyId === undefined) continue;
@@ -335,6 +342,21 @@ export async function evaluateSignatures(options: {
     readNone: false,
     diagnostics,
   };
+}
+
+/**
+ * RFC §9.9 order for `dimensions.signature.signatures[]`: `path` then `keyId`,
+ * both in UTF-8 byte order. A missing or empty `keyId` has no key to compare
+ * and sorts after every named key at the same path.
+ */
+function compareSignatureEntries(a: SignatureEntry, b: SignatureEntry): number {
+  const byPath = compareBytes(utf8(a.path), utf8(b.path));
+  if (byPath !== 0) return byPath;
+  if (a.keyId === undefined || a.keyId === "") {
+    return b.keyId === undefined || b.keyId === "" ? 0 : 1;
+  }
+  if (b.keyId === undefined || b.keyId === "") return -1;
+  return compareBytes(utf8(a.keyId), utf8(b.keyId));
 }
 
 interface EnvelopeDiscovery {
