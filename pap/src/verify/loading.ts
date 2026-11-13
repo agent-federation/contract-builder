@@ -445,17 +445,10 @@ export async function loadPayloads(
     }
   }
   if (manifest.inputs.length > 0 && inputSetComplete) {
-    if (plannedResults.setDigest === null) {
-      result.limitHit = true;
-      diag(
-        "pap.package.limit-exceeded",
-        "error",
-        "inputs",
-        "normalized input set could not be read within limits",
-      );
-    } else {
-      result.normalizedInputDigest = plannedResults.setDigest;
-    }
+    // The set digest is produced by the same content pass, so a null digest
+    // with a complete input set cannot occur; the old set-pass failure branch
+    // is intentionally gone with the third read.
+    result.normalizedInputDigest = plannedResults.setDigest;
   }
 
   const declaredSourceIds = new Set(manifest.sources.map((source) => source.id));

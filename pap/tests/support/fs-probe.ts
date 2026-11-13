@@ -9,10 +9,10 @@
  * Environment:
  *   PAP_FS_PROBE_TARGET  absolute path of the declared input to watch
  *   PAP_FS_PROBE_LOG     newline-delimited JSON log written synchronously
- *   PAP_FS_PROBE_ACTION  none | replace | mutate | fail-read | short-read
+ *   PAP_FS_PROBE_ACTION  none | replace | mutate | fail-read | short-read | grow
  */
 
-import { appendFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, renameSync, writeFileSync } from "node:fs";
 import * as fsPromises from "node:fs/promises";
 import { mock } from "bun:test";
 
@@ -46,8 +46,9 @@ function replacePath(): void {
 
 function mutatePath(): void {
   if (target === undefined) return;
-  const size = statSync(target).size;
-  writeFileSync(target, Buffer.alloc(size, 0x58));
+  // A constant replacement avoids a check-then-write race in the probe itself;
+  // any change of bytes is enough to demonstrate the limited guarantee.
+  writeFileSync(target, "mutated by probe\n");
 }
 
 function growPath(): void {

@@ -140,6 +140,11 @@ test("open-once: a read-position failure maps to pap.package.io and closes the d
       diagnostic.code === "pap.package.io" && diagnostic.scope === "input:project",
   );
   assert.ok(io, "the content-pass read failure is reported as an input I/O error");
+  assert.equal(io.severity, "error");
+  assert.ok(
+    !report.diagnostics.some((diagnostic: any) => diagnostic.code === "pap.package.limit-exceeded"),
+    "an unreadable input must not be reported as a byte limit",
+  );
   assert.equal(openCount(result.ops, target), 1);
   assert.equal(closeCount(result.ops, target), 1, "the descriptor is closed on the error path");
 });
@@ -162,6 +167,8 @@ test("open-once: hitting a read limit closes the descriptor and releases the cha
       diagnostic.code === "pap.package.limit-exceeded" && diagnostic.scope === "input:project",
   );
   assert.ok(limit, "the growth past the planned cap is a limit, not a silent truncation");
+  assert.equal(limit.severity, "error");
+  assert.equal(limit.message, "declared file exceeds the byte limit: inputs/project.yml");
   assert.equal(openCount(ops, target), 1);
   assert.equal(closeCount(ops, target), 1, "the descriptor is closed on the limit path");
 });
@@ -250,6 +257,8 @@ test("manifest-order budget still limits the same input while the set digest is 
       diagnostic.code === "pap.package.limit-exceeded" && diagnostic.scope === "input:a",
   );
   assert.ok(limited, "the manifest-order plan must limit input:a, not an earlier path");
+  assert.equal(limited.severity, "error");
+  assert.equal(limited.message, "total payload byte limit exceeded");
   assert.ok(
     !report.diagnostics.some(
       (diagnostic: any) => diagnostic.code === "pap.integrity.input-mismatch",

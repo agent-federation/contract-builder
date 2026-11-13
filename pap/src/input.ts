@@ -15,6 +15,7 @@
 import { createDomainHasher, framePrefix } from "./digest.js";
 import type { DomainHasher } from "./digest.js";
 import {
+  closePackageFile,
   openPackageFile,
   openResolvedPackageFile,
   readPackageFileChunks,
@@ -106,7 +107,7 @@ export async function hashPlannedInputs(
       outcomes.push({ index: plan.index, outcome });
       if (!outcome.ok) complete = false;
     } finally {
-      await opened.file.handle.close();
+      await closePackageFile(opened.file.handle);
     }
   }
   return { outcomes, setDigest: complete ? setHasher.digest() : null };
@@ -128,7 +129,7 @@ export async function analyzeInput(
   try {
     return await analyzeOpenInput(opened.file, normalization, cap);
   } finally {
-    await opened.file.handle.close();
+    await closePackageFile(opened.file.handle);
   }
 }
 
@@ -145,7 +146,7 @@ export async function hashInput(
   try {
     return await hashOpenedInput(opened.file, normalization, cap);
   } finally {
-    await opened.file.handle.close();
+    await closePackageFile(opened.file.handle);
   }
 }
 

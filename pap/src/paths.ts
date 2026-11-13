@@ -250,6 +250,18 @@ function payloadOpenFlags(): number {
 }
 
 /**
+ * Close a payload descriptor without letting a close failure mask the read or
+ * limit result that made the caller close it.
+ */
+export async function closePackageFile(handle: FileHandle): Promise<void> {
+  try {
+    await handle.close();
+  } catch {
+    // The descriptor is unusable either way; the caller's diagnostic wins.
+  }
+}
+
+/**
  * Open a previously resolved package file exactly once. The caller owns the
  * returned handle and must close it in a `finally` block.
  */
@@ -270,7 +282,7 @@ export async function openResolvedPackageFile(
   try {
     const opened = await handle.stat();
     if (!opened.isFile()) {
-      await handle.close();
+      await closePackageFile(handle);
       return {
         ok: false,
         failure: "non-regular",
@@ -279,7 +291,7 @@ export async function openResolvedPackageFile(
     }
     size = opened.size;
     if (size > cap) {
-      await handle.close();
+      await closePackageFile(handle);
       return {
         ok: false,
         failure: "limit",
@@ -287,7 +299,7 @@ export async function openResolvedPackageFile(
       };
     }
   } catch {
-    await handle.close();
+    await closePackageFile(handle);
     return { ok: false, failure: "io", message: `cannot read declared file: ${relative}` };
   }
   return { ok: true, file: { handle, relative, size } };
@@ -359,7 +371,7 @@ export async function streamPackageFile(
   try {
     return await readPackageFileChunks(opened.file.handle, relative, 0, cap, onChunk);
   } finally {
-    await opened.file.handle.close();
+    await closePackageFile(opened.file.handle);
   }
 }
 
@@ -442,7 +454,7 @@ export async function hashPackageRange(
   } catch {
     return { ok: false, failure: "io", message: `cannot read declared range: ${relative}` };
   } finally {
-    await handle.close();
+    await closePackageFile(handle);
   }
 }
 
