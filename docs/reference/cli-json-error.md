@@ -52,11 +52,12 @@ diagnostic; in human mode the CLI prints it and no stack trace. A valid build is
 existing CORE-001 and CORE-000 artifacts stay byte-identical.
 
 The provenance catch encloses only the `validator.verifyProvenance` call. Its return value is
-profile-supplied data, so a non-array return is classified as profile misbehaviour
-(`core.profile.hook-failed`) before the engine's `applyVerificationClaims` pass runs outside the
-catch. `resolveFindings` keeps its own catch: it consumes the profile-returned finding list, so a
-throw while resolving a malformed list is conservatively attributed to the validator, and an
-engine bug in the resolver would land in that same tier. That is a deliberate attribution limit.
+profile-supplied data, so a non-array return or a claim that is not an object with a non-empty
+`entityId` is classified as profile misbehaviour (`core.profile.hook-failed`) before the engine's
+`applyVerificationClaims` pass runs outside the catch. `resolveFindings` keeps its own catch: it
+consumes the profile-returned finding list, so a throw while resolving a malformed list is
+conservatively attributed to the validator, and an engine bug in the resolver would land in that
+same tier. That is a deliberate attribution limit.
 
 ## Classification tiers and attribution limits
 

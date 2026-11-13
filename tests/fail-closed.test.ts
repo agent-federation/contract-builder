@@ -138,30 +138,39 @@ test("fail-closed: a validator that returns a malformed finding list is a diagno
   assert.match(diagnostic.message, /validator/);
 });
 
-test("fail-closed: a provenance verifier that returns a non-array is a diagnostic", async () => {
-  const dir = await copyProjectWithProfile("malformed-provenance");
-  await writeProfileFile(
-    dir,
-    "validator.ts",
-    [
-      "export async function validate() {",
-      "  return [];",
-      "}",
-      "export async function verifyProvenance() {",
-      "  return undefined;",
-      "}",
-      "",
-    ].join("\n"),
-  );
+test("fail-closed: a malformed provenance verifier return is a diagnostic", async () => {
+  const cases = [
+    { returns: "undefined", message: /array of claims/ },
+    { returns: "[null]", message: /non-empty entityId/ },
+    { returns: "[{}]", message: /non-empty entityId/ },
+    { returns: '["garbage"]', message: /non-empty entityId/ },
+  ];
 
-  const result = await runBuild(base(dir));
+  for (const [index, testCase] of cases.entries()) {
+    const dir = await copyProjectWithProfile(`malformed-provenance-${index}`);
+    await writeProfileFile(
+      dir,
+      "validator.ts",
+      [
+        "export async function validate() {",
+        "  return [];",
+        "}",
+        "export async function verifyProvenance() {",
+        `  return ${testCase.returns};`,
+        "}",
+        "",
+      ].join("\n"),
+    );
 
-  assert.equal(result.exitCode, 1);
-  assert.equal(result.blockedBy, "errors");
-  const diagnostic = result.diagnostics.find((item) => item.code === "core.profile.hook-failed");
-  assert.ok(diagnostic !== undefined, failure(result));
-  assert.match(diagnostic.message, /provenance verifier/);
-  assert.match(diagnostic.message, /array of claims/);
+    const result = await runBuild(base(dir));
+
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.blockedBy, "errors");
+    const diagnostic = result.diagnostics.find((item) => item.code === "core.profile.hook-failed");
+    assert.ok(diagnostic !== undefined, `${testCase.returns}: ${failure(result)}`);
+    assert.match(diagnostic.message, /provenance verifier/);
+    assert.match(diagnostic.message, testCase.message);
+  }
 });
 
 test("fail-closed: a throwing quote adapter becomes a diagnostic", async () => {

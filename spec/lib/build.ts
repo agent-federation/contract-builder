@@ -245,16 +245,18 @@ async function buildResolvedProject(
       profileHookFailed(diags, "provenance verifier", "profile.json", "/validator", error);
       return result(options, diags, null, outputPath, false, "errors");
     }
-    // The claims are profile-supplied data, so a non-array return is profile misbehaviour and
-    // stays a hook diagnostic. Claim application itself is engine code and runs outside the
-    // catch: an engine throw there must not be labelled `core.profile.hook-failed`.
-    if (!Array.isArray(claims)) {
+    // The claims are profile-supplied data, so a malformed return is profile misbehaviour and
+    // stays a hook diagnostic. Validating it here keeps claim application (engine code) outside
+    // the catch without letting a one-line profile bug escape to `core.cli.internal-error`.
+    if (!Array.isArray(claims) || claims.some((claim) => !isClaimElement(claim))) {
       profileHookFailed(
         diags,
         "provenance verifier",
         "profile.json",
         "/validator",
-        new TypeError("verifyProvenance must return an array of claims"),
+        new TypeError(
+          "verifyProvenance must return an array of claims, each an object with a non-empty entityId",
+        ),
       );
       return result(options, diags, null, outputPath, false, "errors");
     }
@@ -385,7 +387,11 @@ async function buildResolvedProject(
   if (options.check) {
     const existing = await readFile(outputPath, "utf8").catch(() => null);
     if (existing !== markdown) {
-      diags.error("ERR_OUTPUT_STALE#output-stale", path.relative(specDir, outputPath), "");
+      diags.error(
+        "ERR_OUTPUT_STALE#output-stale",
+        path.relative(specDir, outputPath).split(path.sep).join("/"),
+        "",
+      );
       return result(options, diags, markdown, outputPath, false, "stale-output", identity);
     }
     return result(options, diags, markdown, outputPath, false, null, identity);
@@ -607,6 +613,13 @@ function isCatalog(value: unknown): value is DiagnosticCatalog {
 /** The locale a project declares for its rendered artifact; English when absent. */
 function artifactLocale(project: ResolvedProject): Locale {
   return project.manifest.locale ?? DEFAULT_LOCALE;
+}
+
+/** A profile-supplied provenance claim must be an object naming its entity. */
+function isClaimElement(claim: unknown): claim is ProvenanceVerificationClaim {
+  if (claim === null || typeof claim !== "object") return false;
+  const entityId = (claim as { entityId?: unknown }).entityId;
+  return typeof entityId === "string" && entityId.length > 0;
 }
 
 /**
