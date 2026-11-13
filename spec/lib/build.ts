@@ -14,7 +14,12 @@ import {
   type ValidatorFinding,
   type VerificationContext,
 } from "./hook.js";
-import { applyVerificationClaims, sourceDigest, sourceVersionOf } from "./provenance.js";
+import {
+  applyVerificationClaims,
+  sourceDigest,
+  sourceVersionOf,
+  type ProvenanceVerificationClaim,
+} from "./provenance.js";
 import { messageOf } from "./guards.js";
 import { localizedDetail } from "./messages.js";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "./locale.js";
@@ -233,13 +238,29 @@ async function buildResolvedProject(
       sourceVersion: (sourceId) => sourceVersionOf(declaration.get(sourceId)),
     };
 
+    let claims: ProvenanceVerificationClaim[];
     try {
-      const claims = await validator.verifyProvenance(model, verificationContext);
-      if (!applyVerificationClaims(model, model.sources, claims, diags)) {
-        return result(options, diags, null, outputPath, false, "errors");
-      }
+      claims = await validator.verifyProvenance(model, verificationContext);
     } catch (error) {
       profileHookFailed(diags, "provenance verifier", "profile.json", "/validator", error);
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    // The claims are profile-supplied data, so a malformed return is profile misbehaviour and
+    // stays a hook diagnostic. Validating it here keeps claim application (engine code) outside
+    // the catch without letting a one-line profile bug escape to `core.cli.internal-error`.
+    if (!Array.isArray(claims) || claims.some((claim) => !isClaimElement(claim))) {
+      profileHookFailed(
+        diags,
+        "provenance verifier",
+        "profile.json",
+        "/validator",
+        new TypeError(
+          "verifyProvenance must return an array of claims, each an object with a non-empty entityId",
+        ),
+      );
+      return result(options, diags, null, outputPath, false, "errors");
+    }
+    if (!applyVerificationClaims(model, model.sources, claims, diags)) {
       return result(options, diags, null, outputPath, false, "errors");
     }
   }
@@ -366,7 +387,11 @@ async function buildResolvedProject(
   if (options.check) {
     const existing = await readFile(outputPath, "utf8").catch(() => null);
     if (existing !== markdown) {
-      diags.error("ERR_OUTPUT_STALE#output-stale", path.relative(specDir, outputPath), "");
+      diags.error(
+        "ERR_OUTPUT_STALE#output-stale",
+        path.relative(specDir, outputPath).split(path.sep).join("/"),
+        "",
+      );
       return result(options, diags, markdown, outputPath, false, "stale-output", identity);
     }
     return result(options, diags, markdown, outputPath, false, null, identity);
@@ -376,8 +401,21 @@ async function buildResolvedProject(
     return result(options, diags, markdown, outputPath, false, null, identity);
   }
 
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, markdown, "utf8");
+  // The build produced its markdown, but the artifact could not be persisted. An OS-level
+  // mkdir/write failure is an expected I/O failure, not an internal crash: report it as a
+  // normal blocking diagnostic so the CLI still emits a build result.
+  try {
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, markdown, "utf8");
+  } catch (error) {
+    diags.error(
+      "ERR_IO#output-write-failed",
+      path.relative(specDir, outputPath).split(path.sep).join("/"),
+      "",
+      { error: messageOf(error) },
+    );
+    return result(options, diags, markdown, outputPath, false, "errors", identity);
+  }
   return result(options, diags, markdown, outputPath, true, null, identity);
 }
 
@@ -575,6 +613,13 @@ function isCatalog(value: unknown): value is DiagnosticCatalog {
 /** The locale a project declares for its rendered artifact; English when absent. */
 function artifactLocale(project: ResolvedProject): Locale {
   return project.manifest.locale ?? DEFAULT_LOCALE;
+}
+
+/** A profile-supplied provenance claim must be an object naming its entity. */
+function isClaimElement(claim: unknown): claim is ProvenanceVerificationClaim {
+  if (claim === null || typeof claim !== "object") return false;
+  const entityId = (claim as { entityId?: unknown }).entityId;
+  return typeof entityId === "string" && entityId.length > 0;
 }
 
 /**

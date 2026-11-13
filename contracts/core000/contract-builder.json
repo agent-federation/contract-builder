@@ -47,7 +47,7 @@
       "path": "../../docs/architecture/engine-public-contract.md",
       "adapter": "markdown",
       "external": true,
-      "identity": { "document": "Contract Builder Engine — Public Contract", "revision": "0.5" }
+      "identity": { "document": "Contract Builder Engine — Public Contract", "revision": "0.6" }
     }
   ],
   "render": [
