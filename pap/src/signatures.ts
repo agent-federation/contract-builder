@@ -447,7 +447,10 @@ async function discoverEnvelopes(
       scanIncomplete: true,
     };
   }
-  names.sort();
+  // `ENVELOPE_NAME` admits only `[A-Za-z0-9._-]`, so JavaScript's UTF-16 code-unit order
+  // and RFC §9.9's UTF-8 byte order agree for every discoverable envelope. Use the byte
+  // comparator anyway so the report order never depends on the regex staying ASCII-only.
+  names.sort((a, b) => compareBytes(utf8(a), utf8(b)));
   return { names, limitHit: false, error: null, scanIncomplete: false };
 }
 
