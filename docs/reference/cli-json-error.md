@@ -1,9 +1,9 @@
 # CLI `--json` error document
 
 `bun spec/build.ts --json` writes exactly one JSON document to stdout on every terminal path of a
-build or check invocation. A build that starts returns the usual build-result object (`mode`,
-`exitCode`, `blockedBy`, `written`, `output`, `identity`, `diagnostics`). When the CLI cannot
-produce a build result it writes this error document instead:
+build or check invocation except `--help` (see Human mode). A build that starts returns the usual
+build-result object (`mode`, `exitCode`, `blockedBy`, `written`, `output`, `identity`,
+`diagnostics`). When the CLI cannot produce a build result it writes this error document instead:
 
 ```json
 {
@@ -25,10 +25,10 @@ produce a build result it writes this error document instead:
 - The document is the only JSON written to stdout; human framing and diagnostics are not mixed
   into it.
 
-The error document deliberately carries none of the build-result fields. It never fabricates
-`mode`, `blockedBy`, `diagnostics`, `identity`, `output` or `written`, because the CLI did not
-run a build to completion; a consumer that needs those fields must not treat this document as a
-result.
+The error document deliberately carries none of the other build-result fields. `exitCode` is the
+one shared field, deliberately pinned to `1`. It never fabricates `mode`, `blockedBy`,
+`diagnostics`, `identity`, `output` or `written`, because the CLI did not run a build to
+completion; a consumer that needs those fields must not treat this document as a result.
 
 ## Error codes
 
