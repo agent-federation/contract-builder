@@ -12,11 +12,11 @@ The 2026-11-05 audit found that the engine could execute profile code that was n
 
 That closed the hole but not the class. The audit also reproduced three boundary gaps on `main` `703ab7e`:
 
-1. **Portability (B2).** A project copy built by the engine of another checkout fails with four `core.extension.unpinned-dependency` errors because relative profile imports are judged engine-owned only when they resolve inside the *running* engine's `spec/lib` (`identity.ts:74`, `identity.ts:697`). The CORE-000 harness works around this with a regex rewrite of profile imports (`contracts/core000/run.ts:136`).
+1. **Portability (B2).** A project copy built by the engine of another checkout fails with four `core.extension.unpinned-dependency` errors because relative profile imports are judged engine-owned only when they resolve inside the *running* engine's `spec/lib` (`703ab7e:identity.ts:74`, `703ab7e:identity.ts:697`). The CORE-000 harness works around this with a regex rewrite of profile imports (`contracts/core000/run.ts:136`).
 2. **Data-only profile (B3).** The README describes a declarative (no-code) profile and the consent gate handles the no-executable case, but `build.ts:122,147` unconditionally require `view` and `validator`; removing them yields `core.profile.invalid profile.json#/view`.
 3. **Multiple sources (B4).** The manifest accepts any source array; only `sources[0]` is used (`build.ts:170-171`) while the identity hashes all sources. Adding a second source with a different header builds with exit 0 and no diagnostics.
 
-A fourth question is contractual: the consumed set is a hard-coded enumeration (`requiredProfileFiles`, `identity.ts:315`), and nothing states how it is kept complete when the profile schema grows (B1).
+A fourth question is contractual: the consumed set is a hard-coded enumeration (`requiredProfileFiles`, `703ab7e:identity.ts:315`), and nothing states how it is kept complete when the profile schema grows (B1).
 
 ## 2. Decisions
 

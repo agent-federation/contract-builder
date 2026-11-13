@@ -3,24 +3,25 @@
 **Status:** proposal accepted by [ODR-ENG-001](../decisions/ODR-ENG-001-engine-identity-boundary.md) (2026-11-06).
 **Scope:** the contract that ties a build's identity (`inputDigest`, extension identities, `closureDigest`) to the code the engine actually executes and consumes, plus the boundary conditions around profile files, portability, data-only profiles and multiple sources. It does not add sandboxing, a new package format or cross-platform byte-equality guarantees.
 **Related:** audit #137, architecture streams B–D #170, the minimal executable-closure fix #145 (PR #158), `engine-public-contract.md` §8, `spec/lib/identity.ts`, `spec/lib/build.ts`.
+**Citation baseline:** `path:line` references in this note were read at `703ab7e`, the audit baseline named in §3.
 
 ## 1. The guarantee being made precise
 
 A build's identity is `engineVersion` **plus** the authoritative `inputDigest` over declared inputs and extension closures **plus** every executable extension identity `{id, version, closureDigest}` (contract §8.1). `engineVersion` is carried separately by `BuildIdentity` and is part of the determinism condition; it is not folded into `inputDigest`. The engine claims that the same `engineVersion` + `inputDigest` + extension identities imply the same artifact, **conditional on trusted extensions honouring their deterministic contract** (contract §8.1); cache/equality language must use the complete triple, not `inputDigest` alone.
 
-That claim only holds if "what identity covers" equals "what executes and is consumed". The audit found that it did not: the profile's executable modules and other consumed files were not required to be part of `profile.files`, so they could be executed without being hashed or import-scanned (#145). PR #158 closed that hole by requiring the consumed set to be declared and failing closed (`core.extension.unpinned-dependency`) before any profile module is imported (`spec/lib/identity.ts:315-380`, `spec/lib/build.ts:417-450`).
+That claim only holds if "what identity covers" equals "what executes and is consumed". The audit found that it did not: the profile's executable modules and other consumed files were not required to be part of `profile.files`, so they could be executed without being hashed or import-scanned (#145). PR #158 closed that hole by requiring the consumed set to be declared and failing closed (`core.extension.unpinned-dependency`) before any profile module is imported (`703ab7e:spec/lib/identity.ts:315-380`, `spec/lib/build.ts:417-450`).
 
 This note fixes the remaining boundary: the contract must be complete, the identity must not depend on where the engine was launched from, and unsupported configurations must be rejected rather than partially processed.
 
-## 2. Current identity map
+## 2. Current identity map (at `703ab7e`)
 
 | Identity part | Source | Where |
 |---|---|---|
-| `inputDigest` | canonical manifest bytes, declared inputs (LF-normalized text; raw bytes for binaries), source-adapter closure, renderer closure, profile closure | `computeBuildIdentity` (`spec/lib/identity.ts:425-541`) |
-| extension identity | `{id, version, closureDigest}` | `resolveClosure` (`identity.ts:560-610`) |
-| profile closure | `profile.files` + `profile.dependencies` resolved against the lockfile | `resolveProfileClosure` (`identity.ts:339`), `requiredProfileFiles` (`identity.ts:315`) |
+| `inputDigest` | canonical manifest bytes, declared inputs (LF-normalized text; raw bytes for binaries), source-adapter closure, renderer closure, profile closure | `computeBuildIdentity` (`703ab7e:spec/lib/identity.ts:425-541`) |
+| extension identity | `{id, version, closureDigest}` | `resolveClosure` (`703ab7e:identity.ts:560-610`) |
+| profile closure | `profile.files` + `profile.dependencies` resolved against the lockfile | `resolveProfileClosure` (`703ab7e:identity.ts:339`), `requiredProfileFiles` (`703ab7e:identity.ts:315`) |
 | lockfile pinning | exact versions + integrity; absent dependency ⇒ `core.extension.unpinned-dependency` | `identity.ts` lockfile resolver |
-| import scan | static scan of declared extension files; relative imports must stay inside the extension closure; `ENGINE_SOURCE_ROOT` is the running engine's source directory | `identity.ts:672-720`, root at `identity.ts:74` |
+| import scan | static scan of declared extension files; relative imports must stay inside the extension closure; `ENGINE_SOURCE_ROOT` is the running engine's source directory | `703ab7e:identity.ts:672-720`, root at `703ab7e:identity.ts:74` |
 
 The consumed-file rule (post #158) covers `view`, `validator`, `diagnostics`, every `schemas[*]` entry, and the manifest's `render.template`/`render.labels`.
 
@@ -28,7 +29,7 @@ The consumed-file rule (post #158) covers `view`, `validator`, `diagnostics`, ev
 
 ### B2 — identity depends on the launch location of the engine
 
-- The import scan treats a relative import as engine-owned only when it resolves inside `ENGINE_SOURCE_ROOT`, the directory of the **running** `spec/lib` (`identity.ts:74`, `identity.ts:697`).
+- The import scan treats a relative import as engine-owned only when it resolves inside `ENGINE_SOURCE_ROOT`, the directory of the **running** `spec/lib` (`703ab7e:identity.ts:74`, `703ab7e:identity.ts:697`).
 - A project copy (`spec/` + `profiles/` + the source document) built by the engine from another checkout fails with four `core.extension.unpinned-dependency` errors (`renderer.ts` ×2, `slice.ts`, `view.ts`), because its profile imports `../../spec/lib/*.js` resolve against the copy, not the running engine.
 - `contracts/core000/run.ts:136` works around this by rewriting profile imports to the repository engine with a regex before building — a text rewrite of source files, not a contract.
 - **Consequence:** the same project produces different results (or fails) depending on where the engine is launched; identity is not a property of the declared project alone.
