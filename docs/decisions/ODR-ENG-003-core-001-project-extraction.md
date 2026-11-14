@@ -6,7 +6,7 @@ when the maintainer merges it. It authorizes the E1/E2 split; implementation sta
 **Date:** 2026-11-14 (UTC)
 **Decision scope:** the ownership move of the CORE-001 project (manifest, inputs, profile, source,
 fixtures, tests, goldens and artifact rule) from `contract-builder` to the UIA repository
-`zaebee/federation-agents`, the cross-repository engine binding, the small engine conformance fix it
+`agent-federation/uia`, the cross-repository engine binding, the small engine conformance fix it
 requires, the licence/CI/documentation obligations, and the sequencing. No engine contract version,
 CORE-000 decision, PAP decision or generated artifact changes in this record.
 **Baseline:** `contract-builder` main `32b9ed8` (2026-11-13); UIA `main` `69d8acf` (2026-11-13).
@@ -18,7 +18,7 @@ blocked by this), [#170](https://github.com/agent-federation/contract-builder/is
 mapping), [ODR-ENG-002](ODR-ENG-002-consumer-supplied-renderer.md) (consumer-supplied renderer),
 [engine contract §5.7/§8.1](../architecture/engine-public-contract.md),
 [`m1-implementation-plan.md`](../architecture/m1-implementation-plan.md) (current layout debt), and
-UIA issue [#54](https://github.com/zaebee/federation-agents/issues/54) (licence/publication model).
+UIA issue [#54](https://github.com/agent-federation/uia/issues/54) (licence/publication model).
 
 ## 1. Context
 
@@ -114,7 +114,7 @@ diff line by line; a content change beyond these two lines blocks E2.
 **D8 — Licence and provenance.** The extracted CORE-001 code and data remain under
 `contract-builder`'s Apache-2.0 licence. E1 adds a repository `LICENSE` (Apache-2.0) and a short
 `NOTICE`/README attribution to UIA before E2 moves code. This does **not** decide UIA issue
-[#54](https://github.com/zaebee/federation-agents/issues/54) (research artifact vs shippable library,
+[#54](https://github.com/agent-federation/uia/issues/54) (research artifact vs shippable library,
 versioning/publication); if #54 later chooses a different licence, the maintainer resolves it before
 E2 merges. No file in `contract-builder` changes licence.
 
@@ -152,16 +152,17 @@ surface.
 
 ## 3. Cross-repository access and work split
 
-The UIA repository is `zaebee/federation-agents` (public, admin: maintainer; collaborator list is the
-maintainer only). **The automated agent `it-start` does not have write access there today.** Until
-the maintainer grants access or executes the UIA-side work, the split is:
+The UIA repository is `agent-federation/uia` (public; admin: maintainer; `it-start` has **read-only**
+access, verified 2026-11-14 after the repository moved from `zaebee/federation-agents`). **The
+automated agent `it-start` cannot push there today.** Until the maintainer grants write access or
+executes the UIA-side work, the split is:
 
 | Slice | Repository | Executor |
 |---|---|---|
 | E1a engine loader fix | `contract-builder` | `it-start` (agent) |
-| E1 UIA scaffold, E2 UIA move | `federation-agents` | maintainer (or a session with UIA access); `it-start` may review |
+| E1 UIA scaffold, E2 UIA move | `agent-federation/uia` | maintainer (or a session with UIA write access); `it-start` has read-only access |
 | E3 `contract-builder` cleanup | `contract-builder` | `it-start` (agent), after E2 is green |
-| E4 tail | `federation-agents` | maintainer/session with access |
+| E4 tail | `agent-federation/uia` | maintainer/session with write access |
 
 If the maintainer adds `it-start` as a UIA collaborator, E1/E2 can be dispatched with the same task
 envelopes; this record does not assume that access.
