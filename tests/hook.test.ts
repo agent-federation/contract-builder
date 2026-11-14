@@ -4,7 +4,7 @@ import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { resolveFindings, type DiagnosticCatalog } from "../spec/lib/hook.js";
 import { SUPPORTED_LOCALES } from "../spec/lib/locale.js";
 import { ORDER } from "../profiles/core001/validator.js";
-import { entity, modelWith, copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
+import { entity, modelWith, copyEngineProject, ENGINE_RENDERERS } from "./support.js";
 import { runBuild } from "../spec/lib/build.js";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -108,9 +108,9 @@ test("hook: the aggregator order is explicit", () => {
 });
 
 test("hook: an unknown finding code fails the build", async () => {
-  const dir = await copyProjectWithProfile("unknown-code");
+  const dir = await copyEngineProject("unknown-code");
   await writeFile(
-    path.join(dir, "profiles", "core001", "validator.ts"),
+    path.join(dir, "profiles", "example", "validator.ts"),
     'export async function validate() {\n  return [{ code: "UNKNOWN", location: { file: "x", pointer: "" } }];\n}\n',
     "utf8",
   );
@@ -121,7 +121,7 @@ test("hook: an unknown finding code fails the build", async () => {
     write: false,
     check: false,
     strict: false,
-    renderers: TEST_RENDERERS,
+    renderers: ENGINE_RENDERERS,
     allowExecutableProfile: true,
   });
 
@@ -130,9 +130,9 @@ test("hook: an unknown finding code fails the build", async () => {
 });
 
 test("hook: a view module without buildView fails the build", async () => {
-  const dir = await copyProjectWithProfile("bad-view");
+  const dir = await copyEngineProject("bad-view");
   await writeFile(
-    path.join(dir, "profiles", "core001", "view.ts"),
+    path.join(dir, "profiles", "example", "view.ts"),
     "export const nope = 1;\n",
     "utf8",
   );
@@ -143,7 +143,7 @@ test("hook: a view module without buildView fails the build", async () => {
     write: false,
     check: false,
     strict: false,
-    renderers: TEST_RENDERERS,
+    renderers: ENGINE_RENDERERS,
     allowExecutableProfile: true,
   });
 
@@ -152,9 +152,9 @@ test("hook: a view module without buildView fails the build", async () => {
 });
 
 test("hook: a validator without validate fails the build", async () => {
-  const dir = await copyProjectWithProfile("bad-validator");
+  const dir = await copyEngineProject("bad-validator");
   await writeFile(
-    path.join(dir, "profiles", "core001", "validator.ts"),
+    path.join(dir, "profiles", "example", "validator.ts"),
     "export const nope = 1;\n",
     "utf8",
   );
@@ -165,7 +165,7 @@ test("hook: a validator without validate fails the build", async () => {
     write: false,
     check: false,
     strict: false,
-    renderers: TEST_RENDERERS,
+    renderers: ENGINE_RENDERERS,
     allowExecutableProfile: true,
   });
 
@@ -174,9 +174,9 @@ test("hook: a validator without validate fails the build", async () => {
 });
 
 test("hook: a malformed catalog fails the build", async () => {
-  const dir = await copyProjectWithProfile("bad-catalog");
+  const dir = await copyEngineProject("bad-catalog");
   await writeFile(
-    path.join(dir, "profiles", "core001", "catalog.json"),
+    path.join(dir, "profiles", "example", "catalog.json"),
     '{"codes": "nope"}\n',
     "utf8",
   );
@@ -187,7 +187,7 @@ test("hook: a malformed catalog fails the build", async () => {
     write: false,
     check: false,
     strict: false,
-    renderers: TEST_RENDERERS,
+    renderers: ENGINE_RENDERERS,
     allowExecutableProfile: true,
   });
 
@@ -196,7 +196,7 @@ test("hook: a malformed catalog fails the build", async () => {
 });
 
 test("hook: a project without a source fails at manifest validation", async () => {
-  const dir = await copyProjectWithProfile("no-source");
+  const dir = await copyEngineProject("no-source");
   const manifestPath = path.join(dir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
   delete manifest.sources;
@@ -208,7 +208,7 @@ test("hook: a project without a source fails at manifest validation", async () =
     write: false,
     check: false,
     strict: false,
-    renderers: TEST_RENDERERS,
+    renderers: ENGINE_RENDERERS,
     allowExecutableProfile: true,
   });
 
@@ -290,9 +290,9 @@ test("hook: a locale without any template fails with message-locale-missing", ()
 });
 
 test("hook: a non-locale key in messages is rejected as a catalog error", async () => {
-  const dir = await copyProjectWithProfile("bad-locale-key");
+  const dir = await copyEngineProject("bad-locale-key");
   await writeFile(
-    path.join(dir, "profiles", "core001", "catalog.json"),
+    path.join(dir, "profiles", "example", "catalog.json"),
     `${JSON.stringify(
       {
         codes: [
@@ -315,7 +315,7 @@ test("hook: a non-locale key in messages is rejected as a catalog error", async 
     write: false,
     check: false,
     strict: false,
-    renderers: TEST_RENDERERS,
+    renderers: ENGINE_RENDERERS,
     allowExecutableProfile: true,
   });
 

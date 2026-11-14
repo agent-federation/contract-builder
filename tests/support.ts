@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildView } from "../profiles/core001/view.js";
 import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
+import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
 import type { BuildIdentity } from "../spec/lib/identity.js";
 import type { Renderer } from "../spec/lib/render.js";
 import type { CheckContext } from "../profiles/core001/context.js";
@@ -212,4 +213,32 @@ export async function copyProjectWithProfile(name: string): Promise<string> {
 /** Consumer-supplied renderer registry, as the CLI wires it. */
 export const TEST_RENDERERS: Record<string, Renderer> = {
   [core001Renderer.id]: core001Renderer,
+};
+
+const engineFixtureDir = path.join(root, "tests", "fixtures", "engine-project");
+const exampleProfileDir = path.join(root, "profiles", "example");
+
+/**
+ * Copies the synthetic engine project fixture (`tests/fixtures/engine-project/`) and the
+ * `profiles/example` profile into a temp dir, with the profile copied inside the project
+ * (`./profiles/example`) so tests can mutate the copy without touching the repository.
+ */
+export async function copyEngineProject(name: string): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), `engine-${name}-`));
+  await cp(engineFixtureDir, dir, { recursive: true });
+  await cp(exampleProfileDir, path.join(dir, "profiles", "example"), { recursive: true });
+
+  const manifestPath = path.join(dir, "contract-builder.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+    profile: { source: string; external?: boolean };
+  };
+  manifest.profile.source = "./profiles/example";
+  delete manifest.profile.external;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  return dir;
+}
+
+/** Consumer-supplied renderer registry for the engine project fixture. */
+export const ENGINE_RENDERERS: Record<string, Renderer> = {
+  [exampleRenderer.id]: exampleRenderer,
 };

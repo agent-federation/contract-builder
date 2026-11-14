@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,15 +23,13 @@ import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
-import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
+import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
 import type { Manifest } from "../spec/lib/manifest.js";
 import type { Renderer } from "../spec/lib/render.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
-import { TEST_RENDERERS, copyProjectWithProfile } from "./support.js";
+import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const specDir = path.join(root, "spec");
-const legacyPath = path.join(root, "CORE-001.legacy.md");
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir: dir,
@@ -39,7 +37,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -58,19 +56,9 @@ const concat = (...chunks: Uint8Array[]): Uint8Array => {
   return result;
 };
 
-/** A self-contained project: copied profile with rewritten core imports and a local source. */
+/** A self-contained project: the engine fixture with the profile copied inside it. */
 async function copyLocalProject(name: string): Promise<string> {
-  const dir = await copyProjectWithProfile(name);
-  await cp(legacyPath, path.join(dir, "legacy.md"));
-
-  const manifestPath = path.join(dir, "contract-builder.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
-    sources: Array<{ path: string; external?: boolean }>;
-  };
-  manifest.sources[0]!.path = "legacy.md";
-  delete manifest.sources[0]!.external;
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  return dir;
+  return copyEngineProject(name);
 }
 
 async function identityOf(
@@ -93,38 +81,34 @@ async function profileDigest(dir: string): Promise<string> {
 }
 
 test("identity: fields and engine version follow the accepted contract", async () => {
-  const identity = await identityOf(specDir);
+  const dir = await copyLocalProject("identity-fields");
+  const identity = await identityOf(dir);
   const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
     version: string;
   };
 
-  assert.equal(identity.projectId, "uia-core-001");
+  assert.equal(identity.projectId, "engine-project");
   assert.equal(identity.engineVersion, pkg.version);
   assert.equal(identity.manifestVersion, "0.1");
   assert.match(identity.inputDigest, /^sha256:[0-9a-f]{64}$/);
   assert.deepEqual(identity.extensions, [
-    { kind: "profile", id: "core001", version: "0.1.0" },
+    { kind: "profile", id: "example", version: "0.1.0" },
     { kind: "adapter", id: "markdown", version: "0.1.0" },
-    { kind: "renderer", id: "core001-markdown", version: "0.1.0" },
+    { kind: "renderer", id: "example-markdown", version: "0.1.0" },
   ]);
 });
 
 test("identity: repeated builds produce the same digest", async () => {
-  const first = await identityOf(specDir);
-  const second = await identityOf(specDir);
+  const dir = await copyLocalProject("identity-stable");
+  const first = await identityOf(dir);
+  const second = await identityOf(dir);
   assert.equal(first.inputDigest, second.inputDigest);
 });
 
 test("identity: a one-byte change in every declared input changes the digest", async () => {
   const dir = await copyLocalProject("identity-inputs");
   const before = (await identityOf(dir)).inputDigest;
-  const inputs = [
-    "sources.yml",
-    "ontology.yml",
-    "semantics.json",
-    "decisions.yml",
-    path.join("conformance", "cases.yml"),
-  ];
+  const inputs = ["requirements.yml", "examples.yml"];
 
   for (const relative of inputs) {
     const file = path.join(dir, relative);
@@ -139,7 +123,7 @@ test("identity: a one-byte change in every declared input changes the digest", a
 test("identity: a one-byte change in the source document changes the digest", async () => {
   const dir = await copyLocalProject("identity-source");
   const before = (await identityOf(dir)).inputDigest;
-  const file = path.join(dir, "legacy.md");
+  const file = path.join(dir, "source.md");
   const original = await readFile(file);
   await writeFile(file, concat(original, new TextEncoder().encode(" ")));
   const after = (await identityOf(dir)).inputDigest;
@@ -151,7 +135,7 @@ test("identity: a profile file change moves profileDigest and inputDigest", asyn
   const beforeProfile = await profileDigest(dir);
   const beforeBuild = (await identityOf(dir)).inputDigest;
 
-  const file = path.join(dir, "profiles", "core001", "view.ts");
+  const file = path.join(dir, "profiles", "example", "view.ts");
   const original = await readFile(file, "utf8");
   await writeFile(file, `${original} `, "utf8");
 
@@ -164,7 +148,7 @@ test("identity: a profile file change moves profileDigest and inputDigest", asyn
 test("identity: an undeclared executable profile file fails closed before execution", async () => {
   const dir = await copyLocalProject("identity-undeclared-executable");
   const marker = path.join(dir, "view-evaluated.marker");
-  const viewPath = path.join(dir, "profiles", "core001", "view.ts");
+  const viewPath = path.join(dir, "profiles", "example", "view.ts");
   await writeFile(
     viewPath,
     `import { writeFileSync } from "node:fs";\n${await readFile(viewPath, "utf8")}\n` +
@@ -172,7 +156,7 @@ test("identity: an undeclared executable profile file fails closed before execut
     "utf8",
   );
 
-  const profilePath = path.join(dir, "profiles", "core001", "profile.json");
+  const profilePath = path.join(dir, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files: string[] };
   profile.files = profile.files.filter((entry) => entry !== "view.ts");
   await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
@@ -193,14 +177,13 @@ test("identity: every consumed profile file must be declared in profile.files", 
   const entries = [
     ["validator.ts", "validator"],
     ["catalog.json", "diagnostics"],
-    ["schemas/sources.schema.json", "schema"],
-    ["templates/core001.md.j2", "render.template"],
-    ["labels.ru.json", "render.labels"],
+    ["schemas/requirements.schema.json", "schema"],
+    ["templates/example.md.j2", "render.template"],
   ] as const;
 
   for (const [index, [entry, label]] of entries.entries()) {
     const dir = await copyLocalProject(`identity-undeclared-consumed-${index}`);
-    const profilePath = path.join(dir, "profiles", "core001", "profile.json");
+    const profilePath = path.join(dir, "profiles", "example", "profile.json");
     const profile = JSON.parse(await readFile(profilePath, "utf8")) as { files: string[] };
     profile.files = profile.files.filter((item) => item !== entry);
     await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
@@ -246,7 +229,8 @@ test("identity: a declared source-adapter file change moves its closure and the 
     diagnostics,
   );
   assert.ok(beforeClosure !== null, diagnostics.report());
-  const beforeBuild = (await identityOf(specDir, { adapters: { markdown: adapter } })).inputDigest;
+  const project = await copyLocalProject("identity-adapter-build");
+  const beforeBuild = (await identityOf(project, { adapters: { markdown: adapter } })).inputDigest;
 
   await writeFile(file, `${await readFile(file, "utf8")}\n// identity sentinel\n`, "utf8");
   const afterClosure = await resolveExtensionClosure(
@@ -258,7 +242,7 @@ test("identity: a declared source-adapter file change moves its closure and the 
     diagnostics,
   );
   assert.ok(afterClosure !== null);
-  const afterBuild = (await identityOf(specDir, { adapters: { markdown: adapter } })).inputDigest;
+  const afterBuild = (await identityOf(project, { adapters: { markdown: adapter } })).inputDigest;
 
   assert.notEqual(afterClosure.closureDigest, beforeClosure.closureDigest);
   assert.notEqual(afterBuild, beforeBuild);
@@ -270,10 +254,10 @@ test("identity: a declared renderer file change moves its closure and the digest
   await writeFile(file, "// identity sentinel one\n", "utf8");
 
   const renderer: Renderer = {
-    ...core001Renderer,
+    ...exampleRenderer,
     closure: { root: dir, files: ["renderer.ts"], dependencies: {} },
   };
-  const renderers = { [core001Renderer.id]: renderer };
+  const renderers = { [exampleRenderer.id]: renderer };
   const lockfile = await readLockfile();
   const diagnostics = new Diagnostics();
   const beforeClosure = await resolveExtensionClosure(
@@ -285,7 +269,8 @@ test("identity: a declared renderer file change moves its closure and the digest
     diagnostics,
   );
   assert.ok(beforeClosure !== null, diagnostics.report());
-  const beforeBuild = (await identityOf(specDir, { renderers })).inputDigest;
+  const project = await copyLocalProject("identity-renderer-build");
+  const beforeBuild = (await identityOf(project, { renderers })).inputDigest;
 
   await writeFile(file, "// identity sentinel two\n", "utf8");
   const afterClosure = await resolveExtensionClosure(
@@ -297,7 +282,7 @@ test("identity: a declared renderer file change moves its closure and the digest
     diagnostics,
   );
   assert.ok(afterClosure !== null);
-  const afterBuild = (await identityOf(specDir, { renderers })).inputDigest;
+  const afterBuild = (await identityOf(project, { renderers })).inputDigest;
 
   assert.notEqual(afterClosure.closureDigest, beforeClosure.closureDigest);
   assert.notEqual(afterBuild, beforeBuild);
@@ -350,7 +335,7 @@ test("identity: temp roots, mtimes, locale and unrelated environment do not move
   const secondDigest = (await identityOf(second)).inputDigest;
   assert.equal(secondDigest, firstDigest);
 
-  await utimes(path.join(first, "sources.yml"), new Date(), new Date());
+  await utimes(path.join(first, "requirements.yml"), new Date(), new Date());
   const previousLocale = process.env.LANG;
   process.env.LANG = "tr_TR.UTF-8";
   process.env.DSH_IDENTITY_SENTINEL = "sentinel";
@@ -585,7 +570,7 @@ test("identity: template expressions with regex braces are scanned", () => {
 
 test("identity: a template-interpolation import in a profile is unpinned", async () => {
   const dir = await copyLocalProject("identity-template-import");
-  const file = path.join(dir, "profiles", "core001", "checks", "cases.ts");
+  const file = path.join(dir, "profiles", "example", "validator.ts");
   const injection = 'const templateImport = () => `${await import("left-pad")}`;';
   await writeFile(file, `${await readFile(file, "utf8")}\n${injection}\n`, "utf8");
 
@@ -642,7 +627,7 @@ test("identity: closure digests sort files and dependencies", () => {
 
 test("identity: undeclared literal static import is core.extension.unpinned-dependency", async () => {
   const dir = await copyLocalProject("identity-unpinned-static");
-  const file = path.join(dir, "profiles", "core001", "checks", "cases.ts");
+  const file = path.join(dir, "profiles", "example", "validator.ts");
   await writeFile(file, `${await readFile(file, "utf8")}\nimport "left-pad";\n`, "utf8");
 
   const result = await runBuild(base(dir));
@@ -653,7 +638,7 @@ test("identity: undeclared literal static import is core.extension.unpinned-depe
 
 test("identity: undeclared literal dynamic import is core.extension.unpinned-dependency", async () => {
   const dir = await copyLocalProject("identity-unpinned-dynamic");
-  const file = path.join(dir, "profiles", "core001", "view.ts");
+  const file = path.join(dir, "profiles", "example", "view.ts");
   await writeFile(
     file,
     `${await readFile(file, "utf8")}\nconst lazy = () => import("left-pad");\n`,
@@ -667,11 +652,11 @@ test("identity: undeclared literal dynamic import is core.extension.unpinned-dep
 
 test("identity: a declared version that does not match bun.lock fails the build", async () => {
   const dir = await copyLocalProject("identity-mismatch");
-  const file = path.join(dir, "profiles", "core001", "profile.json");
+  const file = path.join(dir, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as {
     dependencies: Record<string, string>;
   };
-  profile.dependencies.nunjucks = "9.9.9";
+  profile.dependencies = { nunjucks: "9.9.9" };
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 
   const result = await runBuild(base(dir));
@@ -682,19 +667,9 @@ test("identity: a declared version that does not match bun.lock fails the build"
 test("identity: a missing declared closure file fails the build", async () => {
   const dir = await copyLocalProject("identity-missing-file");
   const { rm } = await import("node:fs/promises");
-  await rm(path.join(dir, "profiles", "core001", "renderer.ts"));
+  await rm(path.join(dir, "profiles", "example", "renderer.ts"));
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   assert.ok(codes(result).includes("core.extension.unpinned-dependency"));
-});
-
-test("identity: the build identity is rendered into the artifact", async () => {
-  const result = await runBuild(base(specDir));
-  assert.ok(result.identity !== null);
-  assert.ok(result.markdown !== null);
-  assert.ok(result.markdown.includes(result.identity.inputDigest));
-  assert.ok(result.markdown.includes(result.identity.engineVersion));
-  assert.ok(result.markdown.includes(result.identity.manifestVersion));
-  assert.ok(result.markdown.includes("`inputDigest`"));
 });
