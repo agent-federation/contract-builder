@@ -5,7 +5,9 @@ import { Diagnostics } from "./lib/diagnostics.js";
 import {
   createEngineImportMapping,
   defaultEngineRoot,
+  installEngineImportPlugin,
   validateProfileClosure,
+  withEngineImportMapping,
 } from "./lib/identity.js";
 import { loadManifest, type ResolvedProject } from "./lib/manifest.js";
 import { LocalizedError } from "./lib/messages.js";
@@ -86,7 +88,9 @@ async function resolveRendererModule(
  * (a) the caller passed the same explicit consent flag that `runBuild` requires, (b) the module
  * resolves inside the selected project's profile directory (realpath containment), (c) it is
  * declared in `profile.files`, and (d) the selected profile's declared closure validates. The
- * import evaluates the module. After the import, and before registration, the module's reported
+ * import evaluates the module inside the engine-import mapping, exactly like the profile
+ * `view`/`validator` modules `runBuild` loads, so a consumer profile outside the engine checkout
+ * can import engine modules. After the import, and before registration, the module's reported
  * id must equal the manifest's declared `render[].renderer`: a mismatch prevents registration,
  * not execution. The closure is checked before the dynamic import, so an invalid or
  * unverifiable profile cannot cause its renderer/view modules to run first.
@@ -99,21 +103,20 @@ export async function loadProfileRenderers(
   if (!allow) return {};
   const importRenderer = options.importRenderer ?? importRendererModule;
   const engineRoot = options.engineRoot ?? defaultEngineRoot();
-  const validateClosure: ProfileClosureValidator =
-    options.validateClosure ??
-    ((project, diagnostics) =>
-      validateProfileClosure(
-        project,
-        diagnostics,
-        undefined,
-        createEngineImportMapping(project, engineRoot),
-      ));
 
   // Read and validate the manifest/profile declaration before importing profile code. This
   // is declarative data only; no executable module is loaded by `loadManifest`.
   const diagnostics = new Diagnostics();
   const project = await loadManifest(specDir, diagnostics);
   if (project === null) return {};
+
+  // One mapping serves the closure preflight and the import: the scan records every
+  // engine-owned specifier it resolved, and the same map must be active while the renderer
+  // is evaluated. The preflight always runs before the import below.
+  const mapping = createEngineImportMapping(project, engineRoot);
+  const validateClosure: ProfileClosureValidator =
+    options.validateClosure ??
+    ((project, diagnostics) => validateProfileClosure(project, diagnostics, undefined, mapping));
 
   const declaredRenderer = project.manifest.render[0]?.renderer;
   if (declaredRenderer === undefined) return {};
@@ -125,10 +128,14 @@ export async function loadProfileRenderers(
   // Preflight the same profile closure `runBuild` validates, against the same engine root.
   if (!(await validateClosure(project, diagnostics))) return {};
 
-  // An import failure is a configuration error, not a missing renderer: let it propagate so the
-  // CLI reports the real cause (syntax error, missing dependency) instead of collapsing it into
-  // `core.registry.missing`.
-  const renderer = await importRenderer(modulePath);
+  // The renderer runs in the same mapping scope as the profile modules `runBuild` imports, so
+  // engine imports resolve from `engineRoot` even when the profile lives outside the engine
+  // checkout (ODR-ENG-003 D4). A runtime without import remapping fails closed; `runBuild`
+  // reports the missing capability with its own diagnostic.
+  if (!installEngineImportPlugin()) return {};
+  const renderer = await withEngineImportMapping(project.profileDir, mapping, () =>
+    importRenderer(modulePath),
+  );
   if (renderer.id !== declaredRenderer) return {};
   return { [renderer.id]: renderer };
 }

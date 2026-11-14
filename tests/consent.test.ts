@@ -232,6 +232,27 @@ test("consent: the CLI preflight imports a declared renderer module for a valid 
   assert.deepEqual(renderers, { [FAKE_RENDERER.id]: FAKE_RENDERER });
 });
 
+test("consent: a renderer in an external profile imports engine modules through the mapping", async () => {
+  // `copyProjectWithProfile` places the project and its profile outside the engine checkout, so
+  // the renderer's `../../spec/lib/...` imports normalize outside the engine tree. They resolve
+  // only when the loader imports the renderer inside the engine-import mapping (ODR-ENG-003 D4).
+  const dir = await copyProjectWithProfile("external-renderer-mapping");
+  const module = await addEngineImportRenderer(dir);
+
+  const renderers = await loadProfileRenderers(true, dir, {
+    engineRoot: root,
+    rendererModule: module,
+  });
+  assert.deepEqual(Object.keys(renderers), ["core001-markdown"]);
+
+  const result = await runBuild(base(dir, { renderers }));
+
+  assert.equal(result.exitCode, 0, failure(result));
+  assert.equal(result.blockedBy, null);
+  assert.equal(result.markdown, "external renderer\n");
+  assert.ok(result.identity !== null);
+});
+
 test("consent: the CLI preflight does not register a renderer whose id differs from the declaration", async () => {
   const dir = await copyProjectWithProfile("preflight-mismatch");
   await setDeclaredRenderer(dir, "other-markdown");
@@ -301,6 +322,35 @@ test("consent: the CLI preflight rejects a renderer module not declared in profi
   assert.equal(imported, 0);
   assert.deepEqual(renderers, {});
 });
+
+/**
+ * Writes a renderer module into a copied profile whose `../../spec/lib/...` import only resolves
+ * when the loader imports the module inside the engine-import mapping.
+ */
+async function addEngineImportRenderer(dir: string): Promise<string> {
+  const name = "engine-import-renderer.ts";
+  const module = path.join(dir, "profiles", "core001", name);
+  const source = [
+    'import { fileURLToPath } from "node:url";',
+    'import { artifactFrom } from "../../spec/lib/render.js";',
+    "export const renderer = {",
+    '  id: "core001-markdown",',
+    '  version: "0.1.0",',
+    "  closure: {",
+    '    root: fileURLToPath(new URL(".", import.meta.url)),',
+    `    files: [${JSON.stringify(name)}],`,
+    "    dependencies: {},",
+    "  },",
+    "  async render() {",
+    '    return [artifactFrom("output/CORE-001.draft.md", "external renderer")];',
+    "  },",
+    "};",
+    "",
+  ].join("\n");
+  await writeFile(module, source, "utf8");
+  await declareProfileFile(dir, name);
+  return module;
+}
 
 /** Writes a dependency-free renderer module with the given id into a copied profile. */
 async function addRendererModule(dir: string, id: string): Promise<string> {
