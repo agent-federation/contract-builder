@@ -12,7 +12,7 @@ import {
   readLockfile,
   resolveExtensionClosure,
 } from "../spec/lib/identity.js";
-import { TEST_RENDERERS, copyProjectWithProfile } from "./support.js";
+import { ENGINE_RENDERERS, TEST_RENDERERS, copyEngineProject } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const repoSpecDir = path.join(root, "spec");
@@ -24,7 +24,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -46,7 +46,7 @@ async function repoPackageVersion(): Promise<string> {
  * Copies the committed project layout — `spec/`, `profiles/core001` and the legacy source —
  * into a temp directory, exactly as a user would copy a checkout. Nothing is rewritten.
  */
-async function copyEngineProject(name: string): Promise<string> {
+async function copyCommittedProject(name: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), `engine-root-${name}-`));
   await cp(repoSpecDir, path.join(dir, "spec"), { recursive: true });
   await cp(path.join(root, "profiles", "core001"), path.join(dir, "profiles", "core001"), {
@@ -61,8 +61,13 @@ async function copyEngineProject(name: string): Promise<string> {
  * Temp copies have no `node_modules`, so the copied profile renderer (which imports `nunjucks`)
  * cannot be imported there; this module needs only a `node:` builtin.
  */
-async function addProbeRenderer(projectDir: string): Promise<string> {
-  const profileDir = path.join(projectDir, "profiles", "core001");
+async function addProbeRenderer(
+  projectDir: string,
+  profileName = "core001",
+  rendererId = "core001-markdown",
+  outputPath = "output/CORE-001.draft.md",
+): Promise<string> {
+  const profileDir = path.join(projectDir, "profiles", profileName);
   const modulePath = path.join(profileDir, "probe-renderer.ts");
   await writeFile(
     modulePath,
@@ -72,7 +77,7 @@ async function addProbeRenderer(projectDir: string): Promise<string> {
       'const bytes = new TextEncoder().encode("probe\\n");',
       'const sha256 = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;',
       "export const renderer = {",
-      '  id: "core001-markdown",',
+      `  id: ${JSON.stringify(rendererId)},`,
       '  version: "0.1.0",',
       "  closure: {",
       '    root: fileURLToPath(new URL(".", import.meta.url)),',
@@ -80,7 +85,7 @@ async function addProbeRenderer(projectDir: string): Promise<string> {
       "    dependencies: {},",
       "  },",
       "  async render() {",
-      '    return [{ path: "output/CORE-001.draft.md", bytes, sha256 }];',
+      `    return [{ path: ${JSON.stringify(outputPath)}, bytes, sha256 }];`,
       "  },",
       "};",
       "",
@@ -111,13 +116,13 @@ async function copyEngineRoot(name: string, version?: string): Promise<string> {
 }
 
 test("engine-root: a copied project builds from the supplied root without rewriting imports", async () => {
-  const inRepo = await runBuild(base(repoSpecDir));
+  const inRepo = await runBuild(base(repoSpecDir, { renderers: TEST_RENDERERS }));
   assert.equal(inRepo.exitCode, 0, failure(inRepo));
   assert.ok(inRepo.identity !== null);
   const committed = await readFile(draftPath, "utf8");
   assert.equal(inRepo.markdown, committed, "the repository build's artifact changed");
 
-  const copied = await copyEngineProject("portable");
+  const copied = await copyCommittedProject("portable");
   // Sentinel: the copy's engine modules must never execute. If the profile loaded them
   // instead of the supplied root's modules, this module would throw during the build.
   await writeFile(
@@ -126,7 +131,9 @@ test("engine-root: a copied project builds from the supplied root without rewrit
     "utf8",
   );
 
-  const rebuilt = await runBuild(base(path.join(copied, "spec"), { engineRoot: root }));
+  const rebuilt = await runBuild(
+    base(path.join(copied, "spec"), { engineRoot: root, renderers: TEST_RENDERERS }),
+  );
   assert.equal(rebuilt.exitCode, 0, failure(rebuilt));
   assert.ok(rebuilt.identity !== null, "the copied build produced no identity");
   assert.equal(rebuilt.markdown, committed, "the copied build's artifact differs");
@@ -140,7 +147,7 @@ test("engine-root: a copied project builds from the supplied root without rewrit
 });
 
 test("engine-root: the CLI accepts --engine-root for a copied project", async () => {
-  const copied = await copyEngineProject("cli");
+  const copied = await copyCommittedProject("cli");
   const rendererModule = await addProbeRenderer(copied);
   const cli = spawnSync(
     process.execPath,
@@ -181,15 +188,20 @@ test("engine-root: the CLI preflight validates against --engine-root, not the ru
     "utf8",
   );
 
-  const project = await copyProjectWithProfile("engine-root-cli-divergent");
-  const profilePath = path.join(project, "profiles", "core001", "profile.json");
+  const project = await copyEngineProject("engine-root-cli-divergent");
+  const profilePath = path.join(project, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
     dependencies?: Record<string, string>;
   };
   profile.dependencies = { ...(profile.dependencies ?? {}), "engine-root-probe": "1.0.0" };
   await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 
-  const rendererModule = await addProbeRenderer(project);
+  const rendererModule = await addProbeRenderer(
+    project,
+    "example",
+    "example-markdown",
+    "output/EXAMPLE.draft.md",
+  );
   const cli = spawnSync(
     process.execPath,
     [
@@ -215,30 +227,45 @@ test("engine-root: the CLI preflight validates against --engine-root, not the ru
 
 test("engine-root: a distinct same-version root's modules are the ones executed", async () => {
   const engineRoot = await copyEngineRoot("distinct-execution");
-  const provenancePath = path.join(engineRoot, "spec", "lib", "provenance.ts");
-  const markerPath = path.join(engineRoot, "spec", "lib", "provenance.marker");
-  const original = await readFile(provenancePath, "utf8");
+  const markerPath = path.join(engineRoot, "spec", "lib", "manifest.marker");
+  const manifestPath = path.join(engineRoot, "spec", "lib", "manifest.ts");
+  const original = await readFile(manifestPath, "utf8");
   await writeFile(
-    provenancePath,
+    manifestPath,
     [
       'import { writeFileSync } from "node:fs";',
       'import { fileURLToPath } from "node:url";',
-      'writeFileSync(fileURLToPath(new URL("./provenance.marker", import.meta.url)), "loaded", "utf8");',
+      'writeFileSync(fileURLToPath(new URL("./manifest.marker", import.meta.url)), "loaded", "utf8");',
       original,
     ].join("\n"),
     "utf8",
   );
 
-  const project = await copyProjectWithProfile("distinct-root-execution");
+  const project = await copyEngineProject("distinct-root-execution");
+  // The fixture profile modules only have type-only engine imports, so the test adds a
+  // runtime import: loading the validator must execute the supplied root's `manifest.ts`.
+  const validatorPath = path.join(project, "profiles", "example", "validator.ts");
+  const validator = await readFile(validatorPath, "utf8");
+  await writeFile(
+    validatorPath,
+    [
+      'import { writeFileSync } from "node:fs";',
+      'import { resolveContained } from "../../spec/lib/manifest.js";',
+      `writeFileSync(${JSON.stringify(markerPath)}, "loaded", "utf8");`,
+      "void resolveContained;",
+      validator,
+    ].join("\n"),
+    "utf8",
+  );
+
   const result = await runBuild(base(project, { engineRoot }));
   assert.equal(result.exitCode, 0, failure(result));
-  assert.ok(result.markdown?.includes("UIA-CORE-001"));
-  assert.ok(result.markdown?.includes(result.identity!.inputDigest));
+  assert.ok(result.markdown?.includes("Orders example"));
   assert.equal(await readFile(markerPath, "utf8"), "loaded");
 });
 
 test("engine-root: the mapping rule recognizes nested and deeper spec/lib imports", () => {
-  const profile = path.join(path.sep, "project", "profiles", "core001");
+  const profile = path.join(path.sep, "project", "profiles", "example");
   const layout = path.join(path.sep, "project");
 
   assert.deepEqual(
@@ -259,7 +286,7 @@ test("engine-root: the mapping rule recognizes nested and deeper spec/lib import
 });
 
 test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths", () => {
-  const profile = path.join(path.sep, "project", "profiles", "core001");
+  const profile = path.join(path.sep, "project", "profiles", "example");
   const layout = path.join(path.sep, "project");
 
   const ambiguous = classifyEngineSpecifier(
@@ -333,8 +360,8 @@ test("engine-root: a symlink escaping spec/lib is rejected", async () => {
   await writeFile(outside, "export const escaped = 1;\n", "utf8");
   await symlink(outside, path.join(engineRoot, "spec", "lib", "escape.ts"));
 
-  const project = await copyProjectWithProfile("engine-symlink-escape");
-  const viewPath = path.join(project, "profiles", "core001", "view.ts");
+  const project = await copyEngineProject("engine-symlink-escape");
+  const viewPath = path.join(project, "profiles", "example", "view.ts");
   const view = await readFile(viewPath, "utf8");
   await writeFile(
     viewPath,
@@ -348,7 +375,7 @@ test("engine-root: a symlink escaping spec/lib is rejected", async () => {
 });
 
 test("engine-root: an invalid engine root fails closed", async () => {
-  const project = await copyProjectWithProfile("engine-wrong-root");
+  const project = await copyEngineProject("engine-wrong-root");
   const empty = await mkdtemp(path.join(tmpdir(), "engine-root-empty-"));
 
   const result = await runBuild(base(project, { engineRoot: empty }));
@@ -359,7 +386,7 @@ test("engine-root: an invalid engine root fails closed", async () => {
 
 test("engine-root: a root whose version differs from the running engine fails closed", async () => {
   const engineRoot = await copyEngineRoot("version-mismatch", "9.9.9");
-  const project = await copyProjectWithProfile("engine-version-mismatch");
+  const project = await copyEngineProject("engine-version-mismatch");
 
   const result = await runBuild(base(project, { engineRoot }));
   assert.equal(result.exitCode, 1);

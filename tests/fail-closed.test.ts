@@ -18,7 +18,7 @@ import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { cliErrorDocument, internalErrorMessage, renderCliError } from "../spec/lib/cli-errors.js";
 import type { Diagnostic } from "../spec/lib/diagnostics.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
-import { copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const cliPath = path.join(root, "spec", "build.ts");
@@ -29,7 +29,7 @@ const base = (specDir: string, overrides: Partial<BuildOptions> = {}): BuildOpti
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -41,13 +41,13 @@ const failure = (result: Awaited<ReturnType<typeof runBuild>>): string =>
   result.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join("\n");
 
 async function writeProfileFile(dir: string, file: string, source: string): Promise<void> {
-  await writeFile(path.join(dir, "profiles", "core001", file), source, "utf8");
+  await writeFile(path.join(dir, "profiles", "example", file), source, "utf8");
 }
 
 function cliArgs(dir: string, json: boolean, withRenderer = true): string[] {
   const args = [cliPath, "--spec", dir, "--no-write", "--allow-executable-profile"];
   if (withRenderer) {
-    args.push("--renderer-module", path.join(dir, "profiles", "core001", "renderer.ts"));
+    args.push("--renderer-module", path.join(dir, "profiles", "example", "renderer.ts"));
   }
   if (json) args.push("--json");
   return args;
@@ -58,7 +58,7 @@ const THROWING_VALIDATOR =
   'export async function validate(): Promise<never> {\n  throw new Error("validator exploded");\n}\n';
 
 test("fail-closed: a throwing validator becomes a diagnostic, not a rejection", async () => {
-  const dir = await copyProjectWithProfile("throwing-validator");
+  const dir = await copyEngineProject("throwing-validator");
   await writeProfileFile(dir, "validator.ts", THROWING_VALIDATOR);
 
   const result = await runBuild(base(dir));
@@ -77,7 +77,7 @@ test("fail-closed: a throwing validator becomes a diagnostic, not a rejection", 
 });
 
 test("fail-closed: a throwing view hook becomes a diagnostic", async () => {
-  const dir = await copyProjectWithProfile("throwing-view");
+  const dir = await copyEngineProject("throwing-view");
   await writeProfileFile(
     dir,
     "view.ts",
@@ -96,7 +96,7 @@ test("fail-closed: a throwing view hook becomes a diagnostic", async () => {
 });
 
 test("fail-closed: a throwing provenance verifier becomes a diagnostic", async () => {
-  const dir = await copyProjectWithProfile("throwing-provenance");
+  const dir = await copyEngineProject("throwing-provenance");
   await writeProfileFile(
     dir,
     "validator.ts",
@@ -122,7 +122,7 @@ test("fail-closed: a throwing provenance verifier becomes a diagnostic", async (
 });
 
 test("fail-closed: a validator that returns a malformed finding list is a diagnostic", async () => {
-  const dir = await copyProjectWithProfile("malformed-findings");
+  const dir = await copyEngineProject("malformed-findings");
   await writeProfileFile(
     dir,
     "validator.ts",
@@ -147,7 +147,7 @@ test("fail-closed: a malformed provenance verifier return is a diagnostic", asyn
   ];
 
   for (const [index, testCase] of cases.entries()) {
-    const dir = await copyProjectWithProfile(`malformed-provenance-${index}`);
+    const dir = await copyEngineProject(`malformed-provenance-${index}`);
     await writeProfileFile(
       dir,
       "validator.ts",
@@ -174,13 +174,26 @@ test("fail-closed: a malformed provenance verifier return is a diagnostic", asyn
 });
 
 test("fail-closed: a throwing quote adapter becomes a diagnostic", async () => {
-  const dir = await copyProjectWithProfile("throwing-adapter");
+  const dir = await copyEngineProject("throwing-adapter");
   const throwingAdapter: SourceAdapter = {
     ...markdownAdapter,
     async verifyQuote() {
       throw new Error("adapter exploded");
     },
   };
+  // The adapter is invoked by profile code through the engine-supplied context, so the
+  // fixture validator must call `verifyQuote` for the adapter path to execute.
+  await writeProfileFile(
+    dir,
+    "validator.ts",
+    [
+      "export async function validate(_model, ctx) {",
+      '  await ctx.verifyQuote("SRC-EXAMPLE", "#1", "orders");',
+      "  return [];",
+      "}",
+      "",
+    ].join("\n"),
+  );
 
   const result = await runBuild(base(dir, { adapters: { [markdownAdapter.id]: throwingAdapter } }));
 
@@ -195,7 +208,7 @@ test("fail-closed: a throwing quote adapter becomes a diagnostic", async () => {
 });
 
 test("fail-closed: the CLI emits the diagnostic and one valid JSON document", async () => {
-  const dir = await copyProjectWithProfile("cli-throwing-validator");
+  const dir = await copyEngineProject("cli-throwing-validator");
   await writeProfileFile(dir, "validator.ts", THROWING_VALIDATOR);
 
   const run = spawnSync(process.execPath, cliArgs(dir, true, false), {
@@ -217,7 +230,7 @@ test("fail-closed: the CLI emits the diagnostic and one valid JSON document", as
 });
 
 test("fail-closed: human CLI mode prints a one-line diagnostic, not a stack trace", async () => {
-  const dir = await copyProjectWithProfile("cli-throwing-validator-human");
+  const dir = await copyEngineProject("cli-throwing-validator-human");
   await writeProfileFile(dir, "validator.ts", THROWING_VALIDATOR);
 
   const run = spawnSync(process.execPath, cliArgs(dir, false, false), {
@@ -239,7 +252,7 @@ async function writeThrowingClosureRenderer(dir: string): Promise<void> {
     "renderer.ts",
     [
       "export const renderer = {",
-      '  id: "core001-markdown",',
+      '  id: "example-markdown",',
       '  version: "0.1.0",',
       "  get closure() {",
       '    throw new Error("renderer closure exploded");',
@@ -254,7 +267,7 @@ async function writeThrowingClosureRenderer(dir: string): Promise<void> {
 }
 
 test("fail-closed: an unexpected error still emits one JSON error document", async () => {
-  const dir = await copyProjectWithProfile("cli-unexpected-error");
+  const dir = await copyEngineProject("cli-unexpected-error");
   await writeThrowingClosureRenderer(dir);
 
   const run = spawnSync(process.execPath, cliArgs(dir, true), { cwd: root, encoding: "utf8" });
@@ -279,7 +292,7 @@ test("fail-closed: an unexpected error still emits one JSON error document", asy
 });
 
 test("fail-closed: human mode reports an unexpected error without a stack trace", async () => {
-  const dir = await copyProjectWithProfile("cli-unexpected-error-human");
+  const dir = await copyEngineProject("cli-unexpected-error-human");
   await writeThrowingClosureRenderer(dir);
 
   const run = spawnSync(process.execPath, cliArgs(dir, false), { cwd: root, encoding: "utf8" });
@@ -320,7 +333,7 @@ test("fail-closed: --json engine preflight failure emits the documented CLI code
 });
 
 test("fail-closed: --json renderer import failure emits the documented CLI code", async () => {
-  const dir = await copyProjectWithProfile("cli-renderer-load-failed");
+  const dir = await copyEngineProject("cli-renderer-load-failed");
   // A syntactically invalid module fails while it is imported, after the pre-import gates
   // and before registration: the real cause must reach the document, not a generic error.
   await writeProfileFile(dir, "renderer.ts", "export const renderer = ;\n");

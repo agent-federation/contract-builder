@@ -9,17 +9,17 @@ import {
   type RenderOptions,
   type Renderer,
 } from "../spec/lib/render.js";
-import { renderer } from "../profiles/core001/renderer.js";
 import { gateConclusion } from "../profiles/core000/renderer.js";
+import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
 import {
-  copyProjectWithProfile,
+  copyEngineProject,
+  ENGINE_RENDERERS,
   entity,
   fragment,
   modelWith,
   PROVISION_FIELDS,
   PROVISION_RELATIONS,
   TEST_IDENTITY,
-  TEST_RENDERERS,
 } from "./support.js";
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
@@ -28,7 +28,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -43,7 +43,7 @@ async function setRenderer(dir: string, id: string): Promise<void> {
 }
 
 test("renderer: an unknown renderer id is core.registry.missing", async () => {
-  const dir = await copyProjectWithProfile("unknown-renderer");
+  const dir = await copyEngineProject("unknown-renderer");
   await setRenderer(dir, "unknown");
 
   const result = await runBuild(base(dir));
@@ -52,7 +52,7 @@ test("renderer: an unknown renderer id is core.registry.missing", async () => {
 });
 
 test("renderer: an invocation failure is core.render.failed", async () => {
-  const dir = await copyProjectWithProfile("failing-renderer");
+  const dir = await copyEngineProject("failing-renderer");
   await setRenderer(dir, "boom");
 
   const boom: Renderer = {
@@ -64,13 +64,13 @@ test("renderer: an invocation failure is core.render.failed", async () => {
     },
   };
 
-  const result = await runBuild(base(dir, { renderers: { ...TEST_RENDERERS, boom } }));
+  const result = await runBuild(base(dir, { renderers: { ...ENGINE_RENDERERS, boom } }));
   assert.equal(result.exitCode, 1);
   assert.ok(result.diagnostics.some((item) => item.code === "core.render.failed"));
 });
 
 test("renderer: a minimal renderer runs through the same boundary", async () => {
-  const dir = await copyProjectWithProfile("minimal-renderer");
+  const dir = await copyEngineProject("minimal-renderer");
   await setRenderer(dir, "minimal");
 
   const minimal: Renderer = {
@@ -82,13 +82,13 @@ test("renderer: a minimal renderer runs through the same boundary", async () => 
     },
   };
 
-  const result = await runBuild(base(dir, { renderers: { ...TEST_RENDERERS, minimal } }));
+  const result = await runBuild(base(dir, { renderers: { ...ENGINE_RENDERERS, minimal } }));
   assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
   assert.equal(result.markdown, "minimal output\n");
 });
 
 test("renderer: the engine passes the computed build identity in RenderOptions", async () => {
-  const dir = await copyProjectWithProfile("identity-options");
+  const dir = await copyEngineProject("identity-options");
   await setRenderer(dir, "capture");
   let received: RenderOptions | undefined;
 
@@ -102,7 +102,7 @@ test("renderer: the engine passes the computed build identity in RenderOptions",
     },
   };
 
-  const result = await runBuild(base(dir, { renderers: { ...TEST_RENDERERS, capture } }));
+  const result = await runBuild(base(dir, { renderers: { ...ENGINE_RENDERERS, capture } }));
   assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
   assert.ok(received !== undefined);
   assert.deepEqual(received.identity, result.identity);
@@ -110,9 +110,9 @@ test("renderer: the engine passes the computed build identity in RenderOptions",
 });
 
 test("renderer: an injected renderer overrides the profile renderer by id", async () => {
-  const dir = await copyProjectWithProfile("override-renderer");
+  const dir = await copyEngineProject("override-renderer");
   const override: Renderer = {
-    id: "core001-markdown",
+    id: "example-markdown",
     version: "0.0.0",
     closure: { files: [], dependencies: {} },
     async render(model) {
@@ -121,7 +121,7 @@ test("renderer: an injected renderer overrides the profile renderer by id", asyn
   };
 
   const result = await runBuild(
-    base(dir, { renderers: { ...TEST_RENDERERS, "core001-markdown": override } }),
+    base(dir, { renderers: { ...ENGINE_RENDERERS, "example-markdown": override } }),
   );
   assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
   assert.equal(result.markdown, "override\n");
@@ -140,7 +140,7 @@ test("renderer: tolerates a provision without clauses", async () => {
   const { precondition: _precondition, exception: _exception, ...fields } = PROVISION_FIELDS;
   const provision = entity("P1", "provision", fields, { ...PROVISION_RELATIONS });
 
-  const artifacts = await renderer.render(modelWith([fragment(), provision]), {
+  const artifacts = await core001Renderer.render(modelWith([fragment(), provision]), {
     mode: "draft",
     templates: { entry: "x", files: { x: "ok" } },
     diagnostics: [],
@@ -152,7 +152,7 @@ test("renderer: tolerates a provision without clauses", async () => {
 });
 
 test("renderer: a non-string labels declaration is rejected", async () => {
-  const dir = await copyProjectWithProfile("bad-labels");
+  const dir = await copyEngineProject("bad-labels");
   const file = path.join(dir, "contract-builder.json");
   const manifest = JSON.parse(await readFile(file, "utf8")) as {
     render: Array<{ labels?: unknown }>;

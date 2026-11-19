@@ -12,7 +12,7 @@ import { validateProfileClosure } from "../spec/lib/identity.js";
 import { loadManifest } from "../spec/lib/manifest.js";
 import type { Renderer } from "../spec/lib/render.js";
 import { loadProfileRenderers } from "../spec/cli-renderers.js";
-import { copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const cliPath = path.join(root, "spec", "build.ts");
@@ -23,7 +23,7 @@ const base = (specDir: string, overrides: Partial<BuildOptions> = {}): BuildOpti
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -47,13 +47,13 @@ interface CliJson {
  * evaluated. Absence of the marker proves the engine never imported profile code.
  */
 async function projectWithEvalMarker(name: string): Promise<{ dir: string; marker: string }> {
-  const dir = await copyProjectWithProfile(name);
+  const dir = await copyEngineProject(name);
   const marker = path.join(dir, "profile-evaluated.marker");
   const header = 'import { writeFileSync } from "node:fs";\n';
   const footer = `\nwriteFileSync(${JSON.stringify(marker)}, "evaluated");\n`;
 
   for (const file of ["view.ts", "validator.ts"]) {
-    const filePath = path.join(dir, "profiles", "core001", file);
+    const filePath = path.join(dir, "profiles", "example", file);
     const original = await readFile(filePath, "utf8");
     await writeFile(filePath, `${header}${original}${footer}`, "utf8");
   }
@@ -125,16 +125,17 @@ test("consent: the CLI fails closed without the flag", async () => {
 });
 
 test("consent: the CLI builds with a consumer-supplied renderer module", async () => {
+  const dir = await copyEngineProject("cli-renderer-module");
   const result = spawnSync(
     process.execPath,
     [
       cliPath,
       "--spec",
-      path.join(root, "spec"),
-      "--check",
+      dir,
+      "--no-write",
       "--allow-executable-profile",
       "--renderer-module",
-      path.join(root, "profiles", "core001", "renderer.ts"),
+      path.join(dir, "profiles", "example", "renderer.ts"),
       "--json",
     ],
     { cwd: root, encoding: "utf8" },
@@ -150,16 +151,10 @@ test("consent: the CLI builds with a consumer-supplied renderer module", async (
 });
 
 test("consent: the CLI has no built-in renderer when the consumer names no module", async () => {
+  const dir = await copyEngineProject("cli-no-renderer");
   const result = spawnSync(
     process.execPath,
-    [
-      cliPath,
-      "--spec",
-      path.join(root, "spec"),
-      "--no-write",
-      "--json",
-      "--allow-executable-profile",
-    ],
+    [cliPath, "--spec", dir, "--no-write", "--json", "--allow-executable-profile"],
     { cwd: root, encoding: "utf8" },
   );
 
@@ -175,7 +170,7 @@ test("consent: the CLI has no built-in renderer when the consumer names no modul
 });
 
 const FAKE_RENDERER: Renderer = {
-  id: "core001-markdown",
+  id: "example-markdown",
   version: "0.1.0",
   async render() {
     return [];
@@ -183,15 +178,15 @@ const FAKE_RENDERER: Renderer = {
 };
 
 const rendererModuleOf = (dir: string): string =>
-  path.join(dir, "profiles", "core001", "renderer.ts");
+  path.join(dir, "profiles", "example", "renderer.ts");
 
 test("consent: the CLI preflight validates the profile closure before importing the renderer", async () => {
   // The new relative module exists (so importing it would succeed) but is not declared in
   // profile.files. The injected importer counts calls, so a nonzero count proves the
   // renderer was imported before the closure violation was rejected.
-  const dir = await copyProjectWithProfile("closure-preflight");
+  const dir = await copyEngineProject("closure-preflight");
   await writeFile(
-    path.join(dir, "profiles", "core001", "undeclared.ts"),
+    path.join(dir, "profiles", "example", "undeclared.ts"),
     "export const undeclared = true;\n",
     "utf8",
   );
@@ -217,7 +212,7 @@ test("consent: the CLI preflight validates the profile closure before importing 
 });
 
 test("consent: the CLI preflight imports a declared renderer module for a valid project", async () => {
-  const dir = await copyProjectWithProfile("preflight-valid");
+  const dir = await copyEngineProject("preflight-valid");
   let imported = 0;
 
   const renderers = await loadProfileRenderers(true, dir, {
@@ -233,17 +228,17 @@ test("consent: the CLI preflight imports a declared renderer module for a valid 
 });
 
 test("consent: a renderer in an external profile imports engine modules through the mapping", async () => {
-  // `copyProjectWithProfile` places the project and its profile outside the engine checkout, so
+  // `copyEngineProject` places the project and its profile outside the engine checkout, so
   // the renderer's `../../spec/lib/...` imports normalize outside the engine tree. They resolve
   // only when the loader imports the renderer inside the engine-import mapping (ODR-ENG-003 D4).
-  const dir = await copyProjectWithProfile("external-renderer-mapping");
+  const dir = await copyEngineProject("external-renderer-mapping");
   const module = await addEngineImportRenderer(dir);
 
   const renderers = await loadProfileRenderers(true, dir, {
     engineRoot: root,
     rendererModule: module,
   });
-  assert.deepEqual(Object.keys(renderers), ["core001-markdown"]);
+  assert.deepEqual(Object.keys(renderers), ["example-markdown"]);
 
   const result = await runBuild(base(dir, { renderers }));
 
@@ -254,7 +249,7 @@ test("consent: a renderer in an external profile imports engine modules through 
 });
 
 test("consent: the CLI preflight does not register a renderer whose id differs from the declaration", async () => {
-  const dir = await copyProjectWithProfile("preflight-mismatch");
+  const dir = await copyEngineProject("preflight-mismatch");
   await setDeclaredRenderer(dir, "other-markdown");
   let imported = 0;
 
@@ -271,7 +266,7 @@ test("consent: the CLI preflight does not register a renderer whose id differs f
 });
 
 test("consent: the CLI preflight imports nothing without a renderer module", async () => {
-  const dir = await copyProjectWithProfile("preflight-no-module");
+  const dir = await copyEngineProject("preflight-no-module");
   let imported = 0;
 
   const renderers = await loadProfileRenderers(true, dir, {
@@ -286,7 +281,7 @@ test("consent: the CLI preflight imports nothing without a renderer module", asy
 });
 
 test("consent: the CLI preflight rejects a renderer module outside the profile directory", async () => {
-  const dir = await copyProjectWithProfile("preflight-outside");
+  const dir = await copyEngineProject("preflight-outside");
   let imported = 0;
 
   const renderers = await loadProfileRenderers(true, dir, {
@@ -302,11 +297,11 @@ test("consent: the CLI preflight rejects a renderer module outside the profile d
 });
 
 test("consent: the CLI preflight rejects a renderer module not declared in profile.files", async () => {
-  const dir = await copyProjectWithProfile("preflight-undeclared");
-  const module = path.join(dir, "profiles", "core001", "undeclared-renderer.ts");
+  const dir = await copyEngineProject("preflight-undeclared");
+  const module = path.join(dir, "profiles", "example", "undeclared-renderer.ts");
   await writeFile(
     module,
-    'export const renderer = { id: "core001-markdown", version: "0.1.0", render: async () => [] };\n',
+    'export const renderer = { id: "probe-markdown", version: "0.1.0", render: async () => [] };\n',
     "utf8",
   );
   let imported = 0;
@@ -329,12 +324,12 @@ test("consent: the CLI preflight rejects a renderer module not declared in profi
  */
 async function addEngineImportRenderer(dir: string): Promise<string> {
   const name = "engine-import-renderer.ts";
-  const module = path.join(dir, "profiles", "core001", name);
+  const module = path.join(dir, "profiles", "example", name);
   const source = [
     'import { fileURLToPath } from "node:url";',
     'import { artifactFrom } from "../../spec/lib/render.js";',
     "export const renderer = {",
-    '  id: "core001-markdown",',
+    '  id: "example-markdown",',
     '  version: "0.1.0",',
     "  closure: {",
     '    root: fileURLToPath(new URL(".", import.meta.url)),',
@@ -342,7 +337,7 @@ async function addEngineImportRenderer(dir: string): Promise<string> {
     "    dependencies: {},",
     "  },",
     "  async render() {",
-    '    return [artifactFrom("output/CORE-001.draft.md", "external renderer")];',
+    '    return [artifactFrom("output/EXAMPLE.draft.md", "external renderer")];',
     "  },",
     "};",
     "",
@@ -355,7 +350,7 @@ async function addEngineImportRenderer(dir: string): Promise<string> {
 /** Writes a dependency-free renderer module with the given id into a copied profile. */
 async function addRendererModule(dir: string, id: string): Promise<string> {
   const name = `probe-renderer-${id}.ts`;
-  const module = path.join(dir, "profiles", "core001", name);
+  const module = path.join(dir, "profiles", "example", name);
   const source = [
     'import { fileURLToPath } from "node:url";',
     'const bytes = new TextEncoder().encode("probe");',
@@ -368,7 +363,7 @@ async function addRendererModule(dir: string, id: string): Promise<string> {
     "    dependencies: {},",
     "  },",
     "  async render() {",
-    '    return [{ path: "output/CORE-001.draft.md", bytes, sha256: "sha256:0" }];',
+    '    return [{ path: "output/EXAMPLE.draft.md", bytes, sha256: "sha256:0" }];',
     "  },",
     "};",
     "",
@@ -380,14 +375,14 @@ async function addRendererModule(dir: string, id: string): Promise<string> {
 
 /** Adds a file to the copied project's declared profile closure. */
 async function declareProfileFile(dir: string, name: string): Promise<void> {
-  const file = path.join(dir, "profiles", "core001", "profile.json");
+  const file = path.join(dir, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as { files?: string[] };
   profile.files = [...(profile.files ?? []), name];
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 }
 
 test("consent: an import failure is reported instead of a generic missing renderer", async () => {
-  const dir = await copyProjectWithProfile("preflight-import-error");
+  const dir = await copyEngineProject("preflight-import-error");
 
   await assert.rejects(
     loadProfileRenderers(true, dir, {
@@ -401,8 +396,8 @@ test("consent: an import failure is reported instead of a generic missing render
 });
 
 test("consent: a module exporting a null renderer fails loudly", async () => {
-  const dir = await copyProjectWithProfile("preflight-null-renderer");
-  const module = path.join(dir, "profiles", "core001", "null-renderer.ts");
+  const dir = await copyEngineProject("preflight-null-renderer");
+  const module = path.join(dir, "profiles", "example", "null-renderer.ts");
   await writeFile(module, "export const renderer = null;\n", "utf8");
   await declareProfileFile(dir, "null-renderer.ts");
 
@@ -413,14 +408,14 @@ test("consent: a module exporting a null renderer fails loudly", async () => {
 });
 
 test("consent: the CLI preflight rejects a renderer module reached through a symlink out of the profile directory", async () => {
-  const dir = await copyProjectWithProfile("preflight-symlink");
+  const dir = await copyEngineProject("preflight-symlink");
   const outside = path.join(dir, "outside-renderer.ts");
   await writeFile(
     outside,
-    'export const renderer = { id: "core001-markdown", version: "0.1.0", render: async () => [] };\n',
+    'export const renderer = { id: "probe-markdown", version: "0.1.0", render: async () => [] };\n',
     "utf8",
   );
-  const link = path.join(dir, "profiles", "core001", "link-renderer.ts");
+  const link = path.join(dir, "profiles", "example", "link-renderer.ts");
   await symlink(outside, link);
   await declareProfileFile(dir, "link-renderer.ts");
 
@@ -438,16 +433,17 @@ test("consent: the CLI preflight rejects a renderer module reached through a sym
 });
 
 test("consent: --renderer-module does not bypass the consent gate", async () => {
+  const dir = await copyEngineProject("cli-consent-gate");
   const cli = spawnSync(
     process.execPath,
     [
       cliPath,
       "--spec",
-      path.join(root, "spec"),
+      dir,
       "--no-write",
       "--json",
       "--renderer-module",
-      path.join(root, "profiles", "core001", "renderer.ts"),
+      path.join(dir, "profiles", "example", "renderer.ts"),
     ],
     { cwd: root, encoding: "utf8" },
   );
@@ -463,7 +459,7 @@ test("consent: --renderer-module does not bypass the consent gate", async () => 
 });
 
 test("consent: a real renderer module whose id mismatches is imported but not registered", async () => {
-  const dir = await copyProjectWithProfile("e2e-id-mismatch");
+  const dir = await copyEngineProject("e2e-id-mismatch");
   const module = await addRendererModule(dir, "other-markdown");
 
   const cli = spawnSync(
@@ -492,7 +488,7 @@ test("consent: a real renderer module whose id mismatches is imported but not re
 });
 
 test("consent: the CLI preflight does not import the renderer when the lockfile is unreadable", async () => {
-  const dir = await copyProjectWithProfile("lockfile-unavailable");
+  const dir = await copyEngineProject("lockfile-unavailable");
   let imported = 0;
 
   const renderers = await loadProfileRenderers(true, dir, {
@@ -512,7 +508,7 @@ test("consent: the CLI preflight does not import the renderer when the lockfile 
 });
 
 test("identity: a lockfile read failure fails the profile closure preflight with ERR_IO", async () => {
-  const dir = await copyProjectWithProfile("lockfile-error");
+  const dir = await copyEngineProject("lockfile-error");
   const diagnostics = new Diagnostics();
   const project = await loadManifest(dir, diagnostics);
   assert.ok(project !== null);

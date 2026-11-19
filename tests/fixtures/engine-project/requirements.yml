@@ -1,0 +1,9 @@
+requirements:
+  - id: REQ-IDEMPOTENT
+    title: Repeated order requests are idempotent
+    level: MUST
+    statement: A repeated request with the same key must not create a second order.
+  - id: REQ-ORDER-ID
+    title: Accepted orders carry an identifier
+    level: MUST
+    statement: Every accepted order response includes the identifier of the order.
