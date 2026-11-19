@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for contributing to **contract-builder** (CORE-001 spec builder).
+Thank you for contributing to **contract-builder** (the build engine and its self-contract).
 
 The detailed workflow for humans and automated agents lives in **[AGENTS.md](AGENTS.md)**. This file is a short onboarding guide; if anything conflicts, **AGENTS.md wins**.
 
@@ -31,7 +31,7 @@ CI (`.github/workflows/ci.yml`) runs `bun audit` and the same sequence. All step
 1. **Find or open an issue** — prefer working on an existing issue. For larger changes, discuss design first.
 2. **Branch** — fork (external) or create a branch from up-to-date `main` named `<type>/<issue#>-<slug>`, where `<type>` is the Conventional Commits type (for example `docs/251-pr-issue-templates` or `fix/142-envelope-limit`).
 3. **Make a focused change** — one concern per PR; do not mix refactors or unrelated formatting. Aim for at most 400 changed lines excluding generated artifacts, fixtures and goldens; split a larger change, or state in the PR why it cannot be split.
-4. **Prove it** — run the commands above. If you changed anything under `spec/` or `profiles/core001/`, run `bun run build` and commit the regenerated `spec/output/CORE-001.draft.md`.
+4. **Prove it** — run the commands above. If you changed anything under `contracts/core000/`, `profiles/core000/` or `docs/architecture/engine-public-contract.md`, regenerate the CORE-000 artifact with the Q9 procedure (see AGENTS.md) and commit it.
 5. **Open a pull request** against `main` using the [pull request template](.github/PULL_REQUEST_TEMPLATE.md); give it a Conventional Commits title and an English body, and paste the commands you ran.
 
 ### Formatting and linting
@@ -42,7 +42,7 @@ Formatting and linting use [Biome](https://biomejs.dev/) (pinned `@biomejs/biome
 - `bun run format` — rewrite files with the formatter;
 - `bun run format:check` — report formatting differences without writing.
 
-Formatting is enforced in CI. Run `bun run format` on the files your change touches, and do **not** mix a repository-wide reformat into a feature, fix or documentation PR — a formatting-only change is its own PR. Generated artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens (`pap/fixtures/`, `fixtures/`, `tests/golden/`), `coverage/` and lockfiles are excluded in `biome.json`; the content-addressed profile and input files are excluded from formatting (they are still linted) so their build digests do not change. Do not reformat any of them by hand.
+Formatting is enforced in CI. Run `bun run format` on the files your change touches, and do **not** mix a repository-wide reformat into a feature, fix or documentation PR — a formatting-only change is its own PR. Generated artifacts (`contracts/core000/output/`), fixtures and goldens (`pap/fixtures/`, `tests/fixtures/`, `tests/golden/`), `coverage/` and lockfiles are excluded in `biome.json`; the content-addressed profile and input files are excluded from formatting (they are still linted) so their build digests do not change. Do not reformat any of them by hand.
 
 ### Documentation links
 
@@ -86,8 +86,8 @@ The repository-managed CodeQL workflow (`.github/workflows/codeql.yml`) analyzes
 
 - **Title**: [Conventional Commits](https://www.conventionalcommits.org/) — `feat:`, `fix:`, `docs:`, `test:`, `chore:`, etc.
 - **Branch**: `<type>/<issue#>-<slug>` from up-to-date `main`, for example `fix/142-envelope-limit`.
-- **Body**: English; state what changed and which command verified it (e.g. `bun run check`). Use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md), including its pre-review record, risk/rollback and checklist sections.
-- **One concern per PR; size guideline**: aim for at most 400 changed lines, excluding generated artifacts (`spec/output/`, `contracts/core000/output/`), fixtures and goldens (`fixtures/`, `pap/fixtures/`, `tests/golden/`). Split when larger; if that is not feasible, state why in the PR.
+- **Body**: English; state what changed and which command verified it (e.g. `bun run check:all`). Use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md), including its pre-review record, risk/rollback and checklist sections.
+- **One concern per PR; size guideline**: aim for at most 400 changed lines, excluding generated artifacts (`contracts/core000/output/`), fixtures and goldens (`tests/fixtures/`, `pap/fixtures/`, `tests/golden/`). Split when larger; if that is not feasible, state why in the PR.
 - **Never** push directly to `main` or force-push to `main`. `main` is protected: one approving Code Owner review (`.github/CODEOWNERS`), the strict `check` status, resolved conversations, and merge restricted to the maintainer. The sole bypass is the maintainer's documented admin bypass.
 - **Never force-push a branch under review without a delta pre-review**: re-run the independent pre-review against the new head and record it in the PR. Rewrite history only when the review requires it.
 - An automated agent (`it-start`) may open PRs; **only a human merges**. Agents must not enable auto-merge. Agent-authored PRs pass the same gates as human ones, and the pre-review record is mandatory for code changes. The platform enforces the merge rule: the agent cannot merge, and its approval cannot satisfy the Code Owner review requirement.
@@ -102,13 +102,16 @@ Triage the register monthly, or at each release once releases exist: list the op
 
 ### Artifact rule
 
-`spec/output/CORE-001.draft.md` is **generated**. Never edit it by hand. Edit structured inputs under `spec/` (or the profile), then rebuild.
+`contracts/core000/output/CORE-000.draft.md` is **generated**. Never edit it by hand. Change the declared inputs under `contracts/core000/` (or the CORE-000 profile, or the contract document), then regenerate with the Q9 procedure and re-run `bun run check:all` — see AGENTS.md for the exact steps.
 
 ### Executable profiles
 
-The CORE-001 profile ships executable modules (`view.ts`, `validator.ts`). Build scripts pass `--allow-executable-profile`. That flag is **caller consent** to run trusted profile code with the builder’s process privileges — not a sandbox. See README and AGENTS.md.
+A profile may ship executable modules (`view.ts`, `validator.ts`, `renderer.ts`). Builds pass `--allow-executable-profile`. That flag is **caller consent** to run trusted profile code with the builder’s process privileges — not a sandbox. See README and AGENTS.md.
 
-`bun run build:release` is intentionally failing while the demo slice still has `REVIEW_REQUIRED` diagnostics. Do not weaken that gate to get a green release build.
+### The CORE-001 project
+
+The CORE-001 vertical lives in the UIA repository (`agent-federation/uia`) since
+[ODR-ENG-003](docs/decisions/ODR-ENG-003-core-001-project-extraction.md): its source document, declared inputs, profile, fixtures, tests and artifact rule moved there. This repository resolves an external project through an explicit `engineRoot`; there is no cross-repository build step in either CI.
 
 ### Version domains and releases
 
@@ -120,12 +123,12 @@ The three version domains are **independent** and must never be compared for equ
 | Profile | `profiles/*/profile.json` `version` |
 | Project | `contracts/*/contract-builder.json` `project.revision` |
 
-The canonical CORE-001 example already separates them: `project.revision` `0.3.3` with `profile.version` `0.1.0`. `bun run release:check --tag vX.Y.Z` validates that every domain is present and semver-shaped (without comparing them) and that the release tag is semver-shaped and equals the engine `package.json` `version`; a mismatch or malformed tag fails, and a missing `--tag` is a usage error, not a pass. The repository has no release tags yet (declared **MVP without public releases**). `bun run check:all` and the identity tests already cover the engine `package.json` ↔ generated artifacts/provenance, so the release tag is the only engine-version source this gate adds.
+The extracted CORE-001 project already separates them: `project.revision` `0.3.3` with `profile.version` `0.1.0` (UIA repository). `bun run release:check --tag vX.Y.Z` validates that every domain is present and semver-shaped (without comparing them) and that the release tag is semver-shaped and equals the engine `package.json` `version`; a mismatch or malformed tag fails, and a missing `--tag` is a usage error, not a pass. The repository has no release tags yet (declared **MVP without public releases**). `bun run check:all` and the identity tests already cover the engine `package.json` ↔ generated artifacts/provenance, so the release tag is the only engine-version source this gate adds.
 
 ## What not to do
 
-- Hand-edit generated Markdown under `spec/output/`
-- Change `CORE-001.legacy.md` without a decision record — it is the source quotes are checked against
+- Hand-edit generated Markdown under `contracts/core000/output/`
+- Reintroduce domain knowledge into the engine: the genericity guard scans the whole `spec/` tree
 - Commit secrets, tokens, or credentials
 - Reformat unrelated files or rewrite line endings
 - Weaken schemas, diagnostics, or fixtures only to make a failing check pass
@@ -134,9 +137,9 @@ The canonical CORE-001 example already separates them: `project.revision` `0.3.3
 
 | Location | Role |
 |----------|------|
-| `spec/decisions.yml` | Machine-readable open/closed decisions |
+| `contracts/core000/claims.yml` | The engine's public-contract claim register |
 | `docs/architecture/` | Engine contract, M1 plan, build identity |
-| `docs/superpowers/specs/` | Design record |
+| `docs/decisions/` | Owner decision records (extraction, PAP, process) |
 | [Issues](https://github.com/agent-federation/contract-builder/issues) | Tracking and discussion |
 
 ## License

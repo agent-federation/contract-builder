@@ -430,7 +430,7 @@ INPUTS [
 ]
 CONSTRAINTS [
   "I1 No new runtime dependencies.",
-  "I2 No changes to CORE-001 normative content.",
+  "I2 No changes to generated artifacts.",
   "I3 No changes to build behaviour, schemas, fixtures or M1 implementation.",
   "I4 Do not claim compatibility with any model or vendor unless tested.",
   "I5 Unknown fields are rejected; the format is closed.",
@@ -474,7 +474,7 @@ END
 - **What it is given.** One input: the issue URL. Everything else must still be read from the
   repository; the input is not a permission to read only that.
 - **What it must not do.** Six numbered limits: no new runtime dependencies; no touch of
-  CORE-001 normative content; no touch of build behaviour, schemas, fixtures or M1
+  generated artifacts; no touch of build behaviour, schemas, fixtures or M1
   implementation; no untested compatibility claims; unknown fields rejected (the format is
   closed); the result must stay readable as plain Markdown. Any of these broken makes the
   answer `partial` if the work was completed anyway, or `blocked`/`needs-decision` if it could
@@ -510,12 +510,12 @@ CONTEXT {
 }
 INPUTS [
   "spec/lib/manifest.ts",
-  "spec/contract-builder.json",
+  "tests/fixtures/engine-project/contract-builder.json",
   "tests/manifest.test.ts"
 ]
 CONSTRAINTS [
   "I1 No new runtime dependencies.",
-  "I2 The CORE-001 golden artifact must not change.",
+  "I2 The committed CORE-000 artifact must not change.",
   "I3 The tests that pass today must keep passing.",
   "I4 Error codes are strings of the form ERR_UPPER_SNAKE.",
   "I5 Diagnostics keep the existing shape: a code and a message, no new fields."
@@ -524,15 +524,15 @@ STEPS [
   "Add the duplicate-path check where declared inputs are read.",
   "Add a test: a manifest listing the same input twice fails with the new code.",
   "Add a test: a manifest without duplicates still builds unchanged.",
-  "Run bun test, bun run typecheck and bun run check.",
+  "Run bun test, bun run typecheck and bun run check:all.",
   "Open a focused pull request and report the tested commit."
 ]
 ACCEPT [
   "A1 A manifest declaring one input twice fails with ERR_MANIFEST_DUPLICATE_INPUT.",
   "A2 A manifest without duplicates still builds unchanged.",
   "A3 The new failing-case test fails before the change and passes after it.",
-  "A4 bun test, bun run typecheck and bun run check are green.",
-  "A5 The golden artifact hash is unchanged."
+  "A4 bun test, bun run typecheck and bun run check:all are green.",
+  "A5 The committed artifact hash is unchanged."
 ]
 REPORT {
   include: ["files_changed", "test_evidence", "blast_radius", "limitations"]
@@ -725,7 +725,7 @@ repository.
 | Invariant | Where it is kept |
 |---|---|
 | I1 No new runtime dependencies | documentation only; the throwaway validator was not committed (§9.1) |
-| I2 No changes to CORE-001 normative content | no file outside `docs/agents/` changed |
+| I2 No changes to generated artifacts | no file outside `docs/agents/` changed |
 | I3 No changes to build behaviour, schemas, fixtures or M1 implementation | no existing file changed; this document is additive |
 | I4 No compatibility claim unless tested | §2: local convention, no external claim, testing required before any claim |
 | I5 Unknown fields rejected or explicitly allowed — one documented policy | §4.4: rejected, with `CONTEXT` as the single stated exception |
