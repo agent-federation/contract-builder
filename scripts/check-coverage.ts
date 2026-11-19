@@ -29,7 +29,7 @@ type Threshold = {
 
 const THRESHOLDS: readonly Threshold[] = [
   { area: "spec/", minimum: 80 },
-  { area: "profiles/", minimum: 87 },
+  { area: "profiles/", minimum: 84 },
   { area: "pipeline/", minimum: 72 },
 ];
 

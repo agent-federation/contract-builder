@@ -1,9 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { runBuild } from "../spec/lib/build.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import type { Entity, ProjectModel, ProvenanceVerification } from "../spec/lib/ir.js";
 import type { Manifest, Profile } from "../spec/lib/manifest.js";
@@ -13,14 +9,7 @@ import {
   sourceDigest,
   type ProvenanceVerificationClaim,
 } from "../spec/lib/provenance.js";
-import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
-import type { LocatorResult, SourceAdapter } from "../spec/lib/source.js";
-import { verifyProvenance } from "../profiles/core001/checks/verification.js";
-import { renderer } from "../profiles/core001/renderer.js";
-import { fragment, modelWith, TEST_IDENTITY, TEST_RENDERERS } from "./support.js";
-
-const root = fileURLToPath(new URL("..", import.meta.url));
-const specDir = path.join(root, "spec");
+import { entity, modelWith } from "./support.js";
 
 const PROFILE = {
   id: "p",
@@ -47,8 +36,17 @@ const MANIFEST = {
   render: [{ outputs: {} }],
 } as unknown as Manifest;
 
-/** Binds one fragment the way the core does, before any profile verifier runs. */
-function bound(entityToBind: Entity = fragment()): { model: ProjectModel; digest: string } {
+/** Synthetic provenance-bound entity: kind and fields are the test's own, not CORE-001's. */
+function boundEntity(): Entity {
+  return entity("F1", "fragment", {
+    source: "SRC",
+    source_ref: "SRC#1",
+    quote: "MUST do",
+  });
+}
+
+/** Binds one entity the way the core does, before any profile verifier runs. */
+function bound(entityToBind: Entity = boundEntity()): { model: ProjectModel; digest: string } {
   const diagnostics = new Diagnostics();
   const entities = [entityToBind];
   const ok = bindProvenance(
@@ -213,161 +211,4 @@ test("provenance: an unknown entity or a malformed record is a core error", () =
     false,
   );
   assert.equal(malformed.sorted()[0]?.code, "core.provenance.verification");
-});
-
-test("provenance: CORE-001 maps adapter outcomes to verified, failed and unavailable", async () => {
-  const outcomes: Array<[LocatorResult, string, string]> = [
-    ["found", "verified", "found"],
-    ["outside", "failed", "outside"],
-    ["unknown-locator", "failed", "unknown-locator"],
-    ["unsupported", "unavailable", "unsupported"],
-  ];
-
-  for (const [outcome, expectedStatus, expectedOutcome] of outcomes) {
-    const { model, digest } = bound();
-    const claims = await verifyProvenance(model, {
-      sources: model.sources,
-      legacyText: "DOC (Rev 1)\nMUST do",
-      legacyName: "legacy.md",
-      verifyQuote: async () => outcome,
-      sourceDigest: () => digest,
-      sourceVersion: () => "DOC (Rev 1)",
-    });
-
-    assert.equal(claims.length, 1);
-    assert.equal(claims[0]!.status, expectedStatus, outcome);
-    assert.equal(claims[0]!.outcome, expectedOutcome);
-    assert.equal(claims[0]!.verifier, "core001/validator");
-    assert.equal(claims[0]!.checkedAt, null);
-    assert.equal(claims[0]!.sourceDigest, digest);
-  }
-});
-
-test("provenance: CORE-001 reports a quote absent from the source as failed", async () => {
-  const absent = fragment();
-  absent.fields.quote = "absent from the source";
-  const { model, digest } = bound(absent);
-
-  const claims = await verifyProvenance(model, {
-    sources: model.sources,
-    legacyText: "DOC (Rev 1)\nMUST do",
-    legacyName: "legacy.md",
-    verifyQuote: async () => {
-      throw new Error("verifyQuote must not run for an absent quote");
-    },
-    sourceDigest: () => digest,
-    sourceVersion: () => "DOC (Rev 1)",
-  });
-
-  assert.equal(claims[0]!.status, "failed");
-  assert.equal(claims[0]!.outcome, "not-found");
-});
-
-async function render(model: ProjectModel): Promise<string> {
-  const template = await readFile(
-    path.join(root, "profiles/core001/templates/core001.md.j2"),
-    "utf8",
-  );
-  const labels = JSON.parse(
-    await readFile(path.join(root, "profiles/core001/labels.ru.json"), "utf8"),
-  ) as Record<string, string>;
-  const artifacts = await renderer.render(model, {
-    mode: "draft",
-    templates: { entry: "core001.md.j2", files: { "core001.md.j2": template } },
-    labels,
-    diagnostics: [],
-    identity: TEST_IDENTITY,
-  });
-  return new TextDecoder().decode(artifacts[0]!.bytes);
-}
-
-function provenanceRow(text: string, id: string): string {
-  const section = text
-    .split("## Происхождение: привязка и проверка")[1]!
-    .split("## Приложение A")[0]!;
-  const row = section.split("\n").find((line) => line.startsWith(`| \`${id}\` |`));
-  assert.ok(row !== undefined, `no provenance row for ${id}`);
-  return row;
-}
-
-test("provenance: an unavailable binding is never rendered as verified", async () => {
-  const { model } = bound();
-  const row = provenanceRow(await render(model), "F1");
-
-  assert.match(row, /\| unavailable \(not-checked\) \|/);
-  assert.equal(row.includes("verified"), false);
-});
-
-test("provenance: failed and stale are rendered distinctly, never as verified", async () => {
-  const failed = apply({ status: "failed", outcome: "outside" });
-  const failedRow = provenanceRow(await render(failed.model), "F1");
-  assert.match(failedRow, /\| failed \(outside\) \|/);
-  assert.equal(failedRow.includes("verified"), false);
-
-  const stale = apply({
-    status: "stale",
-    sourceDigest: `sha256:${"c".repeat(64)}`,
-  });
-  const staleRow = provenanceRow(await render(stale.model), "F1");
-  assert.match(staleRow, /\| stale \(found\) \|/);
-  assert.equal(staleRow.includes("verified"), false);
-});
-
-test("provenance: a full build calls verifyQuote exactly once per direct binding", async () => {
-  const calls: Array<{ ref: string; quote: string }> = [];
-  const spy: SourceAdapter = {
-    ...markdownAdapter,
-    async verifyQuote(source, ref, quote) {
-      calls.push({ ref, quote });
-      return markdownAdapter.verifyQuote(source, ref, quote);
-    },
-  };
-
-  const result = await runBuild({
-    specDir,
-    mode: "draft",
-    write: false,
-    check: false,
-    strict: false,
-    renderers: TEST_RENDERERS,
-    allowExecutableProfile: true,
-    adapters: { markdown: spy },
-  });
-  assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
-
-  // CORE-001 has seven direct fragment bindings and one decision binding. If the source
-  // checks re-verified the same quotes, the adapter would be called more than eight times.
-  const decisionRef = "SRC-CORE001#15/5";
-  assert.equal(calls.length, 8, "one adapter call per direct binding");
-  assert.equal(calls.filter((call) => call.ref === decisionRef).length, 1, "one decision call");
-  assert.equal(calls.filter((call) => call.ref !== decisionRef).length, 7, "seven fragment calls");
-});
-
-test("provenance: the draft artifact labels every direct binding and its evidence", async () => {
-  const result = await runBuild({
-    specDir,
-    mode: "draft",
-    write: false,
-    check: false,
-    strict: false,
-    renderers: TEST_RENDERERS,
-    allowExecutableProfile: true,
-  });
-  assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
-
-  const text = result.markdown!;
-  const section = text
-    .split("## Происхождение: привязка и проверка")[1]!
-    .split("## Приложение A")[0]!;
-  const rows = section.split("\n").filter((line) => /^\| `(?:FRAG|DEC)-/.test(line));
-
-  assert.equal(rows.length, 8, "every direct provenance binding needs a row");
-  for (const row of rows) {
-    assert.match(row, /\| verified \(found\) \|/);
-    assert.match(row, /`sha256:[0-9a-f]{64}`/);
-    assert.match(row, /`core001\/validator`/);
-    assert.match(row, /\| — \|$/);
-  }
-  assert.equal(section.includes("`TERM-ASSERTED-AT`"), false);
-  assert.equal(section.includes("`REQ-TEMPORAL-MOMENT-DEFINED`"), false);
 });

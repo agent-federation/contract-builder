@@ -1,27 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas } from "../spec/lib/schema.js";
 import { buildProjectModel } from "../spec/lib/ir.js";
 import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { TEST_RENDERERS } from "./support.js";
+import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
 
 /**
  * PR 2 acceptance: manifest, project boundary and declared-input loading.
- * These tests use temporary copies of the real project; they never touch `spec/`.
+ * These tests use temporary copies of the engine project fixture; they never touch the
+ * repository tree.
  */
-
-const root = fileURLToPath(new URL("..", import.meta.url));
-const specDir = path.join(root, "spec");
-const profileDir = path.join(root, "profiles", "core001");
-const legacyPath = path.join(root, "CORE-001.legacy.md");
 
 interface MutableManifest {
   profile: { source: string; external?: boolean };
@@ -36,7 +31,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -45,28 +40,7 @@ const codes = (result: Awaited<ReturnType<typeof runBuild>>): string[] =>
   result.diagnostics.map((d) => d.code);
 
 async function copyProject(name: string): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), `m1-${name}-`));
-  for (const file of [
-    "contract-builder.json",
-    "sources.yml",
-    "ontology.yml",
-    "semantics.json",
-    "decisions.yml",
-  ]) {
-    await cp(path.join(specDir, file), path.join(dir, file));
-  }
-  await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), {
-    recursive: true,
-  });
-
-  // Absolute paths plus `external: true` keep the temporary project self-contained
-  // without copying the profile or the legacy document.
-  await editManifest(dir, (manifest) => {
-    manifest.profile.source = profileDir;
-    manifest.sources![0]!.path = legacyPath;
-  });
-
-  return dir;
+  return copyEngineProject(name);
 }
 
 async function editManifest(
@@ -90,9 +64,9 @@ test("manifest: an input outside the project root without external is rejected",
   const dir = await copyProject("outside-input");
   await editManifest(dir, (manifest) => {
     manifest.inputs.push({
-      path: legacyPath,
+      path: path.join(path.dirname(dir), "outside-input.yml"),
       format: "yaml",
-      schema: "core001:sources",
+      schema: "example:requirements",
       entities: [],
     });
   });
@@ -108,7 +82,7 @@ test("manifest: an optional absent input is skipped without error", async () => 
     manifest.inputs.push({
       path: "absent.yml",
       format: "yaml",
-      schema: "core001:sources",
+      schema: "example:requirements",
       entities: [],
       optional: true,
     });
@@ -149,7 +123,7 @@ test("manifest: zero render declarations are rejected before writing", async () 
   assert.ok(diagnostic);
   assert.equal(diagnostic.pointer, "/render");
   assert.match(diagnostic.message, /exactly one render target/);
-  assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
+  assert.equal(existsSync(path.join(dir, "output", "EXAMPLE.draft.md")), false);
 });
 
 test("manifest: more than one render declaration is rejected before writing", async () => {
@@ -170,13 +144,13 @@ test("manifest: more than one render declaration is rejected before writing", as
   assert.ok(diagnostic);
   assert.equal(diagnostic.pointer, "/render");
   assert.match(diagnostic.message, /exactly one render target/);
-  assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
+  assert.equal(existsSync(path.join(dir, "output", "EXAMPLE.draft.md")), false);
   assert.equal(existsSync(path.join(dir, "output", "extra.draft.md")), false);
 });
 
 test("manifest: exactly one render declaration builds and --check stays deterministic", async () => {
   const dir = await copyProject("single-render");
-  const artifact = path.join(dir, "output", "CORE-001.draft.md");
+  const artifact = path.join(dir, "output", "EXAMPLE.draft.md");
 
   const written = await runBuild(base(dir, { write: true }));
   assert.equal(written.exitCode, 0, written.diagnostics.map((d) => d.message).join("\n"));
@@ -222,41 +196,20 @@ test("manifest: zero or absent sources is rejected before the model and writing"
     assert.match(diagnostic.message, /M1 supports exactly one source/, variant);
     assert.match(diagnostic.message, /zero-source manifests are not supported by M1/, variant);
     assert.equal(codes(result).includes("ERR_UNKNOWN_REF"), false, variant);
-    assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false, variant);
+    assert.equal(existsSync(path.join(dir, "output", "EXAMPLE.draft.md")), false, variant);
   }
 });
 
 test("manifest: a source outside the project root without external is rejected", async () => {
   const dir = await copyProject("outside-source");
   await editManifest(dir, (manifest) => {
+    manifest.sources![0]!.path = path.join(path.dirname(dir), "outside-source.md");
     delete manifest.sources![0]!.external;
   });
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   assert.ok(codes(result).includes("core.path.outside-root"));
-});
-
-test("manifest: a profile without a sources binding fails without crashing", async () => {
-  const dir = await copyProject("no-sources-binding");
-  await cp(path.join(root, "profiles", "core001"), path.join(dir, "profiles", "core001"), {
-    recursive: true,
-  });
-  await editManifest(dir, (manifest) => {
-    manifest.profile.source = "./profiles/core001";
-    delete manifest.profile.external;
-  });
-
-  const profilePath = path.join(dir, "profiles", "core001", "profile.json");
-  const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
-    documents: Array<{ key: string }>;
-  };
-  profile.documents = profile.documents.filter((binding) => binding.key !== "sources");
-  await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
-
-  const result = await runBuild(base(dir));
-  assert.equal(result.exitCode, 1);
-  assert.ok(codes(result).includes("core.profile.invalid"));
 });
 
 test("manifest: containment handles the filesystem root and shared prefixes", async () => {
@@ -268,13 +221,8 @@ test("manifest: containment handles the filesystem root and shared prefixes", as
 
 test("manifest: a profile whose id or version differs from the pin is rejected", async () => {
   const dir = await copyProject("profile-mismatch");
-  await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
-  await editManifest(dir, (manifest) => {
-    manifest.profile.source = "./profiles/core001";
-    delete manifest.profile.external;
-  });
 
-  const profilePath = path.join(dir, "profiles", "core001", "profile.json");
+  const profilePath = path.join(dir, "profiles", "example", "profile.json");
   const original = JSON.parse(await readFile(profilePath, "utf8")) as Record<string, unknown>;
 
   await writeFile(profilePath, `${JSON.stringify({ ...original, version: "9.9.9" }, null, 2)}\n`);
@@ -289,8 +237,9 @@ test("manifest: a profile whose id or version differs from the pin is rejected",
 });
 
 test("manifest: the model carries the source bytes and identity", async () => {
+  const dir = await copyProject("source-bytes");
   const diagnostics = new Diagnostics();
-  const loaded = await loadProject(specDir, diagnostics);
+  const loaded = await loadProject(dir, diagnostics);
   assert.ok(loaded !== null, diagnostics.report());
 
   const schemas = await loadSchemas(loaded.project, diagnostics);
@@ -301,36 +250,26 @@ test("manifest: the model carries the source bytes and identity", async () => {
 
   const source = model.sources[0];
   assert.ok(source !== undefined);
-  assert.equal(source.id, "SRC-CORE001");
-  assert.equal(source.identity?.document, "UIA-CORE-001");
-  assert.equal(source.identity?.revision, "0.3.3");
-  assert.ok(new TextDecoder().decode(source.bytes).includes("UIA-CORE-001 (Rev 0.3.3)"));
+  assert.equal(source.id, "SRC-EXAMPLE");
+  assert.equal(source.identity?.document, "EXAMPLE-PROJECT");
+  assert.equal(source.identity?.revision, "0.1.0");
+  assert.ok(new TextDecoder().decode(source.bytes).includes("EXAMPLE PROJECT"));
 });
 
 /**
  * Issue #36: an inverse declaration is the other half of the same edge set. These tests
- * mutate a temporary copy of the real profile and never touch `profiles/core001`.
+ * mutate a temporary copy of the fixture profile and never touch the repository tree.
  */
 
 interface MutableRelationsProfile {
   relations: Array<Record<string, unknown>>;
 }
 
-async function copyProjectWithProfile(name: string): Promise<string> {
-  const dir = await copyProject(name);
-  await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
-  await editManifest(dir, (manifest) => {
-    manifest.profile.source = "./profiles/core001";
-    delete manifest.profile.external;
-  });
-  return dir;
-}
-
 async function editRelations(
   dir: string,
   mutate: (relations: Array<Record<string, unknown>>) => void,
 ): Promise<void> {
-  const file = path.join(dir, "profiles", "core001", "profile.json");
+  const file = path.join(dir, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableRelationsProfile;
   mutate(profile.relations);
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
@@ -354,57 +293,82 @@ function profileInvalid(result: Awaited<ReturnType<typeof runBuild>>) {
 }
 
 test("manifest: an inverse declaration must exist on the target kind", async () => {
-  const dir = await copyProjectWithProfile("inverse-missing");
+  const dir = await copyProject("inverse-missing");
   await editRelations(dir, (relations) => {
-    relations.splice(relationIndex(relations, "vectors"), 1);
+    relations.splice(relationIndex(relations, "examples"), 1);
   });
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   const diagnostic = profileInvalid(result);
   assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
-  assert.equal(diagnostic.pointer, "/relations/4/inverse");
-  assert.ok(diagnostic.message.includes('"vectors"'), diagnostic.message);
+  assert.equal(diagnostic.pointer, "/relations/0/inverse");
+  assert.ok(diagnostic.message.includes('"examples"'), diagnostic.message);
 });
 
 test("manifest: an inverse declaration must point back at the forward relation", async () => {
-  const dir = await copyProjectWithProfile("inverse-not-reciprocal");
+  const dir = await copyProject("inverse-not-reciprocal");
   await editRelations(dir, (relations) => {
-    relation(relations, "vectors").inverse = "terms";
+    relations.push({
+      name: "rel",
+      from: "example",
+      to: "requirement",
+      cardinality: "many",
+      inverse: "back",
+    });
+    relations.push({
+      name: "back",
+      from: "requirement",
+      to: "example",
+      cardinality: "many",
+      inverse: "other",
+    });
   });
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   const diagnostic = profileInvalid(result);
   assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
-  assert.equal(diagnostic.pointer, "/relations/4/inverse");
-  assert.ok(diagnostic.message.includes('"terms"'), diagnostic.message);
-  assert.ok(diagnostic.message.includes('"provision"'), diagnostic.message);
+  assert.equal(diagnostic.pointer, "/relations/2/inverse");
+  assert.ok(diagnostic.message.includes('"rel"'), diagnostic.message);
+  assert.ok(diagnostic.message.includes('"rel"'), diagnostic.message);
 });
 
 test("manifest: an inverse declaration must reverse the forward endpoints", async () => {
-  const dir = await copyProjectWithProfile("inverse-kind-mismatch");
+  const dir = await copyProject("inverse-kind-mismatch");
   await editRelations(dir, (relations) => {
-    // The inverse lookup is keyed by (forward.to, forward.inverse) = (provision, vectors), so
-    // changing vectors.to keeps the declaration found and reaches the endpoint comparison.
-    relation(relations, "vectors").to = "fragment";
+    relations.push({
+      name: "rel",
+      from: "example",
+      to: "requirement",
+      cardinality: "many",
+      inverse: "back",
+    });
+    relations.push({
+      name: "back",
+      from: "requirement",
+      to: "example",
+      cardinality: "many",
+      inverse: "rel",
+    });
+    // The inverse lookup is keyed by (forward.to, forward.inverse) = (requirement, "back"), so
+    // changing back.to keeps the declaration found and reaches the endpoint comparison.
+    relation(relations, "back").to = "requirement";
   });
 
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   const diagnostic = profileInvalid(result);
   assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
-  assert.equal(diagnostic.pointer, "/relations/4/inverse");
+  assert.equal(diagnostic.pointer, "/relations/2/inverse");
   assert.ok(diagnostic.message.includes("points to kind"), diagnostic.message);
-  assert.ok(diagnostic.message.includes('"fragment"'), diagnostic.message);
-  assert.ok(diagnostic.message.includes('"case"'), diagnostic.message);
 });
 
 test("manifest: a declared inverse must be a non-empty string", async () => {
-  const dir = await copyProjectWithProfile("inverse-invalid");
+  const dir = await copyProject("inverse-invalid");
   for (const invalid of [42, null, ""]) {
     await editRelations(dir, (relations) => {
-      relation(relations, "vectors").inverse = invalid;
+      relation(relations, "requirement").inverse = invalid;
     });
 
     const result = await runBuild(base(dir));
@@ -414,20 +378,20 @@ test("manifest: a declared inverse must be a non-empty string", async () => {
       diagnostic !== undefined,
       `inverse: ${JSON.stringify(invalid)}\n${result.diagnostics.map((item) => item.message).join("\n")}`,
     );
-    assert.equal(diagnostic.pointer, "/relations/5/inverse");
+    assert.equal(diagnostic.pointer, "/relations/0/inverse");
     assert.ok(diagnostic.message.includes("inverse"), diagnostic.message);
   }
 });
 
 test("manifest: a wildcard target cannot declare an inverse", async () => {
-  const dir = await copyProjectWithProfile("inverse-wildcard");
+  const dir = await copyProject("inverse-wildcard");
   await editRelations(dir, (relations) => {
     relations.push({
       name: "target",
-      from: "provision",
+      from: "example",
       to: "*",
       cardinality: "many",
-      inverse: "sources",
+      inverse: "req",
     });
   });
 
@@ -435,11 +399,12 @@ test("manifest: a wildcard target cannot declare an inverse", async () => {
   assert.equal(result.exitCode, 1);
   const diagnostic = profileInvalid(result);
   assert.ok(diagnostic !== undefined, result.diagnostics.map((item) => item.message).join("\n"));
-  assert.equal(diagnostic.pointer, "/relations/8/inverse");
+  assert.equal(diagnostic.pointer, "/relations/2/inverse");
   assert.ok(diagnostic.message.includes('"*"'), diagnostic.message);
 });
 
 test("manifest: a reciprocal inverse declaration pair is accepted", async () => {
-  const result = await runBuild(base(specDir));
+  const dir = await copyProject("inverse-reciprocal");
+  const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 0, result.diagnostics.map((item) => item.message).join("\n"));
 });

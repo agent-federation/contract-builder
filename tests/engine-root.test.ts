@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -12,11 +13,9 @@ import {
   readLockfile,
   resolveExtensionClosure,
 } from "../spec/lib/identity.js";
-import { ENGINE_RENDERERS, TEST_RENDERERS, copyEngineProject } from "./support.js";
+import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const repoSpecDir = path.join(root, "spec");
-const draftPath = path.join(repoSpecDir, "output", "CORE-001.draft.md");
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir: dir,
@@ -43,29 +42,15 @@ async function repoPackageVersion(): Promise<string> {
 }
 
 /**
- * Copies the committed project layout — `spec/`, `profiles/core001` and the legacy source —
- * into a temp directory, exactly as a user would copy a checkout. Nothing is rewritten.
- */
-async function copyCommittedProject(name: string): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), `engine-root-${name}-`));
-  await cp(repoSpecDir, path.join(dir, "spec"), { recursive: true });
-  await cp(path.join(root, "profiles", "core001"), path.join(dir, "profiles", "core001"), {
-    recursive: true,
-  });
-  await cp(path.join(root, "CORE-001.legacy.md"), path.join(dir, "CORE-001.legacy.md"));
-  return dir;
-}
-
-/**
  * Adds a dependency-free renderer module to a copied project and declares it in the profile.
  * Temp copies have no `node_modules`, so the copied profile renderer (which imports `nunjucks`)
  * cannot be imported there; this module needs only a `node:` builtin.
  */
 async function addProbeRenderer(
   projectDir: string,
-  profileName = "core001",
-  rendererId = "core001-markdown",
-  outputPath = "output/CORE-001.draft.md",
+  profileName = "example",
+  rendererId = "example-markdown",
+  outputPath = "output/EXAMPLE.draft.md",
 ): Promise<string> {
   const profileDir = path.join(projectDir, "profiles", profileName);
   const modulePath = path.join(profileDir, "probe-renderer.ts");
@@ -116,45 +101,74 @@ async function copyEngineRoot(name: string, version?: string): Promise<string> {
 }
 
 test("engine-root: a copied project builds from the supplied root without rewriting imports", async () => {
-  const inRepo = await runBuild(base(repoSpecDir, { renderers: TEST_RENDERERS }));
-  assert.equal(inRepo.exitCode, 0, failure(inRepo));
-  assert.ok(inRepo.identity !== null);
-  const committed = await readFile(draftPath, "utf8");
-  assert.equal(inRepo.markdown, committed, "the repository build's artifact changed");
+  const first = await copyEngineProject("portable-a");
+  const second = await copyEngineProject("portable-b");
 
-  const copied = await copyCommittedProject("portable");
-  // Sentinel: the copy's engine modules must never execute. If the profile loaded them
-  // instead of the supplied root's modules, this module would throw during the build.
-  await writeFile(
-    path.join(copied, "spec", "lib", "provenance.ts"),
-    'throw new Error("copy engine module executed");\n',
-    "utf8",
-  );
+  // Sentinel: the copies carry their own poisoned `spec/lib`; if the profile loaded the copy's
+  // modules instead of the supplied root's, this module would throw during the build.
+  for (const copied of [first, second]) {
+    await cp(path.join(root, "spec", "lib"), path.join(copied, "spec", "lib"), {
+      recursive: true,
+    });
+    const manifestCopy = path.join(copied, "spec", "lib", "manifest.ts");
+    const manifestSource = await readFile(manifestCopy, "utf8");
+    await writeFile(
+      manifestCopy,
+      [
+        'import { writeFileSync } from "node:fs";',
+        'import { fileURLToPath } from "node:url";',
+        'writeFileSync(fileURLToPath(new URL("./manifest.poisoned", import.meta.url)), "executed", "utf8");',
+        manifestSource,
+      ].join("\n"),
+      "utf8",
+    );
+    // The fixture profile modules only have type-only engine imports, so the test adds a
+    // runtime import that must resolve against the supplied root, not the poisoned copy.
+    const validatorPath = path.join(copied, "profiles", "example", "validator.ts");
+    const validator = await readFile(validatorPath, "utf8");
+    await writeFile(
+      validatorPath,
+      [
+        'import { resolveContained } from "../../spec/lib/manifest.js";',
+        "void resolveContained;",
+        validator,
+      ].join("\n"),
+      "utf8",
+    );
+  }
 
-  const rebuilt = await runBuild(
-    base(path.join(copied, "spec"), { engineRoot: root, renderers: TEST_RENDERERS }),
-  );
-  assert.equal(rebuilt.exitCode, 0, failure(rebuilt));
-  assert.ok(rebuilt.identity !== null, "the copied build produced no identity");
-  assert.equal(rebuilt.markdown, committed, "the copied build's artifact differs");
-  assert.equal(rebuilt.identity.inputDigest, inRepo.identity.inputDigest);
-  assert.equal(rebuilt.identity.engineVersion, await repoPackageVersion());
+  const firstBuild = await runBuild(base(first, { engineRoot: root }));
+  assert.equal(firstBuild.exitCode, 0, failure(firstBuild));
+  assert.ok(firstBuild.identity !== null, "the copied build produced no identity");
+  assert.equal(await repoPackageVersion(), firstBuild.identity.engineVersion);
+
+  const secondBuild = await runBuild(base(second, { engineRoot: root }));
+  assert.equal(secondBuild.exitCode, 0, failure(secondBuild));
+  assert.equal(secondBuild.identity!.inputDigest, firstBuild.identity!.inputDigest);
+
+  for (const copied of [first, second]) {
+    assert.equal(
+      existsSync(path.join(copied, "spec", "lib", "manifest.poisoned")),
+      false,
+      "the copied engine modules executed",
+    );
+  }
 
   // The copied profile still carries the authored specifier; the build did not rewrite it.
-  const copiedView = await readFile(path.join(copied, "profiles", "core001", "view.ts"), "utf8");
+  const copiedView = await readFile(path.join(first, "profiles", "example", "view.ts"), "utf8");
   assert.equal(copiedView.includes("../../spec/lib/"), true);
   assert.equal(copiedView.includes(path.join(root, "spec", "lib")), false);
 });
 
 test("engine-root: the CLI accepts --engine-root for a copied project", async () => {
-  const copied = await copyCommittedProject("cli");
+  const copied = await copyEngineProject("cli");
   const rendererModule = await addProbeRenderer(copied);
   const cli = spawnSync(
     process.execPath,
     [
       path.join(root, "spec", "build.ts"),
       "--spec",
-      path.join(copied, "spec"),
+      copied,
       "--engine-root",
       root,
       "--renderer-module",

@@ -13,13 +13,11 @@ reference tree that used to live there.
 .entire/agent-guide.md          workflow guide for the automated agent
 biome.json                      Biome lint and format configuration
 bun.lock                        Bun lockfile
-CORE-001.legacy.md              read-only source document (Russian)
 LICENSE                         Apache License 2.0
 package.json                    scripts; Bun 1.4.2 pinned
 tsconfig.json                   TypeScript project configuration
 
-spec/                           CORE-001 project: declared inputs and the builder
-  contract-builder.json         project manifest: inputs, source, profile, outputs, artifact locale
+spec/                           the engine: builder CLI and the domain-neutral core
   build.ts                      CLI
   cli-renderers.ts              CLI renderer loading: validates and imports the caller-supplied module
   lib/
@@ -42,27 +40,8 @@ spec/                           CORE-001 project: declared inputs and the builde
     source.ts                   SourceDocument and SourceAdapter
     adapters/markdown.ts        markdown locators and source adapter
     adapters/index.ts           built-in adapter registry
-  sources.yml                   slice boundaries and verbatim fragments
-  ontology.yml                  document and terms
-  semantics.json                normative provisions
-  decisions.yml                 open and closed decisions
-  conformance/cases.yml         declarative conformance vectors
-  output/CORE-001.draft.md      generated artifact
 
-profiles/                       domain contracts
-  core001/                      the CORE-001 profile
-    profile.json                kinds, relations, provenance, document bindings
-    view.ts, context.ts,
-    slice.ts, text.ts,
-    validator.ts                view/check support and the check aggregator
-    checks/*.ts                 checks by family (cases, coverage, dependencies,
-                                ontology, provision, review, source, terms)
-    checks/verification.ts      CORE-001 provenance verification
-    catalog.json                diagnostic codes, severity and per-locale messages
-    renderer.ts                 CORE-001 Markdown renderer
-    labels.ru.json              view labels
-    templates/core001.md.j2     renderer template
-    schemas/*.schema.json       document and entity-kind schemas
+profiles/                       domain profiles
   core000/                      the CORE-000 self-contract profile
     profile.json, view.ts,
     validator.ts, renderer.ts,
@@ -71,7 +50,9 @@ profiles/                       domain contracts
                                 provenance verification, trust policy
     schemas/*.schema.json       self-contract schemas
     templates/core000.md.j2     renderer template
-  example/                      synthetic non-CORE-001 profile (genericity check)
+  example/                      synthetic executable profile (engine fixture:
+                                profile.json, view.ts, validator.ts, renderer.ts,
+                                catalog.json, templates/, schemas/)
 
 contracts/core000/              the engine's public contract, declared as a contract
   contract-builder.json         self-contract project manifest
@@ -121,20 +102,22 @@ scripts/                        deterministic CI helpers
   check-docs-links.ts           local relative-link and anchor check
   check-coverage.ts             in-process coverage floors
 
-tests/                          builder test suite
-  build.test.ts, manifest.test.ts, ir.test.ts, checks.test.ts, hook.test.ts,
+tests/                          engine test suite
+  build.test.ts, manifest.test.ts, ir.test.ts, hook.test.ts,
   provenance.test.ts, genericity.test.ts, renderer.test.ts, golden.test.ts,
   identity.test.ts, engine-root.test.ts, example-profile.test.ts, consent.test.ts,
-  core000.test.ts, envelope.test.ts, unsupported-configurations.test.ts,
+  fail-closed.test.ts, locale.test.ts, core000.test.ts, envelope.test.ts,
+  unsupported-configurations.test.ts,
   docs-freshness.test.ts        documentation freshness: contract hash, claim count, registry
-  support.ts                    shared test helpers
-  golden/                       golden baselines
-  fixtures/                     test-owned example projects
+  support.ts                    shared test helpers: copyEngineProject, ENGINE_RENDERERS,
+                                synthetic model builders
+  fixtures/                     test-owned synthetic projects
+    engine-project/             the engine fixture project (manifest, inputs, source)
+    example-project*/           example-profile conformance fixtures
 
-fixtures/                       intentionally broken specifications
-  broken-modality/              violated derived from a permission
-  broken-source-drift/          quote not found in the legacy source
-  open-decision/                provision depends on an open decision
+The CORE-001 project (declared inputs, profiles/core001, CORE-001.legacy.md,
+fixtures/broken-*, tests/golden/core001.*) moved to the UIA repository
+(ODR-ENG-003 E3) and is intentionally absent here.
 
 docs/
   architecture/                 engine public contract, build identity, PAP RFC,

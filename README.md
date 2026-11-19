@@ -12,9 +12,13 @@ This repository is a research-grade reference implementation of two composable p
    carries an artifact, its declared inputs, its sources and its claims; the verifier recomputes
    every digest and check itself and reports a verdict without trusting the producer.
 
-Two verticals exercise the engine: `CORE-001`, a demo slice of a real normative document
-(`CORE-001.legacy.md` §10.1–10.2, Temporal Reference Model), and `CORE-000`, the engine's own
-public contract declared as a contract and compiled by the same engine.
+The engine's own public contract, `CORE-000`, is itself declared as a contract and compiled by
+the engine; its committed artifact is verified in CI. A synthetic project
+(`tests/fixtures/engine-project/` with `profiles/example/`) exercises the same entry points with
+no domain vocabulary. The CORE-001 vertical — a demo slice of a real normative document with its
+own profile, tests and artifact rule — lives in the UIA repository
+([`agent-federation/uia`](https://github.com/agent-federation/uia)); the engine resolves an
+external project through an explicit `engineRoot` ([ODR-ENG-003](docs/decisions/ODR-ENG-003-core-001-project-extraction.md)).
 
 > **Status:** research prototype, actively developed. Read
 > [what is proven and what is not](#status-what-is-proven-and-what-is-not) before relying on it.
@@ -101,30 +105,33 @@ never executes package code, never opens a network socket, and treats package co
 input: paths are validated before any filesystem call, symlinks and non-regular files are
 rejected, and resource limits are enforced while reading.
 
-To build the artifact a package would carry:
+To build an artifact, hand the engine a declared project:
 
 ```bash
-bun run build     # draft: writes spec/output/CORE-001.draft.md
-bun run check     # rebuilds in memory and compares against the committed artifact
+bun spec/build.ts --spec tests/fixtures/engine-project --allow-executable-profile \
+  --renderer-module profiles/example/renderer.ts          # draft: prints the artifact
+bun run check:all   # rebuilds the CORE-000 contract and verifies its committed artifact
 ```
 
 The build is byte-deterministic: no clock and no absolute paths in the output, fixed ordering, so
-rebuilding an unchanged specification leaves the working tree clean.
+rebuilding an unchanged project leaves the output byte-identical.
 
 ## What is in the repository
 
 | Path | What it is |
 |---|---|
-| `spec/`, `profiles/` | the CORE-001 vertical: declared inputs, builder core, profile checks and renderer |
+| `spec/` | the engine: builder CLI and the domain-neutral core (`lib/`) |
+| `profiles/` | `core000/` (self-contract profile) and `example/` (synthetic executable fixture profile) |
 | `contracts/core000/` | the CORE-000 self-contract: declared inputs, harness, generated artifact |
 | `pap/` | PAP v0.1 verifier: CLI, schemas, conformance corpus, fixtures |
 | `pipeline/` | producer side: deterministic CORE-000 PAP packer, trust-policy gate and independent-verification batch (C4/C6) |
 | `scripts/` | deterministic CI helpers: documentation link check and coverage floors |
 | `.github/` | CI and CodeQL workflows, issue/PR templates, CODEOWNERS, Renovate |
 | `docs/` | engine public contract, RFCs, decision records, implementation status |
-| `tests/` | builder, profile, provenance, identity and self-contract tests |
-| `fixtures/` | intentionally broken specifications used by tests and examples |
-| `CORE-001.legacy.md` | read-only source document that the CORE-001 slice quotes |
+| `tests/` | engine tests plus the synthetic project fixtures (`tests/fixtures/engine-project/`) |
+
+The CORE-001 project (declared inputs, profile, source document, fixtures, tests and goldens)
+lives in the UIA repository; see [ODR-ENG-003](docs/decisions/ODR-ENG-003-core-001-project-extraction.md).
 
 Full path-by-path tree: [docs/repository-map.md](docs/repository-map.md).
 
@@ -132,7 +139,7 @@ Full path-by-path tree: [docs/repository-map.md](docs/repository-map.md).
 
 ```text
 declared inputs ──▶ Contract Builder ──▶ artifact + BuildIdentity + diagnostics
-(spec/, profiles/)          │                        │
+(a project + a profile)     │                        │
                             │                        ▼
                             │             pipeline/ packer (CORE-000)
                             │                        │
@@ -172,10 +179,6 @@ short version:
 | determinism | no clock, no absolute paths, fixed ordering, byte-for-byte comparison |
 | no invented content | required fields, `throwOnUndefined`, verbatim substrings, no defaults |
 
-`bun run build:release` currently exits 1 on purpose: the demo slice carries five
-`REVIEW_REQUIRED` diagnostics (unconfirmed normalizations, inferred cases, editorial
-classification). **The gate is the feature** — do not loosen it to get a green release run.
-
 ## Status: what is proven and what is not
 
 Proven enough to rely on:
@@ -201,12 +204,11 @@ Not proven and not claimed:
   [ODR-PAP-007](docs/decisions/ODR-PAP-007-pap-verifier-packaging.md) (D8);
 - no in-toto mapping, archive transport, online revocation or Sigstore/SCITT integration (outside
   PAP v0.1);
-- the demo slice's source document and its rendered artifact are in Russian by design; the engine
-  and the verifier are language-neutral. Engine diagnostics and CLI output are English by default
-  since [#208](https://github.com/agent-federation/contract-builder/issues/208), and Russian stays
-  available with `--locale ru`. A project declares its artifact locale separately in
-  `contract-builder.json` (`"locale": "ru"` for CORE-001), so the rendered document keeps Russian
-  diagnostics while the CLI prints English ones.
+- the engine and the verifier are language-neutral. Engine diagnostics and CLI output are English
+  by default since [#208](https://github.com/agent-federation/contract-builder/issues/208), and
+  Russian stays available with `--locale ru`. A project declares its artifact locale separately
+  in `contract-builder.json`, so a rendered document may keep another locale (the extracted
+  CORE-001 artifact is Russian) while the CLI prints English ones.
 
 A snapshot of the full implementation status lives in
 [docs/architecture/implementation-status.md](docs/architecture/implementation-status.md).
@@ -220,18 +222,17 @@ identity. If the CLI cannot produce a build result, `--json` still writes one er
 instead of a stack trace; its shape and stable codes are in
 [docs/reference/cli-json-error.md](docs/reference/cli-json-error.md).
 
-A project declares the locale of its rendered artifact separately, in `contract-builder.json`
-(`"locale": "ru"` for CORE-001). The renderer receives the diagnostic snapshot resolved in that
-locale, so CORE-001 keeps its Russian Appendix B while the CLI prints the same diagnostics in
-English. A project without a declared locale renders in English.
+A project declares the locale of its rendered artifact separately, in `contract-builder.json`.
+The renderer receives the diagnostic snapshot resolved in that locale, so a rendered document can
+keep its own language while the CLI prints the same diagnostics in English. A project without a
+declared locale renders in English.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `bun run build` | draft build: writes `spec/output/CORE-001.draft.md` |
-| `bun run build:release` | release build: writes `spec/output/CORE-001.md` only if there is no ERROR and no REVIEW_REQUIRED (currently blocked by design) |
-| `bun run check` | builds in memory and compares with the committed artifact |
+| `bun spec/build.ts --spec <project-dir> …` | build a declared project by hand; see `--help` for the flags (`--check`, `--locale`, `--renderer-module`, `--engine-root`) |
+| `bun run check:all` | CORE-000 artifact verification: rebuilds and verifies the committed self-contract artifact (S2.2) |
 | `bun run release:check --tag vX.Y.Z` | release gate: the tag must equal the engine `package.json` `version`; also validates the three version domains for presence and shape |
 | `bun test` | builder, verifier and pipeline tests |
 | `bun run typecheck` | `tsc --noEmit` |
@@ -240,7 +241,6 @@ English. A project without a declared locale renders in English.
 | `bun run format:check` | check formatting without writing |
 | `bun run docs:links` | local relative-link and anchor check for the documentation |
 | `bun run coverage` / `bun run coverage:check` | test suite with an lcov report; enforce the in-process coverage floors |
-| `bun run check:all` | artifact check plus the CORE-000 S2.2 artifact verification |
 | `bun run gate:core000 --report <file> --policy <file> --out <file>` | acceptance gate over a PAP verification report |
 | `bun run pipeline:independent --out <dir>` | reference plus three independent Phase 2a verifiers on one package (C6) |
 | `bun run pap -- verify <PACKAGE>` | PAP v0.1 verifier: `verify`, `inspect`, `explain` |
@@ -263,8 +263,9 @@ Three version domains are independent and must never be synchronised:
 | Profile | `profiles/*/profile.json` `version` | each profile's own evolution |
 | Project | `contracts/*/contract-builder.json` `project.revision` | the particular project/content revision |
 
-They coincide today (`0.1.0`) only by accident. The canonical CORE-001 example already shows the
-distinction: `project.revision` `0.3.3` with `profile.version` `0.1.0`. Forcing the three equal
+They coincide today (`0.1.0`) only by accident. The extracted CORE-001 project already shows the
+distinction: `project.revision` `0.3.3` with `profile.version` `0.1.0` (see the UIA repository).
+Forcing the three equal
 would encode an invalid coupling, so `bun run release:check` validates each value for presence and
 semver shape and never compares one domain with another.
 

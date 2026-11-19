@@ -3,17 +3,13 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
-import { copyProjectWithProfile, TEST_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
 
 /**
  * ODR-ENG-001 B3/B4 (E2): M1 requires an executable profile and exactly one source.
  * Unsupported configurations must fail with an explicit diagnostic, not degrade partially.
  */
-
-const root = fileURLToPath(new URL("..", import.meta.url));
-const specDir = path.join(root, "spec");
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir: dir,
@@ -21,7 +17,7 @@ const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions 
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
   ...overrides,
 });
@@ -42,7 +38,7 @@ interface MutableManifest {
 }
 
 async function editProfile(dir: string, mutate: (profile: MutableProfile) => void): Promise<void> {
-  const file = path.join(dir, "profiles", "core001", "profile.json");
+  const file = path.join(dir, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableProfile;
   mutate(profile);
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
@@ -69,7 +65,7 @@ function executableProfileDiagnostic(result: Awaited<ReturnType<typeof runBuild>
 }
 
 test("E2: a profile without view is rejected before consent", async () => {
-  const dir = await copyProjectWithProfile("e2-no-view");
+  const dir = await copyEngineProject("e2-no-view");
   await editProfile(dir, (profile) => {
     delete profile.view;
   });
@@ -91,7 +87,7 @@ test("E2: a profile without view is rejected before consent", async () => {
 });
 
 test("E2: a profile without validator is rejected before consent", async () => {
-  const dir = await copyProjectWithProfile("e2-no-validator");
+  const dir = await copyEngineProject("e2-no-validator");
   await editProfile(dir, (profile) => {
     delete profile.validator;
   });
@@ -108,7 +104,7 @@ test("E2: a profile without validator is rejected before consent", async () => {
 });
 
 test("E2: a data-only profile without view and validator is rejected before consent", async () => {
-  const dir = await copyProjectWithProfile("e2-data-only");
+  const dir = await copyEngineProject("e2-data-only");
   await editProfile(dir, (profile) => {
     delete profile.view;
     delete profile.validator;
@@ -128,7 +124,7 @@ test("E2: a data-only profile without view and validator is rejected before cons
 });
 
 test("E2: a multi-source manifest is rejected before the model, identity or renderer", async () => {
-  const dir = await copyProjectWithProfile("e2-multi-source");
+  const dir = await copyEngineProject("e2-multi-source");
   await editManifest(dir, (manifest) => {
     manifest.sources!.push({
       id: "SRC-SECOND",
@@ -153,12 +149,12 @@ test("E2: a multi-source manifest is rejected before the model, identity or rend
   assert.equal(diagnostic.pointer, "/sources");
   assert.match(diagnostic.message, /M1 supports exactly one source/);
   assert.match(diagnostic.message, /multi-source manifests are not supported by M1/);
-  assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false);
+  assert.equal(existsSync(path.join(dir, "output", "EXAMPLE.draft.md")), false);
 });
 
 test("E2: missing or empty sources is rejected before the model, identity or renderer", async () => {
   for (const variant of ["missing", "empty"] as const) {
-    const dir = await copyProjectWithProfile(`e2-${variant}-sources`);
+    const dir = await copyEngineProject(`e2-${variant}-sources`);
     await editManifest(dir, (manifest) => {
       if (variant === "missing") delete manifest.sources;
       else manifest.sources = [];
@@ -180,18 +176,6 @@ test("E2: missing or empty sources is rejected before the model, identity or ren
     assert.match(diagnostic.message, /M1 supports exactly one source/, variant);
     assert.match(diagnostic.message, /zero-source manifests are not supported by M1/, variant);
     assert.equal(codes(result).includes("ERR_UNKNOWN_REF"), false, variant);
-    assert.equal(existsSync(path.join(dir, "output", "CORE-001.draft.md")), false, variant);
+    assert.equal(existsSync(path.join(dir, "output", "EXAMPLE.draft.md")), false, variant);
   }
-});
-
-test("E2: an existing one-source project builds to the committed artifact", async () => {
-  const result = await runBuild(base(specDir));
-  assert.equal(result.exitCode, 0, summary(result));
-  assert.equal(result.blockedBy, null);
-  assert.ok(result.markdown !== null);
-  assert.ok(result.identity !== null);
-  assert.equal(result.diagnostics.filter((item) => item.severity === "error").length, 0);
-
-  const committed = await readFile(path.join(specDir, "output", "CORE-001.draft.md"), "utf8");
-  assert.equal(result.markdown, committed);
 });

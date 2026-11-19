@@ -1,8 +1,8 @@
 # ODR-ENG-003 — Owner Decision Record: extract the CORE-001 project into the UIA repository
 
-**Status:** PROPOSED — decision requested from the maintainer in
-[#220](https://github.com/agent-federation/contract-builder/issues/220); this record becomes durable
-when the maintainer merges it. It authorizes the E1/E2 split; implementation starts only after merge.
+**Status:** APPROVED — durable since the maintainer merged this record (#314, 2026-11-14). E1/E2
+are executed in the UIA repository; E3 is executed in this repository — see the
+[execution record](ODR-ENG-003-E3-execution-record.md). E4 (UIA-side CI/freshness tail) remains open.
 **Date:** 2026-11-14 (UTC)
 **Decision scope:** the ownership move of the CORE-001 project (manifest, inputs, profile, source,
 fixtures, tests, goldens and artifact rule) from `contract-builder` to the UIA repository
@@ -10,7 +10,8 @@ fixtures, tests, goldens and artifact rule) from `contract-builder` to the UIA r
 requires, the licence/CI/documentation obligations, and the sequencing. No engine contract version,
 CORE-000 decision, PAP decision or generated artifact changes in this record.
 **Baseline:** `contract-builder` main `32b9ed8` (2026-11-13); UIA `main` `69d8acf` (2026-11-13).
-**Related:** [#220](https://github.com/agent-federation/contract-builder/issues/220) (epic and scope
+**Related:** [E3 execution record](ODR-ENG-003-E3-execution-record.md),
+[#220](https://github.com/agent-federation/contract-builder/issues/220) (epic and scope
 comment), [#223](https://github.com/agent-federation/contract-builder/issues/223) (prerequisite,
 closed), [#221](https://github.com/agent-federation/contract-builder/issues/221) (packaging epic,
 blocked by this), [#170](https://github.com/agent-federation/contract-builder/issues/170) streams B–D,

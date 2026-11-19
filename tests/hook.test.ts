@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { resolveFindings, type DiagnosticCatalog } from "../spec/lib/hook.js";
 import { SUPPORTED_LOCALES } from "../spec/lib/locale.js";
-import { ORDER } from "../profiles/core001/validator.js";
 import { entity, modelWith, copyEngineProject, ENGINE_RENDERERS } from "./support.js";
 import { runBuild } from "../spec/lib/build.js";
 import { readFile, writeFile } from "node:fs/promises";
@@ -98,13 +97,6 @@ test("hook: an undeclared code fails with core.profile.unknown-code", () => {
 
   assert.equal(ok, false);
   assert.ok(diagnostics.sorted().some((item) => item.code === "core.profile.unknown-code"));
-});
-
-test("hook: the aggregator order is explicit", () => {
-  assert.deepEqual(
-    [...ORDER],
-    ["source", "ontology", "provision", "cases", "review", "coverage", "terms", "dependencies"],
-  );
 });
 
 test("hook: an unknown finding code fails the build", async () => {

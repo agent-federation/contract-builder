@@ -1,9 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { loadProject } from "../spec/lib/load.js";
@@ -15,16 +13,9 @@ import {
   type ProjectModel,
 } from "../spec/lib/ir.js";
 import { resolveRelations } from "../spec/lib/relations.js";
-import { markdownAdapter } from "../spec/lib/adapters/markdown.js";
-import type { SourceAdapter } from "../spec/lib/source.js";
 import type { Profile } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { TEST_RENDERERS } from "./support.js";
-
-const root = fileURLToPath(new URL("..", import.meta.url));
-const specDir = path.join(root, "spec");
-const profileDir = path.join(root, "profiles", "core001");
-const legacyPath = path.join(root, "CORE-001.legacy.md");
+import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
 
 const base = (dir: string): BuildOptions => ({
   specDir: dir,
@@ -32,7 +23,7 @@ const base = (dir: string): BuildOptions => ({
   write: false,
   check: false,
   strict: false,
-  renderers: TEST_RENDERERS,
+  renderers: ENGINE_RENDERERS,
   allowExecutableProfile: true,
 });
 
@@ -48,78 +39,53 @@ interface MutableProfile {
   relations: Array<Record<string, unknown>>;
 }
 
-interface MutableSemantics {
-  provisions: Array<Record<string, unknown> & { relations: Record<string, unknown> }>;
+interface MutableSchema {
+  $defs: { base: { properties: Record<string, unknown> } };
 }
 
-interface MutableOntology {
-  terms: Array<Record<string, unknown>>;
-}
-
-async function copyProject(name: string, withProfile = false): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), `ir-${name}-`));
-  for (const file of [
-    "contract-builder.json",
-    "sources.yml",
-    "ontology.yml",
-    "semantics.json",
-    "decisions.yml",
-  ]) {
-    await cp(path.join(specDir, file), path.join(dir, file));
-  }
-  await cp(path.join(specDir, "conformance"), path.join(dir, "conformance"), { recursive: true });
-
-  if (withProfile) {
-    await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
-  }
-
-  await editManifest(dir, (manifest) => {
-    manifest.sources[0]!.path = legacyPath;
-    if (withProfile) {
-      manifest.profile.source = "./profiles/core001";
-      delete manifest.profile.external;
-    } else {
-      manifest.profile.source = profileDir;
-    }
-  });
-
-  return dir;
-}
-
-async function editManifest(
-  dir: string,
-  mutate: (manifest: MutableManifest) => void,
-): Promise<void> {
-  const file = path.join(dir, "contract-builder.json");
-  const manifest = JSON.parse(await readFile(file, "utf8")) as MutableManifest;
-  mutate(manifest);
-  await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+async function copyProject(name: string): Promise<string> {
+  return copyEngineProject(name);
 }
 
 async function editProfile(dir: string, mutate: (profile: MutableProfile) => void): Promise<void> {
-  const file = path.join(dir, "profiles", "core001", "profile.json");
+  const file = path.join(dir, "profiles", "example", "profile.json");
   const profile = JSON.parse(await readFile(file, "utf8")) as MutableProfile;
   mutate(profile);
   await writeFile(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 }
 
-async function editSemantics(
+async function editEntitySchema(
   dir: string,
-  mutate: (document: MutableSemantics) => void,
+  name: string,
+  mutate: (schema: MutableSchema) => void,
 ): Promise<void> {
-  const file = path.join(dir, "semantics.json");
-  const document = JSON.parse(await readFile(file, "utf8")) as MutableSemantics;
-  mutate(document);
-  await writeFile(file, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+  const file = path.join(dir, "profiles", "example", "schemas", name);
+  const schema = JSON.parse(await readFile(file, "utf8")) as MutableSchema;
+  mutate(schema);
+  await writeFile(file, `${JSON.stringify(schema, null, 2)}\n`, "utf8");
 }
 
-async function editOntology(
+async function editRequirements(
   dir: string,
-  mutate: (document: MutableOntology) => void,
+  mutate: (requirements: Array<Record<string, unknown>>) => void,
 ): Promise<void> {
-  const file = path.join(dir, "ontology.yml");
-  const document = parseYaml(await readFile(file, "utf8")) as MutableOntology;
-  mutate(document);
+  const file = path.join(dir, "requirements.yml");
+  const document = parseYaml(await readFile(file, "utf8")) as {
+    requirements: Array<Record<string, unknown>>;
+  };
+  mutate(document.requirements);
+  await writeFile(file, stringifyYaml(document), "utf8");
+}
+
+async function editExamples(
+  dir: string,
+  mutate: (examples: Array<Record<string, unknown>>) => void,
+): Promise<void> {
+  const file = path.join(dir, "examples.yml");
+  const document = parseYaml(await readFile(file, "utf8")) as {
+    examples: Array<Record<string, unknown>>;
+  };
+  mutate(document.examples);
   await writeFile(file, stringifyYaml(document), "utf8");
 }
 
@@ -134,36 +100,10 @@ async function buildModel(dir: string): Promise<ProjectModel> {
   return model;
 }
 
-test("ir: the profile declares the seven M1 relation names, with reciprocal inverses", async () => {
-  const profile = JSON.parse(
-    await readFile(path.join(profileDir, "profile.json"), "utf8"),
-  ) as MutableProfile;
-
-  assert.deepEqual(
-    profile.relations.map((relation) => [
-      relation.from,
-      relation.name,
-      relation.to,
-      relation.cardinality ?? null,
-      relation.inverse ?? null,
-    ]),
-    [
-      ["provision", "fragment", "fragment", "one", null],
-      ["provision", "terms", "term", "many", null],
-      ["provision", "dependsOn", "decision", "many", null],
-      ["provision", "mentions", "decision", "many", null],
-      ["case", "provision", "provision", "one", "vectors"],
-      ["provision", "vectors", "case", "many", "provision"],
-      ["case", "rationaleFragment", "fragment", "one", null],
-      ["term", "fragment", "fragment", "one", null],
-    ],
-  );
-});
-
 test("ir: an undeclared key inside relations is core.relation.unknown", async () => {
   const dir = await copyProject("unknown-key");
-  await editSemantics(dir, (document) => {
-    document.provisions[0]!.relations.bogus = "TERM-ASSERTED-AT";
+  await editExamples(dir, (examples) => {
+    examples[0]!.relations = { requirement: "REQ-IDEMPOTENT", bogus: "REQ-ORDER-ID" };
   });
 
   const result = await runBuild(base(dir));
@@ -172,9 +112,9 @@ test("ir: an undeclared key inside relations is core.relation.unknown", async ()
 });
 
 test("ir: a declaration with an unknown from kind stops before resolution", async () => {
-  const dir = await copyProject("unknown-from", true);
+  const dir = await copyProject("unknown-from");
   await editProfile(dir, (profile) => {
-    profile.relations.push({ name: "ghost", from: "ghost", to: "term" });
+    profile.relations.push({ name: "ghost", from: "ghost", to: "requirement" });
   });
 
   const result = await runBuild(base(dir));
@@ -184,9 +124,9 @@ test("ir: a declaration with an unknown from kind stops before resolution", asyn
 });
 
 test("ir: a declaration with an unknown to kind stops before resolution, even when unused", async () => {
-  const dir = await copyProject("unknown-to", true);
+  const dir = await copyProject("unknown-to");
   await editProfile(dir, (profile) => {
-    profile.relations.push({ name: "ghost", from: "provision", to: "ghost" });
+    profile.relations.push({ name: "ghost", from: "example", to: "ghost" });
   });
 
   const result = await runBuild(base(dir));
@@ -196,30 +136,31 @@ test("ir: a declaration with an unknown to kind stops before resolution, even wh
 });
 
 test("ir: an ordinary field named like a relation stays in fields", async () => {
-  const dir = await copyProject("ordinary-field", true);
+  const dir = await copyProject("ordinary-field");
 
-  const schemaPath = path.join(dir, "profiles", "core001", "schemas", "provision.schema.json");
-  const schema = JSON.parse(await readFile(schemaPath, "utf8")) as {
-    $defs: { base: { properties: Record<string, unknown> } };
-  };
-  schema.$defs.base.properties.dependsOn = { type: "array", items: { type: "string" } };
-  await writeFile(schemaPath, `${JSON.stringify(schema, null, 2)}\n`, "utf8");
+  await editEntitySchema(dir, "requirement.schema.json", (schema) => {
+    schema.$defs.base.properties.examples = { type: "array", items: { type: "string" } };
+  });
 
-  await editSemantics(dir, (document) => {
-    document.provisions[0]!.dependsOn = ["DEC-TRUSTED-TIME"];
+  // Remove the example that covers REQ-ORDER-ID, so no inverse relation fills the field.
+  await editExamples(dir, (examples) => {
+    examples.splice(1, 1);
+  });
+  await editRequirements(dir, (requirements) => {
+    requirements[1]!.examples = ["EX-IDEMPOTENT-1"];
   });
 
   const model = await buildModel(dir);
-  const provision = model.byId.get("REQ-TEMPORAL-MOMENT-DEFINED");
-  assert.ok(provision !== undefined);
-  assert.deepEqual(provision.fields.dependsOn, ["DEC-TRUSTED-TIME"]);
-  assert.deepEqual(provision.relations.dependsOn, []);
+  const requirement = model.byId.get("REQ-ORDER-ID");
+  assert.ok(requirement !== undefined);
+  assert.deepEqual(requirement.fields.examples, ["EX-IDEMPOTENT-1"]);
+  assert.equal(requirement.relations.examples, undefined);
 });
 
 test("ir: an unresolvable target keeps ERR_UNKNOWN_REF", async () => {
   const dir = await copyProject("unknown-target");
-  await editSemantics(dir, (document) => {
-    document.provisions[0]!.relations.terms = ["TERM-GHOST"];
+  await editExamples(dir, (examples) => {
+    examples[0]!.relations = { requirement: "REQ-GHOST" };
   });
 
   const result = await runBuild(base(dir));
@@ -229,8 +170,8 @@ test("ir: an unresolvable target keeps ERR_UNKNOWN_REF", async () => {
 
 test("ir: cardinality one rejects an array", async () => {
   const dir = await copyProject("cardinality");
-  await editSemantics(dir, (document) => {
-    document.provisions[0]!.relations.fragment = ["FRAG-10.2-P1-MOMENT-DEFINED"];
+  await editExamples(dir, (examples) => {
+    examples[0]!.relations = { requirement: ["REQ-IDEMPOTENT", "REQ-ORDER-ID"] };
   });
 
   const result = await runBuild(base(dir));
@@ -240,8 +181,8 @@ test("ir: cardinality one rejects an array", async () => {
 
 test("ir: a missing required relation key is core.schema.entity before resolution", async () => {
   const dir = await copyProject("missing-relation");
-  await editSemantics(dir, (document) => {
-    delete document.provisions[0]!.relations.dependsOn;
+  await editExamples(dir, (examples) => {
+    delete examples[0]!.relations;
   });
 
   const result = await runBuild(base(dir));
@@ -250,56 +191,14 @@ test("ir: a missing required relation key is core.schema.entity before resolutio
   assert.equal(codes(result).includes("ERR_UNKNOWN_REF"), false);
 });
 
-test("ir: inverse vectors reproduces the case order and count", async () => {
-  const model = await buildModel(specDir);
-  const cases = model.documents.cases as {
-    cases: Array<{ id: string; relations: { provision: string } }>;
-  };
-
-  for (const provision of model.byKind.get("provision") ?? []) {
-    const expected = cases.cases
-      .filter((testCase) => testCase.relations.provision === provision.id)
-      .map((testCase) => testCase.id);
-    assert.deepEqual(provision.relations.vectors, expected, provision.id);
-  }
-  assert.equal(model.byKind.get("case")?.length, 13);
-});
-
-test("ir: only fragment and decision have direct provenance", async () => {
-  const model = await buildModel(specDir);
-
-  const fragment = model.byId.get("FRAG-10.2-P1-MOMENT-DEFINED");
-  assert.ok(fragment !== undefined);
-  assert.deepEqual(fragment.provenance, {
-    source: fragment.fields.source,
-    ref: fragment.fields.source_ref,
-    quote: fragment.fields.quote,
-  });
-
-  const decision = model.byId.get("DEC-TRUSTED-TIME");
-  assert.ok(decision !== undefined);
-  assert.deepEqual(decision.provenance, {
-    source: decision.fields.source,
-    ref: decision.fields.source_ref,
-    quote: decision.fields.source_quote,
-  });
-
-  assert.equal(model.byId.get("TERM-ASSERTED-AT")?.provenance, undefined);
-  assert.equal(model.byId.get("REQ-TEMPORAL-MOMENT-DEFINED")?.provenance, undefined);
-});
-
 test("ir: a duplicate id across kinds is ERR_DUPLICATE_ID", async () => {
-  const dir = await copyProject("duplicate-cross-kind", true);
+  const dir = await copyProject("duplicate-cross-kind");
 
-  const schemaPath = path.join(dir, "profiles", "core001", "schemas", "term.schema.json");
-  const schema = JSON.parse(await readFile(schemaPath, "utf8")) as {
-    $defs: { base: { properties: { id: { pattern: string } } } };
-  };
-  schema.$defs.base.properties.id.pattern = "^[A-Za-z0-9-]+$";
-  await writeFile(schemaPath, `${JSON.stringify(schema, null, 2)}\n`, "utf8");
-
-  await editOntology(dir, (document) => {
-    document.terms[0]!.id = "REQ-TEMPORAL-MOMENT-DEFINED";
+  await editEntitySchema(dir, "example.schema.json", (schema) => {
+    (schema.$defs.base.properties.id as { pattern: string }).pattern = "^[A-Za-z0-9-]+$";
+  });
+  await editExamples(dir, (examples) => {
+    examples[0]!.id = "REQ-IDEMPOTENT";
   });
 
   const result = await runBuild(base(dir));
@@ -430,9 +329,9 @@ test("ir: an inverse declared cardinality one rejects a second source", () => {
 });
 
 test("ir: duplicate relation declarations are rejected", async () => {
-  const dir = await copyProject("duplicate-declaration", true);
+  const dir = await copyProject("duplicate-declaration");
   await editProfile(dir, (profile) => {
-    profile.relations.push({ name: "fragment", from: "provision", to: "term" });
+    profile.relations.push({ name: "requirement", from: "example", to: "requirement" });
   });
 
   const result = await runBuild(base(dir));
@@ -448,21 +347,4 @@ test("ir: resolvePointer rejects malformed escape sequences", () => {
   assert.equal(resolvePointer(document, "/items/a~1b"), 2);
   assert.equal(resolvePointer(document, "/items/a~2"), undefined);
   assert.equal(resolvePointer(document, "/items/a~"), undefined);
-});
-
-test("ir: quote verification goes through the source adapter", async () => {
-  let calls = 0;
-  const spy: SourceAdapter = {
-    ...markdownAdapter,
-    async verifyQuote(source, ref, quote) {
-      calls += 1;
-      return markdownAdapter.verifyQuote(source, ref, quote);
-    },
-  };
-
-  const result = await runBuild({ ...base(specDir), adapters: { markdown: spy } });
-  assert.equal(result.exitCode, 0, result.diagnostics.map((d) => d.message).join("\n"));
-  // Seven fragments and one decision have direct provenance. Each binding must reach the
-  // adapter once through the verifier; the source checks consume that stored result.
-  assert.equal(calls, 8, "verifyQuote must run once per direct binding");
 });

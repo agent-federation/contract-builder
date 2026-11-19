@@ -52,7 +52,7 @@ bun run check:all
 - [ ] One concern; no unrelated refactor or reformatting.
 - [ ] Branch named `<type>/<issue#>-<slug>` and based on up-to-date `main`.
 - [ ] Conventional Commits title; English body.
-- [ ] Generated artifacts regenerated and committed (`bun run build`; CORE-000 Q9 when its inputs change).
+- [ ] Generated artifacts regenerated and committed (CORE-000 Q9 when its inputs change).
 - [ ] Documentation freshness updated (engine-contract snapshot, CORE-000 claim count, diagnostic-code registry, links).
 - [ ] No secrets, tokens or credentials.
 - [ ] Agent-authored: same gates; the pre-review record above is present; no merge or auto-merge by the agent.
