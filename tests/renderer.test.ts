@@ -10,17 +10,7 @@ import {
   type Renderer,
 } from "../spec/lib/render.js";
 import { gateConclusion } from "../profiles/core000/renderer.js";
-import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
-import {
-  copyEngineProject,
-  ENGINE_RENDERERS,
-  entity,
-  fragment,
-  modelWith,
-  PROVISION_FIELDS,
-  PROVISION_RELATIONS,
-  TEST_IDENTITY,
-} from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir: dir,
@@ -134,21 +124,6 @@ test("renderer: normalization keeps LF and exactly one trailing newline", () => 
   assert.equal(decode("a\r\nb\r\n"), "a\nb\n");
   assert.equal(decode("a\nb\n\n\n"), "a\nb\n");
   assert.equal(decode("a\nb"), "a\nb\n");
-});
-
-test("renderer: tolerates a provision without clauses", async () => {
-  const { precondition: _precondition, exception: _exception, ...fields } = PROVISION_FIELDS;
-  const provision = entity("P1", "provision", fields, { ...PROVISION_RELATIONS });
-
-  const artifacts = await core001Renderer.render(modelWith([fragment(), provision]), {
-    mode: "draft",
-    templates: { entry: "x", files: { x: "ok" } },
-    diagnostics: [],
-    identity: TEST_IDENTITY,
-  });
-
-  // The renderer shapes content; the core adds the trailing newline.
-  assert.equal(new TextDecoder().decode(artifacts[0]!.bytes), "ok");
 });
 
 test("renderer: a non-string labels declaration is rejected", async () => {

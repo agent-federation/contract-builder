@@ -2,13 +2,10 @@ import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildView } from "../profiles/core001/view.js";
-import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
 import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
 import type { BuildIdentity } from "../spec/lib/identity.js";
 import type { Renderer } from "../spec/lib/render.js";
-import type { CheckContext } from "../profiles/core001/context.js";
-import type { Entity, ProjectModel, ProvenanceVerification } from "../spec/lib/ir.js";
+import type { Entity, ProjectModel } from "../spec/lib/ir.js";
 
 export const LEGACY_TEXT = "DOC (Rev 1)\nMUST do";
 
@@ -79,141 +76,7 @@ export function modelWith(entities: Entity[]): ProjectModel {
   };
 }
 
-export type TestOutcome =
-  | "found"
-  | "outside"
-  | "unknown-locator"
-  | "unsupported"
-  | "not-found"
-  | "not-checked";
-
-/** Attaches the binding and the single verification result a CORE-001 check consumes. */
-export function context(model: ProjectModel, outcome: TestOutcome = "found"): CheckContext {
-  for (const item of model.entities) attachVerification(item, outcome);
-  return {
-    model,
-    view: buildView(model),
-    legacyText: LEGACY_TEXT,
-    legacyName: "legacy.md",
-  };
-}
-
-function attachVerification(entity: Entity, outcome: TestOutcome): void {
-  if (entity.provenance !== undefined) return;
-
-  const fields = entity.fields;
-  const source =
-    entity.kind === "fragment" || entity.kind === "decision" ? fields.source : undefined;
-  const ref =
-    entity.kind === "fragment" || entity.kind === "decision" ? fields.source_ref : undefined;
-  const quote =
-    entity.kind === "fragment"
-      ? fields.quote
-      : entity.kind === "decision"
-        ? fields.source_quote
-        : undefined;
-  if (typeof source !== "string" || typeof ref !== "string" || typeof quote !== "string") return;
-
-  const status: ProvenanceVerification["status"] =
-    outcome === "found"
-      ? "verified"
-      : outcome === "unsupported" || outcome === "not-checked"
-        ? "unavailable"
-        : "failed";
-  const checked = outcome !== "not-checked";
-
-  entity.provenance = { source, ref, quote };
-  entity.verification = {
-    status,
-    record: {
-      entity: entity.id,
-      source,
-      ref,
-      verifier: checked ? "test/verifier" : null,
-      method: checked ? "test:verifyQuote" : "none",
-      checkedAt: null,
-      sourceVersion: "DOC (Rev 1)",
-      sourceDigest: checked ? `sha256:${"0".repeat(64)}` : null,
-      outcome,
-    },
-  };
-}
-
-export const PROVISION_FIELDS: Record<string, unknown> = {
-  title: "t",
-  source_ref: "SRC#1",
-  source_quote: "MUST do",
-  claim_quote: "MUST do",
-  normalized_statement: "MUST do",
-  explications: [],
-  source_modality: "MUST",
-  modality_marker: "MUST",
-  normative_effect: "obligation",
-  classification_basis: { kind: "explicit", quote: "MUST", text: "t" },
-  precondition: null,
-  exception: null,
-  unresolved_conditions: [],
-  outside_slice_refs: [],
-  review: { status: "unreviewed", reviewed_by: null },
-};
-
-export const PROVISION_RELATIONS: Record<string, string[]> = {
-  fragment: ["F1"],
-  terms: [],
-  dependsOn: [],
-  mentions: [],
-};
-
-export function fragment(): Entity {
-  return entity("F1", "fragment", {
-    source: "SRC",
-    source_ref: "SRC#1",
-    quote: "MUST do",
-    in_scope: true,
-  });
-}
-
 const root = fileURLToPath(new URL("..", import.meta.url));
-const profileDir = path.join(root, "profiles", "core001");
-const legacyPath = path.join(root, "CORE-001.legacy.md");
-
-/**
- * Copies the project and profile into a temp dir, preserving the committed layout: with the
- * profile under `profiles/core001`, its `../../spec/lib/...` imports stay project-relative and
- * are resolved from the engine root by the build (no source rewriting).
- */
-export async function copyProjectWithProfile(name: string): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), `hook-${name}-`));
-  for (const file of [
-    "contract-builder.json",
-    "sources.yml",
-    "ontology.yml",
-    "semantics.json",
-    "decisions.yml",
-  ]) {
-    await cp(path.join(root, "spec", file), path.join(dir, file));
-  }
-  await cp(path.join(root, "spec", "conformance"), path.join(dir, "conformance"), {
-    recursive: true,
-  });
-  await cp(profileDir, path.join(dir, "profiles", "core001"), { recursive: true });
-
-  const manifestPath = path.join(dir, "contract-builder.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
-    profile: { source: string; external?: boolean };
-    sources: Array<{ path: string; external?: boolean }>;
-  };
-  manifest.profile.source = "./profiles/core001";
-  delete manifest.profile.external;
-  manifest.sources[0]!.path = legacyPath;
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  return dir;
-}
-
-/** Consumer-supplied renderer registry, as the CLI wires it. */
-export const TEST_RENDERERS: Record<string, Renderer> = {
-  [core001Renderer.id]: core001Renderer,
-};
 
 const engineFixtureDir = path.join(root, "tests", "fixtures", "engine-project");
 const exampleProfileDir = path.join(root, "profiles", "example");

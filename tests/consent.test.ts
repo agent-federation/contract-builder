@@ -43,7 +43,7 @@ interface CliJson {
 }
 
 /**
- * A buildable CORE-001 project whose `view` and `validator` modules write a marker file when
+ * A buildable project whose `view` and `validator` modules write a marker file when
  * evaluated. Absence of the marker proves the engine never imported profile code.
  */
 async function projectWithEvalMarker(name: string): Promise<{ dir: string; marker: string }> {
@@ -97,7 +97,7 @@ test("consent: the public API rejects an executable profile without explicit con
   assert.match(diagnostic.message, /is not isolation/);
 });
 
-test("consent: the public API builds CORE-001 only with explicit consent", async () => {
+test("consent: the public API builds an executable profile only with explicit consent", async () => {
   const { dir, marker } = await projectWithEvalMarker("api-consent");
 
   const result = await runBuild(base(dir));

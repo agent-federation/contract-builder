@@ -69,7 +69,7 @@ Measured at `b4927c4` with `bun run coverage`:
 | Area | Bun 1.4.2 (CI) | Bun 1.4.4 | Floor |
 |---|---|---|---|
 | `spec/` | 83.65% | 81.29% | **80%** |
-| `profiles/` | 89.34% | 88.02% | **87%** |
+| `profiles/` | 85.17% (engine-owned profiles only, ODR-ENG-003 E3) | 84.5% | **84%** |
 | `pipeline/` | 77.16% | 73.21% | **72%** |
 
 Bun 1.4.x patch versions report different absolute numbers for the same code (the pinned 1.4.2 counts more instrumented lines than 1.4.4). The floors are roughly one percentage point below the *lower* measurement, rounded down: enough headroom for that reporter difference and for small refactors, but still a ratchet against silent erosion. Raise a floor when coverage rises; lowering one needs a stated rationale in the pull request. A configured area with no measured data fails rather than passing silently. Coverage of temporary CORE-000 workspaces is excluded by construction: the checker only counts files inside the repository.

@@ -4,7 +4,8 @@
 **Date:** 2026-11-06 (UTC)
 **Decision scope:** the top-level presentation envelope of generated contract artifacts — which elements every artifact exposes, which are mandatory, recommended or profile-specific — plus the element-by-element mapping of the current CORE-000 and CORE-001 drafts. It does not decide substantive contract content, domain vocabulary or the release gate semantics.
 **Baseline:** `main` [`6fa3c28`](https://github.com/agent-federation/contract-builder/commit/6fa3c28e0605253e1d8a0bfc5e5cbf6733d07e15) (C1–C4 merged). Line anchors in §3 refer to that revision.
-**Related:** artifact-envelope audit [#130](https://github.com/agent-federation/contract-builder/issues/130), stream C [#170](https://github.com/agent-federation/contract-builder/issues/170), C5 [#212](https://github.com/agent-federation/contract-builder/issues/212), design note [sdlc-pipeline.md §6](../architecture/sdlc-pipeline.md#6-artifact-envelope-130-separate-slice), [CORE-000 draft](../../contracts/core000/output/CORE-000.draft.md), [CORE-001 draft](../../spec/output/CORE-001.draft.md).
+**Archive note (ODR-ENG-003 E3, 2026-11-19):** the CORE-001 artifact, profile and fixtures referenced below moved to the UIA repository; their relative links are kept as inline code, and §3 line anchors refer to the recorded baseline revision.
+**Related:** artifact-envelope audit [#130](https://github.com/agent-federation/contract-builder/issues/130), stream C [#170](https://github.com/agent-federation/contract-builder/issues/170), C5 [#212](https://github.com/agent-federation/contract-builder/issues/212), design note [sdlc-pipeline.md §6](../architecture/sdlc-pipeline.md#6-artifact-envelope-130-separate-slice), [CORE-000 draft](../../contracts/core000/output/CORE-000.draft.md), `CORE-001 draft`.
 
 ## 1. Context
 
@@ -57,7 +58,7 @@ The CORE-001 artifact is only the `SLICE-CORE001-10` build (§10.1–10.2 of the
 | Исключает разделы | #4.4.2, #15 |
 ```
 
-([CORE-001 draft lines 11–13](../../spec/output/CORE-001.draft.md#L11-L13))
+(`CORE-001 draft lines 11–13`)
 
 The envelope must keep that statement. Rendering profile/renderer/build identity, adding a notice or changing the header layout must not replace the slice with a "complete CORE-001" claim, import excluded sections, or imply that the exclusions are unimplemented parts of the same slice. C5b updates the golden hash only after the slice statement is re-checked.
 
@@ -88,12 +89,12 @@ The mapping is a baseline snapshot. C5b updates the statuses as it closes the ga
 
 | Element | Status | Rendered evidence | Gap for C5b |
 |---|---|---|---|
-| Document/project identity + revision | **present** | Title at [line 1](../../spec/output/CORE-001.draft.md#L1); `Документ`, `Ревизия источника`, `Исходный файл`, `Срез`, `Включает разделы` and `Исключает разделы` at [lines 8–13](../../spec/output/CORE-001.draft.md#L8-L13). | Keep, including the `SLICE-CORE001-10` identity and exclusions. |
-| Generated/source-of-truth notice | **present** | Visible notice at [lines 3–4](../../spec/output/CORE-001.draft.md#L3-L4): generated build artifact, `spec/` inputs are the source of truth, not hand-edited, not the source of normative changes. | Keep. |
-| Build mode + scope/exclusions | **present** | Slice/included/excluded sections at [lines 11–13](../../spec/output/CORE-001.draft.md#L11-L13); `Режим сборки` at [line 14](../../spec/output/CORE-001.draft.md#L14). | Keep; the exclusions are part of the slice identity. |
-| Profile/renderer identity + build identity | **missing** | The header ([lines 1–22](../../spec/output/CORE-001.draft.md#L1-L22)) has no profile id/version, renderer id/version, `engineVersion`, `manifestVersion` or `inputDigest`. The values exist: profile `core001` `0.1.0` ([profile.json lines 1–3](../../profiles/core001/profile.json#L1-L3)), renderer `core001-markdown` `0.1.0` ([renderer.ts lines 37–39](../../profiles/core001/renderer.ts#L37-L39)); the engine computes the identity but does not pass it to the renderer (same [build.ts](../../spec/lib/build.ts#L290-L314) and [render.ts](../../spec/lib/render.ts#L23-L33) gap). | Render profile and renderer identity; expose and render the computed build identity, or record the unavailable subset explicitly. Keep the slice identity intact. |
-| Diagnostic/gating summary | **present** | Severity counts at [line 20](../../spec/output/CORE-001.draft.md#L20): `ERROR=0 · REVIEW_REQUIRED=5 · WARNING=10`; explicit draft/release gate note at [line 22](../../spec/output/CORE-001.draft.md#L22); full diagnostics in [Appendix B](../../spec/output/CORE-001.draft.md#L302). | Keep. |
-| Stable section order | **present (recommended)** | Fixed order: How to read ([line 24](../../spec/output/CORE-001.draft.md#L24)), Terms ([45](../../spec/output/CORE-001.draft.md#L45)), Provisions ([52](../../spec/output/CORE-001.draft.md#L52)), Decisions ([261](../../spec/output/CORE-001.draft.md#L261)), Provenance ([269](../../spec/output/CORE-001.draft.md#L269)), Appendix A ([292](../../spec/output/CORE-001.draft.md#L292)), Appendix B ([302](../../spec/output/CORE-001.draft.md#L302)). | Keep. |
+| Document/project identity + revision | **present** | Title at `line 1`; `Документ`, `Ревизия источника`, `Исходный файл`, `Срез`, `Включает разделы` and `Исключает разделы` at `lines 8–13`. | Keep, including the `SLICE-CORE001-10` identity and exclusions. |
+| Generated/source-of-truth notice | **present** | Visible notice at `lines 3–4`: generated build artifact, `spec/` inputs are the source of truth, not hand-edited, not the source of normative changes. | Keep. |
+| Build mode + scope/exclusions | **present** | Slice/included/excluded sections at `lines 11–13`; `Режим сборки` at `line 14`. | Keep; the exclusions are part of the slice identity. |
+| Profile/renderer identity + build identity | **missing** | The header (`lines 1–22`) has no profile id/version, renderer id/version, `engineVersion`, `manifestVersion` or `inputDigest`. The values exist: profile `core001` `0.1.0` (`profile.json lines 1–3`), renderer `core001-markdown` `0.1.0` (`renderer.ts lines 37–39`); the engine computes the identity but does not pass it to the renderer (same [build.ts](../../spec/lib/build.ts#L290-L314) and [render.ts](../../spec/lib/render.ts#L23-L33) gap). | Render profile and renderer identity; expose and render the computed build identity, or record the unavailable subset explicitly. Keep the slice identity intact. |
+| Diagnostic/gating summary | **present** | Severity counts at `line 20`: `ERROR=0 · REVIEW_REQUIRED=5 · WARNING=10`; explicit draft/release gate note at `line 22`; full diagnostics in `Appendix B`. | Keep. |
+| Stable section order | **present (recommended)** | Fixed order: How to read (`line 24`), Terms (`45`), Provisions (`52`), Decisions (`261`), Provenance (`269`), Appendix A (`292`), Appendix B (`302`). | Keep. |
 | Substantive body | **profile-specific** | Temporal Reference Model content: terms, provisions, verbatim quotes, conformance vectors, decisions, provenance binding/verification and traceability matrix. It contains no CORE-000 component/claim sections. | Preserve; do not import CORE-000 body sections. |
 
 ### 3.3 Gap summary
