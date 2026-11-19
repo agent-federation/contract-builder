@@ -5,8 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { renderer as core000Renderer } from "../profiles/core000/renderer.js";
-import { renderer as core001Renderer } from "../profiles/core001/renderer.js";
+import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
 import type { Renderer } from "../spec/lib/render.js";
+import { copyEngineProject } from "./support.js";
 
 /**
  * ODR-ART-001 envelope conformance: every generated contract artifact exposes the mandatory
@@ -17,9 +18,7 @@ import type { Renderer } from "../spec/lib/render.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const core000Dir = path.join(root, "contracts", "core000");
-const core001Dir = path.join(root, "spec");
 const core000DraftPath = path.join(core000Dir, "output", "CORE-000.draft.md");
-const core001DraftPath = path.join(core001Dir, "output", "CORE-001.draft.md");
 
 const base = (specDir: string, renderer: Renderer): BuildOptions => ({
   specDir,
@@ -36,8 +35,9 @@ async function buildCore000(): Promise<Awaited<ReturnType<typeof runBuild>>> {
   return runBuild(base(core000Dir, core000Renderer));
 }
 
-async function buildCore001(): Promise<Awaited<ReturnType<typeof runBuild>>> {
-  return runBuild(base(core001Dir, core001Renderer));
+async function buildExample(): Promise<Awaited<ReturnType<typeof runBuild>>> {
+  const dir = await copyEngineProject("envelope-example");
+  return runBuild(base(dir, exampleRenderer));
 }
 
 function rendered(result: Awaited<ReturnType<typeof runBuild>>): string {
@@ -86,53 +86,14 @@ test("envelope: CORE-000 renders every mandatory element from the computed ident
   assert.match(markdown, /## Build diagnostics/);
 });
 
-test("envelope: CORE-001 renders every mandatory element from the computed identity", async () => {
-  const result = await buildCore001();
-  const markdown = rendered(result);
-  const identity = result.identity!;
-
-  assert.equal(markdown, await readFile(core001DraftPath, "utf8"));
-
-  // Document identity, notice, build mode and scope/exclusions remain intact.
-  assert.match(markdown, /^# UIA-CORE-001 — машинно-читаемый срез\n/);
-  assert.match(markdown, /> Сгенерированный артефакт сборки\. Источник истины — файлы `spec\/`\./);
-  assert.match(markdown, /\| Режим сборки \| `draft` \|/);
-  assert.match(markdown, /\| Срез \| `SLICE-CORE001-10` — /);
-  assert.match(markdown, /\| Включает разделы \| #10, #10\.1, #10\.2 \|/);
-  assert.match(markdown, /\| Исключает разделы \| #4\.4\.2, #15 \|/);
-
-  // Profile/renderer identity and the computed build identity.
-  assert.match(markdown, /\| Профиль \| `core001` `0\.1\.0` \|/);
-  assert.match(markdown, /\| Рендерер \| `core001-markdown` `0\.1\.0` \|/);
-  assert.ok(markdown.includes(`| Версия движка | \`${identity.engineVersion}\` |`));
-  assert.ok(markdown.includes(`| Версия манифеста | \`${identity.manifestVersion}\` |`));
-  assert.ok(markdown.includes(`| \`inputDigest\` | \`${identity.inputDigest}\` |`));
-
-  // Emitted severity counts and the explicit draft/release gate note.
-  assert.match(markdown, /ERROR=0 · REVIEW_REQUIRED=5 · WARNING=10/);
-  assert.match(markdown, /Есть 5 диагностик `REVIEW_REQUIRED`/);
-  assert.match(markdown, /Режим `release` для такого состояния запрещён\./);
-});
-
-test("envelope: CORE-001 keeps the SLICE-CORE001-10 identity and exclusions", async () => {
-  const markdown = rendered(await buildCore001());
-
-  assert.match(markdown, /`SLICE-CORE001-10`/);
-  assert.match(markdown, /§10\.1–10\.2/);
-  assert.match(markdown, /\| Исключает разделы \| #4\.4\.2, #15 \|/);
-  assert.equal(/полный CORE-001|полная CORE-001/i.test(markdown), false);
-  assert.equal(markdown.includes("## 4.4.2"), false);
-});
-
-test("envelope: the two artifacts keep their profile-specific bodies", async () => {
+test("envelope: the artifacts keep their profile-specific bodies", async () => {
   const core000 = rendered(await buildCore000());
-  const core001 = rendered(await buildCore001());
+  const example = rendered(await buildExample());
 
-  // CORE-000 body sections stay out of CORE-001 and vice versa.
-  assert.equal(core000.includes("## Нормативные положения"), false);
-  assert.equal(core000.includes("## Термины"), false);
-  assert.equal(core000.includes("## Приложение A."), false);
-  assert.equal(core001.includes("## Components"), false);
-  assert.equal(core001.includes("## Diagnostic catalog"), false);
-  assert.equal(core001.includes("## Build diagnostics"), false);
+  // Each profile's body sections stay out of the other artifact.
+  assert.equal(core000.includes("- REQ-"), false, "the example requirement list leaks");
+  assert.ok(example.includes("## Requirements"), "the example body lost its own section");
+  assert.equal(example.includes("## Components"), false);
+  assert.equal(example.includes("## Diagnostic catalog"), false);
+  assert.equal(example.includes("## Build diagnostics"), false);
 });
