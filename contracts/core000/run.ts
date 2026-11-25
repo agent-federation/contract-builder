@@ -27,6 +27,13 @@ export const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const PROJECT_FILES = ["contract-builder.json", "structure.yml", "claims.yml"] as const;
 const RENDERERS: Record<string, Renderer> = { [core000Renderer.id]: core000Renderer };
 
+/** The accepted S2.2 positive/release snapshot: 62 review findings and 6 warnings. */
+const BASELINE_COUNTS: Readonly<Record<string, number>> = {
+  "core000.independent-verification.missing": 62,
+  "core000.surface.claim-missing": 6,
+};
+const BASELINE_CODES = Object.keys(BASELINE_COUNTS);
+
 export interface Workspace {
   readonly root: string;
   readonly projectDir: string;
@@ -97,7 +104,9 @@ export interface RunEvidence {
     exitCode: number;
     blockedBy: BuildResult["blockedBy"];
     codes: string[];
+    counts?: Record<string, number>;
   };
+  mutation: { name: MutationName; baseCommit: string } | null;
   sourceRepositoryClean: boolean;
   workspace: WorkspaceAssertion;
   result: {
@@ -220,12 +229,15 @@ async function buildEvidence(
   projectDir: string,
   workspace: { writeCheck: string; cleanup: string; sourceRepositoryClean: boolean },
 ): Promise<RunEvidence> {
+  const commit = gitCommit();
   const expected = expectedOutcome(options);
   const observed = new Set(result.diagnostics.map((diagnostic) => diagnostic.code));
+  const observedCounts = countCodes(result.diagnostics);
   const matched =
     result.exitCode === expected.exitCode &&
     result.blockedBy === expected.blockedBy &&
-    expected.codes.every((code) => observed.has(code));
+    expected.codes.every((code) => observed.has(code)) &&
+    (expected.counts === undefined || sameCounts(observedCounts, expected.counts));
 
   const artifactSha256 =
     result.blockedBy === null && result.markdown !== null
@@ -238,7 +250,9 @@ async function buildEvidence(
     schema: "core000-run-evidence/0.1",
     run: options.run ?? defaultRunName(options),
     hypothesis: "H1",
-    commit: gitCommit(),
+    commit,
+    mutation:
+      options.mutation === undefined ? null : { name: options.mutation, baseCommit: commit },
     project: "contracts/core000",
     mode: result.mode,
     allowExecutableProfile: true,
@@ -295,7 +309,8 @@ function expectedOutcome(options: HarnessOptions): RunEvidence["expected"] {
         return {
           exitCode: 0,
           blockedBy: null,
-          codes: ["core000.independent-verification.missing"],
+          codes: BASELINE_CODES,
+          counts: BASELINE_COUNTS,
         };
       case "unresolved-subject":
         return { exitCode: 1, blockedBy: "errors", codes: ["ERR_UNKNOWN_REF"] };
@@ -317,29 +332,64 @@ function expectedOutcome(options: HarnessOptions): RunEvidence["expected"] {
           blockedBy: "errors",
           codes: ["core000.claim.decision-required"],
         };
+      case "unsupported-guarantee":
+        return focusedOutcome("core000.claim.unsupported-guarantee", true);
+      case "status-class-conflict":
+        return focusedOutcome("core000.claim.status-class-conflict", true);
+      case "interface-owner-mismatch":
+        return focusedOutcome("core000.model.interface-owner-mismatch", true);
+      case "evidence-locator":
+        return focusedOutcome("core000.evidence.locator", true);
+      case "evidence-orphan":
+        return focusedOutcome("core000.evidence.orphan", false);
+      case "surface-claim-missing":
+        return focusedOutcome("core000.surface.claim-missing", false);
     }
   }
 
-  // The accepted positive baseline at the committed register (#115 D): both codes the
-  // positive run actually emits, so the transient evidence record describes the real set.
-  const positiveCodes = [
-    "core000.independent-verification.missing",
-    "core000.surface.claim-missing",
-  ];
-
-  if (options.mode === "release") {
-    return {
-      exitCode: 1,
-      blockedBy: "review",
-      codes: positiveCodes,
-    };
-  }
-
-  return {
+  // The accepted positive baseline at the committed register: 62 review findings + 6 warnings.
+  const positive = {
     exitCode: 0,
     blockedBy: null,
-    codes: positiveCodes,
+    codes: BASELINE_CODES,
+    counts: BASELINE_COUNTS,
   };
+
+  if (options.mode === "release") {
+    return { ...positive, exitCode: 1, blockedBy: "review" };
+  }
+
+  return positive;
+}
+
+function focusedOutcome(code: string, blocking: boolean): RunEvidence["expected"] {
+  const counts = { ...BASELINE_COUNTS };
+  counts[code] = (counts[code] ?? 0) + 1;
+  return {
+    exitCode: blocking ? 1 : 0,
+    blockedBy: blocking ? "errors" : null,
+    codes: BASELINE_CODES.includes(code) ? BASELINE_CODES : [...BASELINE_CODES, code],
+    counts,
+  };
+}
+
+function countCodes(diagnostics: readonly Diagnostic[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const diagnostic of diagnostics) {
+    counts[diagnostic.code] = (counts[diagnostic.code] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function sameCounts(
+  left: Readonly<Record<string, number>>,
+  right: Readonly<Record<string, number>>,
+): boolean {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if ((left[key] ?? 0) !== (right[key] ?? 0)) return false;
+  }
+  return true;
 }
 
 function classificationFor(options: HarnessOptions): string[] {
@@ -357,6 +407,20 @@ function classificationFor(options: HarnessOptions): string[] {
   }
   if (options.mutation === "claim") {
     return ["implementation_behavior"];
+  }
+  if (
+    options.mutation === "unsupported-guarantee" ||
+    options.mutation === "status-class-conflict" ||
+    options.mutation === "evidence-locator" ||
+    options.mutation === "evidence-orphan"
+  ) {
+    return ["profile_policy"];
+  }
+  if (
+    options.mutation === "interface-owner-mismatch" ||
+    options.mutation === "surface-claim-missing"
+  ) {
+    return ["structural", "profile_policy"];
   }
   if (options.mode === "release") {
     return ["profile_policy", "implementation_behavior"];
@@ -376,6 +440,18 @@ function defaultRunName(options: HarnessOptions): string {
       return "N8";
     case "decision-missing":
       return "N11";
+    case "unsupported-guarantee":
+      return "S2-FOCUS-unsupported-guarantee";
+    case "status-class-conflict":
+      return "S2-FOCUS-status-class-conflict";
+    case "interface-owner-mismatch":
+      return "S2-FOCUS-interface-owner-mismatch";
+    case "evidence-locator":
+      return "S2-FOCUS-evidence-locator";
+    case "evidence-orphan":
+      return "S2-FOCUS-evidence-orphan";
+    case "surface-claim-missing":
+      return "S2-FOCUS-surface-claim-missing";
     case undefined:
       break;
   }

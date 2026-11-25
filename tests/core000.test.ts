@@ -12,8 +12,10 @@ import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas, validateDocuments } from "../spec/lib/schema.js";
 import type { ValidatorFinding } from "../spec/lib/hook.js";
 import { claimEvidenceFindings } from "../profiles/core000/checks/claim-evidence.js";
+import { conformanceFindings } from "../profiles/core000/checks/conformance.js";
+import { provenanceVerificationFindings } from "../profiles/core000/checks/provenance-verification.js";
 import { trustPolicyFindings } from "../profiles/core000/checks/trust-policy.js";
-import { buildProjectModel, type ProjectModel } from "../spec/lib/ir.js";
+import { buildProjectModel, type Entity, type ProjectModel } from "../spec/lib/ir.js";
 import {
   prepareWorkspace,
   runHarness,
@@ -1177,6 +1179,55 @@ async function buildModel(specDir: string): Promise<ProjectModel> {
   return model;
 }
 
+async function catalogSeverity(code: string): Promise<string> {
+  const catalog = JSON.parse(await readFile(catalogPath, "utf8")) as {
+    codes: Array<{ code: string; severity: string }>;
+  };
+  const entry = catalog.codes.find((item) => item.code === code);
+  assert.ok(entry, `catalog has no code ${code}`);
+  return entry.severity;
+}
+
+function countDiagnosticCodes(diagnostics: readonly { code: string }[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const diagnostic of diagnostics) {
+    counts[diagnostic.code] = (counts[diagnostic.code] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function withEntity(model: ProjectModel, entity: Entity): ProjectModel {
+  const byId = new Map(model.byId);
+  byId.set(entity.id, entity);
+  const byKind = new Map(model.byKind);
+  const current = byKind.get(entity.kind) ?? [];
+  byKind.set(
+    entity.kind,
+    current.some((item) => item.id === entity.id)
+      ? current.map((item) => (item.id === entity.id ? entity : item))
+      : [...current, entity],
+  );
+  return { ...model, byId, byKind };
+}
+
+function focusedFindings(
+  findings: readonly ValidatorFinding[],
+  code: string,
+  entityId: string,
+): ValidatorFinding[] {
+  return findings.filter((finding) => finding.code === code && finding.entityId === entityId);
+}
+
+function assertFocusedFinding(
+  findings: readonly ValidatorFinding[],
+  expected: { code: string; entityId: string; file: string },
+): ValidatorFinding {
+  const matched = focusedFindings(findings, expected.code, expected.entityId);
+  assert.equal(matched.length, 1, `expected one ${expected.code} for ${expected.entityId}`);
+  assert.equal(matched[0]!.location?.file, expected.file);
+  return matched[0]!;
+}
+
 interface ClaimsDocument {
   evidence: Array<Record<string, unknown> & { id?: unknown; kind?: unknown }>;
 }
@@ -1260,6 +1311,17 @@ test("S1-POS-01: the positive draft builds with the exact 68-diagnostic S2.2 set
     true,
   );
   assert.deepEqual(warnings.map(diagnosticId).sort(), [...S22_WARNING_IDS]);
+
+  assert.deepEqual(run.evidence.expected, {
+    exitCode: 0,
+    blockedBy: null,
+    codes: ["core000.independent-verification.missing", "core000.surface.claim-missing"],
+    counts: {
+      "core000.independent-verification.missing": 62,
+      "core000.surface.claim-missing": 6,
+    },
+  });
+  assert.equal(run.evidence.mutation, null);
 });
 
 test("S1-POS-02: two separate processes produce the same identity, artifact hash and diagnostic order", () => {
@@ -1291,6 +1353,19 @@ test("S1-POS-02: two separate processes produce the same identity, artifact hash
     firstRun.diagnostics.map((diagnostic) => diagnostic.code),
     secondRun.diagnostics.map((diagnostic) => diagnostic.code),
   );
+
+  const firstPayload = JSON.parse(first.stdout) as {
+    evidence: { expected: { counts?: Record<string, number> }; mutation: unknown };
+  };
+  const secondPayload = JSON.parse(second.stdout) as typeof firstPayload;
+  const expectedCounts = {
+    "core000.independent-verification.missing": 62,
+    "core000.surface.claim-missing": 6,
+  };
+  assert.deepEqual(firstPayload.evidence.expected.counts, expectedCounts);
+  assert.deepEqual(secondPayload.evidence.expected.counts, expectedCounts);
+  assert.equal(firstPayload.evidence.mutation, null);
+  assert.equal(secondPayload.evidence.mutation, null);
 });
 
 test("S1-POS-03: release is blocked by the missing-review finding and writes no artifact", async () => {
@@ -1301,6 +1376,16 @@ test("S1-POS-03: release is blocked by the missing-review finding and writes no 
   assert.equal(run.result.written, false);
   assert.equal(run.evidence.artifactSha256, null);
   assert.equal(run.evidence.result.H1_self_build, "SELF_BUILD_BLOCKED");
+  assert.deepEqual(run.evidence.expected, {
+    exitCode: 1,
+    blockedBy: "review",
+    codes: ["core000.independent-verification.missing", "core000.surface.claim-missing"],
+    counts: {
+      "core000.independent-verification.missing": 62,
+      "core000.surface.claim-missing": 6,
+    },
+  });
+  assert.equal(run.evidence.mutation, null);
 });
 
 test("S1-POS-04: a written draft in a temp copy passes the check run", async () => {
@@ -1342,6 +1427,14 @@ test("S1-POS-05: the claim mutation changes inputDigest and the artifact hash", 
   assert.notEqual(baseline.result.identity?.inputDigest, mutated.result.identity?.inputDigest);
   assert.notEqual(baseline.evidence.artifactSha256, mutated.evidence.artifactSha256);
   assert.ok(mutated.result.markdown?.includes("S1 identity probe"));
+  assert.equal(mutated.evidence.workspace.writeCheck, "only_declared_outputs");
+  assert.equal(mutated.evidence.workspace.cleanup, "completed");
+  assert.equal(mutated.evidence.mutation?.name, "claim");
+  assert.equal(mutated.evidence.mutation?.baseCommit, mutated.evidence.commit);
+  assert.deepEqual(mutated.evidence.expected.counts, {
+    "core000.independent-verification.missing": 62,
+    "core000.surface.claim-missing": 6,
+  });
 });
 
 test("S1 temp workspace holds real profile/source copies with no symlink into the checkout", async () => {
@@ -1514,6 +1607,7 @@ test("S1 evidence: the transient record matches the approved shape and leaks no 
       "run",
       "hypothesis",
       "commit",
+      "mutation",
       "project",
       "mode",
       "allowExecutableProfile",
@@ -1545,6 +1639,11 @@ test("S1 evidence: the transient record matches the approved shape and leaks no 
     assert.equal(evidence.output, "output/CORE-000.draft.md");
     assert.match(String(evidence.artifactSha256), /^sha256:[0-9a-f]{64}$/);
     assert.equal(typeof evidence.sourceRepositoryClean, "boolean");
+    assert.equal(evidence.mutation, null);
+    assert.deepEqual((evidence.expected as Record<string, unknown>).counts, {
+      "core000.independent-verification.missing": 62,
+      "core000.surface.claim-missing": 6,
+    });
 
     const result = evidence.result as Record<string, unknown>;
     assert.equal(result.H1_self_build, "SELF_BUILD_COMPLETED");
@@ -1570,14 +1669,252 @@ test("S1 evidence: the transient record matches the approved shape and leaks no 
     });
     const blocked = JSON.parse(await readFile(blockedPath, "utf8")) as {
       artifactSha256: string | null;
+      mutation: { name: string; baseCommit: string } | null;
       result: { H1_self_build: string };
     };
     assert.equal(blocked.result.H1_self_build, "SELF_BUILD_BLOCKED");
     assert.equal(blocked.artifactSha256, null);
+    assert.equal(blocked.mutation?.name, "implemented-without-evidence");
+    assert.equal(typeof blocked.mutation?.baseCommit, "string");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("S2.3 synthetic: claim.invalid-status is a unit-level assertion (Q6 A′)", async () => {
+  const model = await buildModel(projectDir);
+  const claim = model.byId.get("C000-CT-001")!;
+  const status = { ...(claim.fields.status as Record<string, unknown>), implementation: "invalid" };
+  const broken = { ...claim, fields: { ...claim.fields, status } } as Entity;
+
+  const findings = claimEvidenceFindings(withEntity(model, broken));
+  assert.equal(findings.length, 1);
+  const finding = assertFocusedFinding(findings, {
+    code: "core000.claim.invalid-status",
+    entityId: claim.id,
+    file: "claims.yml",
+  });
+  assert.equal(await catalogSeverity(finding.code), "error");
+});
+
+test("S2.3 synthetic: decision.unresolved is covered without a project-register link (S2.2-U)", async () => {
+  const model = await buildModel(projectDir);
+  const claim = model.byId.get("C000-SC-003")!;
+  const decision: Entity = {
+    id: "DEC-S2-SYNTHETIC",
+    kind: "decision",
+    fields: { status: "unresolved", statement: "synthetic S2.3 test input" },
+    relations: {},
+  };
+  const linkedClaim = {
+    ...claim,
+    relations: { ...claim.relations, decidedBy: [decision.id] },
+  } as Entity;
+
+  const findings = claimEvidenceFindings(withEntity(withEntity(model, decision), linkedClaim));
+  assert.equal(findings.length, 1);
+  const finding = assertFocusedFinding(findings, {
+    code: "core000.decision.unresolved",
+    entityId: claim.id,
+    file: "claims.yml",
+  });
+  assert.deepEqual(finding.data, { decisionId: decision.id });
+  assert.equal(await catalogSeverity(finding.code), "review");
+});
+
+function syntheticVerification(claim: Entity, overrides: Record<string, unknown> = {}): Entity {
+  return {
+    id: "VF-S2-SYNTHETIC",
+    kind: "independent_verification",
+    fields: {
+      method: "manual_review",
+      verifier: "external-s2-reviewer",
+      independence: "independent",
+      independence_basis: "synthetic S2.3 fixture, test input only",
+      performed: true,
+      result: "confirmed",
+      scope: "S2.3 focused independent-verification check",
+      revision: "s2.3-synthetic",
+      claim_results: [
+        { claim: claim.id, result: "confirmed", evidence: "synthetic test input only" },
+      ],
+      limitations: "synthetic fixture only; not project data or independent evidence",
+      date: "2026-11-25",
+      record_locator: "verification/core000/VF-S2-SYNTHETIC.md",
+      ...overrides,
+    },
+    relations: { verifies: [claim.id] },
+  };
+}
+
+test("S2.3 synthetic: independent-verification.incomplete", async () => {
+  const model = await buildModel(projectDir);
+  const claim = model.byId.get("C000-CT-001")!;
+  const record = syntheticVerification(claim, { limitations: "" });
+
+  const findings = provenanceVerificationFindings(withEntity(model, record));
+  const finding = assertFocusedFinding(findings, {
+    code: "core000.independent-verification.incomplete",
+    entityId: record.id,
+    file: "claims.yml",
+  });
+  assert.equal(findings.filter((item) => item.entityId === record.id).length, 1);
+  assert.equal(await catalogSeverity(finding.code), "error");
+});
+
+test("S2.3 synthetic: independent-verification.self", async () => {
+  const model = await buildModel(projectDir);
+  const claim = model.byId.get("C000-CT-001")!;
+  const record = syntheticVerification(claim, { verifier: String(claim.fields.author) });
+
+  const findings = provenanceVerificationFindings(withEntity(model, record));
+  const finding = assertFocusedFinding(findings, {
+    code: "core000.independent-verification.self",
+    entityId: record.id,
+    file: "claims.yml",
+  });
+  assert.equal(findings.filter((item) => item.entityId === record.id).length, 1);
+  assert.equal(await catalogSeverity(finding.code), "error");
+});
+
+test("S2.3 synthetic: independent-verification.record-missing", async () => {
+  const model = await buildModel(projectDir);
+  const claim = model.byId.get("C000-CT-001")!;
+  const record = syntheticVerification(claim, {
+    record_locator: "contracts/core000/verification.md",
+  });
+
+  const findings = provenanceVerificationFindings(withEntity(model, record));
+  const finding = assertFocusedFinding(findings, {
+    code: "core000.independent-verification.record-missing",
+    entityId: record.id,
+    file: "claims.yml",
+  });
+  assert.equal(findings.filter((item) => item.entityId === record.id).length, 1);
+  assert.equal(await catalogSeverity(finding.code), "error");
+});
+
+test("S2.3 synthetic: conformance.case-uncovered is vacuous on the project register (S2-D3 A)", async () => {
+  const model = await buildModel(projectDir);
+  assert.equal((model.byKind.get("conformance_case") ?? []).length, 0);
+
+  const conformanceCase: Entity = {
+    id: "CC-S2-SYNTHETIC",
+    kind: "conformance_case",
+    fields: {
+      kind: "positive",
+      input: "synthetic S2.3 test input",
+      expected: "synthetic S2.3 test input",
+      status: "planned",
+    },
+    relations: { covers: [] },
+  };
+  const findings = conformanceFindings(withEntity(model, conformanceCase));
+  assert.equal(findings.length, 1);
+  const finding = assertFocusedFinding(findings, {
+    code: "core000.conformance.case-uncovered",
+    entityId: conformanceCase.id,
+    file: "claims.yml",
+  });
+  assert.equal(await catalogSeverity(finding.code), "warning");
+});
+
+const S2_FOCUSED_CASES = [
+  [
+    "S2-FOCUS-unsupported-guarantee",
+    "unsupported-guarantee",
+    "core000.claim.unsupported-guarantee",
+    "error",
+    "C000-CT-011",
+    "claims.yml",
+    true,
+  ],
+  [
+    "S2-FOCUS-status-class-conflict",
+    "status-class-conflict",
+    "core000.claim.status-class-conflict",
+    "error",
+    "C000-CT-001",
+    "claims.yml",
+    true,
+  ],
+  [
+    "S2-FOCUS-interface-owner-mismatch",
+    "interface-owner-mismatch",
+    "core000.model.interface-owner-mismatch",
+    "error",
+    "IF-ADAPTER",
+    "structure.yml",
+    true,
+  ],
+  [
+    "S2-FOCUS-evidence-locator",
+    "evidence-locator",
+    "core000.evidence.locator",
+    "error",
+    "EV-CODE-SPEC-LIB-SCHEMA-TS",
+    "claims.yml",
+    true,
+  ],
+  [
+    "S2-FOCUS-evidence-orphan",
+    "evidence-orphan",
+    "core000.evidence.orphan",
+    "warning",
+    "EV-CODE-SPEC-LIB-ADAPTERS-MARKDOWN-TS",
+    "claims.yml",
+    false,
+  ],
+  [
+    "S2-FOCUS-surface-claim-missing",
+    "surface-claim-missing",
+    "core000.surface.claim-missing",
+    "warning",
+    "IF-ADAPTER",
+    "structure.yml",
+    false,
+  ],
+] as const;
+
+for (const [id, mutation, code, severity, entityId, file, blocking] of S2_FOCUSED_CASES) {
+  test(`S2.3 focused ${code}: ${mutation} is a one-field isolated mutation`, async () => {
+    const run = await runHarness({ mutation, write: blocking, run: id });
+
+    const matched = run.result.diagnostics.filter(
+      (diagnostic) => diagnostic.code === code && diagnosticId(diagnostic) === entityId,
+    );
+    assert.equal(matched.length, 1, failure(run.result));
+    assert.equal(matched[0]!.severity, severity, code);
+    assert.equal(diagnosticId(matched[0]!), entityId, code);
+    assert.equal(matched[0]!.file, file, code);
+    assert.equal(matched[0]!.pointer, "", code);
+
+    assert.equal(run.result.exitCode, blocking ? 1 : 0, failure(run.result));
+    assert.equal(run.result.blockedBy, blocking ? "errors" : null);
+    assert.equal(run.result.written, false);
+    assert.equal(run.evidence.artifactSha256 === null, blocking);
+    assert.equal(run.evidence.expected.exitCode, run.result.exitCode);
+    assert.equal(run.evidence.expected.blockedBy, run.result.blockedBy);
+    assert.deepEqual(run.evidence.expected.counts, countDiagnosticCodes(run.result.diagnostics));
+    assert.deepEqual(
+      [...new Set(codes(run.result))].sort(),
+      [...run.evidence.expected.codes].sort(),
+    );
+    assert.deepEqual(run.evidence.diagnostics, run.result.diagnostics);
+
+    assert.equal(run.evidence.workspace.writeCheck, "only_declared_outputs");
+    assert.equal(run.evidence.workspace.cleanup, "completed");
+    assert.equal(
+      run.evidence.result.H1_self_build,
+      blocking ? "SELF_BUILD_BLOCKED" : "SELF_BUILD_COMPLETED",
+    );
+    assert.equal(run.evidence.result.H2_reproducibility, "NOT_TESTED");
+    assert.equal(run.evidence.result.H3_independent_verification, "NOT_PERFORMED");
+    assert.equal(run.evidence.mutation?.name, mutation);
+    assert.equal(run.evidence.mutation?.baseCommit, run.evidence.commit);
+    assert.equal(containsAbsolutePath(run.evidence), false);
+  });
+}
 
 test("S1 evidence kind: the profile-local accessor covers every permitted kind and fails closed", async () => {
   const workspace = await prepareWorkspace();
@@ -2576,6 +2913,15 @@ test("S2.2 artifact verification: the committed draft rebuilds byte-identically 
     assert.ok(run.result.markdown !== null, `${label}: markdown must be non-null`);
     assert.equal(run.evidence.workspace.writeCheck, "only_declared_outputs", label);
     assert.equal(run.evidence.workspace.cleanup, "completed", label);
+    assert.deepEqual(
+      run.evidence.expected.counts,
+      {
+        "core000.independent-verification.missing": 62,
+        "core000.surface.claim-missing": 6,
+      },
+      label,
+    );
+    assert.equal(run.evidence.mutation, null, label);
   }
 
   // Same-environment repeatability: identity, artifact hash and diagnostic order agree.
@@ -2699,6 +3045,12 @@ test("S2.2 artifact verification: the committed draft rebuilds byte-identically 
   assert.notEqual(Buffer.compare(Buffer.from(mutatedBytes), Buffer.from(committedBytes)), 0);
   assert.equal(mutated.evidence.artifactSha256, sha256(mutatedBytes));
   assert.ok(mutated.result.markdown!.includes("S1 identity probe"));
+  assert.equal(mutated.evidence.mutation?.name, "claim");
+  assert.equal(mutated.evidence.mutation?.baseCommit, mutated.evidence.commit);
+  assert.deepEqual(mutated.evidence.expected.counts, {
+    "core000.independent-verification.missing": 62,
+    "core000.surface.claim-missing": 6,
+  });
 });
 
 test("S2.2 accepted per-claim mappings are pinned", async () => {
