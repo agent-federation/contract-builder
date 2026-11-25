@@ -2397,7 +2397,16 @@ test("S2.1 every context key the template reads exists on the render context", a
     const expression = forMatch !== null ? forMatch[1]! : statement;
     for (const token of expression.split(/[^\w$.]+/)) {
       const name = token.split(".")[0]!;
-      if (!name || /^\d+$/.test(name) || locals.has(name) || keywords.has(name)) continue;
+      // A loop variable that shadows a context key (the inner `for evidence in claim.evidence`
+      // vs the top-level `evidence` view key) must still validate the context key.
+      if (
+        !name ||
+        /^\d+$/.test(name) ||
+        keywords.has(name) ||
+        (locals.has(name) && !contextKeys.has(name))
+      ) {
+        continue;
+      }
       referenced.add(name);
     }
   }
