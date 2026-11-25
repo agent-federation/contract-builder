@@ -55,6 +55,26 @@ async function listModules(dir: string, offenders: string[]): Promise<string[]> 
   return files.sort();
 }
 
+/** `require` named other than by the identifier itself: `x["require"]`, `{ ["require"]: load }`. */
+function isLiteralRequire(expression: ts.Expression | undefined): boolean {
+  return (
+    expression !== undefined &&
+    (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) &&
+    expression.text === "require"
+  );
+}
+
+/** The identifier `require`, or a member reached through a literal `"require"`. */
+function namesRequire(node: ts.Node): boolean {
+  if (ts.isIdentifier(node)) {
+    return node.text === "require";
+  }
+  if (ts.isElementAccessExpression(node)) {
+    return isLiteralRequire(node.argumentExpression);
+  }
+  return ts.isComputedPropertyName(node) && isLiteralRequire(node.expression);
+}
+
 /** `import(…)`, `require(…)`, `import.meta.require(…)`, `module.require(…)`, `x["require"](…)`. */
 function isLoaderCall(node: ts.CallExpression): boolean {
   const callee = node.expression;
@@ -64,14 +84,7 @@ function isLoaderCall(node: ts.CallExpression): boolean {
   if (ts.isPropertyAccessExpression(callee)) {
     return callee.name.text === "require";
   }
-  if (ts.isElementAccessExpression(callee)) {
-    const index = callee.argumentExpression;
-    return (
-      (ts.isStringLiteral(index) || ts.isNoSubstitutionTemplateLiteral(index)) &&
-      index.text === "require"
-    );
-  }
-  return ts.isIdentifier(callee) && callee.text === "require";
+  return (ts.isIdentifier(callee) || ts.isElementAccessExpression(callee)) && namesRequire(callee);
 }
 
 /**
@@ -98,10 +111,15 @@ function specifiersOf(file: string, source: string): string[] {
       found.push(literal(ts.isLiteralTypeNode(node.argument) ? node.argument.literal : undefined));
     } else if (ts.isCallExpression(node) && isLoaderCall(node)) {
       found.push(literal(node.arguments[0]));
-      // The callee itself is not a load; a loader call nested in the arguments is.
+      // The callee only names the loader, except that the object a member
+      // loader is taken from may be a load of its own: `(require("a")).require("b")`.
+      const callee = node.expression;
+      if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) {
+        visit(callee.expression);
+      }
       for (const argument of node.arguments) visit(argument);
       return;
-    } else if (ts.isIdentifier(node) && node.text === "require") {
+    } else if (namesRequire(node)) {
       found.push(COMPUTED);
     }
     ts.forEachChild(node, visit);
