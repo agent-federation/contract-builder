@@ -105,36 +105,6 @@ function mutate(text: string, name: MutationName): string {
   }
 }
 
-/**
- * Replaces `search` with `replacement` exactly once, but only inside the entity block that
- * starts with `blockStart` and ends at the next sibling entity. Used when the edited field is
- * not unique across the file on its own (for example `lifecycle: active`).
- */
-function replaceOnceInBlock(
-  text: string,
-  blockStart: string,
-  search: string,
-  replacement: string,
-): string {
-  const start = text.indexOf(blockStart);
-  if (start < 0) throw new Error(`Mutation block not found: ${blockStart.trim()}`);
-  const nextEntity = text.indexOf("\n  - id: ", start + blockStart.length);
-  const end = nextEntity < 0 ? text.length : nextEntity + 1;
-  const block = text.slice(start, end);
-  const first = block.indexOf(search);
-  if (first < 0) throw new Error(`Mutation anchor not found in block: ${search}`);
-  if (block.indexOf(search, first + search.length) >= 0) {
-    throw new Error(`Mutation anchor is not unique in block: ${search}`);
-  }
-  return (
-    text.slice(0, start) +
-    block.slice(0, first) +
-    replacement +
-    block.slice(first + search.length) +
-    text.slice(end)
-  );
-}
-
 function replaceOnce(text: string, search: string, replacement: string): string {
   const first = text.indexOf(search);
   if (first < 0) throw new Error(`Mutation anchor not found: ${search.slice(0, 60)}`);
