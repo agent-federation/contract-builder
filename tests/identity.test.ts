@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
@@ -27,7 +27,13 @@ import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
 import type { Manifest } from "../spec/lib/manifest.js";
 import type { Renderer } from "../spec/lib/render.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
-import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
+import {
+  ENGINE_RENDERERS,
+  copyEngineProject,
+  removeTrackedTempDirs,
+  trackTempDir,
+} from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -207,6 +213,7 @@ test("identity: every consumed profile file must be declared in profile.files", 
 
 test("identity: a declared source-adapter file change moves its closure and the digest", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "identity-adapter-"));
+  trackTempDir(dir);
   const file = path.join(dir, "markdown.ts");
   await writeFile(
     file,
@@ -250,6 +257,7 @@ test("identity: a declared source-adapter file change moves its closure and the 
 
 test("identity: a declared renderer file change moves its closure and the digest", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "identity-renderer-"));
+  trackTempDir(dir);
   const file = path.join(dir, "renderer.ts");
   await writeFile(file, "// identity sentinel one\n", "utf8");
 
@@ -476,6 +484,7 @@ test("identity: literal dynamic import with options is still detected", () => {
 
 test("identity: a relative import outside the extension root is unpinned", async () => {
   const base = await mkdtemp(path.join(tmpdir(), "identity-outside-"));
+  trackTempDir(base);
   const extension = path.join(base, "extension");
   await mkdir(extension);
   await writeFile(path.join(base, "outside.ts"), "export const value = 1;\n", "utf8");
@@ -503,6 +512,7 @@ test("identity: a relative import outside the extension root is unpinned", async
 
 test("identity: a relative import of an engine module is allowed", async () => {
   const base = await mkdtemp(path.join(tmpdir(), "identity-engine-"));
+  trackTempDir(base);
   const extension = path.join(base, "extension");
   await mkdir(extension);
   const engineModule = path.join(root, "spec", "lib", "manifest.ts");
@@ -529,6 +539,7 @@ test("identity: a relative import of an engine module is allowed", async () => {
 
 test("identity: an absolute engine import is rejected as unpinned", async () => {
   const base = await mkdtemp(path.join(tmpdir(), "identity-absolute-"));
+  trackTempDir(base);
   const extension = path.join(base, "extension");
   await mkdir(extension);
   const engineModule = path.join(root, "spec", "lib", "manifest.ts");

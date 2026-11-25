@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -12,7 +12,8 @@ import { validateProfileClosure } from "../spec/lib/identity.js";
 import { loadManifest } from "../spec/lib/manifest.js";
 import type { Renderer } from "../spec/lib/render.js";
 import { loadProfileRenderers } from "../spec/cli-renderers.js";
-import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const cliPath = path.join(root, "spec", "build.ts");

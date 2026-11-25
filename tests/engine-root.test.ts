@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -13,7 +13,13 @@ import {
   readLockfile,
   resolveExtensionClosure,
 } from "../spec/lib/identity.js";
-import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
+import {
+  ENGINE_RENDERERS,
+  copyEngineProject,
+  removeTrackedTempDirs,
+  trackTempDir,
+} from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -87,6 +93,7 @@ async function addProbeRenderer(
 /** A temp engine checkout: same layout and version, with a real `spec/lib` copy. */
 async function copyEngineRoot(name: string, version?: string): Promise<string> {
   const engine = await mkdtemp(path.join(tmpdir(), `engine-root-checkout-${name}-`));
+  trackTempDir(engine);
   const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as Record<
     string,
     unknown
@@ -344,6 +351,7 @@ test("engine-root: the mapping rule rejects ambiguous, empty and escaping paths"
 
 test("engine-root: a traversal out of spec/lib is rejected by the closure scan", async () => {
   const baseDir = await mkdtemp(path.join(tmpdir(), "engine-root-traversal-"));
+  trackTempDir(baseDir);
   const extension = path.join(baseDir, "extension");
   await mkdir(extension);
   await writeFile(
@@ -391,6 +399,7 @@ test("engine-root: a symlink escaping spec/lib is rejected", async () => {
 test("engine-root: an invalid engine root fails closed", async () => {
   const project = await copyEngineProject("engine-wrong-root");
   const empty = await mkdtemp(path.join(tmpdir(), "engine-root-empty-"));
+  trackTempDir(empty);
 
   const result = await runBuild(base(project, { engineRoot: empty }));
   assert.equal(result.exitCode, 1);
@@ -417,6 +426,7 @@ test("engine-root: absolute, file: and other URL specifiers never load", async (
 
   for (const item of cases) {
     const baseDir = await mkdtemp(path.join(tmpdir(), `engine-root-specifier-${item.name}-`));
+    trackTempDir(baseDir);
     const extension = path.join(baseDir, "extension");
     await mkdir(extension);
     await writeFile(
@@ -444,6 +454,7 @@ test("engine-root: absolute, file: and other URL specifiers never load", async (
 
 test("engine-root: node: builtins stay outside the closure", async () => {
   const baseDir = await mkdtemp(path.join(tmpdir(), "engine-root-node-"));
+  trackTempDir(baseDir);
   const extension = path.join(baseDir, "extension");
   await mkdir(extension);
   await writeFile(

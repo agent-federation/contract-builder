@@ -1,9 +1,17 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
 import { resolveFindings, type DiagnosticCatalog } from "../spec/lib/hook.js";
 import { SUPPORTED_LOCALES } from "../spec/lib/locale.js";
-import { entity, modelWith, copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import {
+  entity,
+  modelWith,
+  copyEngineProject,
+  ENGINE_RENDERERS,
+  removeTrackedTempDirs,
+} from "./support.js";
+after(removeTrackedTempDirs);
+
 import { runBuild } from "../spec/lib/build.js";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";

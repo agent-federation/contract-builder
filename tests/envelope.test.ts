@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -7,7 +7,8 @@ import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { renderer as core000Renderer } from "../profiles/core000/renderer.js";
 import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
 import type { Renderer } from "../spec/lib/render.js";
-import { copyEngineProject } from "./support.js";
+import { copyEngineProject, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 /**
  * ODR-ART-001 envelope conformance: every generated contract artifact exposes the mandatory

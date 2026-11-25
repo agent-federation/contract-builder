@@ -9,7 +9,7 @@
  * resolve to a message in every supported locale.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -18,7 +18,8 @@ import { fileURLToPath } from "node:url";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type Locale } from "../spec/lib/locale.js";
 import { ENGINE_MESSAGES, cliText, messageText } from "../spec/lib/messages.js";
-import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const cliPath = path.join(root, "spec", "build.ts");
