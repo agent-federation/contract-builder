@@ -2,7 +2,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,12 @@ import { validateProfileClosure } from "../spec/lib/identity.js";
 import { loadManifest } from "../spec/lib/manifest.js";
 import type { Renderer } from "../spec/lib/render.js";
 import { loadProfileRenderers } from "../spec/cli-renderers.js";
-import { copyEngineProject, ENGINE_RENDERERS, removeTrackedTempDirs } from "./support.js";
+import {
+  copyEngineProject,
+  ENGINE_RENDERERS,
+  removeTrackedTempDirs,
+  trackTempDir,
+} from "./support.js";
 after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -242,6 +247,34 @@ test("consent: a renderer in an external profile imports engine modules through 
   assert.deepEqual(Object.keys(renderers), ["example-markdown"]);
 
   const result = await runBuild(base(dir, { renderers }));
+
+  assert.equal(result.exitCode, 0, failure(result));
+  assert.equal(result.blockedBy, null);
+  assert.equal(result.markdown, "external renderer\n");
+  assert.ok(result.identity !== null);
+});
+
+test("consent: a renderer behind a symlinked profile ancestor imports engine modules", async () => {
+  // Some tmpdirs and symlinked workspaces place a symlinked ancestor above the profile
+  // directory. The closure scan records engine-import keys under the authored profile dir,
+  // so the loader must import the authored module path: importing the realpath'd module
+  // would make Bun report an importer outside the registered root and the mapping lookup
+  // would miss (#319).
+  const dir = await copyEngineProject("symlinked-renderer-mapping");
+  const module = await addEngineImportRenderer(dir);
+
+  const linkParent = await mkdtemp(path.join(tmpdir(), "engine-link-"));
+  trackTempDir(linkParent);
+  const link = path.join(linkParent, "project");
+  await symlink(dir, link);
+
+  const renderers = await loadProfileRenderers(true, link, {
+    engineRoot: root,
+    rendererModule: path.join(link, "profiles", "example", path.basename(module)),
+  });
+  assert.deepEqual(Object.keys(renderers), ["example-markdown"]);
+
+  const result = await runBuild(base(link, { renderers }));
 
   assert.equal(result.exitCode, 0, failure(result));
   assert.equal(result.blockedBy, null);
