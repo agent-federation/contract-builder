@@ -550,9 +550,11 @@ export async function walkPackageFiles(
   await visit("", 1);
   // The order drives the emission sequence of the undeclared-file diagnostics, so it
   // must not depend on the runtime's string comparison: sort by UTF-8 bytes
-  // (code-point order), the same contract as `discoverEnvelopes` (#310).
-  files.sort((a, b) => compareBytes(utf8(a), utf8(b)));
-  return { files, limitHit, error };
+  // (code-point order), the same contract as `discoverEnvelopes` (#310). Encode each
+  // path once before sorting rather than inside the comparator (#310 review).
+  const decorated = files.map((file) => ({ file, bytes: utf8(file) }));
+  decorated.sort((a, b) => compareBytes(a.bytes, b.bytes));
+  return { files: decorated.map((item) => item.file), limitHit, error };
 }
 
 export function declaredFileKind(
