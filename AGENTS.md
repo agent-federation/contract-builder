@@ -38,13 +38,19 @@ bun test                        # run the test suite without coverage
 bun run check:all               # CORE-000 artifact verification (S2.2)
 bun run pap -- verify <PACKAGE> # PAP v0.1 verifier; see pap/README.md
 bun run pap:test                # PAP vectors, conformance corpus, hostile input, CLI
+bun run pack:core000 --out <DIR> # CORE-000 PAP producer; writes outside the checkout only
+bun run gate:core000 --report <FILE> --policy <FILE> --out <FILE> # acceptance gate over a PAP report
+bun run pipeline:test           # producer, gate, release gate, CI helper and independent-batch tests
 ```
 
 CI (`.github/workflows/ci.yml`, job `check`) runs, in this order:
 `bun install --frozen-lockfile`, `bun audit`, `bun run typecheck`,
 `bun run lint`, `bun run format:check`, `bun run docs:links`, `bun run coverage`,
 `bun run coverage:check`, `bun run check:all`.
-All steps must be green before a pull request can land.
+All steps must be green before a pull request can land. Two jobs that are not
+required statuses yet run after `check`: `pipeline` (the CORE-000 chain —
+`pack:core000` twice, `pap verify`, `gate:core000`) and `pipeline-independent`
+(C6: the reference verifier plus three independent verifiers on one package).
 
 To build a project by hand (for example the engine fixture or a UIA checkout),
 invoke the CLI directly:
@@ -105,6 +111,12 @@ The CORE-001 artifact rule moved to the UIA repository with the project
 - `pap/` — the independent PAP v0.1 verifier (`src/`, `bin/`, `schemas/`,
   `fixtures/pap-v0.1/`, `tests/`); its README holds the verifier commands and
   conformance notes.
+- `pipeline/` — the producer side of PAP, outside the verifier boundary: the
+  deterministic CORE-000 packer (`pack:core000`), the acceptance gate
+  (`gate:core000`), the release-tag check (`release:check`), the CORE-000 trust
+  policy, the CI helpers and the independent-verification batch; `pap/` never
+  imports it. The mapping and the gate rule are in
+  `docs/architecture/sdlc-pipeline.md`.
 - `scripts/` — deterministic CI helpers: `check-docs-links.ts` (local relative
   link/anchor check) and `check-coverage.ts` (in-process coverage floors).
 
