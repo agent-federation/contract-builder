@@ -3,22 +3,25 @@
  * verifier side". `gate.test.ts` pins the mirror direction (the gate never
  * imports `pap/src`); here the verifier's own import graph is closed:
  *
- * - `pap/src` holds regular TypeScript modules and nothing else — no symlink,
- *   no file that `tsc` does not type-check (`tsconfig.json` includes every
- *   `.ts` file under `pap/`);
- * - `pap/bin/pap` and each of those modules name only `node:` built-ins and
- *   relative specifiers that resolve inside `pap/src`.
+ * - `pap/`, `pap/bin` and `pap/src` are real directories, and `pap/src` holds
+ *   regular TypeScript modules and nothing else: no symlink, no file of
+ *   another type (one that Bun would still load and `tsc` would not check);
+ * - `pap/bin/pap` is a regular file, and it and each of those modules name
+ *   only `node:` built-ins and relative specifiers that resolve inside
+ *   `pap/src`.
  *
  * Specifiers are read from the TypeScript syntax tree, not matched as text, so
  * a comment or a string can neither hide nor fake an import, and every module
- * must parse. A computed specifier is an offender even when it would resolve
- * inside `pap/src`.
+ * must parse. A loader whose specifier is not a literal — a computed
+ * `import()`, or `require` used as a value — is an offender even when it would
+ * resolve inside `pap/src`.
  *
- * This pins static imports only. Code a module loads through a built-in is not
- * visible to a syntax tree: `createRequire` (`node:module`),
- * `node:child_process`, `node:vm`, a worker or `process.dlopen` can load or run
- * a path this scan never sees. F40 proves the narrower fact that the verifier
- * executes none of the producer and runtime sentinel programs planted on `PATH`.
+ * This pins the loads a syntax tree can see. Code a module loads at runtime
+ * through a built-in is invisible to it: a loader obtained from
+ * `createRequire` (`node:module`), `node:child_process`, `node:vm`, a worker
+ * or `process.dlopen` can load or run a path this scan never shows. F40 proves
+ * the narrower fact that the verifier executes none of the producer and
+ * runtime sentinel programs planted on `PATH`.
  */
 
 import { test } from "node:test";
@@ -52,9 +55,29 @@ async function listModules(dir: string, offenders: string[]): Promise<string[]> 
   return files.sort();
 }
 
+/** `import(…)`, `require(…)`, `import.meta.require(…)`, `module.require(…)`, `x["require"](…)`. */
+function isLoaderCall(node: ts.CallExpression): boolean {
+  const callee = node.expression;
+  if (callee.kind === ts.SyntaxKind.ImportKeyword) {
+    return true;
+  }
+  if (ts.isPropertyAccessExpression(callee)) {
+    return callee.name.text === "require";
+  }
+  if (ts.isElementAccessExpression(callee)) {
+    const index = callee.argumentExpression;
+    return (
+      (ts.isStringLiteral(index) || ts.isNoSubstitutionTemplateLiteral(index)) &&
+      index.text === "require"
+    );
+  }
+  return ts.isIdentifier(callee) && callee.text === "require";
+}
+
 /**
  * The module specifiers a module names: `import`/`export … from`,
- * `import x = require()`, `typeof import()`, `import()` and `require()`.
+ * `import x = require()`, `typeof import()`, and the loader calls of
+ * `isLoaderCall`.
  */
 function specifiersOf(file: string, source: string): string[] {
   const literal = (expression: ts.Expression | undefined): string =>
@@ -73,12 +96,13 @@ function specifiersOf(file: string, source: string): string[] {
       found.push(literal(node.moduleReference.expression));
     } else if (ts.isImportTypeNode(node)) {
       found.push(literal(ts.isLiteralTypeNode(node.argument) ? node.argument.literal : undefined));
-    } else if (
-      ts.isCallExpression(node) &&
-      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-        (ts.isIdentifier(node.expression) && node.expression.text === "require"))
-    ) {
+    } else if (ts.isCallExpression(node) && isLoaderCall(node)) {
       found.push(literal(node.arguments[0]));
+      // The callee itself is not a load; a loader call nested in the arguments is.
+      for (const argument of node.arguments) visit(argument);
+      return;
+    } else if (ts.isIdentifier(node) && node.text === "require") {
+      found.push(COMPUTED);
     }
     ts.forEachChild(node, visit);
   };
@@ -91,9 +115,12 @@ function specifiersOf(file: string, source: string): string[] {
   assert.equal(
     parseDiagnostics.length,
     0,
-    `${path.relative(papRoot, file)} parses: ${parseDiagnostics
-      .map((diagnostic) => `${diagnostic.messageText} at offset ${diagnostic.start}`)
-      .join("; ")}`,
+    parseDiagnostics
+      .map((diagnostic) => {
+        const position = parsed.getLineAndCharacterOfPosition(diagnostic.start);
+        return `${diagnostic.messageText} at ${path.relative(papRoot, file)}:${position.line + 1}:${position.character + 1}`;
+      })
+      .join("; "),
   );
   visit(parsed);
   return found;
@@ -110,6 +137,13 @@ function isInside(parent: string, candidate: string): boolean {
 }
 
 test("the verifier entry point and modules import only node built-ins and pap/src", async () => {
+  for (const dir of [papRoot, path.join(papRoot, "bin"), srcRoot]) {
+    // `lstat` never reports a symlink as a directory.
+    assert.ok(
+      (await lstat(dir)).isDirectory(),
+      `${path.relative(path.dirname(papRoot), dir)} is a real directory, not a symlink`,
+    );
+  }
   assert.ok((await lstat(entryPoint)).isFile(), "pap/bin/pap is a regular file, not a symlink");
 
   const offenders: string[] = [];
