@@ -96,7 +96,15 @@ export function trackTempDir(dir: string): void {
 /** Removes every tracked temp root; safe to call from `after` in each test file. */
 export async function removeTrackedTempDirs(): Promise<void> {
   const roots = trackedTempRoots.splice(0);
-  await Promise.all(roots.map((root) => rm(root, { recursive: true, force: true })));
+  // Best-effort sweep: a transient removal failure (for example a file lock on CI)
+  // must not fail the suite; report it instead (#322 review).
+  await Promise.all(
+    roots.map((root) =>
+      rm(root, { recursive: true, force: true }).catch((cleanupError) => {
+        console.error(`failed to remove temp dir ${root}:`, cleanupError);
+      }),
+    ),
+  );
 }
 
 /**
