@@ -1,0 +1,560 @@
+{
+  "schema": "core000-run-evidence/0.1",
+  "run": "S2.3-EVIDENCE-LOCATOR",
+  "hypothesis": "H1",
+  "commit": "699ea3338c200a2628866a4ad5e17d6949ddc5d2",
+  "project": "contracts/core000",
+  "mode": "draft",
+  "allowExecutableProfile": true,
+  "environment": {
+    "bun": "1.4.2",
+    "os": "linux",
+    "arch": "x64",
+    "lockfileSha256": "sha256:7502952c3989c7d314a27c2247c150b721d80fc66c754e20231660539d548914",
+    "timezone": null,
+    "locale": "en_US.UTF-8",
+    "install": "bun install --frozen-lockfile",
+    "isolation": {
+      "mode": "temporary_workspace_only",
+      "sandbox": false,
+      "network": "not_restricted",
+      "resourceLimits": "external_timeout_only"
+    }
+  },
+  "command": "bun contracts/core000/run.ts --mode draft --write false --mutation evidence-locator",
+  "exitCode": 1,
+  "blockedBy": "errors",
+  "written": false,
+  "output": "output/CORE-000.draft.md",
+  "identity": {
+    "projectId": "core-000-self-contract",
+    "engineVersion": "0.1.0",
+    "manifestVersion": "0.1",
+    "inputDigest": "sha256:4b69208181d63afcf54a3757c2c79844d73feb93a7594c4c781feed4d49154a8",
+    "extensions": [
+      {
+        "kind": "profile",
+        "id": "core000",
+        "version": "0.1.0"
+      },
+      {
+        "kind": "adapter",
+        "id": "markdown",
+        "version": "0.1.0"
+      },
+      {
+        "kind": "renderer",
+        "id": "core000-markdown",
+        "version": "0.1.0"
+      }
+    ]
+  },
+  "artifactSha256": null,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "core000.evidence.locator",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Evidence \"EV-CODE-SPEC-LIB-IDENTITY-TS\" has an empty locator or revision after trimming."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-008\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-016\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-017\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-018\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-019\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-020\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-021\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-022\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-023\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-CT-024\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-EV-001\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-EV-002\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-EV-003\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-001\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-002\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-003\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-004\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-005\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-006\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-GAP-007\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-001\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-002\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-003\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-004\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-005\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-006\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-007\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-008\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-IM-009\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-001\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-002\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-003\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-004\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-005\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-006\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-007\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-LM-008\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SC-001\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SC-002\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SC-003\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SC-004\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SC-005\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-ST-001\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-ST-002\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-ST-003\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-ST-004\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SV-001\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SV-002\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SV-003\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SV-004\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SV-005\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-SV-006\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-TR-001\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-TR-002\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-TR-003\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-TR-004\" (authority \"external\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-TR-005\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-TR-006\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-VF-001\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-VF-002\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-VF-003\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "review",
+      "code": "core000.independent-verification.missing",
+      "file": "claims.yml",
+      "pointer": "",
+      "message": "Claim \"C000-VF-004\" (authority \"human\") has no independent verification record."
+    },
+    {
+      "severity": "warning",
+      "code": "core000.surface.claim-missing",
+      "file": "structure.yml",
+      "pointer": "",
+      "message": "Public surface \"COMP-ADAPTER\" has no covering claim."
+    },
+    {
+      "severity": "warning",
+      "code": "core000.surface.claim-missing",
+      "file": "structure.yml",
+      "pointer": "",
+      "message": "Public surface \"COMP-CLI\" has no covering claim."
+    },
+    {
+      "severity": "warning",
+      "code": "core000.surface.claim-missing",
+      "file": "structure.yml",
+      "pointer": "",
+      "message": "Public surface \"COMP-RENDERER\" has no covering claim."
+    },
+    {
+      "severity": "warning",
+      "code": "core000.surface.claim-missing",
+      "file": "structure.yml",
+      "pointer": "",
+      "message": "Public surface \"COMP-REVIEWER\" has no covering claim."
+    },
+    {
+      "severity": "warning",
+      "code": "core000.surface.claim-missing",
+      "file": "structure.yml",
+      "pointer": "",
+      "message": "Public surface \"IF-CONSENT-CLI-FLAG\" has no covering claim."
+    },
+    {
+      "severity": "warning",
+      "code": "core000.surface.claim-missing",
+      "file": "structure.yml",
+      "pointer": "",
+      "message": "Public surface \"IF-CONSENT-OPTION\" has no covering claim."
+    }
+  ],
+  "expected": {
+    "exitCode": 1,
+    "blockedBy": "errors",
+    "codes": ["core000.evidence.locator"]
+  },
+  "sourceRepositoryClean": false,
+  "workspace": {
+    "writeCheck": "only_declared_outputs",
+    "cleanup": "completed"
+  },
+  "result": {
+    "H1_self_build": "SELF_BUILD_BLOCKED",
+    "H2_reproducibility": "NOT_TESTED",
+    "H3_independent_verification": "NOT_PERFORMED"
+  },
+  "classification": ["profile_policy"],
+  "limitations": [
+    "self-build only",
+    "no independent verification",
+    "no sandbox or isolation claimed",
+    "same-environment evidence only; no cross-environment reproducibility"
+  ]
+}
