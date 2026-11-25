@@ -266,7 +266,8 @@ test("consent: a renderer behind a symlinked profile ancestor imports engine mod
   const linkParent = await mkdtemp(path.join(tmpdir(), "engine-link-"));
   trackTempDir(linkParent);
   const link = path.join(linkParent, "project");
-  await symlink(dir, link);
+  // "junction" is the Windows-compatible directory link type; ignored on POSIX.
+  await symlink(dir, link, "junction");
 
   const renderers = await loadProfileRenderers(true, link, {
     engineRoot: root,
