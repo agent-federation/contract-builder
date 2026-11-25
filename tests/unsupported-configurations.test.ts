@@ -1,10 +1,11 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
-import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 /**
  * ODR-ENG-001 B3/B4 (E2): M1 requires an executable profile and exactly one source.

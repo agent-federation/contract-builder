@@ -6,7 +6,7 @@
  * document. These tests cover the API boundary and the CLI transport.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile } from "node:fs/promises";
@@ -18,7 +18,13 @@ import { runBuild, type BuildOptions } from "../spec/lib/build.js";
 import { cliErrorDocument, internalErrorMessage, renderCliError } from "../spec/lib/cli-errors.js";
 import type { Diagnostic } from "../spec/lib/diagnostics.js";
 import type { SourceAdapter } from "../spec/lib/source.js";
-import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import {
+  copyEngineProject,
+  ENGINE_RENDERERS,
+  removeTrackedTempDirs,
+  trackTempDir,
+} from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const cliPath = path.join(root, "spec", "build.ts");
@@ -305,6 +311,7 @@ test("fail-closed: human mode reports an unexpected error without a stack trace"
 
 test("fail-closed: --json engine preflight failure emits the documented CLI code", async () => {
   const emptyEngineRoot = await mkdtemp(path.join(tmpdir(), "cli-engine-preflight-"));
+  trackTempDir(emptyEngineRoot);
 
   const run = spawnSync(
     process.execPath,

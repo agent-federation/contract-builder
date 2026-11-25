@@ -1,9 +1,10 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { runBuild, type BuildOptions } from "../spec/lib/build.js";
-import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 const base = (specDir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir,
