@@ -343,6 +343,12 @@ function expectedOutcome(options: HarnessOptions): RunEvidence["expected"] {
           blockedBy: null,
           codes: ["core000.evidence.orphan"],
         };
+      case "surface-coverage":
+        return {
+          exitCode: 0,
+          blockedBy: null,
+          codes: ["core000.surface.claim-missing"],
+        };
     }
   }
 
@@ -389,7 +395,8 @@ function classificationFor(options: HarnessOptions): string[] {
     options.mutation === "guarantee-conditions" ||
     options.mutation === "interface-owner" ||
     options.mutation === "evidence-locator" ||
-    options.mutation === "evidence-orphan"
+    options.mutation === "evidence-orphan" ||
+    options.mutation === "surface-coverage"
   ) {
     return ["profile_policy"];
   }
@@ -419,6 +426,8 @@ function defaultRunName(options: HarnessOptions): string {
       return "S2.3-EVIDENCE-LOCATOR";
     case "evidence-orphan":
       return "S2.3-EVIDENCE-ORPHAN";
+    case "surface-coverage":
+      return "S2.3-SURFACE-COVERAGE";
     case undefined:
       break;
   }

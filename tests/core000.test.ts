@@ -2785,6 +2785,13 @@ test("S2.3 focused harness mutations isolate exactly one additional finding each
       file: "claims.yml",
       severity: "warning",
     },
+    {
+      mutation: "surface-coverage",
+      code: "core000.surface.claim-missing",
+      entity: "IF-PROFILE-VALIDATOR",
+      file: "structure.yml",
+      severity: "warning",
+    },
   ] as const;
 
   const findingKey = (diagnostic: { code: string; severity: string; message: string }): string =>
@@ -2817,12 +2824,19 @@ test("S2.3 focused harness mutations isolate exactly one additional finding each
     for (const diagnostic of result.diagnostics) {
       mutatedKeys.set(findingKey(diagnostic), (mutatedKeys.get(findingKey(diagnostic)) ?? 0) + 1);
     }
-    const added = [...mutatedKeys].filter(([key, count]) => (baselineKeys.get(key) ?? 0) < count);
+    const addedKeys = [...mutatedKeys].filter(
+      ([key, count]) => (baselineKeys.get(key) ?? 0) < count,
+    );
     const removed = [...baselineKeys].filter(([key, count]) => (mutatedKeys.get(key) ?? 0) < count);
-    assert.equal(added.length, 1, `${item.mutation} added: ${JSON.stringify(added)}`);
-    assert.equal(added[0]![0].split("|")[0], item.code);
-    assert.equal(added[0]![0].split("|")[1], item.severity);
-    assert.ok(added[0]![0].includes(`"${item.entity}"`), `${item.mutation} entity in message`);
+    assert.equal(addedKeys.length, 1, `${item.mutation} added: ${JSON.stringify(addedKeys)}`);
+    assert.equal(addedKeys[0]![0].split("|")[0], item.code);
+    assert.equal(addedKeys[0]![0].split("|")[1], item.severity);
+    assert.ok(addedKeys[0]![0].includes(`"${item.entity}"`), `${item.mutation} entity in message`);
+    const addedDiagnostic = result.diagnostics.find(
+      (diagnostic) => findingKey(diagnostic) === addedKeys[0]![0],
+    );
+    assert.ok(addedDiagnostic !== undefined);
+    assert.equal(addedDiagnostic.file, item.file, `${item.mutation} location file`);
     assert.deepEqual(removed, [], `${item.mutation} removed baseline findings`);
 
     // Evidence semantics: expected code recorded, mutation run identified, base commit present,
@@ -2837,7 +2851,7 @@ test("S2.3 focused harness mutations isolate exactly one additional finding each
   }
 });
 
-test("S2.3 synthetic: core000.claim.invalid-status fires exactly once on an invalid enum", () => {
+test("S2.3 synthetic: core000.claim.invalid-status fires exactly once on an invalid enum", async () => {
   const model = syntheticModel([
     syntheticClaim({
       id: "C000-SYN-001",
@@ -2853,10 +2867,11 @@ test("S2.3 synthetic: core000.claim.invalid-status fires exactly once on an inva
   const invalid = findings.filter((item) => item.code === "core000.claim.invalid-status");
   assert.equal(invalid.length, 1);
   assert.equal(invalid[0]!.entityId, "C000-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.claim.invalid-status"), "error");
   assert.equal(invalid[0]!.location?.file, "claims.yml");
 });
 
-test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-decidable subset only", () => {
+test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-decidable subset only", async () => {
   const conflicting = (className: string): Entity[] => [
     syntheticClaim({
       id: "C000-SYN-002",
@@ -2876,6 +2891,7 @@ test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-d
       1,
       className,
     );
+    assert.equal(await catalogSeverityOf("core000.claim.status-class-conflict"), "error");
   }
   // proposal + implemented is also machine-decidable.
   const proposal = claimEvidenceFindings(
@@ -2917,7 +2933,7 @@ test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-d
   );
 });
 
-test("S2.3 synthetic: independent-verification incomplete, self and record-missing", () => {
+test("S2.3 synthetic: independent-verification incomplete, self and record-missing", async () => {
   const claim = syntheticClaim({
     id: "C000-SYN-010",
     fields: { class: "requirement", lifecycle: "active", author: "author-1" },
@@ -2971,6 +2987,7 @@ test("S2.3 synthetic: independent-verification incomplete, self and record-missi
     1,
   );
   assert.equal(self[0]!.entityId, "IV-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.independent-verification.self"), "error");
 
   // A performed record whose locator points inside contracts/core000/ is record-missing.
   const inside = provenanceVerificationFindings(
@@ -2983,6 +3000,7 @@ test("S2.3 synthetic: independent-verification incomplete, self and record-missi
     inside.filter((item) => item.code === "core000.independent-verification.record-missing").length,
     1,
   );
+  assert.equal(await catalogSeverityOf("core000.independent-verification.record-missing"), "error");
   // An empty performed locator is record-missing too.
   const empty = provenanceVerificationFindings(
     syntheticModel([claim, record({ ...completeFields, record_locator: "   " })]),
@@ -2993,7 +3011,7 @@ test("S2.3 synthetic: independent-verification incomplete, self and record-missi
   );
 });
 
-test("S2.3 synthetic: core000.decision.unresolved regression case (S2.2-U)", () => {
+test("S2.3 synthetic: core000.decision.unresolved regression case (S2.2-U)", async () => {
   const claim = syntheticClaim({
     id: "C000-SYN-020",
     fields: { class: "requirement", lifecycle: "active" },
@@ -3010,6 +3028,7 @@ test("S2.3 synthetic: core000.decision.unresolved regression case (S2.2-U)", () 
   const unresolved = findings.filter((item) => item.code === "core000.decision.unresolved");
   assert.equal(unresolved.length, 1);
   assert.equal(unresolved[0]!.entityId, "C000-SYN-020");
+  assert.equal(await catalogSeverityOf("core000.decision.unresolved"), "review");
   // A resolved decision does not fire.
   const resolved = claimEvidenceFindings(
     syntheticModel([claim, { ...decision, fields: { status: "accepted" } }]),
@@ -3028,6 +3047,7 @@ test("S2.3 synthetic: core000.conformance.case-uncovered, and vacuous on the reg
   assert.equal(findings.length, 1);
   assert.equal(findings[0]!.code, "core000.conformance.case-uncovered");
   assert.equal(findings[0]!.entityId, "CC-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.conformance.case-uncovered"), "warning");
   assert.equal(findings[0]!.location?.file, "claims.yml");
 
   // The project register declares no conformance cases, so the check is vacuous there (S2-D3 A).
@@ -3035,11 +3055,10 @@ test("S2.3 synthetic: core000.conformance.case-uncovered, and vacuous on the reg
   assert.deepEqual(conformanceFindings(registerModel), []);
 });
 
-test("S2.3 synthetic: core000.surface.claim-missing on an uncovered public component", () => {
-  // The harness variant of this check has no one-field mutation: every public surface in the
-  // register is covered by at least two active claims, so any single-claim mutation leaves the
-  // coverage intact (#136 stop condition: not isolated). The check is exercised here on an
-  // in-memory model instead; the real-register behavior stays pinned by S1-POS-01 (exact six
+test("S2.3 synthetic: core000.surface.claim-missing on an uncovered public component", async () => {
+  // Complementary unit shape for the check; the harness case lives in the focused-mutations
+  // test above (the `surface-coverage` mutation re-points the only active claim covering
+  // IF-PROFILE-VALIDATOR). The real-register behavior stays pinned by S1-POS-01 (exact six
   // warning entity IDs).
   const component: Entity = {
     id: "COMP-SYN-001",
@@ -3051,6 +3070,7 @@ test("S2.3 synthetic: core000.surface.claim-missing on an uncovered public compo
   assert.equal(findings.length, 1);
   assert.equal(findings[0]!.code, "core000.surface.claim-missing");
   assert.equal(findings[0]!.entityId, "COMP-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.surface.claim-missing"), "warning");
   assert.equal(findings[0]!.location?.file, "structure.yml");
 
   // Covered by an active claim: no finding.
@@ -3063,7 +3083,7 @@ test("S2.3 synthetic: core000.surface.claim-missing on an uncovered public compo
   assert.deepEqual(modelStructureFindings(syntheticModel([component, claim])), []);
 });
 
-test("S2.3 synthetic: core000.evidence.locator and orphan unit cases", () => {
+test("S2.3 synthetic: core000.evidence.locator and orphan unit cases", async () => {
   const kept: Entity = {
     id: "EV-SYN-KEPT",
     kind: "evidence",
@@ -3109,6 +3129,16 @@ test("S2.3 synthetic: core000.evidence.locator and orphan unit cases", () => {
   assert.equal(orphans[0]!.code, "core000.evidence.orphan");
   assert.equal(orphans[0]!.entityId, "EV-SYN-ORPHAN");
 });
+
+/** The catalog severity for one code; the synthetic tests assert it through the finding path. */
+async function catalogSeverityOf(code: string): Promise<string> {
+  const catalog = JSON.parse(await readFile(catalogPath, "utf8")) as {
+    codes: Array<{ code: string; severity: string }>;
+  };
+  const entry = catalog.codes.find((item) => item.code === code);
+  assert.ok(entry !== undefined, `catalog entry missing for ${code}`);
+  return entry.severity;
+}
 
 /** A minimal in-memory ProjectModel over the given entities, for the profile-owned checks. */
 function syntheticModel(entities: Entity[]): ProjectModel {

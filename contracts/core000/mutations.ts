@@ -13,6 +13,7 @@ export const MUTATION_NAMES = [
   "interface-owner",
   "evidence-locator",
   "evidence-orphan",
+  "surface-coverage",
 ] as const;
 
 export type MutationName = (typeof MUTATION_NAMES)[number];
@@ -39,6 +40,9 @@ const CT011_CONDITIONS_LINE =
 /** The `owner:` line of IF-BUILD-IDENTITY (unique via its description text). */
 const IF_BUILD_IDENTITY_OWNER_BLOCK = `  description: 'BuildResult.identity: projectId, engineVersion, manifestVersion, inputDigest and the extensions list.'
   owner: COMP-CORE`;
+
+/** C000-IM-004's inline subject line: the only active claim covering IF-PROFILE-VALIDATOR. */
+const IM004_SUBJECT_LINE = "      subject: [IF-PROFILE-VALIDATOR]";
 
 /** The `locator:` line of the EV-CODE-SPEC-LIB-IDENTITY-TS evidence record. */
 const EVIDENCE_LOCATOR_LINE = `    locator: "spec/lib/identity.ts"`;
@@ -93,6 +97,11 @@ function mutate(text: string, name: MutationName): string {
       // Whitespace-only locator after trimming: exactly one `core000.evidence.locator`
       // for EV-CODE-SPEC-LIB-IDENTITY-TS (an empty value would be schema-rejected).
       return replaceOnce(text, EVIDENCE_LOCATOR_LINE, '    locator: "   "');
+    case "surface-coverage":
+      // Re-point C000-IM-004's inline subject at an already-covered interface: it is the only
+      // active claim covering IF-PROFILE-VALIDATOR, so exactly one
+      // `core000.surface.claim-missing` warning is added (#136 review run 1).
+      return replaceOnce(text, IM004_SUBJECT_LINE, "      subject: [IF-MANIFEST]");
     case "evidence-orphan":
       // Re-point one of C000-IM-009's two evidence references at the sibling record: the claim
       // stays evidenced, and the re-pointed id becomes an orphan (warning). The id is
