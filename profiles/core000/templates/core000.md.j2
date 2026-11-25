@@ -109,9 +109,9 @@
 {%- if dependency.version %}
 - Version: `{{dependency.version}}`
 {%- endif %}
-{% if dependency.consequence %}
+{%- if dependency.consequence %}
 - Consequence: {{dependency.consequence}}
-{% endif %}
+{%- endif %}
 
 {% endfor %}
 ## Diagnostic catalog

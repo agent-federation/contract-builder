@@ -2391,8 +2391,11 @@ test("S2.1 every context key the template reads exists on the render context", a
   }
   for (const match of template.matchAll(/{%-?\s*([^%}]+?)\s*-?%}/g)) {
     const statement = match[1] ?? "";
-    if (/^(?:for\b|endfor)/.test(statement.trim())) continue;
-    for (const token of statement.split(/[^\w$.]+/)) {
+    // A `for <var> in <expr>` statement reads the iterable root, so validate the root —
+    // not the loop variable — and skip the rest of the header.
+    const forMatch = statement.match(/^for\s+\w+\s+in\s+(.+)$/s);
+    const expression = forMatch !== null ? forMatch[1]! : statement;
+    for (const token of expression.split(/[^\w$.]+/)) {
       const name = token.split(".")[0]!;
       if (!name || /^\d+$/.test(name) || locals.has(name) || keywords.has(name)) continue;
       referenced.add(name);

@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:9a8a421dc7cadee53e4ddc97e77113b434859ad7542623a86d04334b27eea92b` |
+| inputDigest | `sha256:30cd86d84c4329b4abab55e01ab40ae9eab2aaf42bc01f2ff58de6ba18dddd3f` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -294,7 +294,6 @@ Zero transition instances are encoded. No accepted source defines a permitted-mo
 - Kind: `runtime`
 - Status: `declared`
 - Version: `>=1.4.0`
-
 - Consequence: packageManager pins bun@1.4.2; the runtime range is >=1.4.0.
 
 ### ajv — JSON Schema validator
