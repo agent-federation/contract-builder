@@ -369,7 +369,7 @@ diagnostics:
   code: core000.claim.unsupported-guarantee
   severity: error
   phase: PH-CONSISTENCY
-  message: Claim "{{id}}" asserts a guarantee with no supporting evidence.
+  message: 'Claim "{{id}}" is a guarantee missing conditions, scope, a verification method, or supporting citations/evidence.'
   status: declared
   relations:
     raisedIn: PH-CONSISTENCY
@@ -377,7 +377,7 @@ diagnostics:
   code: core000.claim.status-class-conflict
   severity: error
   phase: PH-CONSISTENCY
-  message: Claim "{{id}}" has a class/status combination the profile does not accept.
+  message: 'Claim "{{id}}" has a class/status conflict in the machine-decidable subset (non_goal/deferred claimed implemented or tested, proposal claimed implemented); the limitation exception is human review, outside this check.'
   status: declared
   relations:
     raisedIn: PH-CONSISTENCY
@@ -401,7 +401,7 @@ diagnostics:
   code: core000.independent-verification.record-missing
   severity: error
   phase: PH-CONSISTENCY
-  message: Independent-verification record "{{id}}" is missing.
+  message: 'Independent-verification record "{{id}}" has no external record_locator: it is empty or points inside contracts/core000/.'
   status: declared
   relations:
     raisedIn: PH-CONSISTENCY
@@ -441,7 +441,7 @@ diagnostics:
   code: core000.conformance.case-uncovered
   severity: warning
   phase: PH-CONSISTENCY
-  message: Conformance case "{{id}}" is not covered by a claim.
+  message: 'Conformance case "{{id}}" covers no claim.'
   status: declared
   relations:
     raisedIn: PH-CONSISTENCY

@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:1f20b582b2707818639dca6046b046587debe4e0f23355e3560659c53bef6e08` |
+| inputDigest | `sha256:c139b7cc499d8a56a539e0a7261e9342b850b15b24035c538c3f6ae717a46e3f` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -363,15 +363,15 @@ Zero transition instances are encoded. No accepted source defines a permitted-mo
 
 - `core000.claim.invalid-status` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" carries an invalid status value.
 
-- `core000.claim.unsupported-guarantee` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" asserts a guarantee with no supporting evidence.
+- `core000.claim.unsupported-guarantee` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" is a guarantee missing conditions, scope, a verification method, or supporting citations/evidence.
 
-- `core000.claim.status-class-conflict` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" has a class/status combination the profile does not accept.
+- `core000.claim.status-class-conflict` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" has a class/status conflict in the machine-decidable subset (non_goal/deferred claimed implemented or tested, proposal claimed implemented); the limitation exception is human review, outside this check.
 
 - `core000.independent-verification.incomplete` — `error` on `PH-CONSISTENCY` (declared): Independent verification "{{id}}" is incomplete.
 
 - `core000.independent-verification.self` — `error` on `PH-CONSISTENCY` (declared): Independent verification "{{id}}" is not produced by a distinct verifier.
 
-- `core000.independent-verification.record-missing` — `error` on `PH-CONSISTENCY` (declared): Independent-verification record "{{id}}" is missing.
+- `core000.independent-verification.record-missing` — `error` on `PH-CONSISTENCY` (declared): Independent-verification record "{{id}}" has no external record_locator: it is empty or points inside contracts/core000/.
 
 - `core000.model.interface-owner-mismatch` — `error` on `PH-CONSISTENCY` (declared): Interface "{{id}}" has owner "{{owner}}", which does not match its providing component.
 
@@ -381,7 +381,7 @@ Zero transition instances are encoded. No accepted source defines a permitted-mo
 
 - `core000.surface.claim-missing` — `warning` on `PH-CONSISTENCY` (declared): Public surface "{{id}}" has no covering claim.
 
-- `core000.conformance.case-uncovered` — `warning` on `PH-CONSISTENCY` (declared): Conformance case "{{id}}" is not covered by a claim.
+- `core000.conformance.case-uncovered` — `warning` on `PH-CONSISTENCY` (declared): Conformance case "{{id}}" covers no claim.
 
 - `core.profile.consent-required` — `error` on `PH-LOAD` (declared): Executable profile loading requires explicit caller consent.
 
