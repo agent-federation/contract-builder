@@ -317,6 +317,38 @@ function expectedOutcome(options: HarnessOptions): RunEvidence["expected"] {
           blockedBy: "errors",
           codes: ["core000.claim.decision-required"],
         };
+      // S2.3 focused cases (#136): each mutation isolates exactly one additional finding.
+      // Warning cases stay exit 0 / unblocked; error cases block with `errors`.
+      case "guarantee-conditions":
+        return {
+          exitCode: 1,
+          blockedBy: "errors",
+          codes: ["core000.claim.unsupported-guarantee"],
+        };
+      case "interface-owner":
+        return {
+          exitCode: 1,
+          blockedBy: "errors",
+          codes: ["core000.model.interface-owner-mismatch"],
+        };
+      case "evidence-locator":
+        return {
+          exitCode: 1,
+          blockedBy: "errors",
+          codes: ["core000.evidence.locator"],
+        };
+      case "evidence-orphan":
+        return {
+          exitCode: 0,
+          blockedBy: null,
+          codes: ["core000.evidence.orphan"],
+        };
+      case "surface-coverage":
+        return {
+          exitCode: 0,
+          blockedBy: null,
+          codes: ["core000.surface.claim-missing"],
+        };
     }
   }
 
@@ -358,6 +390,16 @@ function classificationFor(options: HarnessOptions): string[] {
   if (options.mutation === "claim") {
     return ["implementation_behavior"];
   }
+  // S2.3 focused cases (#136): each mutation targets one accepted profile policy check.
+  if (
+    options.mutation === "guarantee-conditions" ||
+    options.mutation === "interface-owner" ||
+    options.mutation === "evidence-locator" ||
+    options.mutation === "evidence-orphan" ||
+    options.mutation === "surface-coverage"
+  ) {
+    return ["profile_policy"];
+  }
   if (options.mode === "release") {
     return ["profile_policy", "implementation_behavior"];
   }
@@ -376,6 +418,16 @@ function defaultRunName(options: HarnessOptions): string {
       return "N8";
     case "decision-missing":
       return "N11";
+    case "guarantee-conditions":
+      return "S2.3-GUARANTEE-CONDITIONS";
+    case "interface-owner":
+      return "S2.3-INTERFACE-OWNER";
+    case "evidence-locator":
+      return "S2.3-EVIDENCE-LOCATOR";
+    case "evidence-orphan":
+      return "S2.3-EVIDENCE-ORPHAN";
+    case "surface-coverage":
+      return "S2.3-SURFACE-COVERAGE";
     case undefined:
       break;
   }

@@ -12,7 +12,12 @@ import { loadProject } from "../spec/lib/load.js";
 import { loadSchemas, validateDocuments } from "../spec/lib/schema.js";
 import type { ValidatorFinding } from "../spec/lib/hook.js";
 import { claimEvidenceFindings } from "../profiles/core000/checks/claim-evidence.js";
+import { provenanceVerificationFindings } from "../profiles/core000/checks/provenance-verification.js";
+import { modelStructureFindings } from "../profiles/core000/checks/model-structure.js";
+import { evidenceFindings } from "../profiles/core000/checks/evidence.js";
+import { conformanceFindings } from "../profiles/core000/checks/conformance.js";
 import { trustPolicyFindings } from "../profiles/core000/checks/trust-policy.js";
+import type { Entity } from "../spec/lib/ir.js";
 import { buildProjectModel, type ProjectModel } from "../spec/lib/ir.js";
 import {
   prepareWorkspace,
@@ -2744,3 +2749,451 @@ test("S2.2 accepted per-claim mappings are pinned", async () => {
     [],
   );
 });
+
+test("S2.3 focused harness mutations isolate exactly one additional finding each", async () => {
+  const baseline = await runHarness({ run: "S2.3-baseline" });
+  assert.equal(baseline.result.exitCode, 0, failure(baseline.result));
+  assert.equal(baseline.evidence.workspace.cleanup, "completed");
+  assert.equal(baseline.evidence.workspace.writeCheck, "only_declared_outputs");
+
+  const cases = [
+    {
+      mutation: "guarantee-conditions",
+      code: "core000.claim.unsupported-guarantee",
+      entity: "C000-CT-011",
+      file: "claims.yml",
+      severity: "error",
+    },
+    {
+      mutation: "interface-owner",
+      code: "core000.model.interface-owner-mismatch",
+      entity: "IF-BUILD-IDENTITY",
+      file: "structure.yml",
+      severity: "error",
+    },
+    {
+      mutation: "evidence-locator",
+      code: "core000.evidence.locator",
+      entity: "EV-CODE-SPEC-LIB-IDENTITY-TS",
+      file: "claims.yml",
+      severity: "error",
+    },
+    {
+      mutation: "evidence-orphan",
+      code: "core000.evidence.orphan",
+      entity: "EV-CODE-SPEC-LIB-IDENTITY-TS-604-SPEC-LIB-IDENTITY-TS-753",
+      file: "claims.yml",
+      severity: "warning",
+    },
+    {
+      mutation: "surface-coverage",
+      code: "core000.surface.claim-missing",
+      entity: "IF-PROFILE-VALIDATOR",
+      file: "structure.yml",
+      severity: "warning",
+    },
+  ] as const;
+
+  const findingKey = (diagnostic: { code: string; severity: string; message: string }): string =>
+    `${diagnostic.code}|${diagnostic.severity}|${diagnostic.message}`;
+
+  for (const item of cases) {
+    const run = await runHarness({ mutation: item.mutation, run: `S2.3-${item.mutation}` });
+    const result = run.result;
+
+    if (item.severity === "error") {
+      assert.equal(result.exitCode, 1, `${item.mutation}: ${failure(result)}`);
+      assert.equal(result.blockedBy, "errors");
+      assert.equal(result.written, false);
+      assert.equal(run.evidence.result.H1_self_build, "SELF_BUILD_BLOCKED");
+    } else {
+      // Warning-only case: warning severity, exit 0, unblocked, nothing written.
+      assert.equal(result.exitCode, 0, `${item.mutation}: ${failure(result)}`);
+      assert.equal(result.blockedBy, null);
+      assert.equal(result.written, false);
+      assert.equal(run.evidence.result.H1_self_build, "SELF_BUILD_COMPLETED");
+    }
+
+    // Isolation: the mutated run differs from the baseline by exactly one added finding —
+    // the focused one — and no baseline finding disappears.
+    const baselineKeys = new Map<string, number>();
+    for (const diagnostic of baseline.result.diagnostics) {
+      baselineKeys.set(findingKey(diagnostic), (baselineKeys.get(findingKey(diagnostic)) ?? 0) + 1);
+    }
+    const mutatedKeys = new Map<string, number>();
+    for (const diagnostic of result.diagnostics) {
+      mutatedKeys.set(findingKey(diagnostic), (mutatedKeys.get(findingKey(diagnostic)) ?? 0) + 1);
+    }
+    const addedKeys = [...mutatedKeys].filter(
+      ([key, count]) => (baselineKeys.get(key) ?? 0) < count,
+    );
+    const removed = [...baselineKeys].filter(([key, count]) => (mutatedKeys.get(key) ?? 0) < count);
+    assert.equal(addedKeys.length, 1, `${item.mutation} added: ${JSON.stringify(addedKeys)}`);
+    assert.equal(addedKeys[0]![0].split("|")[0], item.code);
+    assert.equal(addedKeys[0]![0].split("|")[1], item.severity);
+    assert.ok(addedKeys[0]![0].includes(`"${item.entity}"`), `${item.mutation} entity in message`);
+    const addedDiagnostic = result.diagnostics.find(
+      (diagnostic) => findingKey(diagnostic) === addedKeys[0]![0],
+    );
+    assert.ok(addedDiagnostic !== undefined);
+    assert.equal(addedDiagnostic.file, item.file, `${item.mutation} location file`);
+    assert.deepEqual(removed, [], `${item.mutation} removed baseline findings`);
+
+    // Evidence semantics: expected code recorded, mutation run identified, base commit present,
+    // temporary workspace clean, H2/H3 explicitly not claimed.
+    assert.equal(run.evidence.run, `S2.3-${item.mutation}`);
+    assert.equal(run.evidence.expected.codes.includes(item.code), true);
+    assert.ok(run.evidence.commit.length >= 7, "evidence must record the base commit");
+    assert.equal(run.evidence.result.H2_reproducibility, "NOT_TESTED");
+    assert.equal(run.evidence.result.H3_independent_verification, "NOT_PERFORMED");
+    assert.equal(run.evidence.workspace.writeCheck, "only_declared_outputs");
+    assert.equal(run.evidence.workspace.cleanup, "completed");
+  }
+});
+
+test("S2.3 synthetic: core000.claim.invalid-status fires exactly once on an invalid enum", async () => {
+  const model = syntheticModel([
+    syntheticClaim({
+      id: "C000-SYN-001",
+      status: {
+        decision: "bogus",
+        implementation: "implemented",
+        tests: "tested",
+        verification: "none",
+      },
+    }),
+  ]);
+  const findings = claimEvidenceFindings(model);
+  const invalid = findings.filter((item) => item.code === "core000.claim.invalid-status");
+  assert.equal(invalid.length, 1);
+  assert.equal(invalid[0]!.entityId, "C000-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.claim.invalid-status"), "error");
+  assert.equal(invalid[0]!.location?.file, "claims.yml");
+});
+
+test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-decidable subset only", async () => {
+  const conflicting = (className: string): Entity[] => [
+    syntheticClaim({
+      id: "C000-SYN-002",
+      fields: { class: className, lifecycle: "active" },
+      status: {
+        decision: "accepted",
+        implementation: "implemented",
+        tests: "none",
+        verification: "none",
+      },
+    }),
+  ];
+  for (const className of ["non_goal", "deferred"]) {
+    const findings = claimEvidenceFindings(syntheticModel(conflicting(className)));
+    const conflict = findings.filter((item) => item.code === "core000.claim.status-class-conflict");
+    assert.equal(conflict.length, 1, className);
+    assert.equal(conflict[0]!.entityId, "C000-SYN-002");
+    assert.equal(conflict[0]!.location?.file, "claims.yml");
+    assert.equal(await catalogSeverityOf("core000.claim.status-class-conflict"), "error");
+  }
+  // proposal + implemented is also machine-decidable.
+  const proposal = claimEvidenceFindings(
+    syntheticModel([
+      syntheticClaim({
+        id: "C000-SYN-003",
+        fields: { class: "proposal", lifecycle: "active" },
+        status: {
+          decision: "proposed",
+          implementation: "implemented",
+          tests: "none",
+          verification: "none",
+        },
+      }),
+    ]),
+  );
+  const proposalConflict = proposal.filter(
+    (item) => item.code === "core000.claim.status-class-conflict",
+  );
+  assert.equal(proposalConflict.length, 1);
+  assert.equal(proposalConflict[0]!.entityId, "C000-SYN-003");
+  assert.equal(proposalConflict[0]!.location?.file, "claims.yml");
+  // The `limitation` exception is human review, not this check (Q7 A′).
+  const limitation = claimEvidenceFindings(
+    syntheticModel([
+      syntheticClaim({
+        id: "C000-SYN-004",
+        fields: { class: "limitation", lifecycle: "active" },
+        status: {
+          decision: "accepted",
+          implementation: "implemented",
+          tests: "tested",
+          verification: "none",
+        },
+      }),
+    ]),
+  );
+  assert.deepEqual(
+    limitation.filter((item) => item.code === "core000.claim.status-class-conflict"),
+    [],
+  );
+});
+
+test("S2.3 synthetic: independent-verification incomplete, self and record-missing", async () => {
+  const claim = syntheticClaim({
+    id: "C000-SYN-010",
+    fields: { class: "requirement", lifecycle: "active", author: "author-1" },
+    status: {
+      decision: "accepted",
+      implementation: "implemented",
+      tests: "tested",
+      verification: "independently_verified",
+    },
+  });
+  const record = (fields: Record<string, unknown>): Entity => ({
+    id: "IV-SYN-001",
+    kind: "independent_verification",
+    fields,
+    relations: { verifies: ["C000-SYN-010"] },
+  });
+  const completeFields: Record<string, unknown> = {
+    method: "manual_review",
+    verifier: "independent-1",
+    independence: "independent",
+    independence_basis: "separate family and employer",
+    performed: true,
+    date: "2026-11-25",
+    result: "confirmed",
+    scope: "register",
+    revision: "0.1.0",
+    limitations: "none",
+    claim_results: [{ claim: "C000-SYN-010", result: "confirmed" }],
+    record_locator: "https://example.test/verification",
+  };
+
+  // A record missing required fields is incomplete.
+  const incomplete = provenanceVerificationFindings(syntheticModel([claim, record({})]));
+  assert.equal(
+    incomplete.filter((item) => item.code === "core000.independent-verification.incomplete").length,
+    1,
+  );
+  assert.equal(incomplete[0]!.entityId, "IV-SYN-001");
+  assert.equal(incomplete[0]!.location?.file, "claims.yml");
+  assert.equal(await catalogSeverityOf("core000.independent-verification.incomplete"), "error");
+
+  // A complete record whose verifier equals the claim author is `self`.
+  const self = provenanceVerificationFindings(
+    syntheticModel([claim, record({ ...completeFields, verifier: "author-1" })]),
+  );
+  assert.equal(
+    self.filter((item) => item.code === "core000.independent-verification.incomplete").length,
+    0,
+  );
+  assert.equal(
+    self.filter((item) => item.code === "core000.independent-verification.self").length,
+    1,
+  );
+  assert.equal(self[0]!.entityId, "IV-SYN-001");
+  assert.equal(self[0]!.location?.file, "claims.yml");
+  assert.equal(await catalogSeverityOf("core000.independent-verification.self"), "error");
+
+  // A performed record whose locator points inside contracts/core000/ is record-missing.
+  const inside = provenanceVerificationFindings(
+    syntheticModel([
+      claim,
+      record({ ...completeFields, record_locator: "contracts/core000/claims.yml" }),
+    ]),
+  );
+  const insideMissing = inside.filter(
+    (item) => item.code === "core000.independent-verification.record-missing",
+  );
+  assert.equal(insideMissing.length, 1);
+  assert.equal(insideMissing[0]!.entityId, "IV-SYN-001");
+  assert.equal(insideMissing[0]!.location?.file, "claims.yml");
+  assert.equal(await catalogSeverityOf("core000.independent-verification.record-missing"), "error");
+  // An empty performed locator is record-missing too.
+  const empty = provenanceVerificationFindings(
+    syntheticModel([claim, record({ ...completeFields, record_locator: "   " })]),
+  );
+  const emptyMissing = empty.filter(
+    (item) => item.code === "core000.independent-verification.record-missing",
+  );
+  assert.equal(emptyMissing.length, 1);
+  assert.equal(emptyMissing[0]!.entityId, "IV-SYN-001");
+  assert.equal(emptyMissing[0]!.location?.file, "claims.yml");
+});
+
+test("S2.3 synthetic: core000.decision.unresolved regression case (S2.2-U)", async () => {
+  const claim = syntheticClaim({
+    id: "C000-SYN-020",
+    fields: { class: "requirement", lifecycle: "active" },
+    status: { decision: "proposed", implementation: "none", tests: "none", verification: "none" },
+    relations: { decidedBy: ["DEC-SYN-020"] },
+  });
+  const decision: Entity = {
+    id: "DEC-SYN-020",
+    kind: "decision",
+    fields: { status: "unresolved" },
+    relations: {},
+  };
+  const findings = claimEvidenceFindings(syntheticModel([claim, decision]));
+  const unresolved = findings.filter((item) => item.code === "core000.decision.unresolved");
+  assert.equal(unresolved.length, 1);
+  assert.equal(unresolved[0]!.entityId, "C000-SYN-020");
+  assert.equal(unresolved[0]!.location?.file, "claims.yml");
+  assert.equal(await catalogSeverityOf("core000.decision.unresolved"), "review");
+  // A resolved decision does not fire.
+  const resolved = claimEvidenceFindings(
+    syntheticModel([claim, { ...decision, fields: { status: "accepted" } }]),
+  );
+  assert.equal(resolved.filter((item) => item.code === "core000.decision.unresolved").length, 0);
+});
+
+test("S2.3 synthetic: core000.conformance.case-uncovered, and vacuous on the register", async () => {
+  const caseEntity: Entity = {
+    id: "CC-SYN-001",
+    kind: "conformance_case",
+    fields: {},
+    relations: {},
+  };
+  const findings = conformanceFindings(syntheticModel([caseEntity]));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0]!.code, "core000.conformance.case-uncovered");
+  assert.equal(findings[0]!.entityId, "CC-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.conformance.case-uncovered"), "warning");
+  assert.equal(findings[0]!.location?.file, "claims.yml");
+
+  // The project register declares no conformance cases, so the check is vacuous there (S2-D3 A).
+  const registerModel = await buildModel(projectDir);
+  assert.deepEqual(conformanceFindings(registerModel), []);
+});
+
+test("S2.3 synthetic: core000.surface.claim-missing on an uncovered public component", async () => {
+  // Complementary unit shape for the check; the harness case lives in the focused-mutations
+  // test above (the `surface-coverage` mutation re-points the only active claim covering
+  // IF-PROFILE-VALIDATOR). The real-register behavior stays pinned by S1-POS-01 (exact six
+  // warning entity IDs).
+  const component: Entity = {
+    id: "COMP-SYN-001",
+    kind: "component",
+    fields: { name: "Synthetic", public: true },
+    relations: {},
+  };
+  const findings = modelStructureFindings(syntheticModel([component]));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0]!.code, "core000.surface.claim-missing");
+  assert.equal(findings[0]!.entityId, "COMP-SYN-001");
+  assert.equal(await catalogSeverityOf("core000.surface.claim-missing"), "warning");
+  assert.equal(findings[0]!.location?.file, "structure.yml");
+
+  // Covered by an active claim: no finding.
+  const claim = syntheticClaim({
+    id: "C000-SYN-030",
+    fields: { class: "requirement", lifecycle: "active" },
+    status: { decision: "none", implementation: "none", tests: "none", verification: "none" },
+    relations: { subject: ["COMP-SYN-001"] },
+  });
+  assert.deepEqual(modelStructureFindings(syntheticModel([component, claim])), []);
+});
+
+test("S2.3 synthetic: core000.evidence.locator and orphan unit cases", async () => {
+  const kept: Entity = {
+    id: "EV-SYN-KEPT",
+    kind: "evidence",
+    fields: { locator: "tests/core000.test.ts", revision: "0.1.0" },
+    relations: {},
+  };
+  const whitespace: Entity = {
+    id: "EV-SYN-BLANK",
+    kind: "evidence",
+    fields: { locator: "   ", revision: "  " },
+    relations: {},
+  };
+
+  // Both evidence records are referenced by the claim: exactly one locator finding, no orphan.
+  const claim = syntheticClaim({
+    id: "C000-SYN-040",
+    fields: { class: "requirement", lifecycle: "active" },
+    status: { decision: "none", implementation: "none", tests: "none", verification: "none" },
+    relations: { evidencedBy: ["EV-SYN-KEPT", "EV-SYN-BLANK"] },
+  });
+  const findings = evidenceFindings(syntheticModel([claim, kept, whitespace]));
+  const locator = findings.filter((item) => item.code === "core000.evidence.locator");
+  assert.equal(locator.length, 1);
+  assert.equal(locator[0]!.entityId, "EV-SYN-BLANK");
+  assert.equal(locator[0]!.location?.file, "claims.yml");
+  assert.equal(findings.filter((item) => item.code === "core000.evidence.orphan").length, 0);
+
+  // An evidence record no claim references is an orphan (warning severity per the catalog).
+  const orphaned: Entity = {
+    id: "EV-SYN-ORPHAN",
+    kind: "evidence",
+    fields: { locator: "tests/core000.test.ts", revision: "0.1.0" },
+    relations: {},
+  };
+  const coveringClaim = syntheticClaim({
+    id: "C000-SYN-041",
+    fields: { class: "requirement", lifecycle: "active" },
+    status: { decision: "none", implementation: "none", tests: "none", verification: "none" },
+    relations: { evidencedBy: ["EV-SYN-KEPT"] },
+  });
+  const orphans = evidenceFindings(syntheticModel([coveringClaim, kept, orphaned]));
+  assert.equal(orphans.length, 1);
+  assert.equal(orphans[0]!.code, "core000.evidence.orphan");
+  assert.equal(orphans[0]!.entityId, "EV-SYN-ORPHAN");
+});
+
+/** The catalog severity for one code; the synthetic tests assert it through the finding path. */
+async function catalogSeverityOf(code: string): Promise<string> {
+  const catalog = JSON.parse(await readFile(catalogPath, "utf8")) as {
+    codes: Array<{ code: string; severity: string }>;
+  };
+  const entry = catalog.codes.find((item) => item.code === code);
+  assert.ok(entry !== undefined, `catalog entry missing for ${code}`);
+  return entry.severity;
+}
+
+/** A minimal in-memory ProjectModel over the given entities, for the profile-owned checks. */
+function syntheticModel(entities: Entity[]): ProjectModel {
+  const byId = new Map(entities.map((entity) => [entity.id, entity]));
+  const byKind = new Map<string, Entity[]>();
+  for (const entity of entities) {
+    byKind.set(entity.kind, [...(byKind.get(entity.kind) ?? []), entity]);
+  }
+  return {
+    manifest: {
+      manifestVersion: "0.1",
+      project: { id: "synthetic" },
+      profile: { id: "p", version: "1", source: "." },
+      inputs: [],
+      sources: [],
+      render: [{ outputs: {} }],
+    },
+    profile: { id: "p", version: "1", entityKinds: {}, schemas: {}, documents: [] },
+    sources: [],
+    entities,
+    documents: {},
+    byId,
+    byKind,
+    relations: new Map(),
+  } as unknown as ProjectModel;
+}
+
+interface SyntheticClaimOptions {
+  id: string;
+  fields?: Record<string, unknown>;
+  status?: Record<string, string>;
+  relations?: Record<string, string[]>;
+}
+
+/** A minimal active claim entity with the accepted status shape. */
+function syntheticClaim(options: SyntheticClaimOptions): Entity {
+  return {
+    id: options.id,
+    kind: "claim",
+    fields: {
+      class: "requirement",
+      lifecycle: "active",
+      authority: "engine",
+      status: { decision: "none", implementation: "none", tests: "none", verification: "none" },
+      ...options.fields,
+      ...(options.status === undefined ? {} : { status: options.status }),
+    },
+    relations: options.relations ?? {},
+  };
+}
