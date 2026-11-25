@@ -13,7 +13,7 @@ import { constants } from "node:fs";
 import { lstat, open, opendir, realpath } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
-import { concatBytes, createDomainHasher } from "./digest.js";
+import { compareBytes, concatBytes, createDomainHasher, utf8 } from "./digest.js";
 import type { Limits } from "./types.js";
 
 export interface PathValidation {
@@ -548,8 +548,13 @@ export async function walkPackageFiles(
     }
   };
   await visit("", 1);
-  files.sort();
-  return { files, limitHit, error };
+  // The order drives the emission sequence of the undeclared-file diagnostics, so it
+  // must not depend on the runtime's string comparison: sort by UTF-8 bytes
+  // (code-point order), the same contract as `discoverEnvelopes` (#310). Encode each
+  // path once before sorting rather than inside the comparator (#310 review).
+  const decorated = files.map((file) => ({ file, bytes: utf8(file) }));
+  decorated.sort((a, b) => compareBytes(a.bytes, b.bytes));
+  return { files: decorated.map((item) => item.file), limitHit, error };
 }
 
 export function declaredFileKind(
