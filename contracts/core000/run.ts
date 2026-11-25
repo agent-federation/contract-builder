@@ -320,18 +320,25 @@ function expectedOutcome(options: HarnessOptions): RunEvidence["expected"] {
     }
   }
 
+  // The accepted positive baseline at the committed register (#115 D): both codes the
+  // positive run actually emits, so the transient evidence record describes the real set.
+  const positiveCodes = [
+    "core000.independent-verification.missing",
+    "core000.surface.claim-missing",
+  ];
+
   if (options.mode === "release") {
     return {
       exitCode: 1,
       blockedBy: "review",
-      codes: ["core000.independent-verification.missing"],
+      codes: positiveCodes,
     };
   }
 
   return {
     exitCode: 0,
     blockedBy: null,
-    codes: ["core000.independent-verification.missing"],
+    codes: positiveCodes,
   };
 }
 

@@ -21,6 +21,8 @@ import {
   type Workspace,
 } from "../contracts/core000/run.js";
 import {
+  CONFORMANCE_CASE_KIND_VALUES,
+  DEPENDENCY_KIND_VALUES,
   EVIDENCE_KINDS,
   buildView,
   conformanceCaseKind,
@@ -2107,7 +2109,7 @@ test("S2.1 view and template render the full model", async () => {
     transitions: 0,
     extensionPoints: 4,
     dependencies: 7,
-    diagnostics: 25,
+    diagnosticCatalog: 25,
     conformanceCases: 0,
     independentVerifications: 0,
   });
@@ -2170,8 +2172,19 @@ test("S2.1 view and template render the full model", async () => {
   assert.ok(markdown.includes(view.transitionNote));
   assert.ok(markdown.includes("_None declared._"));
   assert.ok(markdown.includes("- Prerequisites: `PH-STRUCTURE`, `PH-PROVENANCE`"));
+  assert.ok(markdown.includes("- Prerequisites: _None declared._"));
   assert.ok(markdown.includes("- Kind: `runtime`"));
   assert.ok(markdown.includes("- Kind: `toolchain`"));
+  assert.equal(
+    (markdown.match(/^- Version: `/gm) ?? []).length,
+    view.dependencies.filter((d) => d.version.length > 0).length,
+  );
+  assert.ok(markdown.includes("diagnostic catalog=25"));
+  assert.ok(markdown.includes("`release` blocked"));
+  // No accessor fallback value may reach the artifact; the word itself is legal in
+  // declared text (catalog codes, claim statements), so assert the rendered shapes.
+  assert.equal(markdown.includes("Kind: `unresolved`"), false);
+  assert.equal(markdown.includes("(unresolved:"), false);
 
   const catalogSection =
     markdown.split("## Diagnostic catalog")[1]?.split("## Conformance cases")[0] ?? "";
@@ -2186,11 +2199,23 @@ test("S2.1 Q5 domain-kind accessors are bounded and fail closed", async () => {
   assert.deepEqual(dependencyKind(model, "ajv"), { ok: true, kind: "runtime" });
   assert.deepEqual(dependencyKind(model, "typescript"), { ok: true, kind: "toolchain" });
   assert.deepEqual(dependencyKind(model, "COMP-CORE"), { ok: false, reason: "not-dependency" });
-  assert.deepEqual(dependencyKind(model, "DEP-MISSING"), { ok: false, reason: "missing" });
+  assert.deepEqual(dependencyKind(model, "DEP-MISSING"), { ok: false, reason: "not-dependency" });
 
   const structureDocument = model.documents.structure as {
     dependencies: Array<Record<string, unknown>>;
   };
+  // `missing` means exactly one thing: no record in the profile-owned document.
+  const withoutDependencyRecord = {
+    ...model,
+    documents: {
+      ...model.documents,
+      structure: { ...structureDocument, dependencies: [] },
+    },
+  } as ProjectModel;
+  assert.deepEqual(dependencyKind(withoutDependencyRecord, "ajv"), {
+    ok: false,
+    reason: "missing",
+  });
   const withDuplicate = {
     ...model,
     documents: {
@@ -2244,7 +2269,10 @@ test("S2.1 Q5 domain-kind accessors are bounded and fail closed", async () => {
     ok: false,
     reason: "not-conformance-case",
   });
-  assert.deepEqual(conformanceCaseKind(withCase, "CC-MISSING"), { ok: false, reason: "missing" });
+  assert.deepEqual(conformanceCaseKind(withCase, "CC-MISSING"), {
+    ok: false,
+    reason: "not-conformance-case",
+  });
 
   const withDuplicateCase = {
     ...withCase,
@@ -2278,6 +2306,66 @@ test("S2.1 Q5 domain-kind accessors are bounded and fail closed", async () => {
     ok: false,
     reason: "malformed",
   });
+});
+
+test("S2.1 profile kind enums stay in lockstep with their JSON schemas", async () => {
+  const readSchemaEnum = async (file: string): Promise<string[]> => {
+    const schema = JSON.parse(
+      await readFile(path.join(root, "profiles", "core000", "schemas", file), "utf8"),
+    ) as { $defs: { base: { properties: { kind: { enum: string[] } } } } };
+    return schema.$defs.base.properties.kind.enum;
+  };
+
+  assert.deepEqual(
+    [...DEPENDENCY_KIND_VALUES].sort(),
+    (await readSchemaEnum("dependency.schema.json")).sort(),
+  );
+  assert.deepEqual(
+    [...CONFORMANCE_CASE_KIND_VALUES].sort(),
+    (await readSchemaEnum("conformance-case.schema.json")).sort(),
+  );
+  assert.deepEqual(
+    [...EVIDENCE_KINDS].sort(),
+    (await readSchemaEnum("evidence.schema.json")).sort(),
+  );
+});
+
+test("S2.1 the view fails closed when a domain-kind accessor cannot resolve", async () => {
+  const model = await buildModel(projectDir);
+  const structureDocument = model.documents.structure as {
+    dependencies: Array<Record<string, unknown>>;
+  };
+
+  // A dependency whose document record was dropped must fail the build, not render `unresolved`.
+  const withoutRecord = {
+    ...model,
+    documents: {
+      ...model.documents,
+      structure: { ...structureDocument, dependencies: [] },
+    },
+  } as ProjectModel;
+  assert.throws(
+    () => buildView(withoutRecord),
+    /dependency "[^"]+" has no resolved kind \(missing\)/,
+  );
+
+  // A malformed document kind must fail the build as well (only ajv's kind is corrupted).
+  const withMalformed = {
+    ...model,
+    documents: {
+      ...model.documents,
+      structure: {
+        ...structureDocument,
+        dependencies: structureDocument.dependencies.map((entry) =>
+          entry.id === "ajv" ? { ...entry, kind: "unknown-domain-kind" } : entry,
+        ),
+      },
+    },
+  } as ProjectModel;
+  assert.throws(
+    () => buildView(withMalformed),
+    /dependency "[^"]+" has no resolved kind \(malformed\)/,
+  );
 });
 
 test("S2.2a non-structural claim subjects use existing entity kinds", async () => {
@@ -2461,7 +2549,7 @@ test("S2.2 artifact verification: the committed draft rebuilds byte-identically 
     transitions: 0,
     extensionPoints: 4,
     dependencies: 7,
-    diagnostics: 25,
+    diagnosticCatalog: 25,
     conformanceCases: 0,
     independentVerifications: 0,
   });

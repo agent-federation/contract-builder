@@ -60,18 +60,23 @@ function evidenceKindLabel(model: ProjectModel, id: string): string {
   return result.ok ? result.kind : "unresolved";
 }
 
-const DEPENDENCY_KINDS: ReadonlySet<string> = new Set([
+export const DEPENDENCY_KIND_VALUES = [
   "runtime",
   "toolchain",
   "pipeline",
   "decision",
   "product",
-]);
+] as const;
 
-const CONFORMANCE_CASE_KINDS: ReadonlySet<string> = new Set(["positive", "negative"]);
+export type DependencyKind = (typeof DEPENDENCY_KIND_VALUES)[number];
 
-export type DependencyKind = "runtime" | "toolchain" | "pipeline" | "decision" | "product";
-export type ConformanceCaseKind = "positive" | "negative";
+const DEPENDENCY_KINDS: ReadonlySet<string> = new Set(DEPENDENCY_KIND_VALUES);
+
+export const CONFORMANCE_CASE_KIND_VALUES = ["positive", "negative"] as const;
+
+export type ConformanceCaseKind = (typeof CONFORMANCE_CASE_KIND_VALUES)[number];
+
+const CONFORMANCE_CASE_KINDS: ReadonlySet<string> = new Set(CONFORMANCE_CASE_KIND_VALUES);
 
 export type DependencyKindResult =
   | { readonly ok: true; readonly kind: DependencyKind }
@@ -165,8 +170,11 @@ function domainKind(
   allowed: ReadonlySet<string>,
 ): { ok: true; kind: string } | { ok: false; reason: DomainKindFailure } {
   const entity = model.byId.get(id);
-  if (entity === undefined) return { ok: false, reason: "missing" };
-  if (entity.kind !== expectedKind) return { ok: false, reason: "not-entity" };
+  // The same fail-closed vocabulary as `evidenceKind`: an absent entity is `not-entity`,
+  // so `missing` means exactly one thing — no record in the profile-owned document.
+  if (entity === undefined || entity.kind !== expectedKind) {
+    return { ok: false, reason: "not-entity" };
+  }
   const document = model.documents[documentKey];
   if (!isObject(document) || !Array.isArray(document[listKey])) {
     return { ok: false, reason: "document-unavailable" };
@@ -483,7 +491,7 @@ export function buildView(model: ProjectModel): Core000View {
       transitions: transitions.length,
       extensionPoints: extensionPoints.length,
       dependencies: dependencies.length,
-      diagnostics: diagnosticCatalog.length,
+      diagnosticCatalog: diagnosticCatalog.length,
       conformanceCases: conformanceCases.length,
       independentVerifications: independentVerificationCount,
     },
@@ -555,12 +563,33 @@ function extensionPointView(entity: Entity): ExtensionPointView {
   };
 }
 
+/**
+ * Fail-closed projections (Q5, #115 C): an accessor failure cannot render — it throws and
+ * fails the build instead of emitting a default `unresolved` value with no diagnostic.
+ */
+function dependencyKindOrThrow(model: ProjectModel, id: string): DependencyKind {
+  const kind = dependencyKind(model, id);
+  if (!kind.ok) {
+    throw new Error(`core000 view: dependency "${id}" has no resolved kind (${kind.reason})`);
+  }
+  return kind.kind;
+}
+
+function conformanceCaseKindOrThrow(model: ProjectModel, id: string): ConformanceCaseKind {
+  const kind = conformanceCaseKind(model, id);
+  if (!kind.ok) {
+    throw new Error(
+      `core000 view: conformance case "${id}" has no resolved kind (${kind.reason})`,
+    );
+  }
+  return kind.kind;
+}
+
 function dependencyView(model: ProjectModel, entity: Entity): DependencyView {
-  const kind = dependencyKind(model, entity.id);
   return {
     id: entity.id,
     name: text(entity.fields.name),
-    kind: kind.ok ? kind.kind : "unresolved",
+    kind: dependencyKindOrThrow(model, entity.id),
     status: text(entity.fields.status),
     version: text(entity.fields.version),
     consequence: text(entity.fields.consequence),
@@ -580,10 +609,9 @@ function diagnosticCatalogView(entity: Entity): DiagnosticCatalogView {
 }
 
 function conformanceCaseView(model: ProjectModel, entity: Entity): ConformanceCaseView {
-  const kind = conformanceCaseKind(model, entity.id);
   return {
     id: entity.id,
-    kind: kind.ok ? kind.kind : "unresolved",
+    kind: conformanceCaseKindOrThrow(model, entity.id),
     input: text(entity.fields.input),
     expected: text(entity.fields.expected),
     status: text(entity.fields.status),
