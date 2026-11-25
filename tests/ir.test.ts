@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -15,7 +15,8 @@ import {
 import { resolveRelations } from "../spec/lib/relations.js";
 import type { Profile } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
+import { ENGINE_RENDERERS, copyEngineProject, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 const base = (dir: string): BuildOptions => ({
   specDir: dir,

@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,7 +10,13 @@ import { loadSchemas } from "../spec/lib/schema.js";
 import { buildProjectModel } from "../spec/lib/ir.js";
 import { resolveContained } from "../spec/lib/manifest.js";
 import { Diagnostics } from "../spec/lib/diagnostics.js";
-import { ENGINE_RENDERERS, copyEngineProject } from "./support.js";
+import {
+  ENGINE_RENDERERS,
+  copyEngineProject,
+  removeTrackedTempDirs,
+  trackTempDir,
+} from "./support.js";
+after(removeTrackedTempDirs);
 
 /**
  * PR 2 acceptance: manifest, project boundary and declared-input loading.
@@ -55,6 +61,7 @@ async function editManifest(
 
 test("manifest: a missing manifest is core.manifest.missing", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "m1-no-manifest-"));
+  trackTempDir(dir);
   const result = await runBuild(base(dir));
   assert.equal(result.exitCode, 1);
   assert.ok(codes(result).includes("core.manifest.missing"));

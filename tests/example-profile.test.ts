@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -17,6 +17,8 @@ import {
 } from "../spec/lib/identity.js";
 import type { Renderer } from "../spec/lib/render.js";
 import { renderer as exampleRenderer } from "../profiles/example/renderer.js";
+import { removeTrackedTempDirs, trackTempDir } from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const profilesDir = path.join(root, "profiles");
@@ -79,6 +81,7 @@ async function copyExampleProject(
   name: string,
 ): Promise<{ projectDir: string; profileDir: string }> {
   const base = await mkdtemp(path.join(tmpdir(), `example-${name}-`));
+  trackTempDir(base);
   const projectDir = path.join(base, "project");
   const profileDir = path.join(base, "profiles", "example");
 
@@ -393,6 +396,7 @@ test("example: changing a declared renderer closure file moves the digests", asy
   // the engine-import rule maps them to the repository engine during closure validation, and
   // the symlinked checkout satisfies the direct import this test performs.
   const rendererBase = await mkdtemp(path.join(tmpdir(), "example-renderer-"));
+  trackTempDir(rendererBase);
   await mkdir(path.join(rendererBase, "profiles", "example"), { recursive: true });
   await symlink(path.join(root, "spec"), path.join(rendererBase, "spec"));
   const rendererDir = path.join(rendererBase, "profiles", "example");

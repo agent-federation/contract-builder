@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,7 +10,8 @@ import {
   type Renderer,
 } from "../spec/lib/render.js";
 import { gateConclusion } from "../profiles/core000/renderer.js";
-import { copyEngineProject, ENGINE_RENDERERS } from "./support.js";
+import { copyEngineProject, ENGINE_RENDERERS, removeTrackedTempDirs } from "./support.js";
+after(removeTrackedTempDirs);
 
 const base = (dir: string, overrides: Partial<BuildOptions> = {}): BuildOptions => ({
   specDir: dir,

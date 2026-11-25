@@ -1,9 +1,11 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { removeTrackedTempDirs, trackTempDir } from "./support.js";
+after(removeTrackedTempDirs);
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -59,6 +61,7 @@ test("genericity: the engine and its CLI carry no CORE-001 domain tokens", async
 
 test("genericity: the guard catches a forbidden reference", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "genericity-"));
+  trackTempDir(dir);
   const quoted = path.join(dir, "quoted.ts");
   const unquoted = path.join(dir, "unquoted.ts");
   const imported = path.join(dir, "imported.ts");
@@ -79,6 +82,7 @@ test("genericity: the guard catches a forbidden reference", async () => {
 
 test("genericity: the guard leaves generic profile-drive code alone", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "genericity-clean-"));
+  trackTempDir(dir);
   const file = path.join(dir, "generic.ts");
   await writeFile(
     file,

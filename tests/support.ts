@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,12 +82,40 @@ const engineFixtureDir = path.join(root, "tests", "fixtures", "engine-project");
 const exampleProfileDir = path.join(root, "profiles", "example");
 
 /**
+ * Temp roots created by the tests under the system temp dir. Tests register each root
+ * here and sweep them in a single `after(removeTrackedTempDirs)` so a full test run
+ * leaves no new directories behind (#322).
+ */
+const trackedTempRoots: string[] = [];
+
+/** Registers a temp directory for the end-of-file `removeTrackedTempDirs` sweep. */
+export function trackTempDir(dir: string): void {
+  trackedTempRoots.push(dir);
+}
+
+/** Removes every tracked temp root; safe to call from `after` in each test file. */
+export async function removeTrackedTempDirs(): Promise<void> {
+  const roots = trackedTempRoots.splice(0);
+  // Best-effort sweep: a transient removal failure (for example a file lock on CI)
+  // must not fail the suite; report it instead (#322 review).
+  await Promise.all(
+    roots.map((root) =>
+      rm(root, { recursive: true, force: true }).catch((cleanupError) => {
+        console.error(`failed to remove temp dir ${root}:`, cleanupError);
+      }),
+    ),
+  );
+}
+
+/**
  * Copies the synthetic engine project fixture (`tests/fixtures/engine-project/`) and the
  * `profiles/example` profile into a temp dir, with the profile copied inside the project
  * (`./profiles/example`) so tests can mutate the copy without touching the repository.
+ * The copy is tracked for removal by `removeTrackedTempDirs`.
  */
 export async function copyEngineProject(name: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), `engine-${name}-`));
+  trackTempDir(dir);
   await cp(engineFixtureDir, dir, { recursive: true });
   await cp(exampleProfileDir, path.join(dir, "profiles", "example"), { recursive: true });
 
