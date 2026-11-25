@@ -2886,11 +2886,10 @@ test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-d
   ];
   for (const className of ["non_goal", "deferred"]) {
     const findings = claimEvidenceFindings(syntheticModel(conflicting(className)));
-    assert.equal(
-      findings.filter((item) => item.code === "core000.claim.status-class-conflict").length,
-      1,
-      className,
-    );
+    const conflict = findings.filter((item) => item.code === "core000.claim.status-class-conflict");
+    assert.equal(conflict.length, 1, className);
+    assert.equal(conflict[0]!.entityId, "C000-SYN-002");
+    assert.equal(conflict[0]!.location?.file, "claims.yml");
     assert.equal(await catalogSeverityOf("core000.claim.status-class-conflict"), "error");
   }
   // proposal + implemented is also machine-decidable.
@@ -2908,10 +2907,12 @@ test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-d
       }),
     ]),
   );
-  assert.equal(
-    proposal.filter((item) => item.code === "core000.claim.status-class-conflict").length,
-    1,
+  const proposalConflict = proposal.filter(
+    (item) => item.code === "core000.claim.status-class-conflict",
   );
+  assert.equal(proposalConflict.length, 1);
+  assert.equal(proposalConflict[0]!.entityId, "C000-SYN-003");
+  assert.equal(proposalConflict[0]!.location?.file, "claims.yml");
   // The `limitation` exception is human review, not this check (Q7 A′).
   const limitation = claimEvidenceFindings(
     syntheticModel([
@@ -2927,9 +2928,9 @@ test("S2.3 synthetic: core000.claim.status-class-conflict fires on the machine-d
       }),
     ]),
   );
-  assert.equal(
-    limitation.filter((item) => item.code === "core000.claim.status-class-conflict").length,
-    0,
+  assert.deepEqual(
+    limitation.filter((item) => item.code === "core000.claim.status-class-conflict"),
+    [],
   );
 });
 
@@ -2988,6 +2989,7 @@ test("S2.3 synthetic: independent-verification incomplete, self and record-missi
     1,
   );
   assert.equal(self[0]!.entityId, "IV-SYN-001");
+  assert.equal(self[0]!.location?.file, "claims.yml");
   assert.equal(await catalogSeverityOf("core000.independent-verification.self"), "error");
 
   // A performed record whose locator points inside contracts/core000/ is record-missing.
@@ -2997,19 +2999,23 @@ test("S2.3 synthetic: independent-verification incomplete, self and record-missi
       record({ ...completeFields, record_locator: "contracts/core000/claims.yml" }),
     ]),
   );
-  assert.equal(
-    inside.filter((item) => item.code === "core000.independent-verification.record-missing").length,
-    1,
+  const insideMissing = inside.filter(
+    (item) => item.code === "core000.independent-verification.record-missing",
   );
+  assert.equal(insideMissing.length, 1);
+  assert.equal(insideMissing[0]!.entityId, "IV-SYN-001");
+  assert.equal(insideMissing[0]!.location?.file, "claims.yml");
   assert.equal(await catalogSeverityOf("core000.independent-verification.record-missing"), "error");
   // An empty performed locator is record-missing too.
   const empty = provenanceVerificationFindings(
     syntheticModel([claim, record({ ...completeFields, record_locator: "   " })]),
   );
-  assert.equal(
-    empty.filter((item) => item.code === "core000.independent-verification.record-missing").length,
-    1,
+  const emptyMissing = empty.filter(
+    (item) => item.code === "core000.independent-verification.record-missing",
   );
+  assert.equal(emptyMissing.length, 1);
+  assert.equal(emptyMissing[0]!.entityId, "IV-SYN-001");
+  assert.equal(emptyMissing[0]!.location?.file, "claims.yml");
 });
 
 test("S2.3 synthetic: core000.decision.unresolved regression case (S2.2-U)", async () => {
@@ -3029,6 +3035,7 @@ test("S2.3 synthetic: core000.decision.unresolved regression case (S2.2-U)", asy
   const unresolved = findings.filter((item) => item.code === "core000.decision.unresolved");
   assert.equal(unresolved.length, 1);
   assert.equal(unresolved[0]!.entityId, "C000-SYN-020");
+  assert.equal(unresolved[0]!.location?.file, "claims.yml");
   assert.equal(await catalogSeverityOf("core000.decision.unresolved"), "review");
   // A resolved decision does not fire.
   const resolved = claimEvidenceFindings(
