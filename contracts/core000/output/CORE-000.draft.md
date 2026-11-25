@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:3bf797944a054b0b849196e506f2a368a2a7287fcdcecf23413348c64f25a369` |
+| inputDigest | `sha256:c139b7cc499d8a56a539e0a7261e9342b850b15b24035c538c3f6ae717a46e3f` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -365,7 +365,7 @@ Zero transition instances are encoded. No accepted source defines a permitted-mo
 
 - `core000.claim.unsupported-guarantee` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" is a guarantee missing conditions, scope, a verification method, or supporting citations/evidence.
 
-- `core000.claim.status-class-conflict` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" conflicts class and status in the machine-decidable subset (non_goal/deferred claimed implemented or tested, proposal claimed implemented); the limitation exception is human review, outside this check.
+- `core000.claim.status-class-conflict` — `error` on `PH-CONSISTENCY` (declared): Claim "{{id}}" has a class/status conflict in the machine-decidable subset (non_goal/deferred claimed implemented or tested, proposal claimed implemented); the limitation exception is human review, outside this check.
 
 - `core000.independent-verification.incomplete` — `error` on `PH-CONSISTENCY` (declared): Independent verification "{{id}}" is incomplete.
 

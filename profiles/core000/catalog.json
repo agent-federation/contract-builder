@@ -78,7 +78,7 @@
     {
       "code": "core000.claim.status-class-conflict",
       "severity": "error",
-      "message": "Claim \"{{id}}\" conflicts class and status in the machine-decidable subset (non_goal/deferred claimed implemented or tested, proposal claimed implemented); the limitation exception is human review, outside this check."
+      "message": "Claim \"{{id}}\" has a class/status conflict in the machine-decidable subset (non_goal/deferred claimed implemented or tested, proposal claimed implemented); the limitation exception is human review, outside this check."
     },
     {
       "code": "core000.independent-verification.incomplete",
