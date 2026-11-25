@@ -8,7 +8,7 @@ S2 creates **zero** independent-verification records; every record below is prod
 self-build evidence only. `H2_reproducibility` is `NOT_TESTED` and
 `H3_independent_verification` is `NOT_PERFORMED` in every record.
 
-Base commit for all runs: `699ea3338c200a2628866a4ad5e17d6949ddc5d2` (post-#326 `main`),
+Base commit recorded by every run: `fcabf862d9113d1559ad6c9f1df667d3a72f73ea` (the S2.3 implementation head),
 Bun 1.4.2, linux/x64. The committed artifact
 `contracts/core000/output/CORE-000.draft.md` is byte-identical to the pre-S2.3 draft:
 S2.3 changes no declared input (P-3), verified by the `S2.2 artifact verification` test.

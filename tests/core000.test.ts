@@ -2973,6 +2973,7 @@ test("S2.3 synthetic: independent-verification incomplete, self and record-missi
   );
   assert.equal(incomplete[0]!.entityId, "IV-SYN-001");
   assert.equal(incomplete[0]!.location?.file, "claims.yml");
+  assert.equal(await catalogSeverityOf("core000.independent-verification.incomplete"), "error");
 
   // A complete record whose verifier equals the claim author is `self`.
   const self = provenanceVerificationFindings(
