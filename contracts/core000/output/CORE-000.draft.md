@@ -14,7 +14,7 @@
 | Renderer | `core000-markdown` `0.1.0` |
 | Engine version | `0.1.0` |
 | Manifest version | `0.1` |
-| inputDigest | `sha256:dcaac056009271ae2492d7ab201cb7c31bbc1332d1fb434ca41a94ee7645d9a5` |
+| inputDigest | `sha256:9a8a421dc7cadee53e4ddc97e77113b434859ad7542623a86d04334b27eea92b` |
 | Diagnostics | ERROR=0 · REVIEW_REQUIRED=62 · WARNING=6 |
 | Gate | `release` blocked — 62 `REVIEW_REQUIRED` diagnostics. |
 
@@ -293,7 +293,6 @@ Zero transition instances are encoded. No accepted source defines a permitted-mo
 
 - Kind: `runtime`
 - Status: `declared`
-
 - Version: `>=1.4.0`
 
 - Consequence: packageManager pins bun@1.4.2; the runtime range is >=1.4.0.
@@ -302,42 +301,36 @@ Zero transition instances are encoded. No accepted source defines a permitted-mo
 
 - Kind: `runtime`
 - Status: `resolved`
-
 - Version: `8.20.0`
 
 ### nunjucks — Template engine
 
 - Kind: `runtime`
 - Status: `resolved`
-
 - Version: `3.2.4`
 
 ### yaml — YAML parser
 
 - Kind: `runtime`
 - Status: `resolved`
-
 - Version: `2.9.1`
 
 ### typescript — TypeScript compiler
 
 - Kind: `toolchain`
 - Status: `resolved`
-
 - Version: `5.9.3`
 
 ### @types/node — Node type definitions
 
 - Kind: `toolchain`
 - Status: `resolved`
-
 - Version: `22.20.5`
 
 ### @types/nunjucks — Nunjucks type definitions
 
 - Kind: `toolchain`
 - Status: `resolved`
-
 - Version: `3.2.6`
 
 ## Diagnostic catalog

@@ -2185,6 +2185,7 @@ test("S2.1 view and template render the full model", async () => {
   // declared text (catalog codes, claim statements), so assert the rendered shapes.
   assert.equal(markdown.includes("Kind: `unresolved`"), false);
   assert.equal(markdown.includes("(unresolved:"), false);
+  assert.equal(markdown.includes("(unresolved)"), false);
 
   const catalogSection =
     markdown.split("## Diagnostic catalog")[1]?.split("## Conformance cases")[0] ?? "";
@@ -2330,6 +2331,77 @@ test("S2.1 profile kind enums stay in lockstep with their JSON schemas", async (
   );
 });
 
+test("S2.1 every context key the template reads exists on the render context", async () => {
+  // Strict-context lockstep (#115 B): the presence guards make a renamed view field render
+  // the declared-empty branch instead of failing, so the rename must be caught here instead.
+  const template = await readFile(
+    path.join(root, "profiles", "core000", "templates", "core000.md.j2"),
+    "utf8",
+  );
+  const model = await buildModel(projectDir);
+  const view = buildView(model);
+  const contextKeys = new Set([
+    ...Object.keys(view),
+    // Renderer-added keys (renderer.ts render context spread over the view).
+    "mode",
+    "modeLabel",
+    "isDraft",
+    "diagnostics",
+    "counts",
+    "project",
+    "profile",
+    "renderer",
+    "identity",
+    "gate",
+  ]);
+
+  // Loop variables and the loop object shadow the context inside their blocks.
+  const locals = new Set(["loop"]);
+  for (const [, name] of template.matchAll(/{%-?\s*for\s+(\w+)\s+in/g)) locals.add(name!);
+  const keywords = new Set([
+    "if",
+    "endif",
+    "else",
+    "elif",
+    "for",
+    "endfor",
+    "in",
+    "is",
+    "not",
+    "or",
+    "and",
+    "undefined",
+    "true",
+    "false",
+    "length",
+    "first",
+    "last",
+    // `none` is a Nunjucks keyword; the counts tally reaches it by subscript (["none"]).
+    "none",
+  ]);
+
+  const referenced = new Set<string>();
+  for (const match of template.matchAll(/{{\s*([^}]+?)\s*}}/g)) {
+    const expression = match[1] ?? "";
+    for (const token of expression.split(/[^\w$.]+/)) {
+      const name = token.split(".")[0]!;
+      if (!name || locals.has(name) || keywords.has(name)) continue;
+      referenced.add(name);
+    }
+  }
+  for (const match of template.matchAll(/{%-?\s*([^%}]+?)\s*-?%}/g)) {
+    const statement = match[1] ?? "";
+    if (/^(?:for\b|endfor)/.test(statement.trim())) continue;
+    for (const token of statement.split(/[^\w$.]+/)) {
+      const name = token.split(".")[0]!;
+      if (!name || /^\d+$/.test(name) || locals.has(name) || keywords.has(name)) continue;
+      referenced.add(name);
+    }
+  }
+
+  const missing = [...referenced].filter((name) => !contextKeys.has(name));
+  assert.deepEqual(missing, []);
+});
 test("S2.1 the view fails closed when a domain-kind accessor cannot resolve", async () => {
   const model = await buildModel(projectDir);
   const structureDocument = model.documents.structure as {

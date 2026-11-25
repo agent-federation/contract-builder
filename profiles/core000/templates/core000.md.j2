@@ -106,9 +106,9 @@
 
 - Kind: `{{dependency.kind}}`
 - Status: `{{dependency.status}}`
-{% if dependency.version %}
+{%- if dependency.version %}
 - Version: `{{dependency.version}}`
-{% endif %}
+{%- endif %}
 {% if dependency.consequence %}
 - Consequence: {{dependency.consequence}}
 {% endif %}
