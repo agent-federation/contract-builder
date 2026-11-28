@@ -136,7 +136,8 @@ function specifiersOf(file: string, source: string): string[] {
     parseDiagnostics
       .map((diagnostic) => {
         const position = parsed.getLineAndCharacterOfPosition(diagnostic.start);
-        return `${diagnostic.messageText} at ${path.relative(papRoot, file)}:${position.line + 1}:${position.character + 1}`;
+        const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+        return `${message} at ${path.relative(papRoot, file)}:${position.line + 1}:${position.character + 1}`;
       })
       .join("; "),
   );
